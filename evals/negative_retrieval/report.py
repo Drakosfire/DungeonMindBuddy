@@ -180,6 +180,26 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             label_by_document = {row["document_id"]: row["label"] for row in inventory}
         except (ValueError, KeyError, TypeError) as exc:
             binding_error = type(exc).__name__
+    # Bind the primary page and retained dialogue before attributing a probe
+    # attempt to that page. The probe itself carries an ID, not a saved body.
+    from .fixture_binding import verify_fixture
+    primary_bound = None
+    for name in ("fresh-history", "history-before"):
+        if name not in rows:
+            continue
+        try:
+            verify_fixture(fixture, rows["request"], rows[name], rows["history-after"])
+            primary_bound = True
+            break
+        except (ValueError, KeyError, TypeError) as exc:
+            binding_error = type(exc).__name__
+    fixture_bound = True if primary_bound and related_bound and pin_bound else None
+    attempt_labels = dict(label_by_document)
+    if fixture_bound is True and 'current-page' not in attempt_labels.values():
+        primary = rows['request'].get('primary_work')
+        primary_id = primary.get('object_id') if isinstance(primary, dict) else None
+        if isinstance(primary_id, str) and primary_id:
+            attempt_labels[primary_id] = 'current-page'
     observed = observe(rows["request"], rows["history-after"], rows["context-trace"], rows["answer-http"],
                        related_labels=related_labels)
     # Only current POST-window probes can attribute observed activity to this
@@ -195,7 +215,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     observed["completed_reads"] = [row["label"] for row in observed["observed_acquisitions"]
         if row["kind"] in {"source_read", "related_page_read"}]
     if related_turn:
-        observed["reads"] += acquisition_labels(probe.get("records"), label_by_document=label_by_document)
+        observed["reads"] += acquisition_labels(probe.get("records"), label_by_document=attempt_labels)
         observed["completed_reads"] += acquisition_labels(probe.get("records"),
             label_by_document=label_by_document, completed_only=True)
     if native_turn:
@@ -222,20 +242,6 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     observed["graph_query_attempts"] = (sum(native_probe["counts"]["native_graph_query"].values())
                                           if native_turn else None)
     observed["graph_query_journal_complete"] = None
-    # Use the history belonging to the request, not a previous active conversation.
-    # A failed/missing binding is unqualified, even if a violation was observed.
-    from .fixture_binding import verify_fixture
-    primary_bound = None
-    for name in ("fresh-history", "history-before"):
-        if name not in rows:
-            continue
-        try:
-            verify_fixture(fixture, rows["request"], rows[name], rows["history-after"])
-            primary_bound = True
-            break
-        except (ValueError, KeyError, TypeError) as exc:
-            binding_error = type(exc).__name__
-    fixture_bound = True if primary_bound and related_bound and pin_bound else None
     # A recognized single-text entry or nonempty batch path proves an attempted read,
     # never a returned body. Require a bound, completed POST; old/unknown
     # implementations and all uncertain windows remain diagnostic only.
