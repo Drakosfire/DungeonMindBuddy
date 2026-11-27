@@ -4859,3 +4859,106 @@ def test_prepared_revision_cannot_be_rebound_to_another_source():
     with pytest.raises(ProtocolDenied):
         policy.frontend(b'B', _gateway_fixture_bind(_GATEWAY_OTHER.bytes, True))
     assert len(policy.events) == 1 and policy.events[0]['outcome'] == 'completed'
+
+
+def test_clone_profile_receipt_is_private_immutable_and_workstream_bound(tmp_path):
+    from evals.negative_retrieval import clone_role_profile as profile
+    owner = tmp_path / 'owner'; owner.mkdir(mode=0o700)
+    run = owner / 'case-1'; run.mkdir(mode=0o700)
+    path = profile._receipt_path(run / 'clone-role-profile.json', run)
+    value = {'schema': profile._SCHEMA, 'synthetic': True}
+    digest = profile._store(path, value)
+    assert profile._load(path) == (value, digest)
+    with pytest.raises(FileExistsError):
+        profile._store(path, value)
+    with pytest.raises(ValueError):
+        profile._receipt_path(tmp_path / 'clone-role-profile.json', run)
+    path.chmod(0o644)
+    with pytest.raises(ValueError, match='private'):
+        profile._load(path)
+    path.unlink()
+    import os
+    os.mkfifo(path, 0o600)
+    with pytest.raises(ValueError, match='private'):
+        profile._load(path)
+
+
+@pytest.mark.parametrize('current,expected', [
+    ('baseline', 'not_applied'), ('active', 'cleaned'), ('cleaned', 'already_cleaned'),
+])
+def test_clone_profile_recovery_only_reconciles_exact_known_states(tmp_path, monkeypatch, current, expected):
+    from evals.negative_retrieval import clone_role_profile as profile
+    owner = tmp_path / 'owner'; owner.mkdir(mode=0o700)
+    first = owner / 'case-1'; first.mkdir(mode=0o700)
+    second = owner / 'case-2'; second.mkdir(mode=0o700)
+    identity = {'database': 'synthetic-owned-clone'}
+    receipt = {'schema': profile._SCHEMA, 'identity': identity,
+               'policy': 'buddy_negative_scope_' + 'a' * 32,
+               'revision': '12345678-1234-4234-8234-123456789abc',
+               'baseline': {'state': 'baseline'}, 'active': {'state': 'active'},
+               'cleaned': {'state': 'cleaned'}}
+    path = first / 'clone-role-profile.json'; profile._store(path, receipt)
+    state = {'value': {'state': current}, 'removed': 0}
+    class Conn:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+    monkeypatch.setattr(profile, '_owner', lambda: ('synthetic', identity, second))
+    monkeypatch.setattr(profile, '_connect', lambda *_: Conn())
+    monkeypatch.setattr(profile, '_lock_and_check_idle', lambda _: None)
+    monkeypatch.setattr(profile, '_snapshot', lambda _: state['value'])
+    def remove(_, policy):
+        assert policy == receipt['policy']
+        state['removed'] += 1
+        state['value'] = receipt['cleaned']
+    monkeypatch.setattr(profile, '_remove', remove)
+    assert profile.recover(path)['state'] == expected
+    assert state['removed'] == int(current == 'active')
+    assert profile.recover(path)['state'] == ('not_applied' if current == 'baseline' else 'already_cleaned')
+
+
+def test_clone_profile_quarantines_drift_and_wrong_clone_without_mutation(tmp_path, monkeypatch):
+    from evals.negative_retrieval import clone_role_profile as profile
+    owner = tmp_path / 'owner'; owner.mkdir(mode=0o700)
+    run = owner / 'case-1'; run.mkdir(mode=0o700)
+    path = run / 'clone-role-profile.json'
+    receipt = {'schema': profile._SCHEMA, 'identity': {'database': 'owned'},
+               'policy': 'buddy_negative_scope_' + 'a' * 32,
+               'revision': '12345678-1234-4234-8234-123456789abc',
+               'baseline': {'state': 'baseline'}, 'active': {'state': 'active'},
+               'cleaned': {'state': 'cleaned'}}
+    profile._store(path, receipt)
+    class Conn:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+    monkeypatch.setattr(profile, '_owner', lambda: ('synthetic', {'database': 'wrong'}, run))
+    with pytest.raises(ValueError, match='different clone'):
+        profile.recover(path)
+    monkeypatch.setattr(profile, '_owner', lambda: ('synthetic', {'database': 'owned'}, run))
+    monkeypatch.setattr(profile, '_connect', lambda *_: Conn())
+    monkeypatch.setattr(profile, '_lock_and_check_idle', lambda _: None)
+    monkeypatch.setattr(profile, '_snapshot', lambda _: {'state': 'unexpected'})
+    monkeypatch.setattr(profile, '_remove', lambda *_: pytest.fail('must not mutate drifted state'))
+    with pytest.raises(ValueError, match='quarantine'):
+        profile.recover(path)
+
+
+def test_clone_profile_does_not_invent_history_when_baseline_equals_cleaned(tmp_path, monkeypatch):
+    from evals.negative_retrieval import clone_role_profile as profile
+    owner = tmp_path / 'owner'; owner.mkdir(mode=0o700)
+    run = owner / 'case-1'; run.mkdir(mode=0o700)
+    path = run / 'clone-role-profile.json'
+    receipt = {'schema': profile._SCHEMA, 'identity': {'database': 'owned'},
+               'policy': 'buddy_negative_scope_' + 'a' * 32,
+               'revision': '12345678-1234-4234-8234-123456789abc',
+               'baseline': {'state': 'inactive'}, 'active': {'state': 'active'},
+               'cleaned': {'state': 'inactive'}}
+    profile._store(path, receipt)
+    class Conn:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+    monkeypatch.setattr(profile, '_owner', lambda: ('synthetic', receipt['identity'], run))
+    monkeypatch.setattr(profile, '_connect', lambda *_: Conn())
+    monkeypatch.setattr(profile, '_lock_and_check_idle', lambda _: None)
+    monkeypatch.setattr(profile, '_snapshot', lambda _: receipt['baseline'])
+    monkeypatch.setattr(profile, '_remove', lambda *_: pytest.fail('must not mutate inactive state'))
+    assert profile.recover(path)['state'] == 'inactive'

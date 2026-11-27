@@ -680,6 +680,28 @@ The database login remains privileged, and this isolated query does not establis
 row security, ordinary-turn parity, complete source coverage, or a benchmark
 result. Never derive the pin from worker input.
 
+The experimental `clone_role_profile` installs only a host-pinned synthetic
+revision read profile on the existing owned App clone. Its immutable private
+receipt records clone identity and previewed database states before commit.
+After a worker interruption, a later worker under the same exclusive clone
+owner can reconcile that receipt: exact baseline and cleaned states are no-ops;
+the exact installed state can be removed; any other state is quarantined.
+If baseline and cleaned states are identical, recovery reports only `inactive`;
+it cannot infer whether installation occurred before a crash.
+Recovery refuses other live clone sessions, changed endpoint or database
+identity, unexpected grants, policies, owners, role metadata or column ACLs.
+The session check is point-in-time, not a connection admission barrier: the
+exclusive clone supervisor must prevent another worker or session from starting
+throughout installation and recovery.
+The retained clone can have a different ACL representation after cleanup;
+the receipt records the exact expected post-cleanup state. Do not delete a
+receipt while this clone is retained.
+
+This narrowly scoped profile does not validate fixture provenance, secure the
+privileged session user from `RESET ROLE`, attest the worker, or authorize an
+ordinary-turn run. The caller must validate the synthetic fixture and implement
+those boundaries separately. It does not establish complete retrieval evidence.
+
 Run its client only in a separately verified network-isolated worker with a
 read-only mount of the private socket directory and no database credentials,
 Docker socket, source data or provider credentials. The host process and its
