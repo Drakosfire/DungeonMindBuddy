@@ -230,7 +230,21 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             observed["reads"] += (primary if primary == ["current-page"]
                                   else fixture_related_labels([record], inventory))
         if fixture_bound is True:
-            observed["completed_reads"] += fixture_related_labels(probe["records"], inventory, completed_only=True)
+            # The current-page label is reserved for the primary work, never
+            # credit a similarly labelled related page as the primary source.
+            observed["completed_reads"] += [label for label in fixture_related_labels(
+                probe["records"], inventory, completed_only=True) if label != "current-page"]
+            # verify_fixture binds the clean primary snapshot and its hash to
+            # the frozen case. Credit only a returned materialization whose
+            # input pointer and returned bytes independently match that basis.
+            page = fixture.get("page")
+            work = rows["request"].get("primary_work")
+            if (primary_pointer is not None and isinstance(page, str) and isinstance(work, dict)
+                    and work.get("expected_content_sha256") == sha256(page.encode("utf-8")).hexdigest()):
+                primary_inventory = [{**primary_pointer, "label": "current-page",
+                                      "content_sha256": work["expected_content_sha256"]}]
+                observed["completed_reads"] += fixture_related_labels(
+                    probe["records"], primary_inventory, completed_only=True)
     if native_turn:
         for owner in ("native_graph_selected_read", "native_graph_authored_reference_read",
                       "native_corpus_authored_source_read", "native_corpus_member_read", "native_corpus_direct_read",

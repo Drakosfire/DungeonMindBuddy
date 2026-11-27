@@ -466,3 +466,11 @@ local private evidence root `/home/drakosfire/Projects/.codex/buddy-check.curren
 under `heldout-h2` and `owner/case-251` / `owner/case-254`; that root is
 machine-local, not a portable benchmark dependency. Fresh independently held-out
 controls remain required.
+
+The explicit current-page development control requires the saved current page.
+The report can credit a completed read only when the fixture binding verifies the
+clean primary snapshot and the observed materializer both received its exact
+World, document, and revision and returned the same identity and computed body
+digest. An attempted or failed call, mismatched return, label collision, or
+legacy record without returned-body evidence does not earn credit. This proof
+does not establish that the acquisition journal is complete.
