@@ -22,10 +22,10 @@ before publication. Use the existing serial App clone; never clear its retained
 fixture state for CI. The installed reader reopened a synthetic serialized
 authorization, but that is not completed persisted-record recovery.
 
-Working-tree evidence: owner cases 577 and 578 passed 14 focused checks, including actual
-Build and Plan writer authorization, Plan prose reconstruction, two-campaign
+Working-tree evidence: owner case 579 passed 15 focused checks, including actual
+Build, Plan and Play writer authorization, Plan prose reconstruction, two-campaign
 statement and assertion reads, forged alias rejection and the existing large
-evidence test. Case 573 used the wrong synthetic reasoning setting, case 574
+evidence test. Cases 577 and 578 passed the earlier 14 checks. Case 573 used the wrong synthetic reasoning setting, case 574
 missed the synthetic adapter receipt, and case 576 exposed the same stale stub
 in the existing large-evidence test; all were corrected before case 577. Pytest
 import-rewrite and Pydantic serialization warnings remain visible in the log.

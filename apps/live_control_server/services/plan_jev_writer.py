@@ -566,7 +566,9 @@ class PlanJevWriter:
             authoring=getattr(rules, 'authoring', None) is not None,
         )
         if task is not None:
-            from application_state.agent_conversation.response_prompt import compose_response_prompt
+            from application_state.agent_conversation.response_prompt import (
+                ResponsePrompt, ResponsePromptComponent, compose_response_prompt,
+            )
             prompt = compose_response_prompt(
                 task=task,
                 rules_instructions=RULES_INSTRUCTIONS if rule_frame.lookups else None,
@@ -576,6 +578,9 @@ class PlanJevWriter:
                 generic_reply_limits=self.generic_reply_limits,
                 build_source_status=(type(turn.graph_context_execution.policy.action) is NativeBuildActionV1
                                      and task in ('answer', 'build_discussion', 'scoped_discussion')))
+            prompt = ResponsePrompt(prompt.components + (ResponsePromptComponent(
+                'campaign_scope_aliases', '1',
+                'Local campaign aliases identify scopes; they are not campaign names.'),))
             self.instructions = prompt.instructions
             self.prompt_components = prompt.manifest()  # Host-only inspectability.
         else:
