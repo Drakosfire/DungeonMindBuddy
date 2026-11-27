@@ -106,7 +106,7 @@ def test_plan_fixture_requires_active_committed_revision(status):
 
 @pytest.mark.parametrize("mismatch", [None, "conversation", "message", "extra", "status", "paginated"])
 def test_pinned_plan_history_requires_exact_completed_prefix(mismatch):
-    from evals.buddy_benchmark.browser_capture import require_plan_history
+    from evals.buddy_benchmark.workflow import require_pinned_history
 
     turn = {"turn_id": "turn-1", "sequence": 1, "lifecycle_status": "completed",
             "user_text": "Earlier question", "assistant_text": "Earlier answer"}
@@ -130,10 +130,10 @@ def test_pinned_plan_history_requires_exact_completed_prefix(mismatch):
     if mismatch == "status":
         turn["lifecycle_status"] = "interrupted"
     if mismatch is None:
-        require_plan_history(history, pin)
+        require_pinned_history(history, pin)
     else:
-        with pytest.raises(ValueError, match="pinned Plan history"):
-            require_plan_history(history, pin)
+        with pytest.raises(ValueError, match="pinned conversation history"):
+            require_pinned_history(history, pin)
 
 
 def test_saved_image_library_uses_owner_cursor_and_excludes_staged():
@@ -198,3 +198,28 @@ def test_image_parent_readback_requires_original_byte_digest():
         missing = read_image_parent(client, metadata)
         assert not missing["matches_pin"]
         assert missing["original_http_status"] == missing["metadata"]["http_status"] == 404
+
+
+def test_build_capture_retains_stale_history_without_posting(tmp_path, monkeypatch):
+    import httpx
+    from evals.buddy_benchmark import workflow
+
+    monkeypatch.setattr(workflow, "validate_template", lambda *args, **kwargs: None)
+    requests = []
+    history = {"active_conversation_id": "different", "turns": []}
+
+    def handle(request):
+        requests.append(request.method)
+        return httpx.Response(200, json=history)
+
+    with httpx.Client(base_url="http://localhost", transport=httpx.MockTransport(handle)) as client:
+        with pytest.raises(ValueError, match="pinned conversation history"):
+            workflow.capture_case(
+                client, "elderwyld", {}, {"id": "case"}, tmp_path / "case",
+                build_thread_id="isolated-thread",
+                pinned_history={"conversation_id": "expected", "prior_turns": []},
+            )
+
+    assert requests == ["GET"]
+    assert (tmp_path / "case" / "history-before.json").is_file()
+    assert not (tmp_path / "case" / "dispatch.json").exists()

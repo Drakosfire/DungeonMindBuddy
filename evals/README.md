@@ -245,6 +245,12 @@ provider credentials unset. The browser opens the existing library asset,
 places it after the paragraph, waits for one ordinary page commit,
 and reloads. The capture verifies the resulting committed page independently.
 
+An ordinary Build sequence can reuse a restored active conversation by
+pinning the same history shape in the top-level `build_history` field. Use
+response capture on an owned App clone. The harness records and verifies the
+complete active prefix before dispatch, then retains each newer turn and its
+ordinary citation readbacks.
+
 For an ordinary Plan browser replay, select a case in the context capture
 command as well as choosing the writer sink.
 
