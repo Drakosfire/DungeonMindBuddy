@@ -281,8 +281,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             finally:
                 active_plan_get.reset(token)
         if path == "/api/live/agent/turn" and method == "POST":
+            turn_posts += 1
             if unsent_draft or image_preview:
-                turn_posts += 1
                 return await JSONResponse({"code": "benchmark_unexpected_draft_dispatch"}, 409)(scope, receive, send)
             tick = monotonic_ns()
             chunks = []
