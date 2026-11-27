@@ -223,3 +223,39 @@ def test_build_capture_retains_stale_history_without_posting(tmp_path, monkeypat
     assert requests == ["GET"]
     assert (tmp_path / "case" / "history-before.json").is_file()
     assert not (tmp_path / "case" / "dispatch.json").exists()
+
+
+def test_first_resumed_build_turn_retains_explicit_authored_references(tmp_path, monkeypatch):
+    import json
+    import httpx
+    from evals.buddy_benchmark import workflow
+
+    monkeypatch.setattr(workflow, "validate_template", lambda *args, **kwargs: None)
+    turn = {"turn_id": "turn-1", "sequence": 1, "lifecycle_status": "completed",
+            "user_text": "Earlier question", "assistant_text": "Earlier answer"}
+    history = {"active_conversation_id": "conversation-1", "turns": [turn]}
+    pin = {"conversation_id": "conversation-1", "prior_turns": [{
+        "turn_id": turn["turn_id"], "sequence": 1,
+        "user_text_sha256": text_digest(turn["user_text"]),
+        "assistant_text_sha256": text_digest(turn["assistant_text"]),
+    }]}
+    references = {"fixture": "explicit first-turn reference"}
+    observed = []
+
+    def handle(request):
+        if request.method == "POST":
+            observed.append((request.url.path, json.loads(request.content)))
+            return httpx.Response(503, json={"code": "synthetic_stop"})
+        return httpx.Response(200, json=history)
+
+    with httpx.Client(base_url="http://localhost", transport=httpx.MockTransport(handle)) as client:
+        with pytest.raises(ValueError):
+            workflow.capture_case(
+                client, "elderwyld", {"build_authored_references": references, "surface": {"surface_id": "build"}},
+                {"id": "case", "question": "Continue"}, tmp_path / "case",
+                build_thread_id="isolated-thread", pinned_history=pin,
+            )
+
+    assert len(observed) == 1
+    assert observed[0][0] == "/api/live/agent/turn"
+    assert observed[0][1]["build_authored_references"] == references

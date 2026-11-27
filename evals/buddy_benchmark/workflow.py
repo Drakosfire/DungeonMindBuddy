@@ -557,7 +557,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
             raise ValueError("Build conversation changed; no turn dispatched")
     request = json.loads(json.dumps(template))
     request.update(client_thread_id=build_thread_id or str(uuid4()), turn_id=str(uuid4()), message=case["question"])
-    if build_sequence and expected_conversation_id is not None:
+    if build_sequence and expected_conversation_id is not None and pinned_history is None:
         request.pop("build_authored_references", None)
     if not build_sequence:
         request["surface"]["instance_id"] = request["client_thread_id"]
