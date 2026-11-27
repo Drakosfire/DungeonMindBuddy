@@ -66,3 +66,43 @@ def record_choice_result(folder, output, before, after, spec, driver_failed, tur
         "status": "observed" if all(checks.values()) and not driver_failed else "incomplete",
         "checks": checks, "browser": observed, "rejected_writes": rejected_writes,
     })
+
+
+
+def read_play_turn_state(client, folder, name, world, template):
+    from application_state.content.service import current_committed_revision, exact_committed_revision
+
+    work = template["primary_work"]
+    path = "/api/live/world-play-runs/v2/" + work["object_id"]
+    state = {}
+    for key, suffix in (("run", ""), ("content", "/content"), ("proposals", "/content/proposals")):
+        state[key] = response_envelope(client.get(path + suffix, params={"world_id": world}).raise_for_status())["body"]
+    run = state["run"]
+    plan = current_committed_revision(run["playable_artifact_id"], kind="plan")
+    sealed = exact_committed_revision(run["playable_artifact_id"], run["playable_revision"], kind="plan",
+                                      expected_world_id=world, expected_sha256=run["playable_content_sha256"])
+    if str(sealed.work_revision.work_revision_id) != run["playable_work_revision_id"]:
+        raise ValueError("Play turn Run lacks its exact sealed Plan")
+    state["plan"] = {"object": plan.work_object.model_dump(mode="json"),
+                     "revision_id": str(plan.work_revision.work_revision_id),
+                     "sha256": plan.work_revision.content_sha256}
+    state["active"] = response_envelope(client.get("/api/live/world-play-runs/v2/active",
+                                                   params={"world_id": world}).raise_for_status())["body"]
+    immutable_save(folder, name, state)
+    return state
+
+
+def validate_play_turn_state(state, template):
+    work, target = template["primary_work"], template["play_target"]
+    run, content, active = state["run"], state["content"], state["active"]
+    world_id = template["owner_scope"]["world_id"]
+    if (run["run_id"] != work["object_id"] or run["world_id"] != world_id
+            or content["run_id"] != run["run_id"] or content["world_id"] != world_id
+            or active["run_id"] != run["run_id"] or active["world_id"] != world_id
+            or run["lifecycle_status"] != "active" or run["run_revision"] != work["expected_revision"]
+            or content["observed_run_revision"] != run["run_revision"]
+            or any(work["play_content_basis"][key] != content[key]
+                   for key in ("edition_revision", "edition_revision_id", "content_sha256"))
+            or run["progress"]["current_scene_id"] != target["scene_id"]
+            or run["progress"]["current_beat_id"] != target["beat_id"]):
+        raise ValueError("Play turn input differs from the active Run, edition or scene")
