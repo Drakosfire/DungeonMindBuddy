@@ -871,3 +871,23 @@ def test_settled_authored_core_read_keeps_nonempty_support_and_rejects_substitut
     provisional.events[-1] = altered
     with pytest.raises(ValueError, match='support inventory'):
         validate_native_context(query, provisional)
+
+
+def test_sdk_observation_construction_requires_acknowledged_exact_result():
+    from uuid import uuid4
+    from generationengine.types import DecisionResult
+    from application_state.agent_conversation.native_plan_graph_producer import observed_from_sdk_result
+    from tests.test_surface_native_execution import execution
+    context, record, auth, lifecycle, observed = actual_need_execution()
+    prefix = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle])
+    typed = DecisionResult.model_validate_json(observed.result_json)
+    produced = observed_from_sdk_result(context, prefix, event_id=observed.event_id, result=typed)
+    assert produced == observed
+    with pytest.raises(ValueError, match='typed SDK result'):
+        observed_from_sdk_result(context, prefix, event_id=uuid4(), result=typed.model_dump())
+    incomplete = execution(context.context_receipt_sha256, record.policy, [auth, lifecycle[0]])
+    with pytest.raises(ValueError, match='unique settled SDK response'):
+        observed_from_sdk_result(context, incomplete, event_id=uuid4(), result=typed)
+    complete = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle, observed])
+    with pytest.raises(ValueError, match='unresolved authorization'):
+        observed_from_sdk_result(context, complete, event_id=uuid4(), result=typed)
