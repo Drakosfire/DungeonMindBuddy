@@ -741,7 +741,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         decisions = [event for event in wire.adapter.turn.graph_context_execution.events
             if event.kind == 'native_plan_graph_need_observed_v1']
         assert len(decisions) == 1
-        if creative:
+        if creative and not graph_required:
             assert decisions[0].choice == 'no_graph'
         if graph_required:
             assert decisions[0].choice == 'require_graph'
