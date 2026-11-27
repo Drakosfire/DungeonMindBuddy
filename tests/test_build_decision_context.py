@@ -7,12 +7,13 @@ import pytest
 from generationengine.decision_dispatch import DecisionContextMode, PreparedDecisionDispatch
 from application_state.agent_conversation import types as t
 from application_state.agent_conversation import build_decision_context as context
+from application_state.agent_conversation.jev_retrieval_contract import MODEL
 from apps.live_control_server.services.build_jev_accounting import ExperimentalAccounting, DecisionCapacityError
 from apps.live_control_server.services.build_jev_dispatch import prepared_view
 
 
 def body(policy, phase="navigate", questions=1):
-    return dict(model="jev-1.14.0", state={"decision":{"phase":phase}, "context_accounting":policy.descriptor},
+    return dict(model=MODEL, state={"decision":{"phase":phase}, "context_accounting":policy.descriptor},
         questions={f"q{i}":{"type":"noul","instructions":"Synthetic question"} for i in range(questions)})
 
 
@@ -22,7 +23,7 @@ def constant(estimate):
 
 def prepared(value, mode=DecisionContextMode.DEFAULT):
     raw=json.dumps(value,separators=(",",":"),ensure_ascii=False).encode()
-    return PreparedDecisionDispatch(str(uuid4()),"typesafe","vercel_ai_gateway","jev-1.14.0","POST",
+    return PreparedDecisionDispatch(str(uuid4()),"typesafe","vercel_ai_gateway",MODEL,"POST",
         "https://ai-gateway.vercel.sh/typesafe/v1/systemone",raw,sha256(raw).hexdigest(),len(raw),mode)
 
 
@@ -73,10 +74,10 @@ def proof():
     view=prepared_view(request,value["state"],accounting=policy)
     descriptor=t.BuildControllerContinuationAccountingV4.model_validate(policy.descriptor)
     execution=SimpleNamespace(policy=SimpleNamespace(controller_continuation_accounting=descriptor,
-        provider_roles=SimpleNamespace(controller=SimpleNamespace(identity=lambda:("typesafe","jev-1.14.0","typesafe_decision")))))
+        provider_roles=SimpleNamespace(controller=SimpleNamespace(identity=lambda:("typesafe",MODEL,"typesafe_decision")))))
     event=t.ProviderAttemptAuthorizedEventV5(event_id=uuid4(),sequence=0,kind="provider_attempt_authorized_v5",
         provider_attempt_id=request.attempt_id,envelope_sha256=request.body_sha256,
-        serializer_version="typesafe-sdk-json-v1",provider="typesafe",model="jev-1.14.0",api_mode="typesafe_decision",
+        serializer_version="typesafe-sdk-json-v1",provider="typesafe",model=MODEL,api_mode="typesafe_decision",
         tool_schema_sha256="a"*64,input_accounting_kind="estimated_token_count",input_estimator=policy.descriptor["policy"],
         input_tokens=33000,output_token_reserve=0,included_assertion_ids=[],included_relationship_ids=[],
         included_evidence_ref_ids=[],included_graph_event_ids=[],included_source_read_event_ids=[],
@@ -97,6 +98,27 @@ def test_retained_proof_roundtrip_and_mode_body_phase_digest_tamper():
         context.validate_prepared(event,execution,raw+" ")
     with pytest.raises(ValueError,match="exact prepared"):
         context.validate_prepared(event,execution,None)
+
+
+
+def old_model_proof(event, execution, raw):
+    old_model = "jev-1.14.0"
+    value = json.loads(raw)
+    value["model"] = old_model
+    raw = json.dumps(value, separators=(",", ":"), ensure_ascii=False)
+    digest = sha256(raw.encode()).hexdigest()
+    execution.policy.provider_roles.controller.identity = lambda: ("typesafe", old_model, "typesafe_decision")
+    event = event.model_copy(update={"model": old_model, "envelope_sha256": digest,
+        "dispatch_identity_sha256": context.identity(envelope_sha256=digest, provider=event.provider,
+            model=old_model, api_mode=event.api_mode, context_mode=event.context_mode)})
+    return event, execution, raw
+
+
+def test_retained_old_model_proof_remains_valid_and_cannot_be_rebound():
+    event, execution, raw = old_model_proof(*proof())
+    context.validate_prepared(event, execution, raw)
+    with pytest.raises(ValueError):
+        context.validate_prepared(event.model_copy(update={"model": MODEL}), execution, raw)
 
 
 def test_historical_descriptor_stays_exact():
@@ -157,7 +179,7 @@ def test_writer_selection_current_thresholds(estimate,mode,accepted):
 
 
 def test_historical_v2_authorizations_keep_exact_original_phase_semantics():
-    event,execution,raw=proof()
+    event,execution,raw=old_model_proof(*proof())
     value=json.loads(raw)
     descriptor={**value["state"]["context_accounting"],"policy":context.HISTORICAL_POLICY,
                 "context_selection_policy":context.HISTORICAL_SELECTION,"raw_wire_limit_bytes":256000}
@@ -177,8 +199,9 @@ def test_historical_v2_authorizations_keep_exact_original_phase_semantics():
     with pytest.raises(ValueError,match="mode differs"):
         context.validate_event(retained.model_copy(update={"context_phase":"writer_selection"}),execution)
     # An old descriptor can be read, but the current host never authorizes it.
+    current_model_value = {**value, "model": MODEL}
     with pytest.raises(ValueError,match="descriptor differs"):
-        prepared_view(prepared(value,DecisionContextMode.LONG_CONTEXT),value["state"],accounting=constant(33000))
+        prepared_view(prepared(current_model_value,DecisionContextMode.LONG_CONTEXT),value["state"],accounting=constant(33000))
 
 
 def test_harness_selects_long_context_for_large_multi_question_sdk_wire(monkeypatch):
@@ -222,7 +245,7 @@ def test_harness_selects_long_context_for_large_multi_question_sdk_wire(monkeypa
 @pytest.mark.parametrize("estimate,mode", [(8000,"default"),(70000,"long_context")])
 def test_clean_navigation_wire_retains_host_capacity_and_dispatch_checks(estimate, mode):
     policy = constant(estimate)
-    value = dict(model="jev-1.14.0", state={"question":"Find the source"},
+    value = dict(model=MODEL, state={"question":"Find the source"},
         questions={"q":{"type":"noul","instructions":"Relevant?"}})
     request = prepared(value, DecisionContextMode(mode))
     view = prepared_view(request, value["state"], accounting=policy, host_phase="navigate")
@@ -248,7 +271,7 @@ def test_clean_navigation_wire_retains_host_capacity_and_dispatch_checks(estimat
 
 
 def test_clean_navigation_still_refuses_excess_capacity():
-    value = dict(model="jev-1.14.0",state={"question":"Find source"},
+    value = dict(model=MODEL,state={"question":"Find source"},
         questions={"q":{"type":"noul","instructions":"Relevant?"}})
     with pytest.raises(DecisionCapacityError):
         prepared_view(prepared(value, DecisionContextMode.LONG_CONTEXT), value["state"],
@@ -265,7 +288,7 @@ def test_navigation_dispatch_rejects_counter_different_from_frozen_policy():
     dispatch.adapter = SimpleNamespace(_build_jev_accounting=policy)
     dispatch._native_accounting = lambda: policy.descriptor | {"tokenizer_version":"different-frozen-counter"}
     with pytest.raises(ValueError, match="actual policy"):
-        asyncio.run(dispatch.select_context(prepared(dict(model="jev-1.14.0",
+        asyncio.run(dispatch.select_context(prepared(dict(model=MODEL,
             state={"question":"Find source"}, questions={"q":{"type":"noul","instructions":"Relevant?"}}))))
 
 
@@ -306,7 +329,7 @@ def test_proposed_card_projection_keeps_meaning_but_not_read_identity(card):
 
 def test_semantic_writer_selection_uses_host_phase_and_unchanged_capacity():
     policy=constant(33000)
-    value=dict(model='jev-1.14.0',state=dict(user_question='question',sources={},rules='assess'),
+    value=dict(model=MODEL,state=dict(user_question='question',sources={},rules='assess'),
         questions={'s0':{'type':'choice','instructions':'Classify source s0','criteria':{'uncertain':None}}})
     assert policy.context_mode(value,host_phase='writer_selection')=='long_context'
     view=prepared_view(prepared(value,DecisionContextMode.LONG_CONTEXT),value['state'],
