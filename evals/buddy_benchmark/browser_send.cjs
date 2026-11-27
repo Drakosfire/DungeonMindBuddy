@@ -459,6 +459,7 @@ async function run() {
             && observation.body.record?.world_id === world
             && /^[a-f0-9]{64}$/.test(observation.body.committed_content_sha256 ?? "");
           const savedRevision = before.page.body.record?.revision;
+          const committedBeforeCheck = confirmation.pending_after_save?.page.body;
           confirmation.verified = confirmPosts.length === 1
             && confirmPosts[0].apply_id === held.request.apply_id
             && confirmPosts[0].expected_revision === held.request.expected_revision
@@ -467,6 +468,8 @@ async function run() {
             && Number.isInteger(savedRevision)
             && savedRevision === beforeSave.page.body.record.revision + 1
             && savedRevision === after.page.body.record.revision
+            && (!committedBeforeCheck || (savedRevision === committedBeforeCheck.record.revision
+              && before.page.body.committed_content_sha256 === committedBeforeCheck.committed_content_sha256))
             && before.page.body.committed_content_sha256 === after.page.body.committed_content_sha256;
         } else {
           const confirmed = page.waitForResponse(result => {
