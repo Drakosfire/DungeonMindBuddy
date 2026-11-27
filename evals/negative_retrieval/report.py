@@ -101,13 +101,17 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     directory = Path(directory)
     names = ("request", "history-after", "context-trace", "answer-http", "related-page-probe")
     paths = {name: directory / (name + ".json") for name in names}
-    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal", "native-graph-probe", "source-window-probe", "primary-page-stability", "primary-resolution-probe", "sql-window-probe"):
+    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal", "native-graph-probe", "source-window-probe", "primary-page-stability", "primary-resolution-probe", "sql-window-probe", "core-connection-probe"):
         paths[name] = directory / (name + ".json")
     present = {name: path for name, path in paths.items() if path.is_file()}
     # Bind and parse the same immutable byte snapshot, not a second file read.
     raw_artifacts = {name: path.read_bytes() for name, path in present.items()}
     hashes = {name: sha256(raw).hexdigest() for name, raw in raw_artifacts.items()}
     rows = {name: json.loads(raw) for name, raw in raw_artifacts.items()}
+    core_connection = None
+    if 'core-connection-probe' in rows:
+        from .core_connection_probe import validate_artifact
+        core_connection = validate_artifact(rows['core-connection-probe'], fixture['id'])
     sql_window = None
     if "sql-window-probe" in rows:
         from .sql_window import validate_sql_window
@@ -337,7 +341,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "observation_status": grade["status"], "primary_context_verified": primary_bound,
             "related_context_verified": related_bound, "fixture_context_verified": fixture_bound,
             "fixture_pin_verified": pin_bound,
-            "capture_environment_verified": None,
+            "capture_environment_verified": None, "partial_core_connection": core_connection,
             "capture_terminal": terminal, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe, "partial_source_window": source_window,
             "primary_page_stability": primary_stability, "primary_resolution_probe": primary_resolution, "sql_window_probe": sql_window,
             "sql_source_classification": sql_source_classification, "semantic_review": reviewed,
