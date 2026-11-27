@@ -24,6 +24,7 @@ from .source_window import observe_source_window
 from .owned_db_fixture import checked_owned_dsn
 from .primary_page_stability import inspect_primary_page, expected_primary_page
 from .primary_resolution_probe import observe_primary_resolution
+from .sql_window import observe_sql_window
 
 _lock = Lock()
 
@@ -153,6 +154,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
             native_records = None
             source_window_state = None
             primary_resolution_state = None
+            sql_window_state = None
             source_window_setup_failed = False
             dispatch_started = False
             post_entered = False
@@ -167,7 +169,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     return getattr(self.wrapped, name)
 
                 def post(self, route, *args, **options):
-                    nonlocal records, native_records, source_window_state, primary_resolution_state, source_window_setup_failed, dispatch_started, post_entered, dispatch_uncertain
+                    nonlocal records, native_records, source_window_state, primary_resolution_state, sql_window_state, source_window_setup_failed, dispatch_started, post_entered, dispatch_uncertain
                     if route != "/api/live/agent/turn":
                         return self.wrapped.post(route, *args, **options)
                     if dispatch_started:
@@ -175,7 +177,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     dispatch_started = True
                     if inspect.iscoroutinefunction(self.wrapped.post):
                         raise TypeError("Async clients are unsupported for serial capture")
-                    with observe_primary_resolution() as primary_resolution_state, observe_related_page_owners() as records:
+                    with observe_sql_window() as sql_window_state, observe_primary_resolution() as primary_resolution_state, observe_related_page_owners() as records:
                         with observe_native_graph_owners() as native_records:
                             try:
                                 with observe_source_window() as source_window_state:
@@ -208,6 +210,20 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
             finally:
                 failure = sys.exc_info()[1]
                 try:
+                    sql_row = dict(sql_window_state) if sql_window_state is not None else {
+                        "coverage": "partial", "status": "unavailable" if dispatch_started else "not_started",
+                        "started": 0, "returned": 0, "raised": 0, "pending_at_close": 0,
+                        "resumed_unknown": 0, "overflow": 0, "dropped_starts": 0, "monitor_error": False,
+                        "unsupported_apis": 0, "calls": [],
+                    }
+                    if not post_entered and sql_window_state is not None:
+                        sql_row["status"] = "uncertain" if sql_row["started"] or sql_row["resumed_unknown"] or sql_row["dropped_starts"] else "not_started"
+                    elif dispatch_uncertain and sql_row["status"] == "observed":
+                        sql_row["status"] = "uncertain"
+                    immutable_save(Path(directory), "sql-window-probe", {
+                        "schema": "dmb_negative_retrieval_sql_window_v1", "case_id": case["id"],
+                        "window": "turn_post_v1", **sql_row,
+                    })
                     primary_row = dict(primary_resolution_state) if primary_resolution_state is not None else {
                         "status": "unavailable" if dispatch_started else "not_started",
                         "started": 0, "returned": 0, "raised": 0, "pending_at_close": 0,

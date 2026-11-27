@@ -2022,6 +2022,8 @@ def test_capture_probe_marks_predispatch_failure_not_started(tmp_path, monkeypat
         assert evidence["status"] == "not_started" and evidence["records"] == []
     primary = json.loads((tmp_path / "case1" / "primary-resolution-probe.json").read_text())
     assert primary["status"] == "not_started" and primary["started"] == 0
+    sql = json.loads((tmp_path / "case1" / "sql-window-probe.json").read_text())
+    assert sql["status"] == "not_started" and sql["started"] == 0
 
 
 def test_probe_freezes_rows_before_late_alias_and_background_completion(tmp_path, monkeypatch, verified_capture_owner):
@@ -2095,6 +2097,9 @@ def test_capture_rejects_async_post_without_claiming_a_completed_window(tmp_path
     primary = json.loads((tmp_path / "case1" / "primary-resolution-probe.json").read_text())
     assert primary["status"] == ("unavailable" if kind == "async_method" else "uncertain")
     assert primary["started"] == 0
+    sql = json.loads((tmp_path / "case1" / "sql-window-probe.json").read_text())
+    assert sql["status"] == ("unavailable" if kind == "async_method" else "uncertain")
+    assert sql["started"] == 0
 
 
 def test_probe_window_wraps_real_sync_testclient_turn_post(tmp_path, monkeypatch, verified_capture_owner):
@@ -2956,6 +2961,10 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     primary = json.loads((tmp_path/'case1'/'primary-resolution-probe.json').read_text())
     assert (primary['status'],primary['started'],primary['returned'],primary['raised']) == ('observed',1,1,0)
     assert page not in str(primary)
+    from evals.negative_retrieval.sql_window import validate_sql_window
+    sql_row = json.loads((tmp_path/'case1'/'sql-window-probe.json').read_text())
+    assert validate_sql_window(sql_row,'case1')['coverage'] == 'partial'
+    assert sql_row['status'] == 'observed' and sql_row['started'] == 0
     assert row['scoped']['text_batch']==2 and row['batch_read']['scoped']==1
 
 
@@ -3216,6 +3225,17 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     with pytest.raises(ValueError,match='Invalid primary-work'):assess_row(discovery)
     primary_probe_path.unlink()
     assert assess_row(discovery)['primary_resolution_probe'] is None
+    sql_row={'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',
+        'coverage':'partial','status':'observed','started':1,'returned':1,'raised':0,'pending_at_close':0,
+        'resumed_unknown':0,'overflow':0,'dropped_starts':0,'monitor_error':False,'unsupported_apis':0,
+        'calls':[{'scope':'app','api':'execute','source_sha256':'a'*64,'code_sha256':'b'*64,'line':42,'count':1}]}
+    sql_path=tmp_path/'sql-window-probe.json';sql_path.write_text(json.dumps(sql_row))
+    result=assess_row(discovery)
+    assert result['sql_window_probe']['started']==1 and result['checks']['unexpected_retrieval'] is None
+    bad=copy.deepcopy(sql_row);bad['calls'][0]['count']=2;sql_path.write_text(json.dumps(bad))
+    with pytest.raises(ValueError,match='Inconsistent SQL window'):assess_row(discovery)
+    sql_path.unlink()
+    assert assess_row(discovery)['sql_window_probe'] is None
     empty=copy.deepcopy(app_batch);empty['app_batch_read']['scoped']=0
     assert assess_row(empty)['checks']['unexpected_retrieval'] is None
     changed=copy.deepcopy(app_batch);changed['app_batch_read']['code_sha256']='0'*64
@@ -3954,3 +3974,155 @@ def test_primary_resolution_validation_refuses_inconsistent_records():
     for status in ('not_started','unavailable'):
         empty={**record,'status':status,'started':0,'returned':0}
         assert validate_primary_resolution(empty,'case1')['status']==status
+
+
+def test_sql_window_observes_prebound_calls_and_exception_without_payload(tmp_path):
+    from types import SimpleNamespace
+    from evals.negative_retrieval.sql_window import observe_sql_window, validate_sql_window
+    class Cursor:
+        def execute(self, sql, arguments): return 'private result'
+        def executemany(self, sql, arguments): raise RuntimeError('private failure')
+    cursor=Cursor(); cursor.connection=SimpleNamespace(info=SimpleNamespace(host='127.0.0.1',port=5432,dbname='synthetic-app'))
+    alias=cursor.execute
+    owners={Cursor.execute.__code__:'execute',Cursor.executemany.__code__:'executemany'}
+    endpoints={'app':('127.0.0.1','5432','synthetic-app')}
+    root=__import__('pathlib').Path(__file__).resolve().parents[2]
+    with observe_sql_window(owners=owners,roots=[root],endpoints=endpoints) as state:
+        assert alias('private sql',('private argument',))=='private result'
+        with pytest.raises(RuntimeError,match='private failure'):cursor.executemany('private sql',('private argument',))
+    assert state['status']=='observed' and (state['started'],state['returned'],state['raised'])==(2,1,1)
+    assert {r['api'] for r in state['calls']}=={'execute','executemany'}
+    assert all(r['scope']=='app' and r['code_sha256'] and r['source_sha256'] for r in state['calls'])
+    assert all(secret not in str(state) for secret in ('private sql','private argument','private result','private failure','synthetic-app'))
+    row={'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state}
+    assert validate_sql_window(row,'case1')['status']=='observed'
+
+
+def test_sql_window_pending_thread_and_unknown_scope_are_not_complete():
+    from threading import Event,Thread
+    from pathlib import Path
+    from evals.negative_retrieval.sql_window import observe_sql_window,validate_sql_window
+    entered,release=Event(),Event()
+    class Cursor:
+        def execute(self): entered.set();release.wait(timeout=5)
+    cursor=Cursor(); alias=cursor.execute
+    with observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[Path(__file__).resolve().parents[2]],endpoints={}) as state:
+        thread=Thread(target=alias);thread.start();assert entered.wait(timeout=5)
+    try:
+        assert state['status']=='uncertain' and state['started']==1 and state['pending_at_close']==1
+        assert state['calls'][0]['scope']=='unknown'
+        row={'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state}
+        validate_sql_window(row,'case1')
+    finally:
+        release.set();thread.join(timeout=5)
+    assert not thread.is_alive() and state['pending_at_close']==1 and state['returned']==0
+
+
+def test_sql_window_detects_preexisting_async_execution():
+    import asyncio
+    from pathlib import Path
+    from evals.negative_retrieval.sql_window import observe_sql_window,validate_sql_window
+    class Cursor:
+        async def execute(self):
+            await asyncio.sleep(0)
+            return 'private'
+    cursor=Cursor(); pending=cursor.execute(); assert pending.send(None) is None
+    with observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[Path(__file__).resolve().parents[2]],endpoints={}) as state:
+        with pytest.raises(StopIteration):pending.send(None)
+    assert state['status']=='uncertain' and state['resumed_unknown']==1 and state['started']==0
+    validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state},'case1')
+
+
+def test_sql_window_limits_cardinality_and_rejects_malformed(monkeypatch,tmp_path):
+    import copy
+    from evals.negative_retrieval import sql_window as sw
+    class Cursor:
+        def execute(self):return None
+    monkeypatch.setattr(sw,'_MAX_CALLERS',0)
+    with sw.observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[tmp_path],endpoints={}) as state:
+        Cursor().execute()
+    assert state['status']=='uncertain' and state['overflow']==1 and state['calls']==[]
+    row={'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state}
+    sw.validate_sql_window(row,'case1')
+    for bad in (dict(row,status='observed'),dict(row,overflow=0),dict(row,started=True),dict(row,case_id='other'),dict(row,payload='private')):
+        with pytest.raises(ValueError):sw.validate_sql_window(bad,'case1')
+
+
+def test_sql_window_fails_closed_when_monitoring_cleanup_fails(monkeypatch,tmp_path):
+    from types import SimpleNamespace
+    from evals.negative_retrieval import sql_window as sw
+    class Cursor:
+        def execute(self):return None
+    real=sw.sys.monitoring
+    def set_local(slot,code,events):
+        real.set_local_events(slot,code,events)
+        if not events:raise RuntimeError('synthetic cleanup failure')
+    proxy=SimpleNamespace(events=real.events,get_tool=real.get_tool,use_tool_id=real.use_tool_id,
+        set_local_events=set_local,register_callback=real.register_callback,set_events=real.set_events,free_tool_id=real.free_tool_id)
+    with monkeypatch.context() as patch:
+        patch.setattr(sw.sys,'monitoring',proxy)
+        patch.setattr(sw,'_poisoned',False)
+        with pytest.raises(sw.SqlWindowCleanupError):
+            with sw.observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[tmp_path],endpoints={}) as state:
+                Cursor().execute()
+        assert state['status']=='uncertain' and state['monitor_error'] is True
+        with pytest.raises(sw.SqlWindowCleanupError):
+            with sw.observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[tmp_path],endpoints={}):pass
+    assert all(real.get_tool(i)!='buddy-negative-sql-window' for i in range(6))
+
+
+def test_sql_window_no_slot_is_unavailable_without_affecting_others(monkeypatch,tmp_path):
+    from types import SimpleNamespace
+    from evals.negative_retrieval import sql_window as sw
+    class Cursor:
+        def execute(self): return None
+    real=sw.sys.monitoring
+    proxy=SimpleNamespace(events=real.events,get_tool=lambda _: 'other-owner')
+    with monkeypatch.context() as patch:
+        patch.setattr(sw.sys,'monitoring',proxy)
+        with sw.observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[tmp_path],endpoints={}) as state:
+            assert Cursor().execute() is None
+    assert state['status']=='unavailable' and state['started']==0 and state['calls']==[]
+
+
+def test_sql_window_pending_limit_marks_dropped_calls_unknown(monkeypatch,tmp_path):
+    from evals.negative_retrieval import sql_window as sw
+    class Cursor:
+        def execute(self):return 'synthetic'
+    monkeypatch.setattr(sw,'_MAX_PENDING',0)
+    with sw.observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[tmp_path],endpoints={}) as state:
+        assert Cursor().execute()=='synthetic'
+    assert state['status']=='uncertain' and state['dropped_starts']==1 and state['started']==0
+    assert state['monitor_error'] is True
+    sw.validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state},'case1')
+
+
+def test_sql_window_tracks_async_cursor_through_suspend_and_return():
+    import asyncio
+    from pathlib import Path
+    from evals.negative_retrieval.sql_window import observe_sql_window,validate_sql_window
+    class Cursor:
+        async def execute(self):
+            await asyncio.sleep(0)
+            return 'private result'
+    with observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[Path(__file__).resolve().parents[2]],endpoints={}) as state:
+        assert asyncio.run(Cursor().execute())=='private result'
+    assert (state['status'],state['started'],state['returned'],state['raised'],state['resumed_unknown'])==('observed',1,1,0,0)
+    validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state},'case1')
+
+
+def test_sql_window_tracks_generator_cursor_api_without_double_counting():
+    from contextlib import contextmanager
+    from pathlib import Path
+    import inspect
+    from evals.negative_retrieval.sql_window import observe_sql_window,validate_sql_window
+    class Cursor:
+        @contextmanager
+        def copy(self):
+            yield 'private result'
+    code=inspect.unwrap(Cursor.copy).__code__
+    with observe_sql_window(owners={code:'copy'},roots=[Path(__file__).resolve().parents[2]],endpoints={}) as state:
+        with Cursor().copy() as result:assert result=='private result'
+    assert (state['status'],state['started'],state['returned'],state['resumed_unknown'])==('observed',1,1,0)
+    assert state['calls'][0]['api']=='copy' and 'private result' not in str(state)
+    validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state},'case1')

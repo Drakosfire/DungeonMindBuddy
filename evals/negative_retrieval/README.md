@@ -591,3 +591,24 @@ search, proof of citation support, or a distinct-source count. The probe is
 partial: prebound aliases, other owners or processes, late activity, and older
 captures remain unknown. It stores no arguments, IDs, source text or digest and
 does not make the acquisition journal complete.
+
+The optional SQL window inventories selected Python psycopg cursor API calls
+during the turn POST. It groups attempted, returned and raised API calls by
+App/Core/unknown connection category and host-only static caller fingerprints.
+It records no SQL, query arguments, database identities or returned rows; the
+fingerprints and line numbers remain in evaluator artifacts and never enter a
+product prompt. Counts are API invocations, not a count of executed queries,
+distinct sources, discovery, or materialized bodies. Pending calls, unknown
+resumed work, missing driver APIs, overflow and observer errors are uncertain.
+Other processes, custom/native driver paths and external services remain
+uncovered, so an empty inventory is unknown and it never changes a benchmark
+budget or proves a complete acquisition journal. Classification against pinned
+source and verification of the remaining boundaries are follow-up work.
+
+A provider-free real-owner check (case 357) ran the serving-source Build work
+resolver against the exact synthetic App page on the existing read-only clone.
+It observed eight returned cursor API calls across seven caller groups. One
+caller reads the saved revision's Markdown; another reads the working copy's
+Markdown even though the committed snapshot uses only its working-copy revision.
+These are observations of that one owner invocation, not an ordinary model turn,
+a count of distinct pages, or a general latency measurement.
