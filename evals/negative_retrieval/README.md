@@ -444,3 +444,22 @@ the related-page probe also records its entries and outcomes. The report shows
 observed direct-metadata attempts separately from full catalog discovery and
 body reads. No entry remains unknown: older runtimes, old artifacts, aliases,
 other processes and work outside the capture window are not covered.
+
+
+The `dev-explicit-current-required` and `dev-related-coverage-required` cases
+were promoted from a separately authored H2 set after failing on serving source
+`e50652d27f6b11dbb424f87f0aadff7cacd8645c`. They are now development
+regressions, not held-out qualification. In case 251 the controller selected the
+current-page-only scope, then skipped its sole eligible page and the turn failed
+before writing; the probe witnessed one direct metadata lookup and no catalog
+call. In case 254 the required related page was materialized, but the coverage
+decision requested native sources and the turn failed when no native source was
+settled. The probes witnessed one catalog call and one page materialization.
+Both captures were independently assessed, use partial instrumentation, and do
+not prove absence of other acquisition. Their elapsed times included manual
+prompt-audit pauses and are not product latency measurements. The retained
+synthetic fixtures, request-boundary audits and capture artifacts are in the
+local private evidence root `/home/drakosfire/Projects/.codex/buddy-check.current-page-owner.ssCukO`
+under `heldout-h2` and `owner/case-251` / `owner/case-254`; that root is
+machine-local, not a portable benchmark dependency. Fresh independently held-out
+controls remain required.

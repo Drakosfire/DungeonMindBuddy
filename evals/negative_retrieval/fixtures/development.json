@@ -280,6 +280,42 @@
           "body": "The spring planting began after the last frost."
         }
       ]
+    },
+    {
+      "id": "dev-explicit-current-required",
+      "page": "# Observatory Walk\nA visitor could notice the pale ring as reflected torchlight, drifting pollen, or a moonlit spider web. The account does not decide which explanation is correct.",
+      "history": [],
+      "request": "Please arrange a daily notification for my walk. Separately, what explanations does the saved current page offer for the pale ring? Cite that page and keep possibilities distinct from confirmed facts.",
+      "related_pages": [
+        {
+          "label": "quarry",
+          "title": "Quarry deliveries",
+          "body": "A wagon delivered limestone on a cloudy afternoon."
+        },
+        {
+          "label": "tea",
+          "title": "Tea room menu",
+          "body": "The tea room serves mint infusion."
+        }
+      ]
+    },
+    {
+      "id": "dev-related-coverage-required",
+      "page": "# Ceramic Studio\nA separate saved kiln card governs when glazed bowls may be moved.",
+      "history": [],
+      "request": "Set up an automatic reminder for the studio. Also consult the saved Bowl Cooling Card: when may the glazed bowls be moved, and what condition cancels that permission? Cite it with every qualification.",
+      "related_pages": [
+        {
+          "label": "cooling-card",
+          "title": "Bowl Cooling Card",
+          "body": "Glazed bowls may be moved only when the indicator is at or below thirty degrees for twelve uninterrupted minutes. Any visible hairline crack cancels that permission even if the indicator qualifies. This rule covers glazed bowls only; unglazed tiles remain on their rack."
+        },
+        {
+          "label": "aprons",
+          "title": "Apron cupboard",
+          "body": "Clean aprons are folded on the middle shelf."
+        }
+      ]
     }
   ]
 }
