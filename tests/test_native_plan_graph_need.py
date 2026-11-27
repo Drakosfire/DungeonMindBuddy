@@ -732,3 +732,61 @@ def test_forged_legacy_turn_is_rejected_before_authored_materialization():
         from application_state.agent_conversation.authored_graph_references import observe_native_reference
         observe_native_reference(turn, event_id=uuid4(), authorization_event_id=uuid4(), materialize=materialize)
     assert not materializations
+
+
+def test_settled_authored_core_read_keeps_nonempty_support_and_rejects_substitution(application_state_dsn, tmp_path, monkeypatch):
+    from uuid import uuid4
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.authored_graph_references import (
+        AuthoredGraphReferenceV1, AuthoredReferencesV2, BuildAuthoredReferenceAuthorizedV2,
+        BuildAuthoredReferenceReadV2, validate_native_context, validate_native_execution,
+    )
+    from application_state.agent_conversation.native_execution import NativePlanActionV2
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQuerySettledV1
+    from apps.live_control_server.services.native_graph_reads import prepare_query, read_authored_reference
+    from tests.test_native_plan_assertions import publish
+    from tests.test_native_plan_statements import bound
+    from tests.test_source_statements import make_lane, GM
+    from tests.test_surface_native_execution import component, execution
+    lane = make_lane(tmp_path, monkeypatch, narrow=True)
+    publish(lane)
+    world = lane.world.world_id
+    ref = AuthoredGraphReferenceV1(managed_world_id=world, native_world_id=world, binding_version=1,
+        graph_revision=lane.repo.get_head(world).head_revision_id, node_id=lane.ids['B'], label='Synthetic object')
+    refs = AuthoredReferencesV2(references=(ref,))
+    core, query = prepare_query(world, 'What did B do?', GM, repository=lane.repo,
+        resolve_binding=lambda _: bound(lane), authored_references=refs)
+    target, = query.authored_targets
+    assert target.assertion_matches
+    _, old = component('plan')
+    raw_intent = old.policy.action.intent.model_dump(mode='json', by_alias=True)
+    raw_intent.update(schema='dmb_agent_submitted_turn_intent_v3', world_id=world,
+        message=query.question, authored_references=refs.model_dump(mode='json', by_alias=True))
+    intent = t.SubmittedTurnIntentV3.model_validate(raw_intent)
+    action = NativePlanActionV2.model_validate(old.policy.action.model_dump(mode='json', by_alias=True) | {'action_version': 'plan_saved_authored_pages_v2', 'intent': intent.model_dump(mode='json', by_alias=True), 'related_page_catalog': []})
+    policy = old.policy.model_copy(update={'action': action, 'native_query_sha256': 'a'*64})
+    root = execution('b'*64, policy)
+    capture = t.BuildAuthoredReferencesCapturedV1(kind='build_authored_references_captured_v1', event_id=uuid4(),
+        sequence=0, references=refs, read_graph_revision=query.authority.revision_id, turn_id=uuid4(),
+        conversation_id=uuid4(), attempt=1, submitted_intent_fingerprint=t.submitted_turn_intent_fingerprint_v2(intent))
+    settlement = NativePlanGraphQuerySettledV1(event_id=uuid4(), sequence=1, started_event_id=uuid4(), query=query)
+    grant = BuildAuthoredReferenceAuthorizedV2(event_id=uuid4(), sequence=2, capture_event_id=capture.event_id,
+        node_id=ref.node_id, context_receipt_sha256=root.context_receipt_sha256,
+        execution_policy_sha256=root.execution_policy_sha256, query_sha256=query.sha256)
+    support = read_authored_reference(core, grant, GM)
+    assert support.assertion_reads and not support.unavailable_assertion_ids
+    read = BuildAuthoredReferenceReadV2(event_id=uuid4(), sequence=3, capture_event_id=capture.event_id,
+        authorization_event_id=grant.event_id, node_id=ref.node_id, statement_reads=support.statement_reads,
+        assertion_reads=support.assertion_reads, unavailable_statement_ids=support.unavailable_statement_ids,
+        unavailable_assertion_ids=support.unavailable_assertion_ids, status=support.status)
+    # This provisional execution is not read authority: the full pending-receipt
+    # join is tested separately. Here Core and the record owner compare real supports.
+    from types import SimpleNamespace
+    provisional = SimpleNamespace(policy=policy, context_receipt_sha256=root.context_receipt_sha256,
+        execution_policy_sha256=root.execution_policy_sha256, events=[capture, settlement, grant, read])
+    validate_native_execution(provisional)
+    validate_native_context(query, provisional)
+    altered = read.model_copy(update={'assertion_reads': ()})
+    provisional.events[-1] = altered
+    with pytest.raises(ValueError, match='support inventory'):
+        validate_native_context(query, provisional)
