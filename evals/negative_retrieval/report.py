@@ -285,6 +285,9 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "decision_observations": observed["decision_observations"],
             "native_activity": observed["native_activity"],
             "primary_document_id_attempts_diagnostic": primary_id_matches,
+            "current_page_metadata_attempts_diagnostic": (
+                sum(row["owner"] == "current_page_metadata" for row in probe["records"])
+                if related_turn and any(row["owner"] == "current_page_metadata" for row in probe["records"]) else None),
             "related_page_probe": probe["records"],
             "limits": ["Probe and trace are a partial acquisition journal.",
                        "Capture environment and prior citations are not independently verified here.",
