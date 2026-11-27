@@ -434,3 +434,33 @@ it('recognizes the exact selected-source deferred Graph codec without accepting 
   expect(isSurfaceNativeCompletion(answer,pending as any,membership)).toBe(true);
   expect(isSurfaceNativeCompletion(answer,pending as any,{...membership,assertions:[['wrong','f'.repeat(64)]]})).toBe(false);
 });
+
+it.each(['valid','missing','foreign-world','foreign-revision','wrong-assertion','extra-assertion','wrong-owner','extra-field'])(
+  'validates a pending Plan receipt and settled Graph citation projection: %s', mutation=>{
+    const c=structuredClone(openingWire.context);
+    const previous=c.receipt.native_query;
+    const pending={schema:'dmb_native_plan_graph_query_pending_v1',authority:structuredClone(previous.authority),question:previous.question};
+    const membership={context_receipt_sha256:c.receipt.context_receipt_sha256,
+      producing_provider_attempt_id:c.completion!.producing_provider_attempt_id,
+      statements:c.completion!.native_clause_citations.map(cite=>[cite.statement_id,cite.campaign_id]),
+      assertions:c.completion!.native_assertion_citations.map(cite=>[cite.assertion_id,cite.assertion_sha256])};
+    if(mutation==='foreign-world')pending.authority.managed_world_id='foreign';
+    if(mutation==='foreign-revision')pending.authority.revision_id='foreign';
+    if(mutation==='wrong-assertion')membership.assertions[0]![0]='foreign';
+    if(mutation==='extra-assertion')membership.assertions.push(['extra','f'.repeat(64)]);
+    if(mutation==='wrong-owner')membership.producing_provider_attempt_id='00000000-0000-4000-8000-000000000001';
+    if(mutation==='extra-field')Object.assign(pending,{unexpected:true});
+    const candidate={...c,receipt:{...c.receipt,native_query:pending},
+      ...(mutation==='missing'?{}:{deferred_plan_citations:membership})};
+    expect(isSurfaceNativeContext(candidate,work,()=>true)).toBe(mutation==='valid');
+  },
+);
+
+it('accepts a pending Plan no-Graph proposal without invented citation membership',()=>{
+  const c=structuredClone(openingWire.context);
+  const pending={schema:'dmb_native_plan_graph_query_pending_v1',authority:c.receipt.native_query.authority,question:c.receipt.native_query.question};
+  const answer={...c.completion!,answer_context_status:'creative_proposal',
+    answer_segments:[{kind:'proposal',label:'invented_idea',text:'A quiet harbor.'}],
+    native_clause_citations:[],native_assertion_citations:[],native_body_citations:[]};
+  expect(isSurfaceNativeContext({...c,receipt:{...c.receipt,native_query:pending},completion:answer},work,()=>true)).toBe(true);
+});

@@ -1223,6 +1223,11 @@ export interface NativePlanRequestAdmissionV1 {
   tokenizer_name:string;tokenizer_version:string;
   context_window_limit:number|null;output_token_reserve:number;
 }
+export interface NativePlanGraphQueryPendingV1 {
+  schema:'dmb_native_plan_graph_query_pending_v1';
+  authority:NativePlanQueryV2['authority'];
+  question:string;
+}
 export interface NativeBuildQueryPendingV1 {
   schema:'dmb_native_build_query_pending_v1';
   authority:NativePlanQueryV2['authority'];
@@ -1244,7 +1249,7 @@ export interface SurfaceNativeContextReceiptV1 {
   schema:'dmb_surface_native_context_receipt_v1';receipt_serializer_version:'canonical-json-utf8-v1';
   context_receipt_sha256:string;provenance_sha256:string;work_context:SurfaceNativeWorkContextV1;
   source_authority:PlanSourceContextReceiptV1['source_authority'];
-  native_query:NativeBuildQueryPendingV1|NativeBuildSelectedSourceQueryPendingV1|NativeGraphQueryV4|NativeGraphQueryV3|NativePlanQueryV2|Extract<PlanNativeContextReceiptV1['native_query'],{schema:'dmb_native_plan_query_unavailable_v1'}>;
+  native_query:NativePlanGraphQueryPendingV1|NativeBuildQueryPendingV1|NativeBuildSelectedSourceQueryPendingV1|NativeGraphQueryV4|NativeGraphQueryV3|NativePlanQueryV2|Extract<PlanNativeContextReceiptV1['native_query'],{schema:'dmb_native_plan_query_unavailable_v1'}>;
   assembled_input:(Omit<PlanSourceContextReceiptV1['assembled_input'],'assembler_version'> & {assembler_version:'surface_native_initial_v1'|'native_build_semantic_initial_v2'})
     | {assembler_version:'reviewed_author_admission_v1';submitted_intent_sha256:string;assembled_input_sha256:string}
     | NativePlanRequestAdmissionV1;
@@ -1296,6 +1301,7 @@ export interface AgentSurfaceNativeContextResponseV1 {
   schema:'dmb_agent_surface_native_context_response_v1';receipt:SurfaceNativeContextReceiptV1;
   completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|WorldBuildImagePreparationCompletionV1|WorldBuildGraphReferenceCompletionV1|WorldBuildImageMoveCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
   deferred_build_citations?:DeferredBuildCitationMembership;
+  deferred_plan_citations?:DeferredBuildCitationMembership;
 }
 export type PlanSurfaceNativeContextResponseV1 = AgentSurfaceNativeContextResponseV1 & {
   completion:SurfaceNativeCompletionV1|null;

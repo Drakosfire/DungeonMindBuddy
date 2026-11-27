@@ -857,6 +857,9 @@ class AgentSurfaceNativeContextResponseV1(BaseModel):
     deferred_build_citations: DeferredBuildCitationMembership | None = Field(
         default=None, exclude_if=lambda value: value is None,
     )
+    deferred_plan_citations: DeferredBuildCitationMembership | None = Field(
+        default=None, exclude_if=lambda value: value is None,
+    )
 
 
 class AgentBuildPendingContextResponseV1(BaseModel):

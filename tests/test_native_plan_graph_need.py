@@ -853,3 +853,38 @@ def test_settled_authored_core_read_keeps_nonempty_support_and_rejects_substitut
     provisional.events[-1] = altered
     with pytest.raises(ValueError, match='support inventory'):
         validate_native_context(query, provisional)
+
+
+def test_pending_plan_citation_projection_uses_only_exact_settled_query():
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+    from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2
+    from application_state.agent_conversation.native_plan_graph_need import (
+        NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1, NativePlanGraphQuerySettledV1,
+    )
+    from apps.live_control_server.services.agent_turn_service import _pending_plan_citation_membership
+    from tests.test_surface_native_context import wire
+    from tests.test_surface_native_execution import execution
+    context, record, auth, lifecycle, observed = actual_need_execution('require_graph')
+    grant = NativePlanGraphQueryAuthorizedV1(event_id=uuid4(), sequence=4, need_event_id=observed.event_id,
+        pending_query_sha256=observed.parent.pending_query_sha256)
+    started = NativePlanGraphQueryStartedV1(event_id=uuid4(), sequence=5, authorization_event_id=grant.event_id)
+    data = wire('plan')['native_query']; data['authority']['scope_mode'] = 'world'; data['authority']['campaign_id'] = None
+    data['discovered_entity_ids'] = ['subject']
+    data['assertion_matches'] = [dict(assertion_id='synthetic-assertion', subject_entity_id='subject',
+        discovered_entity_ids=['subject'], assertion_sha256='a'*64, label='Synthetic supported assertion')]
+    query = NativePlanQueryV2.model_validate(data)
+    settled = NativePlanGraphQuerySettledV1(event_id=uuid4(), sequence=6, started_event_id=started.event_id, query=query)
+    prefix = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle, observed, grant, started])
+    completed = SurfaceNativeCompletionV1.model_construct(producing_provider_attempt_id=uuid4(),
+        native_clause_citations=[], native_assertion_citations=[SimpleNamespace(assertion_id='synthetic-assertion', assertion_sha256='a'*64)])
+    with pytest.raises(ValueError, match='durable Graph settlement'):
+        _pending_plan_citation_membership(context, prefix, completed)
+    retained = execution(context.context_receipt_sha256, record.policy, [*prefix.events, settled])
+    projection = _pending_plan_citation_membership(context, retained, completed)
+    assert projection.context_receipt_sha256 == context.context_receipt_sha256
+    assert projection.assertions == [('synthetic-assertion', 'a'*64)]
+    forged = completed.model_copy(update={'native_assertion_citations': [SimpleNamespace(assertion_id='foreign', assertion_sha256='a'*64)]})
+    with pytest.raises(ValueError, match='differ from their durable Graph settlement'):
+        _pending_plan_citation_membership(context, retained, forged)
