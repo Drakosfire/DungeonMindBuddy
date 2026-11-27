@@ -167,8 +167,10 @@ async function run() {
           const initial = await committed();
           if (initial.revision !== pin.expected_revision || initial.sha256 !== pin.expected_content_sha256)
             throw new Error("Placement page changed before the interaction");
-          if (placement.lose_save_ack)
-            result.save_recovery = await recoverImageSave(page, origin, studio, parent.asset_id);
+          if (placement.lose_save_ack) {
+            result.save_recovery = {};
+            await recoverImageSave(page, origin, studio, parent.asset_id, result.save_recovery);
+          }
           const started = performance.now();
           await studio.getByRole("button", { name: "Place on page", exact: true }).click();
           await editor.and(page.locator(".is-media-placement-target")).waitFor();

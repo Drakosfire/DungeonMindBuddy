@@ -114,7 +114,7 @@ async function regeneratePrivatePreview(page, origin, parent, instructions) {
   }
 }
 
-async function recoverImageSave(page, origin, studio, assetId) {
+async function recoverImageSave(page, origin, studio, assetId, observation) {
   const assetUrl = origin + "/api/live/media/images/" + assetId;
   const saveUrl = assetUrl + "/save";
   const started = performance.now();
@@ -126,12 +126,18 @@ async function recoverImageSave(page, origin, studio, assetId) {
       await route.abort();
       return;
     }
-    const response = await route.fetch({ maxRetries: 0, maxRedirects: 0 });
+    const response = await route.fetch({
+      headers: { ...route.request().headers(), authorization: "Bearer " + process.env.DMB_BENCHMARK_BROWSER_TOKEN },
+      maxRetries: 0, maxRedirects: 0,
+    });
     committedStatus = response.status();
     await route.abort();
   };
   await page.route(saveUrl, loseAcknowledgement);
   try {
+    const details = studio.locator("details.media-image-wizard__details");
+    if (await details.getAttribute("open") === null)
+      await details.locator("summary").filter({ hasText: /^Details$/ }).click();
     const reopened = page.waitForResponse(response => response.url() === assetUrl
       && response.request().method() === "GET" && response.ok());
     const [response] = await Promise.all([
@@ -143,9 +149,10 @@ async function recoverImageSave(page, origin, studio, assetId) {
     assert.equal(saveAttempts, 1);
     assert.equal(asset.asset_id, assetId);
     assert.equal(asset.state, "ready");
-    return { asset_id: assetId, committed_status: committedStatus,
-      save_attempts: saveAttempts, recovered_state: asset.state, elapsed_ms: performance.now() - started };
+    observation.recovered_state = asset.state;
   } finally {
+    Object.assign(observation, { asset_id: assetId, committed_status: committedStatus,
+      save_attempts: saveAttempts, elapsed_ms: performance.now() - started });
     await page.unroute(saveUrl, loseAcknowledgement);
   }
 }

@@ -708,6 +708,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             checks.pop("no_media_save")
                             checks.pop("parent_unchanged")
                             checks.pop("saved_library_unchanged")
+                            newly_saved = [row for row in library_after
+                                           if row["asset_id"] == image_parent["asset_id"]]
+                            checks["only_pinned_asset_added_to_saved_library"] = (
+                                len(newly_saved) == 1
+                                and newly_saved[0]["content_sha256"] == image_parent["content_sha256"]
+                                and [row for row in library_after if row not in newly_saved] == library_before)
                             observation["synthetic_cdn_calls"] = image_storage_calls
                             checks["exact_asset_save_recovered"] = (
                                 image_storage_calls == ["GET", "POST", "GET"]
