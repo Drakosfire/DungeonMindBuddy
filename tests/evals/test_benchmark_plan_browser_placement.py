@@ -282,12 +282,15 @@ def test_pinned_build_history_can_preserve_exact_interrupted_turn():
         require_pinned_history(history, expected, allow_interrupted=True)
 
 
-@pytest.mark.parametrize("unsafe_rejection", [False, True])
-def test_lore_confirmation_reads_back_one_saved_revision(tmp_path, unsafe_rejection):
+@pytest.mark.parametrize("failure", [None, "unsafe_rejection", "wrong_revision"])
+def test_lore_confirmation_reads_back_one_saved_revision(tmp_path, monkeypatch, failure):
     import json
+    from types import SimpleNamespace
 
     import httpx
 
+    from application_state.agent_conversation import AgentConversationService
+    from application_state.content import pages
     from evals.buddy_benchmark.workflow import capture_lore_confirmation
 
     world = "elderwyld"
@@ -296,10 +299,17 @@ def test_lore_confirmation_reads_back_one_saved_revision(tmp_path, unsafe_reject
     original = {"document_id": str(uuid4())}
     records = [original]
     actions = []
-    receipt = {"document_id": document, "revision_id": revision}
+    receipt = {"document_id": document, "revision_id": str(uuid4()) if failure == "wrong_revision" else revision}
     new_page = {"document_id": document, "world_id": world, "content_status": "committed"}
     markdown = f"[Source]({route}/turns/{turn}/native-body-excerpts/0)"
-    completion = {"collaboration": {"kind": "lore_page"}, "native_body_citations": [{}]}
+    owner_revision = SimpleNamespace(work_revision_id=revision, content_sha256=text_digest(markdown),
+                                     markdown=markdown, model_dump=lambda **_: {"work_revision_id": revision})
+    monkeypatch.setattr(pages, "committed_page", lambda *_, **__: SimpleNamespace(
+        revision=owner_revision, page=SimpleNamespace(title="Maelthor")))
+    monkeypatch.setattr(AgentConversationService, "get_conversation",
+                        lambda *args: SimpleNamespace(status="archived"))
+    completion = {"collaboration": {"kind": "lore_page", "destination": {"title": "Maelthor"}},
+                  "native_body_citations": [{}]}
     (tmp_path / "native-citation-reopen.json").write_text(json.dumps({"citations": [{"exact_reopen": True}]}))
 
     def handle(request):
@@ -307,12 +317,13 @@ def test_lore_confirmation_reads_back_one_saved_revision(tmp_path, unsafe_reject
         if request.method == "GET":
             if path.endswith("/snapshot"):
                 assert request.url.params["view"] == "committed"
-                return httpx.Response(200, json={"record": new_page, "markdown": markdown, "committed_markdown": markdown})
+                return httpx.Response(200, json={"record": new_page, "markdown": markdown, "committed_markdown": markdown,
+                    "content_sha256": text_digest(markdown)})
             return httpx.Response(200, json={"records": records})
         command = json.loads(request.content)
         actions.append(path.rsplit("/", 1)[1])
         if len(actions) == 1:
-            if unsafe_rejection:
+            if failure == "unsafe_rejection":
                 records.append(new_page)
             return httpx.Response(409, json={})
         if command["conversation_id"] == foreign:
@@ -329,10 +340,11 @@ def test_lore_confirmation_reads_back_one_saved_revision(tmp_path, unsafe_reject
         capture_lore_confirmation(client, tmp_path, route, world, conversation, turn, completion, foreign)
 
     result = json.loads((tmp_path / "lore-confirmation-result.json").read_bytes())
-    if unsafe_rejection:
+    if failure == "unsafe_rejection":
         assert actions == ["confirm"]
         assert result == {"status": "incomplete", "reason": "lore-wrong-digest", "protected_pages_unchanged": False}
     else:
         assert actions == ["confirm", "confirm", "confirm", "review", "confirm", "confirm"]
-        assert result["status"] == "observed"
-        assert all(result["checks"].values())
+        assert result["status"] == ("incomplete" if failure else "observed")
+        assert result["checks"]["reopened_exact_revision"] is (failure is None)
+        assert all(value for key, value in result["checks"].items() if key != "reopened_exact_revision")

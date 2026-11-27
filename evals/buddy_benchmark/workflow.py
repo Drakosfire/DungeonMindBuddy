@@ -516,7 +516,9 @@ def require_pinned_history(history, expected, *, allow_interrupted=False):
 
 def capture_lore_confirmation(client, directory, route, world, conversation, turn, completion, foreign):
     """Exercise revision-bound review, confirmation and exact receipt recovery."""
+    from application_state.agent_conversation import AgentConversationService
     from application_state.agent_conversation.rules_authority_types import canonical_sha256
+    from application_state.content.pages import committed_page
 
     def snapshot(label):
         response = client.get("/api/live/workspace-documents",
@@ -537,6 +539,10 @@ def capture_lore_confirmation(client, directory, route, world, conversation, tur
     if (completion.get("collaboration") or {}).get("kind") != "lore_page":
         immutable_save(directory, "lore-confirmation-result", {"status": "unavailable", "reason": "no_lore_review"})
         return
+    other = AgentConversationService().get_conversation(world, UUID(foreign))
+    if other.status != "archived":
+        raise ValueError("Foreign lore confirmation requires a retained archived conversation")
+    immutable_save(directory, "lore-foreign-binding", {"conversation_id": foreign, "status": other.status})
     command = {"conversation_id": conversation, "turn_id": turn, "review_sha256": canonical_sha256(completion)}
     immutable_save(directory, "lore-confirmation-request", command)
     before = snapshot("lore-pages-before")
@@ -575,6 +581,10 @@ def capture_lore_confirmation(client, directory, route, world, conversation, tur
                                             params={"view": "committed"}))
     immutable_save(directory, "lore-committed-reopen", reopened)
     body = reopened["body"] if isinstance(reopened["body"], dict) else {}
+    owned_page = committed_page(document, world_id=world)
+    revision = owned_page.revision
+    if revision is not None:
+        immutable_save(directory, "lore-owner-revision", revision.model_dump(mode="json"))
     expected_links = [f"{route}/turns/{turn}/native-body-excerpts/{index}"
                       for index in range(len(completion.get("native_body_citations") or []))]
     citations = json.loads((directory / "native-citation-reopen.json").read_bytes()) if expected_links else {}
@@ -583,7 +593,10 @@ def capture_lore_confirmation(client, directory, route, world, conversation, tur
     checks = {
         "invalid_confirmations_no_effect": all(rejected),
         "one_new_page": True,
-        "receipt_bound_to_review": receipt.get("review_sha256") == command["review_sha256"] and bool(receipt.get("revision_id")),
+        "receipt_bound_to_review": receipt.get("review_sha256") == command["review_sha256"],
+        "reopened_exact_revision": (revision is not None and str(revision.work_revision_id) == receipt.get("revision_id")
+            and body.get("content_sha256") == revision.content_sha256 and body.get("markdown") == revision.markdown
+            and owned_page.page.title == completion["collaboration"]["destination"]["title"]),
         "reopened_committed_page": (reopened["http_status"] == 200 and body.get("record") == after[document]
             and body["record"].get("world_id") == world and body["record"].get("content_status") == "committed"
             and isinstance(body.get("markdown"), str) and body["markdown"] == body.get("committed_markdown")),
