@@ -94,3 +94,47 @@ host-local under `/home/drakosfire/Projects/.codex/buddy-check.current-page-owne
 and `/tmp/buddy-independent-heldout-h5-3h7_b1sh`. The existing owned App clone
 and read-only Core were reused serially; no additional clone was created. This
 record does not make the host-local artifacts portable or complete the goal.
+
+## Reconstructed Shepherd and long-chat development replays
+
+On the existing owned App clone and read-only Core, three serial synthetic
+captures used product candidate `0b20da53585e3487fca103a09b78473c69c0c58f`
+(the tree of merged reader [#4997](https://github.com/Drakosfire/DungeonMindBuddy/pull/4997))
+and the negative-evaluator code at [#5000](https://github.com/Drakosfire/DungeonMindBuddy/pull/5000).
+The evaluator subtree was unchanged at main `0ca80b0d4ccb3a28955d22edd18b7c5df28c1d30`.
+The candidate was not deployed for these captures. Main's App head was `0201`
+at that revision, while the retained clone was on the serving lineage's `0214`;
+these are serving-candidate observations, not a replay of main's Build changes.
+The App owner and workers remained serial, and no new database was created.
+
+| Development case | Result independently assessed | Observed related catalog / materialization attempts | Native-Graph probe records |
+| --- | --- | --- | --- |
+| Reconstructed Shepherd naming, case 716 | Ten distinct names; response used supplied setting and treated suggestions as creative | 0 / 0 | 0 |
+| Sixty-exchange reuse, case 719 | Correctly recalled the toll and collector from the first exchange | 0 / 0 | 0 |
+| Previously exposed H5 saved-note control, case 721 | Correct source-supported answer, preserving the note's draft status | 1 / 1 | 0 |
+
+For the long-chat case, independently audited controller and writer requests
+contained all 60 exchanges and the exact question. All three answers returned
+HTTP 200; primary pages and the fixture-related pages remained stable. In the
+source-required control, the cited claim's World, document, revision and digest
+matched the returned materialization and frozen fixture. A subsequent read-only,
+locally authenticated request to the ordinary related-page route reopened the
+exact cited text; a different read ID returned 409 (case 724). This is local
+route evidence, not a hosted signed-in browser check.
+
+The three POST probes are partial. Zero observed entries do not establish zero
+acquisition, and generic SQL starts are not source-read counts. Each controller
+and writer request was paused for a separate prompt-boundary audit. Captured
+HTTP times were 61.40, 71.32 and 116.34 seconds respectively, including those
+pauses; they are not latency samples or a before/after comparison. Cases 716
+and 719 use rebuilt synthetic identities, and all three use synthetic editor
+snapshots and a mixed evaluator/serving-runner import arrangement. Complete
+import and environment qualification, complete acquisition coverage, current
+main behavior, independent held-out qualification and hosted app verification
+remain open. Case 721 is an already exposed control, not fresh held-out evidence.
+
+The exact manifests, source and fixture pins, audit receipts, responses, probes,
+failed preflight attempts and local citation check are retained under
+`/home/drakosfire/Projects/.codex/buddy-check.current-page-owner.ssCukO/owner/`
+in cases 714–724. The retained App clone is still needed for
+follow-up work; its owner has not accepted or abandoned the workstream.
