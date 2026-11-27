@@ -896,8 +896,7 @@ def test_sdk_observation_construction_requires_acknowledged_exact_result():
 @pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
 def test_sdk_result_owner_fences_and_reopens_actual_app_turn(source_adapter, monkeypatch, application_state_dsn):
     from uuid import uuid4
-    import psycopg
-    from application_state.agent_conversation import repository as repo, types as t
+    from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphNeedInputV1, canonical_wire
     from application_state.agent_conversation.native_retrieval import NativePlanGraphNeedAuthorizedV1
     from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
@@ -916,15 +915,23 @@ def test_sdk_result_owner_fences_and_reopens_actual_app_turn(source_adapter, mon
         'envelope_sha256': sha256(canonical_wire(parent, expected_model=base.model)).hexdigest(),
         'input_estimator': context.assembled_input.tokenizer_name,
         'output_token_reserve': context.assembled_input.output_token_reserve})
+    from application_state.agent_conversation.native_writer import json_container_count
+    from application_state.agent_conversation.plan_authoring import strict_json
+    raw = canonical_wire(parent, expected_model=auth.model)
+    auth = auth.model_copy(update={'input_tokens': len(raw) + 64 * (1 + json_container_count(strict_json(raw.decode())))})
+    with pytest.raises(ApplicationStateValidationError, match='wire differs'):
+        service._authorize_plan_graph_need(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, authorization=auth, prepared_request=raw + b' ')
+    turn = service._authorize_plan_graph_need(turn.world_id, turn.conversation_id, turn.turn_id,
+        expected_revision=turn.revision, expected_attempt=turn.attempt, authorization=auth, prepared_request=raw)
     lifecycle = outcomes(auth, 1)
-    prefix = execution(context.context_receipt_sha256, policy, [auth, lifecycle[0]])
-    # Fixture-only setup of the authorization and lifecycle. This does not
-    # stand in for the real SDK callback or the eventual authorization producer.
-    with psycopg.connect(application_state_dsn) as conn:
-        updated = repo.update_graph_execution(conn, world_id=turn.world_id, turn_id=turn.turn_id,
-            expected_revision=turn.revision, execution=prefix)
-        assert updated is not None
-    turn = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    with pytest.raises(ApplicationStateValidationError, match='exact admitted prepared authorization'):
+        service.record_provider_outcome(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, outcome=lifecycle[0],
+            opening_authorization=auth.model_copy(update={'event_id': uuid4()}))
+    turn, fresh = service.record_provider_outcome(turn.world_id, turn.conversation_id, turn.turn_id,
+        expected_revision=turn.revision, expected_attempt=turn.attempt, outcome=lifecycle[0], opening_authorization=auth)
+    assert fresh
     typed = result(answers={'graph_need': ChoiceDecisionAnswer(selected='no_graph')})
     typed = typed.model_copy(update={'observation': typed.observation.model_copy(update={
         'resolved_model': auth.model, 'response_model': auth.model})})
@@ -932,13 +939,9 @@ def test_sdk_result_owner_fences_and_reopens_actual_app_turn(source_adapter, mon
         service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
             expected_revision=turn.revision, expected_attempt=turn.attempt, event_id=uuid4(), sdk_result=typed)
     assert service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id).revision == turn.revision
-    # Fixture-only response acknowledgement for the succeeding positive case.
-    prefix = execution(context.context_receipt_sha256, policy, [auth, *lifecycle])
-    with psycopg.connect(application_state_dsn) as conn:
-        updated = repo.update_graph_execution(conn, world_id=turn.world_id, turn_id=turn.turn_id,
-            expected_revision=turn.revision, execution=prefix)
-        assert updated is not None
-    turn = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    turn, fresh = service.record_provider_outcome(turn.world_id, turn.conversation_id, turn.turn_id,
+        expected_revision=turn.revision, expected_attempt=turn.attempt, outcome=lifecycle[1])
+    assert fresh
     with pytest.raises(ApplicationStateConflictError, match='stale claim'):
         service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
             expected_revision=turn.revision - 1, expected_attempt=turn.attempt, event_id=uuid4(), sdk_result=typed)
@@ -966,3 +969,24 @@ def test_graph_need_sdk_entry_requires_its_exact_authorization():
         validate_opening_sdk_entry(prefix, lifecycle[0], auth.model_copy(update={'event_id': uuid4()}))
     with pytest.raises(ValueError, match='exact admitted prepared authorization'):
         validate_opening_sdk_entry(prefix, lifecycle[0], None)
+
+
+def test_prepared_graph_authorization_binds_exact_wire_and_accounting():
+    from application_state.agent_conversation.native_plan_graph_producer import validate_prepared_authorization
+    from application_state.agent_conversation.native_plan_graph_need import canonical_wire
+    from application_state.agent_conversation.native_writer import json_container_count
+    from application_state.agent_conversation.plan_authoring import strict_json
+    from tests.test_surface_native_execution import execution
+    context, record, auth, lifecycle, _ = actual_need_execution()
+    parent = NativePlanGraphNeedInputV1.model_validate_json(auth.parent_json)
+    raw = canonical_wire(parent, expected_model=auth.model)
+    auth = auth.model_copy(update={'input_tokens': len(raw) + 64 * (1 + json_container_count(strict_json(raw.decode())))})
+    empty = execution(context.context_receipt_sha256, record.policy)
+    assert validate_prepared_authorization(context, empty, auth, raw).events == [auth]
+    with pytest.raises(ValueError, match='wire differs'):
+        validate_prepared_authorization(context, empty, auth, raw + b' ')
+    with pytest.raises(ValueError, match='wire accounting'):
+        validate_prepared_authorization(context, empty, auth.model_copy(update={'input_tokens': 1}), raw)
+    active = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle])
+    with pytest.raises(ValueError, match='first provider attempt'):
+        validate_prepared_authorization(context, active, auth, raw)

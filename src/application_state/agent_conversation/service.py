@@ -1785,6 +1785,34 @@ class AgentConversationService:
             return validate_pending_execution_binding(context, execution)
         return validate_context_binding(context, execution)
 
+    def _authorize_plan_graph_need(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization, prepared_request):
+        """Admit one exact prepared Graph-need request under the live claim."""
+        from .native_plan_graph_producer import validate_prepared_authorization
+        world_id = _world_id(world_id)
+        with _execution_append_transaction(lambda _name: nullcontext(),
+                validate_transaction=self._validate_transaction) as conn:
+            if self._authorize_transaction is not None:
+                self._authorize_transaction(conn, read_only=False)
+            turn = _ordinary_mutation_turn(self._lock_execution_append_turn(conn, world_id, turn_id), conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError('turn not found in verified World conversation')
+            if turn.status != 'running' or turn.revision != expected_revision or turn.attempt != expected_attempt:
+                raise ApplicationStateConflictError('Graph-need authorization is fenced by a stale claim')
+            now = repo.database_clock(conn)
+            if turn.claim_expires_at is None or turn.claim_expires_at <= now:
+                raise ApplicationStateConflictError('Graph-need claim has expired')
+            try:
+                prospective = validate_prepared_authorization(turn.graph_context_receipt,
+                    turn.graph_context_execution, authorization, prepared_request)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=prospective)
+            if updated is None:
+                raise ApplicationStateConflictError('Graph-need claim expired during authorization')
+        return updated
+
     def _record_plan_graph_need_result(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, sdk_result):
         """Persist the callback's typed result under the existing live claim.
