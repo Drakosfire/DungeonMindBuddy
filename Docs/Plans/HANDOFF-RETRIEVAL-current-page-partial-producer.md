@@ -15,8 +15,11 @@ failure, provider failure or unknown result may become a partial success.
 Scope: enable admission of the reader's exact current-page partial terminal;
 allow it past current-page source preparation without invoking the native
 source owner; focused tests and this brief. Expected files:
-`writer_evidence_selection.py`, `build_pending_source.py`, and
-`test_build_current_page_direct.py`. Open serving PR #4884 was checked at
+`writer_evidence_selection.py`, `build_pending_source.py`,
+`plan_jev_writer.py`, and `test_build_current_page_direct.py`. The ordinary
+partial replay returned a cited supported fact but only a generic limitation;
+the writer guidance therefore must identify an explicitly open requested detail
+from the selected page without claiming absence in other sources. Open serving PR #4884 was checked at
 `4eea4fe1c7ff`; these files do not overlap its changed-file list.
 
 Verify fresh and persisted terminals, exact source and incomplete/foreign

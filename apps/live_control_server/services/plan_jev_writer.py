@@ -676,6 +676,14 @@ class PlanJevWriter:
             self.instructions += SUPPLIED_SOURCE_RESPONSE
         if self.shared and self.typed_source_answer:
             self.instructions += SOURCE_BACKED_DISCUSSION_RESPONSE
+            from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
+            if (type(turn.graph_context_receipt) is BuildPendingContextReceiptV1
+                    and native_work_terminal(turn) == {'status': 'ready', 'reason': 'pending_current_page_partial'}):
+                self.instructions += (
+                    '\nWhen the selected current page explicitly says a requested detail remains open, '
+                    'say which detail is open in a cited claim from that page. When it is simply absent, '
+                    'describe that gap only as a limitation of this page, not of the World or other sources. '
+                    'Still answer the supported parts and preserve the page\'s uncertainty.')
         if self.shared and self.provider_work.get('build_work', {}).get('lore_limitation_policy') == 'validated_lore_review_generic_gaps_v1' and not self.generic_reply_limits:
             self.instructions += ('\nOptional requested_detail_gaps select phrases from the CURRENT user request only, '
                 'not an earlier dialogue turn. If no precise current phrase fits, return no specific gaps '
