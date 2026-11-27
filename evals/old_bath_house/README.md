@@ -97,3 +97,7 @@ continuation. After confirmation, the browser opens the original Build page
 in a fresh tab, inserts the link once, reopens the committed page, then loads
 and independently reopens the exact mechanics revision in Combat. The result
 records the locator and encounter. This track ends before portrait generation.
+The packaged launcher uses the image and runtime pins of the Old Bath House
+fixture. A result on that image is a comparator for a separately pinned
+Right Action build. Base mechanics mutation evidence comes from the mechanics
+owner journal.
