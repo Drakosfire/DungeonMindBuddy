@@ -262,7 +262,12 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     # Trace events are not paired or proven unique, even within one stage.
     # Any such event proves at least one search activity, never multiple calls.
     # The owner probe records individual calls and may witness the same search.
-    search_lower_bound = max(native_discovery, int(any(search_stages)))
+    from .source_window import known_scoped_pdf_discovery
+    pdf_discovery = (fixture_bound is True and observed["completed_turn"] is True
+        and turn_window and native_probe["status"] == "observed"
+        and terminal is not None and terminal["status"] == "observed" and terminal["error_type"] is None
+        and known_scoped_pdf_discovery(source_window))
+    search_lower_bound = max(native_discovery, int(any(search_stages)), int(pdf_discovery))
     observed["catalog_discoveries"] = (related_discovery + search_lower_bound
         if related_turn or native_turn or search_lower_bound else None)
     observed["catalog_journal_complete"] = None

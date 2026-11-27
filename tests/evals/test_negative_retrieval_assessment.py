@@ -2892,8 +2892,12 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
         def __exit__(self, *args): return False
         def execute(self, *args, **kwargs): raise RuntimeError('synthetic sentinel')
     view = _PostgresNativeTextSourceView(NoDatabase(), 'synthetic', 1)
-    pdf_alias = PostgresNativeSourceEvidenceRepository(NoDatabase()).get_native_pdf_source
+    pdf_repo = PostgresNativeSourceEvidenceRepository(NoDatabase())
+    pdf_alias = pdf_repo.get_native_pdf_source
+    pdf_list_alias = pdf_repo.list_public_native_pdf_revisions
     def acquire():
+        with pytest.raises(RuntimeError, match='synthetic sentinel'):
+            pdf_list_alias('synthetic')
         with pytest.raises(RuntimeError, match='synthetic sentinel'):
             pdf_alias('synthetic', 'synthetic-revision')
         with pytest.raises(RuntimeError, match='synthetic sentinel'):
@@ -2921,7 +2925,9 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     row = json.loads((tmp_path/'case1'/'source-window-probe.json').read_text())
     assert row['status'] == 'observed' and row['scoped']['text'] == 1
     assert row['pending_at_close'] == 0 and row['coverage'] == 'partial'
-    assert row['schema'] == 'dmb_negative_retrieval_source_window_v6' and row['owner_provenance'] == provenance
+    assert row['schema'] == 'dmb_negative_retrieval_source_window_v7' and row['owner_provenance'] == provenance
+    assert row['pdf_discovery']['scoped'] == 1
+    assert row['pdf_discovery']['owner_provenance'] == source_window.KNOWN_PDF_DISCOVERY_OWNER
     assert row['pdf_source']['scoped'] == 1
     assert row['pdf_source']['owner_provenance'] == source_window.KNOWN_PDF_OWNER
     assert row['scoped']['text_batch']==2 and row['batch_read']['scoped']==1
@@ -3124,6 +3130,33 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     pdf_malformed=copy.deepcopy(pdf);pdf_malformed['pdf_source']['payload']='private'
     with pytest.raises(ValueError,match='PDF source window'):
         assess_row(pdf_malformed)
+    from evals.negative_retrieval.source_window import KNOWN_PDF_DISCOVERY_OWNER
+    discovery=copy.deepcopy(pdf);discovery['schema']='dmb_negative_retrieval_source_window_v7'
+    discovery['pdf_source']['scoped']=0
+    discovery['pdf_discovery']={'scoped':1,'unscoped':0,'scoped_starts':1,'unscoped_starts':0,
+                                'owner_provenance':copy.deepcopy(KNOWN_PDF_DISCOVERY_OWNER)}
+    got=assess_row(discovery)
+    assert got['checks']['catalog_budget'] is False and got['status']=='unproven'
+    assert assess_row(discovery,positive)['checks']['required_evidence'] is None
+    # Native discovery can overlap the PDF listing; the lower bounds are not added.
+    artifacts['native-graph-probe']['records']=[{'owner':'native_corpus_discovery','state':'returned'}]
+    (tmp_path/'native-graph-probe.json').write_text(json.dumps(artifacts['native-graph-probe']))
+    assert assess_row(discovery,{**CASE,'max_catalog_discoveries':1})['checks']['catalog_budget'] is None
+    artifacts['native-graph-probe']['records']=[]
+    (tmp_path/'native-graph-probe.json').write_text(json.dumps(artifacts['native-graph-probe']))
+    unknown=copy.deepcopy(discovery);unknown['pdf_discovery']['owner_provenance']['code_sha256']='0'*64
+    assert assess_row(unknown)['checks']['catalog_budget'] is None
+    inactive=copy.deepcopy(discovery);inactive['pdf_discovery']['scoped']=0
+    assert assess_row(inactive)['checks']['catalog_budget'] is None
+    foreign=copy.deepcopy(discovery);foreign['pdf_discovery']['unscoped_starts']=1
+    with pytest.raises(ValueError,match='unresolved work'): assess_row(foreign)
+    unstarted=copy.deepcopy(discovery);unstarted['status']='not_started'
+    with pytest.raises(ValueError,match='Unstarted source window'): assess_row(unstarted)
+    malformed=copy.deepcopy(discovery);malformed['pdf_discovery']['scoped']=2
+    with pytest.raises(ValueError,match='PDF discovery window'): assess_row(malformed)
+    # v7 continues to recognize body attempts independently of discovery.
+    body=copy.deepcopy(discovery);body['pdf_discovery']['scoped']=0;body['pdf_source']['scoped']=1
+    assert assess_row(body)['checks']['unexpected_retrieval'] is False
     empty=copy.deepcopy(app_batch);empty['app_batch_read']['scoped']=0
     assert assess_row(empty)['checks']['unexpected_retrieval'] is None
     changed=copy.deepcopy(app_batch);changed['app_batch_read']['code_sha256']='0'*64
@@ -3641,3 +3674,65 @@ def test_pdf_source_owner_refuses_foreign_code_provenance(monkeypatch):
     monkeypatch.setattr(vnext_sources.PostgresNativeSourceEvidenceRepository, 'get_native_pdf_source', lambda *_: None)
     changed, proof = _pdf_source_owner()
     assert len(changed) == 1 and proof is None
+
+
+def test_pdf_discovery_window_tracks_post_validation_queries_and_prebound_alias(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from dungeonmind.infrastructure.postgres.vnext_sources import PostgresNativeSourceEvidenceRepository
+    from evals.negative_retrieval import source_window as sw
+    class Database:
+        fail_enter = False
+        fail_execute = False
+        def transaction(self): return self
+        def __enter__(self):
+            if self.fail_enter: raise RuntimeError('transaction failed')
+            return self
+        def __exit__(self, *args): return False
+        def execute(self, *args):
+            if self.fail_execute: raise RuntimeError('query failed')
+            return self
+        def fetchall(self): return []
+    db = Database()
+    alias = PostgresNativeSourceEvidenceRepository(db).list_public_native_pdf_revisions
+    owners, provenance = sw._pdf_discovery_owner()
+    assert provenance == sw.KNOWN_PDF_DISCOVERY_OWNER and len(owners) == 1
+    original_owners, _, original_proof = sw._default_owners()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        monkeypatch.setattr(sw, '_default_owners', lambda: (original_owners, pool, original_proof))
+        with sw.observe_source_window() as state:
+            for limit in (0, 101):
+                with pytest.raises(ValueError): alias('private value', limit=limit)
+            db.fail_enter = True
+            with pytest.raises(RuntimeError, match='transaction failed'): alias('private value')
+            db.fail_enter = False
+            db.fail_execute = True
+            with pytest.raises(RuntimeError, match='query failed'): alias('private value')
+            db.fail_execute = False
+            assert pool.submit(alias, 'private value').result() == []
+    assert state['status'] == 'observed'
+    assert state['pdf_discovery']['scoped_starts'] == 5
+    assert state['pdf_discovery']['scoped'] == 2
+    assert 'private value' not in str(state)
+
+
+def test_pdf_discovery_unscoped_attempt_makes_window_uncertain(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Thread
+    from dungeonmind.infrastructure.postgres.vnext_sources import PostgresNativeSourceEvidenceRepository
+    from evals.negative_retrieval import source_window as sw
+    class Database:
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args): return self
+        def fetchall(self): return []
+    alias = PostgresNativeSourceEvidenceRepository(Database()).list_public_native_pdf_revisions
+    owners, _, proof = sw._default_owners()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        monkeypatch.setattr(sw, '_default_owners', lambda: (owners, pool, proof))
+        with sw.observe_source_window() as state:
+            thread = Thread(target=lambda: alias('private value'))
+            thread.start(); thread.join()
+    assert state['status'] == 'uncertain'
+    assert state['pdf_discovery']['unscoped_starts'] == 1
+    assert state['pdf_discovery']['unscoped'] == 1

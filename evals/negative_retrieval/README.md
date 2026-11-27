@@ -562,3 +562,12 @@ PDF bytes returned, grant required-source credit, or count distinct reads. The
 callback and source-window observations may overlap and are not additive.
 Unknown or changed owners, old artifacts, unscoped/late work, other processes
 and zero observations remain unproven. No source content is recorded.
+
+A v7 source-window artifact additionally observes a post-validation metadata
+query attempt in the pinned Core PDF revision-listing method, including a method
+bound before instrumentation. This is discovery, not a PDF body load, returned
+metadata, or source-specific support. It contributes at most one conservative
+lower-bound discovery alongside the other native discovery and trace observations;
+those observations may overlap and are not added together. Unknown code,
+unscoped activity, incomplete turns, and older artifacts do not establish absence.
+The source window remains a partial journal.
