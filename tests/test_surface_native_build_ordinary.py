@@ -4381,3 +4381,19 @@ def test_selected_source_from_earlier_revision_keeps_existing_graph_route(lane, 
         requested_work='discuss',source_need='source_lookup',
         message='Describe the selected source and search the World for further context.')
     assert case.turn.graph_context_receipt.native_query.schema_ == 'dmb_native_graph_query_v4'
+
+
+def test_selected_source_changed_content_fails_before_writer(lane, tmp_path, monkeypatch):
+    from copy import deepcopy
+    case = _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
+        authored_source='source_only',selected_source_graph=True,requested_work='discuss',source_need='anchored',
+        message='Use only my selected source. Cite it without searching elsewhere.')
+    request=deepcopy(case.request)
+    request['turn_id']=str(uuid4())
+    request['client_thread_id']=str(uuid4())
+    request['build_authored_references']['references'][0]['content_sha256']='f'*64
+    before=len(case.writer.calls)
+    response=case.client.post('/api/live/agent/turn',json=request)
+    assert response.status_code==409,response.text
+    assert response.json()['detail']['code']=='authored_source_unavailable'
+    assert len(case.writer.calls)==before
