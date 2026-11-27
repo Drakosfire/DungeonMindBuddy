@@ -10,7 +10,7 @@ assessment local.
 | Action | Strongest verified boundary | Remaining proof |
 | --- | --- | --- |
 | Explain an unavailable Build action | The deployed mixed-source path answered a synthetic separate-page request with a matching citation and honest limitation. A fresh signed-in current-page request returned the supported possibilities with a saved-page citation and an honest scheduling limitation; its trace ended at 13 seconds. [Deployed change](https://github.com/Drakosfire/DungeonMindBuddy/pull/4888) | Prove that the direct current-page path avoids catalog discovery, retain separate-source and creative controls, and qualify complete acquisition coverage. The direct-path candidate fails closed for a missing or insufficient page; it still needs a graceful source limitation. [Direct-page handoff](../Docs/Plans/HANDOFF-RETRIEVAL-current-page-direct-producer.md) |
-| Discuss, clarify, or brainstorm in chat | The opening Meat Mind dogfood produced a grounded reply with excessive retrieval. PA01 retains a Sheep discussion where Buddy offered an unsolicited insertion after prior page writing. A default-off guest Plan discussion slice exercises a real guest session, copied synthetic World, selected Graph object and source, sourced answer and citation with synthetic provider transports, including reset and cross-session denial. Guest Build and Play discussions also complete through their normal guest HTTP paths with synthetic providers and reject reset-during-writer responses. [Plan evidence](../Docs/Plans/HANDOFF-ONBOARD-guest-buddy.md) · [Build evidence](../Docs/Plans/HANDOFF-ONBOARD-guest-build-buddy.md) · [Play evidence](../Docs/Plans/HANDOFF-ONBOARD-guest-play-buddy.md) | Stay in conversation, ask a focused question when needed, reuse adequate admitted context, and offer zero page proposals. Verify guest discussion and Graph selection through the normal deployed UI with real Sizzek sources and provider; effects and streaming are not established by these synthetic tests. |
+| Discuss, clarify, or brainstorm in chat | The controller-selected Plan source mode has [mocked-provider HTTP coverage](../tests/test_agent_native_corpus_sources.py) for a no-scan creative turn and a cited source-required turn; live model and complete acquisition proof remain open. The opening Meat Mind dogfood produced a grounded reply with excessive retrieval. PA01 retains a Sheep discussion where Buddy offered an unsolicited insertion after prior page writing. A default-off guest Plan discussion slice exercises a real guest session, copied synthetic World, selected Graph object and source, sourced answer and citation with synthetic provider transports, including reset and cross-session denial. Guest Build and Play discussions also complete through their normal guest HTTP paths with synthetic providers and reject reset-during-writer responses. [Plan evidence](../Docs/Plans/HANDOFF-ONBOARD-guest-buddy.md) · [Build evidence](../Docs/Plans/HANDOFF-ONBOARD-guest-build-buddy.md) · [Play evidence](../Docs/Plans/HANDOFF-ONBOARD-guest-play-buddy.md) | Stay in conversation, ask a focused question when needed, reuse adequate admitted context, and offer zero page proposals. Verify guest discussion and Graph selection through the normal deployed UI with real Sizzek sources and provider; effects and streaming are not established by these synthetic tests. |
 | Resolve an ambiguous Build paragraph placement | The [pending App HTTP regression](../tests/application_state/test_pending_build_storage.py) exercises the saved clarification, original request with its answer, and exact paragraph review without acquisition. The [client protocol](../apps/live-control-ui/src/shared/surfaceNativeProtocol.test.ts) checks the pending proposal acknowledgement. The [editor regression](../apps/live-control-ui/src/buildSurface/buildComposeBridge.test.ts) covers proposal reopening after plain Markdown reload. | Exercise the pending question, answer, and proposal reopen in the deployed app. The editor and saved page must remain unchanged until acceptance. |
 | Ask and resume clarifying questions in conversation | Clarification is an existing intent and inline conversation response. Retained [conversation-first cases](conversation_first/cases.py) cover asking first, staying off the page, and proceeding after the user answers. The [duplicate-question delivery slice](../Docs/Plans/HANDOFF-CLARIFICATION-duplicate-question-delivery.md) verifies native completion replay; a synthetic local app retry rendered the question and accepted its answer, but the subsequent suggestion failed to complete. | Qualify reopen and continuation with ordinary-turn evidence. An unanswered preference calls for a question, with no retrieval or page proposal. Keep the request and the user's answer bound to the same workflow. |
 
@@ -31,6 +31,26 @@ PA03 is a new contrast. The historical capture is private. Resolve the exact
 turn and history locally, record the fixture digest, and mark results
 unqualified if any original input is missing. A paraphrase or conversation
 without the preceding writing request cannot qualify the historical case.
+
+## Native Plan source-intent controls
+
+New request-owned Plan turns can offer source discovery to the controller
+instead of performing an automatic native corpus scan before its decision.
+The reader-first synthetic HTTP checks cover an original creative reply with
+no native source-search or source-read grant, and an explicitly selected
+source search with an exact reopened citation. These checks use mocked
+providers and do not establish live model behavior, zero Graph or App reads,
+complete acquisition coverage, or latency. Legacy and interrupted turns keep
+their committed admission mode.
+
+Use ordinary isolated Plan turns with (1) a creative/context-reuse request
+that supplies enough context, (2) a request requiring a saved source, (3) a
+comparison needing multiple sources, and (4) a request whose evidence is
+missing. Record actual discovery, native and App materialization, response
+quality, source-specific citation reopening, and latency separately. A partial
+journal is unknown; a failed source or no lexical match is not proof of
+absence. Do not use the private rubric as controller input. Verify that saved
+Plan state is unchanged for discussion-only cases.
 
 ## Assessment
 

@@ -46,7 +46,9 @@ def source_adapter(application_state_dsn, monkeypatch, lane, request):
         budget=request_budget(), context_read_enabled=True,
         native_corpus_context=context, native_source_authority=authority)
     adapter._test_creative = bool(unique and supplied.get('no_source'))
-    adapter._test_legacy = bool(unique and supplied.get('legacy'))
+    adapter._test_multi = bool(unique and supplied.get('multi_source'))
+    adapter._test_long = bool(unique and supplied.get('long_context'))
+    adapter._test_missing = bool(unique and supplied.get('missing_source'))
     yield adapter
     if adapter.fence is not None:
         adapter.fence.renewer.stop_and_join()
@@ -565,8 +567,10 @@ HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private contex
 @pytest.mark.parametrize('source_adapter', [[('first', HTTP_BODY)],
     {'unique_world': True, 'sources': [('first', HTTP_BODY)]},
     {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]},
-    {'unique_world': True, 'legacy': True, 'sources': [('first', HTTP_BODY)]}],
-    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'unique-legacy'])
+    {'unique_world': True, 'multi_source': True, 'sources': [('first', HTTP_BODY), ('second', HTTP_BODY.replace('Éphanna heard the guard.', 'Éphanna heard the bell.'))]},
+    {'unique_world': True, 'no_source': True, 'long_context': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'missing_source': True, 'sources': [('first', HTTP_BODY)]}],
+    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context', 'controller-missing-source'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
 def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
@@ -579,16 +583,17 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     from apps.live_control_server.integrations.dungeonmind import native_registry_source
     from tests.test_plan_jev_writer import WriterWire
     a = source_adapter
-    controller_source = a.world_id != 'world:one' and not a._test_legacy
     creative = a._test_creative
-    if controller_source:
-        from apps.live_control_server.services import plan_source_turn
-        original_parts = plan_source_turn._native_plan_parts
-        def reader_mode(*args, **kwargs):
-            work, action = original_parts(*args, **kwargs)
-            return work, action.model_copy(update={'source_discovery_mode': 'controller_selection_v1'})
-        monkeypatch.setattr(plan_source_turn, '_native_plan_parts', reader_mode)
-    request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor.' if creative else 'Whom did Éphanna hear?'),
+    multi = a._test_multi
+    long_context = a._test_long
+    missing = a._test_missing
+    if missing and direct:
+        pytest.skip('Missing-source control covers lexical search')
+    if long_context and direct:
+        pytest.skip('Long-context control covers creative lexical-free route once')
+    if multi and direct:
+        pytest.skip('Multi-source control covers lexical selection; direct selection has separate single-source controls')
+    request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor. The keeper accepts a blue bead at dawn.' if creative else 'What was the secret password?' if missing else 'Whom did Éphanna hear?'),
         'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
@@ -609,7 +614,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         if not graph_available:
             return None, NativePlanQueryUnavailableV1(managed_world_id=a.world_id,
                 reason='native_graph_binding_unavailable')
-        return prepare_query(a.world_id, request.message, native_principal,
+        return prepare_query(a.world_id, _args[0].message, native_principal,
             source_context=native_source_context, repository=lane.repo, resolve_binding=lambda _:lane.bound)
     monkeypatch.setattr(agent, "_plan_context_resolver", published_graph)
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
@@ -620,7 +625,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert verification_cache is None or verification_cache is _turn_revision_proof
         return lane.repo
     monkeypatch.setattr(native_registry_source, 'repository', read_repository)
-    choices = SourceChoices(direct=direct, writer_passages=True, controller_source=controller_source, no_source=creative)
+    choices = SourceChoices(direct=direct, writer_passages=True, controller_source=True, no_source=creative)
     if creative:
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         monkeypatch.setattr(native_corpus_source, 'capture_native_sources',
@@ -630,9 +635,17 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             assert b'source_discovery_mode' not in request.content
             assert b'controller_selection_v1' not in request.content
             if creative:
+                final_context_question = long_context and b'What token was accepted at dawn?' in request.content
+                if final_context_question:
+                    assert b'blue bead at dawn' in request.content, 'Earliest conversation evidence missing'
                 self.text = json.dumps({'schema': 'dmb_surface_evidence_answer_v8', 'limitations': [],
                     'answer_segments': [
-                        {'kind': 'proposal', 'label': 'invented_idea', 'text': 'Lantern Quay.'}]})
+                        {'kind': 'proposal', 'label': 'invented_idea',
+                         'text': 'A blue bead.' if final_context_question else 'Lantern Quay.'}]})
+                return await super().handle_async_request(request)
+            if missing:
+                from application_state.agent_conversation.native_plan_assertions import POLICY
+                self.text = json.dumps({'schema': POLICY, 'limitations': ['missing_requested_details', 'partial_retrieval'], 'answer_segments': []})
                 return await super().handle_async_request(request)
             import re
             from application_state.agent_conversation.native_evidence_view import PLAN_EVIDENCE_HEADING
@@ -642,9 +655,11 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             prose = evidence[0]['content']
             assert evidence[0]['role'] == 'user'
             handles = re.findall(r'^\[(body\d+)\] [^\n]+$', prose, re.MULTILINE)
-            assert len(handles) == 1, prose
-            handle, = handles
-            assert prose.count(HTTP_PASSAGE) == 1 and HTTP_BODY not in prose
+            assert len(handles) == (2 if multi else 1), prose
+            handle = handles[0]
+            assert 'Éphanna heard the guard.' in prose and HTTP_BODY not in prose
+            if multi:
+                assert 'Éphanna heard the bell.' in prose, prose
             assert 'Unselected unrelated private context.' not in prose
             assert 'native_body_evidence' not in prose and 'source_artifact_id' not in prose
             authority = self.adapter.turn.graph_context_receipt.source_authority
@@ -652,7 +667,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             self.excerpt_handle = handle
             from application_state.agent_conversation.native_plan_assertions import POLICY
             self.text = json.dumps({'schema': POLICY, 'limitations': [],
-                'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.', 'excerpt_handles': [handle]}]})
+                'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.', 'excerpt_handles': handles}]})
             return await super().handle_async_request(request)
     wire = SourceWriter(None, '')
     class Harness(PlanJevHarness):
@@ -692,6 +707,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1,
         )
         turn = wire.adapter.turn
+        assert turn.graph_context_execution.policy.action.source_discovery_mode == 'controller_selection_v1'
         assert not any(isinstance(e, (NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
                                       NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1))
                        for e in turn.graph_context_execution.events)
@@ -699,23 +715,66 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
         assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
         assert len(wire.calls) == len(constructions) == 1
+        if long_context:
+            for index in range(10):
+                choices.calls.clear()
+                followup = request.model_copy(update={'turn_id': str(uuid4()),
+                    'message': ('What token was accepted at dawn?' if index == 9 else f'Consider harbor detail {index}.')})
+                response = client.post('/api/live/agent/turn', json=followup.model_dump(mode='json', by_alias=True))
+                assert response.status_code == 200, response.text + getattr(wire, 'failure', '')
+                turn = wire.adapter.turn
+                assert not any(isinstance(event, (NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+                    NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1)) for event in turn.graph_context_execution.events)
+            assert 'blue bead' in turn.assistant_text
         return
     selection_count = len(choices.calls)
-    if not controller_source:
-        assert selection_count == (4 if direct else 2)
+    if missing:
+        from application_state.agent_conversation.native_corpus import (
+            NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1, NativeBodyReadObservedV1,
+        )
+        turn = wire.adapter.turn
+        events = turn.graph_context_execution.events
+        assert not any(type(event) is NativePlanRequestSearchAuthorizedV1 for event in events)
+        assert sum(type(event) is NativeBodySearchAuthorizedV1 for event in events) == 1
+        assert not any(type(event) is NativeBodyReadObservedV1 for event in events)
+        completed = wire.adapter.service.inspect_turn(world_id=a.world_id, turn_id=turn.turn_id)
+        assert not completed.completion.native_body_citations
+        assert any(getattr(item, 'code', None) in ('missing_requested_details', 'partial_retrieval') for item in completed.completion.answer_segments)
+        return
+    if multi:
+        from application_state.agent_conversation.native_corpus import (
+            NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+            NativeBodyReadObservedV1,
+        )
+        turn = wire.adapter.turn
+        events = turn.graph_context_execution.events
+        assert turn.graph_context_execution.policy.action.source_discovery_mode == 'controller_selection_v1'
+        assert not any(type(event) is NativePlanRequestSearchAuthorizedV1 for event in events)
+        assert sum(type(event) is NativeBodySearchAuthorizedV1 for event in events) == 1
+        reads = [event for event in events if type(event) is NativeBodyReadObservedV1]
+        assert len(reads) == 2
+        completed = wire.adapter.service.inspect_turn(world_id=a.world_id, turn_id=turn.turn_id)
+        citations = completed.completion.native_body_citations
+        assert len(citations) == 2
+        assert {citation.read_event_id for citation in citations} == {read.event_id for read in reads}
+        assert len({citation.source_artifact_id for citation in citations}) == 2
+        for index in range(2):
+            opened = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation/turns/{turn.turn_id}/native-body-excerpts/{index}')
+            assert opened.status_code == 200
+            assert opened.json()['content'] in (HTTP_PASSAGE, HTTP_PASSAGE.replace('guard.', 'bell.'))
+        replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
+        assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == selection_count
+        return
     groups = [group for group in choices.selected_kinds if group]
-    if controller_source and not direct:
+    if not direct:
         assert groups[0] == ('Source lexical navigation; not evidence or semantic completeness',)
         assert groups[-1] == ('Exact source section',)
-    elif direct:
-        assert len(groups) == 3 and len(groups[0]) == 1
-        assert groups[0][0].startswith('Expand to all other admitted native sources')
-        assert groups[1:] == [
+    else:
+        assert groups == [
             ('Explicit admitted full-source read; metadata choice, not evidence',),
             ('Select passage from inspected source',),
         ]
-    else:
-        assert groups == [('Exact source section',)]
     assert 'max_output_tokens' not in json.loads(wire.calls[0].content)
     turn = wire.adapter.turn
     from application_state.agent_conversation.native_corpus import (
@@ -724,12 +783,9 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodySearchObservedV1,
     )
     events = turn.graph_context_execution.events
-    if controller_source:
-        assert not any(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events)
-        assert sum(type(e) is NativeBodySearchAuthorizedV1 for e in events) == (0 if direct else 1)
-    else:
-        assert sum(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events) == 1
-        assert not any(type(e) is NativeBodySearchAuthorizedV1 for e in events)
+    assert turn.graph_context_execution.policy.action.source_discovery_mode == 'controller_selection_v1'
+    assert not any(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events)
+    assert sum(type(e) is NativeBodySearchAuthorizedV1 for e in events) == (0 if direct else 1)
     read_type = NativeDirectSourceObservedV1 if direct else NativeBodyReadObservedV1
     grant_type = NativeDirectSourceAuthorizedV1 if direct else NativeBodyReadAuthorizedV1
     reads = [e for e in events if type(e) is read_type]
@@ -854,3 +910,20 @@ def test_batch_coverage_preserves_exact_native_plan_passage_requirement(monkeypa
     navigator.adapter = SimpleNamespace(fence=SimpleNamespace(turn=turn))
     assert navigator._fulfilled_in_current_selection("native-body:exact") is covered
     assert calls == [family == "plan-v2"]
+
+
+def test_shared_legacy_plan_action_builder_keeps_historical_mode(monkeypatch):
+    from apps.live_control_server.services import build_related_pages, plan_source_turn
+    from tests.test_agent_turn_service import _pinned_plan_request, _pinned_plan_work
+
+    request = _pinned_plan_request().model_copy(update={
+        'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph'),
+    })
+    work = _pinned_plan_work('# Synthetic legacy Plan\n')
+    work = replace(work, content_basis=work.content_basis.model_copy(update={'work_revision_id': str(uuid4())}))
+    intent = owner._submitted_turn_intent(request, world_id='world:one')
+    monkeypatch.setattr(build_related_pages, 'discover', lambda _request: ())
+    _, action = plan_source_turn._native_plan_parts(
+        request, plan_source_turn._plan_basis(work), None, intent)
+    assert action.source_discovery_mode is None
+    assert 'source_discovery_mode' not in action.model_dump(mode='json', by_alias=True)

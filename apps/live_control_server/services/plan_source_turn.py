@@ -165,6 +165,9 @@ def freeze_plan_request(request, work, playable_target, budget, *, authority, na
             or authority.managed_world_id != work.content_basis.world_id):
         raise ValueError('Plan request admission requires its actual native World request and work')
     work_context, action = _native_plan_parts(request, _plan_basis(work), playable_target, submitted_intent)
+    # Only current request-owned admission opts in; the shared legacy freezer
+    # continues to seal its original action without this field.
+    action = action.model_copy(update={'source_discovery_mode': 'controller_selection_v1'})
     roles = t.GraphControllerWriterRolesV1.model_validate(budget['providerRoles'])
     accounting = t.GraphExecutionAccountingV1(kind='conservative_upper_bound', estimator=budget['estimator'])
     # Pure request-manifest sealing, never a placeholder provider envelope.
