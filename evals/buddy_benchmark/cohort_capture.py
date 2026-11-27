@@ -199,8 +199,8 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
         if "composed_page_fixture" in entry:
             from .cohort_fixture import load_composed_page_fixture
 
-            if jobs or fixture is not None or context_only or entry.get("driver") != "live_build":
-                raise ValueError("Composed Page fixture requires the first serial live Build member")
+            if jobs or fixture is not None or context_only or entry.get("driver") not in {"live_build", "build_fixture"}:
+                raise ValueError("Composed Page fixture requires the first serial mounted Build member")
             work = (member.get("request_template") or {}).get("primary_work") or {}
             composed = load_composed_page_fixture(
                 entry["composed_page_fixture"], path.parent, world=member["world"], work=work,

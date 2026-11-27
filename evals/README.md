@@ -370,12 +370,21 @@ steps. The provider-free control ends the held attempt deliberately. Its
 `work_plan_disconnect` result measures recovery and carries no ordinary answer
 or fulfillment grade.
 
-The first `live_build` member can pin a `composed_page_fixture` with the
+The first `live_build` or `build_fixture` member can pin a `composed_page_fixture` with the
 World, title, document class, Markdown, typed presentation and existing staged asset identity.
 Use a fresh Page ID, revision 2 and the exact Markdown digest in the member's
 ordinary Build work pin. The harness checks the saved asset bytes and storage state and prepares
 the Page through its owner in the disposable clone. The Page under test is
 mutable, so pin unrelated pages in `protected_work_objects`.
+
+Set `browser_capture.image_move_editor_sha256` to bind the actual mounted
+image-move capture to the pinned saved editor digest. A `build_fixture` member
+observes Send without forwarding it. A `live_build` member observes Apply, one
+Save and committed reopen. Set `image_move_stale_destination` to occupy only the
+reviewed empty destination after preview and verify that Apply disappears, the
+review remains editable and the saved Page does not change. The report retains
+ordinary delivery separately from the owner observation. Keep a missing review
+as an observed product outcome.
 
 Use `protected_work_objects` for stable fixtures that later members depend
 on. Give intentional page changes their own isolated targets and verify them
