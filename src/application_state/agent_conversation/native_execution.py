@@ -671,6 +671,21 @@ def _effective_selected_source_query(context, execution, query):
     return query
 
 
+def selected_source_terminal(context, execution):
+    """A selected-source terminal is proven by the exact retained execution."""
+    if type(context) is not SurfaceNativeContextReceiptV1 or type(context.native_query) is not NativeBuildSelectedSourceQueryPendingV1:
+        return None
+    validate_context_binding(context, execution)
+    if effective_native_query(context, execution) != context.native_query:
+        return None  # The normal Graph retrieval owner handles a settled query.
+    from .native_corpus import NativeAuthoredSourceReadV1
+    refs = execution.policy.action.intent.authored_references.references
+    reads = [event for event in execution.events if type(event) is NativeAuthoredSourceReadV1]
+    if sorted(event.reference_index for event in reads) != list(range(len(refs))):
+        return None
+    return {'status': 'ready', 'reason': 'native_selected_sources_without_graph'}
+
+
 # Current owner event codecs are reused. Classic Graph operations/scopes and
 # source-anchor receipts deliberately have no branch in this native event union.
 SurfaceNativeEvent = Annotated[

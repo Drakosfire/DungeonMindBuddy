@@ -39,8 +39,10 @@ bound to host-owned validation, not provider-visible identifiers.
 
 Reader owners as needed: `src/application_state/agent_conversation/native_context.py`,
 `native_execution.py`, `native_corpus.py`, `native_reads.py`, `native_writer.py`,
-`native_replay.py`, `authored_graph_references.py`, `service.py` and
-`apps/live_control_server/services/agent_turn_service.py` (existing-record
+`native_replay.py`, `authored_graph_references.py`, `writer_evidence_selection.py`
+(selected-source terminal reader), `service.py` and
+`apps/live_control_server/services/agent_turn_service.py` and
+`apps/live_control_server/services/build_jev_harness.py` (existing-record
 opening, resume and citation projection readers only), and corresponding strict API
 codec or frontend reader files if a real recorded state reaches them; focused
 boundary tests and this handoff. Do not edit runtime producer routing in this
@@ -71,3 +73,12 @@ The focused UI protocol test and a targeted TypeScript check passed. Tests do
 not yet prove an ordinary HTTP turn, full persisted-Turn recovery, a revoked
 access boundary, or reader rollback in a deployed app. Obtain independent
 review and those missing boundary proofs before claiming compatibility.
+
+Independent review of initial head `bde25e92b0842cfae2571a9ffa892615c00531bf`
+held the slice because selected source reads had no completion terminal and a
+resume would enter Graph retrieval. The follow-up adds an exact selected-source
+terminal, refuses an incomplete pending selection before constructing a Graph
+driver, and exercises the actual Build completion branch with an independently
+constructed source execution and provider-free writer. It does not establish a
+full persisted-Turn interruption/recovery or revoked-access boundary; those are
+still required before reader activation.

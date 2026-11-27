@@ -788,7 +788,7 @@ def test_selected_source_pending_binds_the_exact_source_only_manifest():
 from tests.test_native_corpus_source_access import lane as source_lane
 
 
-def test_selected_source_pending_accepts_only_admitted_exact_body(source_lane):
+def test_selected_source_pending_accepts_only_admitted_exact_body(source_lane, monkeypatch):
     from application_state.agent_conversation import native_corpus as corpus
     from application_state.agent_conversation.authored_graph_references import AuthoredReferencesV2, AuthoredSourceReferenceV1
     from application_state.agent_conversation.build_intentional_response import resolution_for
@@ -840,6 +840,41 @@ def test_selected_source_pending_accepts_only_admitted_exact_body(source_lane):
         reference_index=0,catalog=body_catalog,excerpt=excerpt)
     record = execution(context.context_receipt_sha256,policy,[*prefix,resolution,read])
     validate_context_binding(context,record)
+    from types import SimpleNamespace
+    from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
+    terminal_turn = SimpleNamespace(graph_context_receipt=context,graph_context_execution=record)
+    assert native_work_terminal(terminal_turn) == {'status':'ready','reason':'native_selected_sources_without_graph'}
+    # Exercise the actual Build completion branch with the exact retained
+    # execution; a fresh Graph driver must not be constructed for this terminal.
+    from apps.live_control_server.services import build_jev_harness, plan_jev_driver, plan_jev_rules_runtime, plan_jev_writer, build_jev_writer_selection
+    from apps.live_control_server.services import build_pending_app_coverage, build_pending_app_pages, build_pending_retained, build_pending_source
+    from application_state.agent_conversation import build_intentional_response
+    monkeypatch.setattr(build_intentional_response,'placement_question',lambda *_:None)
+    monkeypatch.setattr(build_pending_retained,'admit_pending_conversation',lambda *_:None)
+    async def no_pending(*_):
+        return None
+    monkeypatch.setattr(build_pending_app_pages,'acquire_pending_app_pages',no_pending)
+    monkeypatch.setattr(build_pending_app_coverage,'assess_pending_app_coverage',no_pending)
+    monkeypatch.setattr(build_pending_source,'prepare_pending_native_source',lambda *_:None)
+    monkeypatch.setattr(plan_jev_rules_runtime,'PlanRulesRuntime',lambda *_:None)
+    monkeypatch.setattr(plan_jev_driver,'PlanJevDriver',lambda *_args,**_kw:pytest.fail('unexpected Graph retrieval'))
+    class EmptySelection:
+        catalog = ()
+        def __init__(self,*_args): pass
+        def settle_empty(self): pass
+    class Writer:
+        call = None
+        output_limit_exceeded = False
+        failure_stage = 'capture'
+        def __init__(self,*_args,**_kw): pass
+        async def run(self,**_kw): return 'completed'
+    monkeypatch.setattr(build_jev_writer_selection,'WriterSelectionDriver',EmptySelection)
+    monkeypatch.setattr(plan_jev_writer,'PlanJevWriter',Writer)
+    adapter = SimpleNamespace(turn=terminal_turn,build_frozen_history=(),fence=None,
+        _broker_receipt=lambda:context,_broker_execution=lambda:record)
+    harness=build_jev_harness.BuildJevHarness()
+    harness.calls=[]
+    assert harness._native_completion(adapter,SimpleNamespace(selection=resolution,operation='answer_from_sources')) == 'completed'
     reopened = type(record).model_validate_json(record.model_dump_json(by_alias=True))
     validate_context_binding(context, reopened)
     from application_state.agent_conversation.native_replay import _replay_query
@@ -862,6 +897,12 @@ def test_selected_source_pending_accepts_only_admitted_exact_body(source_lane):
         corpus.resolve_retained_body_citation(reopened,citation.model_copy(update={'native_source_revision_id':'wrong'}))
 
     without_read = execution(context.context_receipt_sha256,policy,[*prefix,resolution])
+    assert native_work_terminal(SimpleNamespace(graph_context_receipt=context,graph_context_execution=without_read)) is None
+    incomplete = SimpleNamespace(turn=SimpleNamespace(graph_context_receipt=context,graph_context_execution=without_read),
+        build_frozen_history=(),fence=None,_broker_receipt=lambda:context,_broker_execution=lambda:without_read)
+    from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+    with pytest.raises(AgentTurnServiceError,match='selected-source work is incomplete'):
+        harness._native_completion(incomplete,SimpleNamespace(selection=resolution,operation='answer_from_sources'))
     with pytest.raises(ValueError, match='every exact selected source read'):
         model_frame(context,without_read)
     writer = native_writer('build',policy,sequence=len(prefix)+1)

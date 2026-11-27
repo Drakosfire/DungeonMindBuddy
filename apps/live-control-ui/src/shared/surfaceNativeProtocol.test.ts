@@ -426,4 +426,11 @@ it('recognizes the exact selected-source deferred Graph codec without accepting 
   expect(isSurfaceNativeReceipt({...pending,native_query:{...query,selected_references_sha256:'bad'}},buildWork)).toBe(false);
   expect(isSurfaceNativeReceipt({...pending,native_query:{...query,authority:{...query.authority,revision_id:'foreign'}}},buildWork)).toBe(false);
   expect(isSurfaceNativeReceipt({...pending,native_query:{...query,unexpected:true}},buildWork)).toBe(false);
+  const answer=authoredContext().completion;
+  const membership={context_receipt_sha256:r.context_receipt_sha256,
+    producing_provider_attempt_id:answer.producing_provider_attempt_id,
+    statements:answer.native_clause_citations.map(c=>[c.statement_id,c.campaign_id]),
+    assertions:answer.native_assertion_citations.map(c=>[c.assertion_id,c.assertion_sha256])};
+  expect(isSurfaceNativeCompletion(answer,pending as any,membership)).toBe(true);
+  expect(isSurfaceNativeCompletion(answer,pending as any,{...membership,assertions:[['wrong','f'.repeat(64)]]})).toBe(false);
 });

@@ -567,6 +567,14 @@ class BuildJevHarness:
         from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
 
         terminal = native_work_terminal(adapter.turn)
+        from application_state.agent_conversation.native_context import NativeBuildSelectedSourceQueryPendingV1
+        from application_state.agent_conversation.native_execution import effective_native_query
+        receipt = adapter._broker_receipt()
+        if (terminal is None and type(getattr(receipt, 'native_query', None)) is NativeBuildSelectedSourceQueryPendingV1
+                and type(effective_native_query(receipt, adapter._broker_execution())) is NativeBuildSelectedSourceQueryPendingV1):
+            from .agent_turn_service import AgentTurnServiceError
+            raise AgentTurnServiceError('The retained selected-source work is incomplete. Reopen the reference and send again.',
+                code='turn_receipt_unverifiable', status_code=409, provider_dispatched=False)
         retrieval = None
         writer = None
         try:
