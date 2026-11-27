@@ -422,7 +422,7 @@ def test_pending_receipt_is_admitted_and_reopened_from_app_database(source_adapt
 @pytest.mark.parametrize('event_class', [
     'NativePlanGraphNeedAuthorizedV1', 'NativePlanGraphNeedObservedV1', 'NativePlanGraphQueryAuthorizedV1',
     'NativePlanGraphQueryStartedV1', 'NativePlanGraphQueryClosedV1', 'NativePlanGraphQueryFailedV1',
-    'NativePlanGraphQuerySettledV1',
+    'NativePlanGraphQuerySettledV1', 'NativePlanGraphClarificationEventV1',
 ])
 def test_materialized_plan_graph_events_are_refused_without_persistence(source_adapter, monkeypatch, event_class):
     from uuid import uuid4
@@ -744,7 +744,7 @@ def test_no_graph_current_plan_prose_reconstructs_from_actual_sdk_request():
 @pytest.mark.parametrize('event_class', [
     'NativePlanGraphNeedAuthorizedV1', 'NativePlanGraphNeedObservedV1', 'NativePlanGraphQueryAuthorizedV1',
     'NativePlanGraphQueryStartedV1', 'NativePlanGraphQueryClosedV1', 'NativePlanGraphQueryFailedV1',
-    'NativePlanGraphQuerySettledV1',
+    'NativePlanGraphQuerySettledV1', 'NativePlanGraphClarificationEventV1',
 ])
 def test_reader_only_generic_append_refuses_new_graph_events_before_database(event_class):
     from uuid import uuid4
@@ -977,6 +977,17 @@ def test_reader_reopens_fixture_only_host_clarification_from_app(source_adapter,
     projected = project_plan_turn_context(reopened, delivery_replay=True)
     assert AgentSurfaceNativeContextResponseV1.model_validate_json(projected.model_dump_json(by_alias=True)) == projected
     assert projected.completion == completion and projected.delivery_replay
+    # The storage constraint must reject malformed terminal records even when
+    # an internal caller bypasses the Pydantic reader.
+    from psycopg.errors import CheckViolation
+    with psycopg.connect(application_state_dsn) as conn:
+        for path, value in [('{surface_id}', '"build"'),
+                            ('{context_receipt_sha256}', '"' + 'f' * 64 + '"'),
+                            ('{observation_event_id}', '"' + str(uuid4()) + '"'),
+                            ('{answer_context_status}', '"grounded"')]:
+            with pytest.raises(CheckViolation), conn.transaction():
+                conn.execute("UPDATE agent.turn SET completion=jsonb_set(completion,%s,%s::jsonb) WHERE turn_id=%s",
+                    (path, value, turn.turn_id))
     tampered = reopened.model_dump(mode='json', by_alias=True)
     tampered['completion']['observation_event_id'] = str(uuid4())
     with pytest.raises(ValueError):
