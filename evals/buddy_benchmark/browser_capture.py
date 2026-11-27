@@ -754,6 +754,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         durable_id = turns[0]["turn_id"]
                         trace = client.get(route + "/turns/" + durable_id + "/context-trace")
                         artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
+                        if live_build:
+                            readback = build_proposal_readback(browser_request, world, turns[0])
+                            if readback is not None:
+                                artifacts.immutable_save(directory, "build-proposal-readback", readback)
                     if live:
                         wire_path = directory / (wire_name + ".json")
                         if not wire_path.is_file():
@@ -825,6 +829,39 @@ def build_browser_terminal(raw, status, content_type, turn_id):
         if event.get("kind") == "error" and type(event.get("status")) is int:
             return {"detail": event.get("detail")}, event["status"]
     raise BuildStreamWithoutTerminal("Build event stream has no terminal result or error")
+
+
+def build_proposal_readback(request, world, turn):
+    """Read the exact Build proposal before its isolated App is removed."""
+    from application_state.build_proposal.service import BuildProposalService
+    from application_state.build_proposal.types import BuildProposalBasis
+    from application_state.errors import ApplicationStateNotFoundError
+
+    capability = request.get("build_write_capability")
+    if not capability or turn["lifecycle_status"] not in {"completed", "failed", "interrupted"}:
+        return None
+    action_id = UUID(capability["idempotency_key"])
+    identity = {"action_id": str(action_id), "durable_turn_id": turn["turn_id"]}
+    try:
+        record = BuildProposalService().get(world, action_id)
+    except ApplicationStateNotFoundError:
+        return dict(identity, status="absent")
+    except Exception as exc:
+        return dict(identity, status="readback_error", error_type=type(exc).__name__)
+    reservation = record.reservation
+    origin = reservation.origin
+    if (record.action_id != action_id
+            or str(reservation.conversation_id) != capability["conversation_id"]
+            or reservation.expected_pointer_revision != capability["expected_pointer_revision"]
+            or reservation.basis.world_id != world
+            or reservation.basis != BuildProposalBasis.model_validate(capability["basis"])
+            or origin is None
+            or str(origin.client_turn_id) != request["turn_id"]
+            or str(origin.durable_turn_id) != turn["turn_id"]):
+        return dict(identity, status="mismatched")
+    return dict(identity, status="observed", state=record.state, revision=record.revision,
+                inserted_in_draft=record.inserted_in_draft,
+                proposal=record.proposal.model_dump(mode="json") if record.proposal is not None else None)
 
 
 def validate_build_browser_request(request, *, world, work, question, selection_text,
