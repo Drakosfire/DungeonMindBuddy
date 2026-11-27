@@ -237,6 +237,38 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         if scope["type"] != "http":
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
+        if play_choice and (method, path) in {
+            ("PUT", "/api/live/world-play-runs/v2/active"),
+            ("POST", "/api/live/native-graph-explorer/graph"),
+        }:
+            from urllib.parse import parse_qs
+
+            frames = []
+            while True:
+                frame = await receive()
+                if frame["type"] != "http.request":
+                    return
+                frames.append(frame)
+                if not frame.get("more_body"):
+                    break
+            try:
+                payload = json.loads(b"".join(frame["body"] for frame in frames))
+            except (ValueError, UnicodeError):
+                payload = None
+            if method == "PUT":
+                valid = (parse_qs(scope["query_string"].decode(), keep_blank_values=True) == {"world_id": [world]}
+                         and payload == {"run_id": play_choice["run_id"]})
+            else:
+                valid = isinstance(payload, dict) and payload.get("managed_world_id") == world
+            if not valid:
+                play_rejected_writes.append({"method": method, "path": path, "reason": "wrong_play_navigation_scope"})
+                return await JSONResponse({"code": "benchmark_wrong_play_navigation_scope"}, 409)(scope, receive, send)
+            saved_frames = iter(frames)
+
+            async def replay_navigation_body():
+                return next(saved_frames, None) or await receive()
+
+            return await application(scope, replay_navigation_body, send)
         if play_choice and method not in {"GET", "HEAD"} and path.startswith("/api/") and (method, path) not in {
             ("POST", "/api/live/agent/turn"),
             ("POST", "/api/live/agent/local-session"),
@@ -481,10 +513,11 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     if play_choice:
                         from .play_choice import read_choice_state, record_choice_result
                         choice_before = read_choice_state(client, directory, "play-choice-before", world, play_choice, template)
-                        run, plan = choice_before
+                        run, plan, active_run = choice_before
                         if (run["world_id"] != world or run["run_id"] != play_choice["run_id"]
                                 or run["run_revision"] != play_choice["revision"]
                                 or run["lifecycle_status"] != "active"
+                                or active_run["run_id"] != play_choice["run_id"]
                                 or run["progress"]["current_scene_id"] != play_choice["scene_id"]
                                 or run["playable_artifact_id"] != work["object_id"]
                                 or plan["sha256"] != work["expected_content_sha256"]

@@ -36,15 +36,17 @@ def read_choice_state(client, folder, name, world, spec, template):
            "sha256": plan.work_revision.content_sha256,
            "sealed_revision_id": str(exact.work_revision.work_revision_id),
            "sealed_sha256": exact.work_revision.content_sha256}
-    immutable_save(folder, name, {"run": run, "plan": pin})
-    return run["body"], pin
+    active_path = "/api/live/world-play-runs/v2/active"
+    active = response_envelope(client.get(active_path, params={"world_id": world}).raise_for_status())
+    immutable_save(folder, name, {"run": run, "plan": pin, "active": active})
+    return run["body"], pin, active["body"]
 
 
 def record_choice_result(folder, output, before, after, spec, driver_failed, turn_posts, rejected_writes):
     timing = output / "browser-timing.json"
     observed = json.loads(timing.read_bytes()).get("play_choice") if timing.is_file() else None
-    original, plan_before = before
-    reopened, plan_after = after
+    original, plan_before, active_before = before
+    reopened, plan_after, active_after = after
     expected = {**original["progress"], "selections": {
         **original["progress"]["selections"], spec["choice_id"]: spec["option_id"]}}
     checks = {
@@ -56,6 +58,7 @@ def record_choice_result(folder, output, before, after, spec, driver_failed, tur
                 "run_id", "world_id", "playable_artifact_id", "playable_revision",
                 "playable_work_revision_id", "playable_content_sha256", "lifecycle_status")),
         "plan_unchanged": plan_before == plan_after,
+        "active_run_unchanged": active_before == active_after,
         "no_unrelated_writes_attempted": not rejected_writes,
         "no_assistant_send": bool(observed and observed["turn_posts"] == turn_posts == 0),
     }

@@ -210,8 +210,11 @@ For a provider-free Play Choice control, use ordinary `capture --case
 <case-id> --clone-app` with a pinned saved Plan and
 `browser_capture.play_choice` containing the Run ID, Run revision, current
 scene ID, Choice ID and alternate option ID. The browser clicks the exact
-option, reopens its selection and records the progress request. The harness
-independently checks the Run, saved Plan and zero assistant sends. This
+option, reopens its selection and records the progress request. Preselect the
+same active Run in the isolated fixture. The harness admits the read-only
+Graph projection and exact active Run synchronization for that World, then
+independently checks the Run, unchanged active pointer, saved Plan and zero
+assistant sends. This
 measures an operator action and produces no assistant action-choice score.
 
 For an unsent draft recovery control, use `capture --build-fixture --case
