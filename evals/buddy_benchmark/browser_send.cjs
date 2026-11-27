@@ -279,10 +279,8 @@ async function run() {
     if (reviewedWork) {
       const path = "/api/live/agent/worlds/" + encodeURIComponent(process.env.DMB_BENCHMARK_WORLD)
         + "/conversations/" + reviewedWork.conversation_id + "/work-plans/" + reviewedWork.source_turn_id;
-      const sourceTurn = page.locator(`article[data-turn-id="${reviewedWork.source_turn_id}"]`);
-      await sourceTurn.locator("summary").filter({ hasText: /^Trace$/ }).click();
-      await sourceTurn.getByRole("button", { name: "Review plan", exact: true }).click();
-      const card = sourceTurn.getByRole("region", { name: "Saved work plan", exact: true });
+      const card = page.getByRole("region", { name: "Work plan", exact: true });
+      await card.scrollIntoViewIfNeeded();
       const objective = card.getByRole("textbox", { name: "Expected outcome", exact: true });
       await objective.waitFor();
       const response = await page.request.get(origin + path, {
@@ -296,7 +294,7 @@ async function run() {
       await objective.fill(reviewedWork.objective);
       const [saved] = await Promise.all([
         page.waitForResponse(res => new URL(res.url()).pathname === path && res.request().method() === "PUT"),
-        card.getByRole("button", { name: "Save reviewed plan", exact: true }).click(),
+        card.getByRole("button", { name: "Save", exact: true }).click(),
       ]);
       if (!saved.ok() || (await saved.json()).revision !== reviewedWork.revision + 1)
         throw new Error("Work plan outcome did not save once");
