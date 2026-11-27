@@ -474,3 +474,8 @@ World, document, and revision and returned the same identity and computed body
 digest. An attempted or failed call, mismatched return, label collision, or
 legacy record without returned-body evidence does not earn credit. This proof
 does not establish that the acquisition journal is complete.
+
+`current-page` is reserved for the primary work: related fixture sources with
+that label are rejected at preflight and during retained inventory verification.
+This prevents a different page from being classified as an allowed current-page
+read. Legacy captures with that collision remain unproven.
