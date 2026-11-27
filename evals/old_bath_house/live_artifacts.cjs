@@ -162,4 +162,36 @@ async function verifyLinkedVariant(page, fixture, variant, evidence) {
  } finally {await fresh.close();}
 }
 
-module.exports = { confirmVariant, generatePortrait, verifyLinkedVariant };
+function observeWriteRequests(context, origin) {
+  const observations = [];
+  const pending = new Map();
+  const writes = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+  context.on('request', request => {
+    const url = new URL(request.url());
+    if (url.origin !== origin || !url.pathname.startsWith('/api/live/') || !writes.has(request.method())) return;
+    const row = {
+      method: request.method(), path: url.pathname, status: null, outcome: 'pending',
+    };
+    observations.push(row);
+    pending.set(request, row);
+  });
+  context.on('response', response => {
+    const row = pending.get(response.request());
+    if (row) row.status = response.status();
+  });
+  context.on('requestfinished', request => {
+    const row = pending.get(request);
+    if (!row) return;
+    row.outcome = 'finished';
+    pending.delete(request);
+  });
+  context.on('requestfailed', request => {
+    const row = pending.get(request);
+    if (!row) return;
+    row.outcome = 'failed';
+    pending.delete(request);
+  });
+  return observations;
+}
+
+module.exports = { confirmVariant, generatePortrait, verifyLinkedVariant, observeWriteRequests };

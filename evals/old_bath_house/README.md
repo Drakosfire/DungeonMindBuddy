@@ -101,3 +101,8 @@ The packaged launcher uses the image and runtime pins of the Old Bath House
 fixture. A result on that image is a comparator for a separately pinned
 Right Action build. Base mechanics mutation evidence comes from the mechanics
 owner journal.
+
+The continuation output includes same-origin write HTTP observations from
+the whole browser context, including the fresh Build and Combat tab. It
+retains pending and failed requests as such. These observations supplement
+owner readback and do not certify the complete database mutation journal.
