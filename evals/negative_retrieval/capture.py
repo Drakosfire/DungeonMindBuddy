@@ -20,7 +20,7 @@ from .fixture_binding import verify_preflight_history, verify_preflight_snapshot
 from .fixture_sources import inspect_related_pages
 from .related_page_probe import observe_related_page_owners
 from .native_graph_probe import observe_native_graph_owners
-from .source_window import observe_source_window
+from .source_window import observe_source_window, _scope
 from .owned_db_fixture import checked_owned_dsn
 from .primary_page_stability import inspect_primary_page, expected_primary_page
 from .primary_resolution_probe import observe_primary_resolution
@@ -155,6 +155,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
             source_window_state = None
             primary_resolution_state = None
             sql_window_state = None
+            sql_scope_ref = [None]
             source_window_setup_failed = False
             dispatch_started = False
             post_entered = False
@@ -177,10 +178,11 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     dispatch_started = True
                     if inspect.iscoroutinefunction(self.wrapped.post):
                         raise TypeError("Async clients are unsupported for serial capture")
-                    with observe_sql_window() as sql_window_state, observe_primary_resolution() as primary_resolution_state, observe_related_page_owners() as records:
+                    with observe_sql_window(scope_ref=sql_scope_ref) as sql_window_state, observe_primary_resolution() as primary_resolution_state, observe_related_page_owners() as records:
                         with observe_native_graph_owners() as native_records:
                             try:
                                 with observe_source_window() as source_window_state:
+                                    sql_scope_ref[0] = _scope.get()
                                     post_entered = True
                                     try:
                                         response = self.wrapped.post(route, *args, **options)
@@ -191,6 +193,8 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                                             raise TypeError("Awaitable response is unsupported for serial capture")
                                         return response
                                     finally:
+                                        # Late work after the POST cannot acquire this turn tag.
+                                        sql_scope_ref[0] = None
                                         # Detach existing owner rows before their hooks exit.
                                         records = [dict(row) for row in records]
                                         native_records = [dict(row) for row in native_records]
@@ -221,7 +225,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     elif dispatch_uncertain and sql_row["status"] == "observed":
                         sql_row["status"] = "uncertain"
                     immutable_save(Path(directory), "sql-window-probe", {
-                        "schema": "dmb_negative_retrieval_sql_window_v2", "case_id": case["id"],
+                        "schema": "dmb_negative_retrieval_sql_window_v3", "case_id": case["id"],
                         "window": "turn_post_v1", **sql_row,
                     })
                     primary_row = dict(primary_resolution_state) if primary_resolution_state is not None else {

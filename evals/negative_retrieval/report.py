@@ -279,8 +279,16 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         and terminal is not None and terminal["status"] == "observed" and terminal["error_type"] is None
         and known_scoped_pdf_discovery(source_window))
     search_lower_bound = max(native_discovery, int(any(search_stages)), int(pdf_discovery))
-    observed["catalog_discoveries"] = (related_discovery + search_lower_bound
-        if related_turn or native_turn or search_lower_bound else None)
+    from .sql_source_classification import known_scoped_inventory_attempt
+    sql_discovery = (fixture_bound is True and observed["completed_turn"] is True
+        and turn_window and native_probe["status"] == "observed"
+        and terminal is not None and terminal["status"] == "observed" and terminal["error_type"] is None
+        and source_window is not None and source_window["status"] == "observed"
+        and source_window["dispatch_uncertain"] is False
+        and known_scoped_inventory_attempt(sql_window, fixture["id"]))
+    # SQL and other witnesses can observe the same catalog call; never add them.
+    observed["catalog_discoveries"] = (max(related_discovery + search_lower_bound, int(sql_discovery))
+        if related_turn or native_turn or search_lower_bound or sql_discovery else None)
     observed["catalog_journal_complete"] = None
     observed["graph_query_attempts"] = (sum(native_probe["counts"]["native_graph_query"].values())
                                           if native_turn else None)

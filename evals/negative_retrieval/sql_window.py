@@ -13,7 +13,7 @@ import marshal
 import os
 import sys
 
-from .source_window import _normalize_code
+from .source_window import _normalize_code, _scope as _turn_scope
 
 _lock = Lock()
 _poisoned = False
@@ -115,7 +115,7 @@ def _caller(frame, roots, driver_root, cache):
 
 
 @contextmanager
-def observe_sql_window(*, owners=None, roots=None, endpoints=None):
+def observe_sql_window(*, owners=None, roots=None, endpoints=None, scope_ref=None):
     """Count selected cursor entries, returns and failures without changing calls."""
     global _poisoned
     if not _lock.acquire(blocking=False):
@@ -173,7 +173,9 @@ def observe_sql_window(*, owners=None, roots=None, endpoints=None):
                     cursor = frame.f_locals.get("self")
                     scope = _scope(cursor, endpoints)
                     source, caller, line = _caller(frame, roots, driver_root, cache)
-                    key = (scope, owners[code], source, caller, line)
+                    turn = ("scoped" if scope_ref is not None and scope_ref[0] is not None
+                            and _turn_scope.get() is scope_ref[0] else "unscoped")
+                    key = (scope, owners[code], source, caller, line, turn)
                     pending.add(id(frame))
                     state["started"] += 1
                     if key in counts or len(counts) < _MAX_CALLERS:
@@ -254,7 +256,8 @@ def observe_sql_window(*, owners=None, roots=None, endpoints=None):
                 failures.append(exc)
         with guard:
             state["calls"] = [dict(scope=k[0], api=k[1], source_sha256=k[2], code_sha256=k[3],
-                                   line=k[4], count=v) for k, v in sorted(counts.items(), key=lambda row: repr(row[0]))]
+                                   line=k[4], count=v, **({"turn": k[5]} if scope_ref is not None else {}))
+                              for k, v in sorted(counts.items(), key=lambda row: repr(row[0]))]
             if failures:
                 state["monitor_error"] = True
                 _poisoned = True
@@ -274,17 +277,17 @@ def validate_sql_window(value, case_id):
     keys = {"schema", "case_id", "window", "coverage", "status", "started", "returned", "raised",
             "pending_at_close", "resumed_unknown", "overflow", "dropped_starts", "monitor_error", "unsupported_apis", "calls"}
     numeric = ("started", "returned", "raised", "pending_at_close", "resumed_unknown", "overflow", "dropped_starts", "unsupported_apis")
-    if isinstance(value, dict) and value.get("schema") == "dmb_negative_retrieval_sql_window_v2":
+    if isinstance(value, dict) and value.get("schema") in {"dmb_negative_retrieval_sql_window_v2", "dmb_negative_retrieval_sql_window_v3"}:
         keys.add("runtime")
     if (not isinstance(value, dict) or set(value) != keys
-            or value["schema"] not in {"dmb_negative_retrieval_sql_window_v1", "dmb_negative_retrieval_sql_window_v2"} or value["case_id"] != case_id
+            or value["schema"] not in {"dmb_negative_retrieval_sql_window_v1", "dmb_negative_retrieval_sql_window_v2", "dmb_negative_retrieval_sql_window_v3"} or value["case_id"] != case_id
             or value["window"] != "turn_post_v1" or value["coverage"] != "partial"
             or value["status"] not in {"observed", "uncertain", "not_started", "unavailable"}
             or any(type(value[k]) is not int or value[k] < 0 for k in numeric)
             or type(value["monitor_error"]) is not bool or not isinstance(value["calls"], list)
             or len(value["calls"]) > _MAX_CALLERS):
         raise ValueError("Invalid SQL window")
-    if value["schema"] == "dmb_negative_retrieval_sql_window_v2":
+    if value["schema"] in {"dmb_negative_retrieval_sql_window_v2", "dmb_negative_retrieval_sql_window_v3"}:
         runtime = value["runtime"]
         if (not isinstance(runtime, dict) or set(runtime) != {"normalizer", "implementation", "version", "cache_tag", "optimize"}
                 or runtime["normalizer"] != "marshal-code-v1"
@@ -297,7 +300,11 @@ def validate_sql_window(value, case_id):
     seen = set()
     total = 0
     for row in value["calls"]:
-        if (not isinstance(row, dict) or set(row) != {"scope", "api", "source_sha256", "code_sha256", "line", "count"}
+        row_keys = {"scope", "api", "source_sha256", "code_sha256", "line", "count"}
+        if value["schema"] == "dmb_negative_retrieval_sql_window_v3":
+            row_keys.add("turn")
+        if (not isinstance(row, dict) or set(row) != row_keys
+                or (value["schema"] == "dmb_negative_retrieval_sql_window_v3" and row["turn"] not in {"scoped", "unscoped"})
                 or row["scope"] not in {"app", "core", "unknown"} or row["api"] not in {"execute", "executemany", "copy"}
                 or type(row["count"]) is not int or row["count"] < 1):
             raise ValueError("Invalid SQL call inventory")
@@ -306,7 +313,7 @@ def validate_sql_window(value, case_id):
                 or (all(isinstance(h, str) and len(h) == 64 and all(c in "0123456789abcdef" for c in h) for h in hashes)
                     and type(row["line"]) is int and row["line"] > 0)):
             raise ValueError("Invalid SQL caller identity")
-        key = (row["scope"], row["api"], *hashes, row["line"])
+        key = (row["scope"], row["api"], *hashes, row["line"], row.get("turn"))
         if key in seen:
             raise ValueError("Duplicate SQL call inventory")
         seen.add(key); total += row["count"]

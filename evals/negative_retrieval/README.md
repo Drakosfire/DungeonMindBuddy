@@ -622,3 +622,18 @@ A provider-free check (case 363) exercised the deployed serving source on the
 same synthetic clone. Its Build resolver classified one saved-revision body
 attempt and no working-copy body attempt, with seven other calls unclassified.
 This was not a complete turn or a complete acquisition measurement.
+
+New v3 SQL artifacts distinguish calls carrying the measured turn's source
+window token from unscoped activity, including setup and foreign threads. In a
+fixture-bound completed turn with certain capture windows, an exact pinned
+scoped App page-inventory SQL attempt proves at least one discovery attempt
+against the negative budget. The report takes the maximum with other witnesses
+to avoid counting overlaps twice. It remains an attempt, not a returned page,
+required-source proof, a complete journal, or proof of zero reads. Legacy v1/v2
+and unknown fingerprints remain diagnostic. Unpropagated threads and other
+processes are not covered.
+
+A provider-free case 364 checked the deployed-source inventory owner against a
+single synthetic World on the retained read-only App clone, with a one-row
+limit. It classified one scoped page-inventory attempt and two unmatched calls.
+This is an owner check, not a model turn or complete benchmark.

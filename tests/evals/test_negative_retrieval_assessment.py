@@ -2899,18 +2899,25 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     from apps.live_control_server.routes import agent
     from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView, PostgresNativeSourceEvidenceRepository
     from evals.buddy_benchmark import workflow
-    from evals.negative_retrieval import source_window
+    from evals.negative_retrieval import source_window, sql_window
     from evals.negative_retrieval.capture import capture
     class NoDatabase:
         def transaction(self): return self
         def __enter__(self): return self
         def __exit__(self, *args): return False
         def execute(self, *args, **kwargs): raise RuntimeError('synthetic sentinel')
+    class SqlCursor:
+        def execute(self): return None
+    cursor=SqlCursor()
+    cursor.connection=SimpleNamespace(info=SimpleNamespace(host='127.0.0.1',port=5432,dbname='synthetic-app'))
+    monkeypatch.setattr(sql_window, '_driver_owners', lambda: ({SqlCursor.execute.__code__: 'execute'},0))
+    monkeypatch.setattr(sql_window, '_endpoints', lambda: {'app': ('127.0.0.1','5432','synthetic-app')})
     view = _PostgresNativeTextSourceView(NoDatabase(), 'synthetic', 1)
     pdf_repo = PostgresNativeSourceEvidenceRepository(NoDatabase())
     pdf_alias = pdf_repo.get_native_pdf_source
     pdf_list_alias = pdf_repo.list_public_native_pdf_revisions
     def acquire():
+        cursor.execute()
         with pytest.raises(RuntimeError, match='synthetic sentinel'):
             pdf_list_alias('synthetic')
         with pytest.raises(RuntimeError, match='synthetic sentinel'):
@@ -2937,6 +2944,7 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
         build.submit(lambda: None).result()
         @app.post('/api/live/agent/turn')
         async def turn():
+            cursor.execute()
             agent._build_work_resolver(body, {'kind':'world','id':'world'})
             await asyncio.get_running_loop().run_in_executor(build, acquire)
             return {'ok': True}
@@ -2964,7 +2972,9 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     from evals.negative_retrieval.sql_window import validate_sql_window
     sql_row = json.loads((tmp_path/'case1'/'sql-window-probe.json').read_text())
     assert validate_sql_window(sql_row,'case1')['coverage'] == 'partial'
-    assert sql_row['status'] == 'observed' and sql_row['started'] == 0
+    assert sql_row['status'] == 'observed' and sql_row['started'] == 2
+    assert sql_row['schema'].endswith('_v3')
+    assert sum(r['count'] for r in sql_row['calls'] if r['turn']=='scoped') == 2
     assert row['scoped']['text_batch']==2 and row['batch_read']['scoped']==1
 
 
@@ -3240,6 +3250,32 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     sql_path.write_text(json.dumps(v2)); classified=assess_row(discovery)
     assert classified['sql_source_classification']['observed_attempts']['page_inventory_attempts']==1
     assert classified['checks']['unexpected_retrieval'] is None and classified['status']=='unproven'
+    # Only v3 turn-scoped inventory calls can establish a discovery lower bound.
+    v3=copy.deepcopy(v2);v3['schema']='dmb_negative_retrieval_sql_window_v3'
+    v3['calls'][0]['turn']='scoped';sql_path.write_text(json.dumps(v3))
+    no_pdf=copy.deepcopy(discovery);no_pdf['pdf_discovery']['scoped']=0
+    assert assess_row(no_pdf)['checks']['catalog_budget'] is False
+    assert assess_row(no_pdf,positive)['checks']['required_evidence'] is None
+    v3['calls'][0]['turn']='unscoped';sql_path.write_text(json.dumps(v3))
+    assert assess_row(no_pdf)['checks']['catalog_budget'] is None
+    v3['calls'][0]['turn']='scoped';v3['status']='uncertain';v3['monitor_error']=True
+    sql_path.write_text(json.dumps(v3))
+    assert assess_row(no_pdf)['checks']['catalog_budget'] is None
+    v3['status']='observed';v3['monitor_error']=False
+    v3['runtime']['version']=[3,13,13];sql_path.write_text(json.dumps(v3))
+    assert assess_row(no_pdf)['checks']['catalog_budget'] is None
+    v3['runtime']=copy.deepcopy(_KNOWN_RUNTIME);sql_path.write_text(json.dumps(v3))
+    artifacts['native-graph-probe']['records']=[{'owner':'native_corpus_discovery','state':'returned'}]
+    (tmp_path/'native-graph-probe.json').write_text(json.dumps(artifacts['native-graph-probe']))
+    assert assess_row(no_pdf,{**CASE,'max_catalog_discoveries':1})['checks']['catalog_budget'] is None
+    artifacts['native-graph-probe']['records']=[]
+    (tmp_path/'native-graph-probe.json').write_text(json.dumps(artifacts['native-graph-probe']))
+    unscoped_window=copy.deepcopy(no_pdf);unscoped_window['status']='uncertain'
+    assert assess_row(unscoped_window)['checks']['catalog_budget'] is None
+    def bad_pin(*args): raise ValueError('unbound')
+    monkeypatch.setattr(report,'verify_fixture_pin',bad_pin)
+    assert assess_row(no_pdf)['checks']['catalog_budget'] is None
+    monkeypatch.setattr(report,'verify_fixture_pin',lambda *a: True)
     sql_path.unlink()
     assert assess_row(discovery)['sql_window_probe'] is None
     empty=copy.deepcopy(app_batch);empty['app_batch_read']['scoped']=0
@@ -4167,3 +4203,35 @@ def test_sql_source_classification_is_exact_partial_and_never_guesses():
     changed=copy.deepcopy(record);changed['status']='not_started';changed['started']=0;changed['returned']=0;changed['calls']=[]
     assert sc.classify_sql_window(changed,'case1') is None
     with pytest.raises(ValueError):sc.classify_sql_window(record,'other')
+
+
+def test_sql_window_distinguishes_turn_executor_and_foreign_thread():
+    from concurrent.futures import ThreadPoolExecutor
+    from pathlib import Path
+    from threading import Thread
+    from types import SimpleNamespace
+    from evals.negative_retrieval.source_window import observe_source_window, _scope
+    from evals.negative_retrieval.sql_window import observe_sql_window, validate_sql_window
+    class Cursor:
+        def execute(self): return None
+    cursor=Cursor();cursor.connection=SimpleNamespace(info=SimpleNamespace(host='127.0.0.1',port=5432,dbname='synthetic'))
+    def owner(): return cursor.execute()
+    scope_ref=[None]
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        with observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[Path(__file__).resolve().parents[2]],
+                                endpoints={'app':('127.0.0.1','5432','synthetic')},scope_ref=scope_ref) as sql:
+            cursor.execute()  # setup before source-window token
+            with observe_source_window(owners={owner.__code__:'metadata'},executor=executor) as source:
+                scope_ref[0]=_scope.get()
+                owner()
+                executor.submit(owner).result()
+                foreign=Thread(target=cursor.execute);foreign.start();foreign.join()
+            cursor.execute()  # after the source scope has ended
+    row={'schema':'dmb_negative_retrieval_sql_window_v3','case_id':'case1','window':'turn_post_v1',**sql}
+    validate_sql_window(row,'case1')
+    assert sum(r['count'] for r in sql['calls'] if r['turn']=='scoped')==2, ([(r['turn'],r['count']) for r in sql['calls']],sql['status'],sql['started'],sql['monitor_error'],source['status'])
+    assert sum(r['count'] for r in sql['calls'] if r['turn']=='unscoped')==3
+    assert sql['status']=='observed' and source['status']=='observed'
+    assert 'synthetic' not in str(sql)
+    invalid=__import__('copy').deepcopy(row);invalid['calls'][0]['turn']='other'
+    with pytest.raises(ValueError,match='SQL call inventory'):validate_sql_window(invalid,'case1')
