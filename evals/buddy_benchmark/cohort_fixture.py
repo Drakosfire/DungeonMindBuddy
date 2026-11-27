@@ -149,3 +149,69 @@ def restore_build_fixture(dsn, owned_app, bundle, page, *, seed):
         """, (conversation_id, world))
     return {"conversation_id": conversation_id, "document_id": document,
             "page_revision": obj["object_revision"], "turn_count": len(bundle["turns"])}
+
+
+def load_composed_page_fixture(pin, base, *, world, work):
+    """Validate a reusable image fixture against the ordinary Build work pin."""
+    from application_state.content.page_presentation import PagePresentation
+    from .workflow import read_pin
+
+    fixture = json.loads(read_pin(pin, base))
+    if set(fixture) != {"asset", "markdown", "page_presentation", "title", "world_id"}:
+        raise ValueError("Invalid composed Page fixture")
+    markdown = fixture["markdown"]
+    digest = sha256(markdown.encode()).hexdigest()
+    asset_id = str(UUID(fixture["asset"]["asset_id"]))
+    document_id = str(UUID(work["object_id"]))
+    if (fixture["world_id"] != world or work["kind"] != "build"
+            or work["expected_revision"] != 2 or work["expected_content_sha256"] != digest
+            or f"](dmb-media:{asset_id})" not in markdown):
+        raise ValueError("Composed Page fixture differs from the ordinary Build work pin")
+    PagePresentation.model_validate(fixture["page_presentation"]).checked(markdown)
+    return fixture, document_id
+
+
+def prepare_composed_page_fixture(dsn, owned_app, fixture, document_id):
+    """Prepare and reopen the composed Page through its owning service."""
+    import psycopg
+    from unittest.mock import patch
+
+    from application_state.content.pages import (
+        PAGE_LAYOUT_WRITER_PROFILE, committed_page, commit_page, create_page,
+    )
+    from .cohort_capture import APP_DSN
+    from .disposable_database import _identity
+
+    database = owned_app["database"]
+    if not database.startswith("benchmark_run_"):
+        raise ValueError("Composed Page fixture requires an owned benchmark clone")
+    with psycopg.connect(dsn, options="-c default_transaction_read_only=on") as conn:
+        if (conn.info.dbname != database
+                or _identity(conn, database) != (owned_app["oid"], owned_app["system_identifier"])):
+            raise ValueError("Composed Page App database differs from owned clone")
+        from_fixture = fixture["asset"]
+        row = conn.execute("""
+            SELECT a.content_sha256, s.staged_bytes, s.state
+            FROM media.asset a JOIN media.storage s USING (asset_id)
+            WHERE a.asset_id = %s
+        """, (from_fixture["asset_id"],)).fetchone()
+        if (row is None or row[1] is None or row[0] != from_fixture["asset_sha256"]
+                or row[2] != from_fixture["state"] or sha256(row[1]).hexdigest() != row[0]):
+            raise ValueError("Composed Page fixture image bytes or storage state differ from the pinned asset")
+
+    world = fixture["world_id"]
+    with patch.dict("os.environ", {APP_DSN: dsn}):
+        draft = create_page(world_id=world, title=fixture["title"], document_id=document_id)
+        _, revision = commit_page(document_id, fixture["markdown"], world_id=world,
+                                  expected_revision=draft.page.object_revision,
+                                  expected_working_copy_revision=None,
+                                  page_presentation=fixture["page_presentation"],
+                                  layout_writer_profile=PAGE_LAYOUT_WRITER_PROFILE)
+        saved = committed_page(document_id, world_id=world)
+    if (saved.page.object_revision != 2 or saved.revision != revision
+            or saved.revision.markdown != fixture["markdown"]
+            or saved.presentation is None
+            or saved.presentation.model_dump(mode="json") != fixture["page_presentation"]):
+        raise ValueError("Composed Page owner did not reopen the exact fixture")
+    return {"document_id": document_id, "page_revision": saved.page.object_revision,
+            "content_sha256": revision.content_sha256, "asset_sha256": row[0]}
