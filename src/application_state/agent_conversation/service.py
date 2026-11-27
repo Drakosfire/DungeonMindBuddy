@@ -1811,7 +1811,7 @@ class AgentConversationService:
                 expected_revision=expected_revision, execution=prospective)
             if updated is None:
                 raise ApplicationStateConflictError('Graph-need claim expired during authorization')
-        return updated
+        return updated, True
 
     def _record_plan_graph_need_result(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id, sdk_result):
@@ -1846,7 +1846,7 @@ class AgentConversationService:
                 expected_revision=expected_revision, execution=prospective)
             if updated is None:
                 raise ApplicationStateConflictError('Graph-need claim expired during result admission')
-        return updated
+        return updated, True
 
     def _append_graph_execution_event(
         self,

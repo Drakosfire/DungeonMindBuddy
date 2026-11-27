@@ -922,8 +922,9 @@ def test_sdk_result_owner_fences_and_reopens_actual_app_turn(source_adapter, mon
     with pytest.raises(ApplicationStateValidationError, match='wire differs'):
         service._authorize_plan_graph_need(turn.world_id, turn.conversation_id, turn.turn_id,
             expected_revision=turn.revision, expected_attempt=turn.attempt, authorization=auth, prepared_request=raw + b' ')
-    turn = service._authorize_plan_graph_need(turn.world_id, turn.conversation_id, turn.turn_id,
+    turn, fresh = service._authorize_plan_graph_need(turn.world_id, turn.conversation_id, turn.turn_id,
         expected_revision=turn.revision, expected_attempt=turn.attempt, authorization=auth, prepared_request=raw)
+    assert fresh
     lifecycle = outcomes(auth, 1)
     with pytest.raises(ApplicationStateValidationError, match='exact admitted prepared authorization'):
         service.record_provider_outcome(turn.world_id, turn.conversation_id, turn.turn_id,
@@ -948,8 +949,9 @@ def test_sdk_result_owner_fences_and_reopens_actual_app_turn(source_adapter, mon
     with pytest.raises(ApplicationStateValidationError, match='typed SDK result'):
         service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
             expected_revision=turn.revision, expected_attempt=turn.attempt, event_id=uuid4(), sdk_result=typed.model_dump())
-    updated = service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
+    updated, fresh = service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
         expected_revision=turn.revision, expected_attempt=turn.attempt, event_id=uuid4(), sdk_result=typed)
+    assert fresh
     reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
     assert reopened.graph_context_execution == updated.graph_context_execution
     assert reopened.graph_context_execution.events[-1].choice == 'no_graph'
