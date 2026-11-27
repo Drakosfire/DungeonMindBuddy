@@ -149,7 +149,7 @@ class ContextTraceCollector:
         from .agent_prompt_evidence import store_prompt
         measure = getattr(getattr(self.fence, "trace", None), "phase_before_first_jev", nullcontext)
         with measure("first_jev_prompt_evidence_store"):
-            evidence_id = store_prompt(view["payloadJson"], digest=view["payloadSha256"], size=view["payloadUtf8Bytes"])
+            evidence_id = store_prompt(view["payloadJson"], digest=view["payloadSha256"], size=view["payloadUtf8Bytes"], owner=(self.trace.world_id, self.trace.conversation_id))
         return _OBSERVATION.validate_python({
             "kind": "prompt_reference", "sequence": len(self.trace.observations),
             "elapsed_ms": self.elapsed_ms, "evidence_id": evidence_id,

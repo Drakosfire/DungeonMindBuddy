@@ -5,6 +5,7 @@ from hashlib import sha256
 import pytest
 from generationengine.types import ChoiceDecisionAnswer, DecisionResult, InferenceObservation
 
+from application_state.agent_conversation.jev_retrieval_contract import MODEL
 from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1
 from application_state.build_proposal.graph_reference_decision import (
     GRAPH_REFERENCE_OPENING, BuildGraphReferenceCandidate, BuildGraphReferenceDecision,
@@ -313,7 +314,7 @@ def test_opening_uses_only_the_exact_uncontested_caret(
     response = DecisionResult(
         answers={name: ChoiceDecisionAnswer(selected=label) for name, label in labels.items()},
         observation=InferenceObservation(
-            provider="typesafe", resolved_model="jev-1.14.0", response_model="jev-1.14.0",
+            provider="typesafe", resolved_model=MODEL, response_model=MODEL,
             latency_ms=100, retry_count=0, state="completed", provider_attempt_count=1,
         ),
     )
@@ -362,7 +363,7 @@ def graph_decision(captured_page):
     )
 
 
-def graph_response(**changes):
+def graph_response(*, model=MODEL, **changes):
     labels = dict(work="place_paragraph", destination="current_page", relation="after", scope="named",
                   anchor_occurrence="passage2", reference_nomination="object2",
                   text0="include", scope0="exclude", scope1="include", reference_intent="place_existing",
@@ -371,7 +372,7 @@ def graph_response(**changes):
     labels.update(changes)
     return DecisionResult(
         answers={name: ChoiceDecisionAnswer(selected=label) for name, label in labels.items()},
-        observation=InferenceObservation(provider="typesafe", resolved_model="jev-1.14.0", response_model="jev-1.14.0",
+        observation=InferenceObservation(provider="typesafe", resolved_model=model, response_model=model,
             latency_ms=100, retry_count=0, state="completed", provider_attempt_count=1),
     )
 
@@ -380,7 +381,7 @@ def test_graph_opening_requires_the_exact_wire_offer_and_real_choice():
     question = GRAPH_REFERENCE_OPENING
     wire = {"type": "choice", "instructions": question.question, "criteria": dict.fromkeys(question.options)}
     request = {"questions": {question.name: wire}}
-    response = graph_response().model_copy(update={"answers": {
+    response = graph_response(model="jev-1.14.0").model_copy(update={"answers": {
         question.name: ChoiceDecisionAnswer(selected="place_existing_reference"),
     }})
     assert resolve_graph_reference_opening(request, response, expected_model='jev-1.14.0') == "place_existing_reference"

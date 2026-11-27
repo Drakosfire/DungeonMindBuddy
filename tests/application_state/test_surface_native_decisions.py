@@ -793,7 +793,8 @@ def sdk_case(
                 }
             )
             try:
-                return await client.decide(prepare(parent))
+                # This helper constructs a retained authorization for the old model.
+                return await client.decide(prepare(parent).model_copy(update={"model": "jev-1.14.0"}))
             finally:
                 await client.aclose()
 
@@ -819,7 +820,7 @@ def sdk_case(
                 kind="plan_requested_work_selected_v3" if readonly_session else "plan_requested_work_selected_v2",
                 **fields,
                 **work_choice(
-                    step.parent, decode_requested_work_decision(step.parent, result)
+                    step.parent, decode_requested_work_decision(step.parent, result, expected_model=step.auth.model)
                 ),
                 original_capture_sha256=None,
                 placement_catalog_sha256=None,
@@ -827,7 +828,7 @@ def sdk_case(
                 placement_catalog=None,
             )
         else:
-            choice = decode_selection(step.parent, result)
+            choice = decode_selection(step.parent, result, expected_model=step.auth.model)
             from application_state.agent_conversation.native_retrieval import NativeRetrievalSelectedV1, NativeRetrievalSelectedV2
             step.selection = (NativeRetrievalSelectedV2 if post_read_plan is not None else NativeRetrievalSelectedV1 if native else t.PlanJevRetrievalSelectionV1)(
                 kind="native_retrieval_selected_v2" if post_read_plan is not None else "native_retrieval_selected_v1" if native else "plan_jev_retrieval_selected_v1",

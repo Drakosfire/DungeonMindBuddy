@@ -42,7 +42,7 @@ from .native_corpus import (NativeCorpusAuthorityV1, NativeCorpusCatalogV1, Nati
 Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived", "trashed"]
 TurnStatus = Literal["accepted", "running", "completed", "failed", "interrupted"]
-CommandKind = Literal["new", "archive", "reopen", "trash", "restore"]
+CommandKind = Literal["new", "archive", "reopen", "trash", "restore", "delete"]
 TurnClaimDisposition = Literal["claimed", "pending", "completed"]
 
 # A citation can include every receipt actually supplied in one V3 envelope.
@@ -6592,6 +6592,10 @@ class ReopenCommand(ConversationCommand):
 
 
 class ConversationTrashCommand(ConversationCommand):
+    conversation_id: UUID
+
+
+class ConversationDeleteCommand(ConversationCommand):
     conversation_id: UUID
 
 
