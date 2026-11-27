@@ -674,11 +674,17 @@ def acquired_body_catalogs(execution):
 
 def resolve_retained_body_citation(execution, citation):
     """Resolve a typed citation against its own already validated execution."""
+    from .retained_conversation import native_supports
+    retained = native_supports(execution)
     reads = [event for event in acquired_body_reads(execution) if event.event_id == citation.read_event_id]
+    reads += [support.read for support in retained if support.read.event_id == citation.read_event_id]
     if len(reads) != 1:
         raise ValueError("Native body citation lacks its unique retained read")
     excerpt = reads[0].excerpt
     catalog = acquired_body_catalogs(execution).get(excerpt.catalog_sha256)
+    if catalog is None:
+        catalog = next((support.catalog for support in retained
+                        if support.read.event_id == citation.read_event_id), None)
     if catalog is None:
         raise ValueError("Native body citation lacks its retained catalog")
     if (citation.catalog_sha256 != catalog.catalog_sha256
@@ -705,15 +711,16 @@ class PriorBodyCitationReferenceV1(Strict):
     citation_index: int = Field(ge=0, le=16383, strict=True)
 
 
-def is_prior_conversation_work(label, source_scope):
-    return label == "review_lore_page_from_conversation" and source_scope in {"anchored", "uncertain"}
+def is_prior_conversation_work(label, source_scope, *, allow_discussion=False):
+    return ((label == "review_lore_page_from_conversation" and source_scope in {"anchored", "uncertain"})
+            or (allow_discussion and label == "discuss" and source_scope == "anchored"))
 
 
-def prior_conversation_work(events):
+def prior_conversation_work(events, *, allow_discussion=False):
     from .types import BuildRequestedWorkResolutionV1
 
     work = [event for event in events if isinstance(event, BuildRequestedWorkResolutionV1)]
-    if (len(work) == 1 and is_prior_conversation_work(work[0].requested_work, work[0].resolution.get("source_scope"))
+    if (len(work) == 1 and is_prior_conversation_work(work[0].requested_work, work[0].resolution.get("source_scope"), allow_discussion=allow_discussion)
             and work[0].resolution.get("barrier") is None):
         return work[0]
     return None
@@ -1161,7 +1168,9 @@ def validate_body_support_citations(completion, supports, *, producer, envelope_
     for citation in completion.native_body_citations:
         if citation.prior_reference is None:
             support = reads.get((citation.read_event_id, citation.section_id))
-            read = support.read if support is not None else None
+            from .retained_conversation import RetainedBodySupport
+            read = (support.admission if isinstance(support, RetainedBodySupport) else support.read
+                    ) if support is not None else None
         else:
             support = prior.get(citation.prior_reference)
             read = support.admission if support is not None else None

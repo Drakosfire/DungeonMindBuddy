@@ -476,7 +476,7 @@ def effective_native_query(context, execution):
     if len(settlements) > 1:
         raise ValueError("Build can settle its pending Graph query only once")
     settlement = settlements[0] if settlements else None
-    conversation_work = prior_conversation_work(execution.events)
+    conversation_work = prior_conversation_work(execution.events, allow_discussion=True)
     if settlement is None and conversation_work is not None:
         from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2
 
@@ -528,7 +528,7 @@ SurfaceNativeEvent = Annotated[
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
-    | t.BuildDraftContextCapturedV1 | NativeBuildQuerySettledV1 | t.BuildPriorBodyEvidenceAdmittedV1
+    | t.BuildDraftContextCapturedV1 | NativeBuildQuerySettledV1 | t.BuildPriorBodyEvidenceAdmittedV1 | t.BuildPriorBodyEvidenceAdmittedV2 | t.BuildPriorBodyEvidenceAdmittedV3
     | t.BuildSectionReadAuthorizationV1 | t.ValidatedBuildSectionReadV1
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildWriterEvidenceSelectionV2 | t.BuildPlanOutputContractV2
@@ -606,8 +606,10 @@ class SurfaceNativeExecutionV1(Strict):
                 raise ValueError("Build placement completion requires its native Build action")
             if isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1):
                 prefix = self.events[:event.sequence]
-                work = prior_conversation_work(prefix)
+                work = prior_conversation_work(prefix, allow_discussion=isinstance(event, t.BuildPriorBodyEvidenceAdmittedV3))
                 references = [support.reference for support in event.supports]
+                if isinstance(event, t.BuildPriorBodyEvidenceAdmittedV2) and event.world_id != action.intent.world_id:
+                    raise ValueError("Retained conversation differs from its Build World")
                 if (work is None or work.event_id != event.work_event_id
                         or len(set((r.turn_id, r.citation_index) for r in references)) != len(references)
                         or any(isinstance(prior, t.BuildPriorBodyEvidenceAdmittedV1)

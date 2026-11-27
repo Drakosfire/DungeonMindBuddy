@@ -32,7 +32,7 @@ from .build_related_pages import PagePointer, RelatedPagesSelection, RelatedPage
 from graph_memory.ingestion.selection_context import NativeStatementSelectionV1
 from .native_statement_input import NativeStatementContextReceiptV1, NativeStatementWriterPolicyV1, NativeStatementWriterPolicyV2, NativeStatementInputEventV1
 from .native_statement_answer import NativeStatementCompletionV1
-from .native_corpus import (NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1,
+from .native_corpus import (NativeCorpusAuthorityV1, NativeCorpusCatalogV1, NativeBodySearchAuthorizedV1,
     NativeInitialSourceSearchAuthorizedV1 as NativeInitialSourceSearchAuthorizedV1,
     NativePlanRequestSearchAuthorizedV1 as NativePlanRequestSearchAuthorizedV1,
     NativeBodySearchObservedV1, NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1,
@@ -2531,6 +2531,89 @@ class BuildPriorBodyEvidenceAdmittedV1(StrictModel):
     sequence: int = Field(ge=0, strict=True)
     work_event_id: UUID
     supports: tuple[PriorBodyCitationSupportV1, ...] = Field(max_length=256)
+
+
+class RetainedConversationTurnV1(StrictModel):
+    turn_id: UUID
+    sequence: int = Field(strict=True, ge=1)
+    attempt: int = Field(strict=True, ge=1)
+    user_text: str
+    assistant_text: str | None
+    base_approved: bool = Field(strict=True)
+    proposal_context: tuple[str, ...] = ()
+
+
+class RetainedContextOccurrenceV1(StrictModel):
+    turn_id: UUID
+    attempt: int = Field(strict=True, ge=1)
+    event_id: UUID
+
+
+class RetainedAuthoredContextV1(StrictModel):
+    source_basis: BuildSourceContextBasisV1
+    role: Literal["saved_authored", "working_draft", "related_authored"]
+    title: str | None = None
+    text: str
+    occurrences: tuple[RetainedContextOccurrenceV1, ...] = Field(min_length=1)
+
+
+class RetainedNativeContextV1(StrictModel):
+    # These are the original owner-validated records, never new acquisitions.
+    catalog: NativeCorpusCatalogV1
+    read: Annotated[NativeBodyReadObservedV1 | NativeDirectSourceObservedV1 | NativeAuthoredSourceReadV1, Field(discriminator="kind")]
+    occurrences: tuple[RetainedContextOccurrenceV1, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def exact_retained_read(self):
+        if (self.read.excerpt is None
+                or self.read.excerpt.catalog_sha256 != self.catalog.catalog_sha256
+                or self.occurrences[0].event_id != self.read.event_id):
+            raise ValueError("Retained native context requires its actual successful read")
+        return self
+
+
+class BuildPriorBodyEvidenceAdmittedV2(BuildPriorBodyEvidenceAdmittedV1):
+    kind: Literal["build_prior_body_evidence_admitted_v2"] = "build_prior_body_evidence_admitted_v2"
+    world_id: str
+    conversation_id: UUID
+    turn_id: UUID
+    attempt: int = Field(strict=True, ge=1)
+    conversation_sequence: int = Field(strict=True, ge=1)
+    pointer_revision: int = Field(strict=True, ge=0)
+    history: tuple[RetainedConversationTurnV1, ...]
+    authored_context: tuple[RetainedAuthoredContextV1, ...]
+    native_context: tuple[RetainedNativeContextV1, ...]
+
+    @model_validator(mode="after")
+    def coherent_retained_closure(self):
+        positions = [row.sequence for row in self.history]
+        turns = {row.turn_id: row for row in self.history}
+        if (positions != sorted(set(positions)) or len(turns) != len(self.history)
+                or any(row.sequence >= self.conversation_sequence or row.turn_id == self.turn_id
+                       for row in self.history) or self.supports):
+            raise ValueError("Retained context requires one exact prior conversation closure")
+        if any(row.assistant_text is None and (row.proposal_context or row.base_approved)
+               for row in self.history):
+            raise ValueError("Failed turns cannot retain assistant work or source evidence")
+        for material in (*self.authored_context, *self.native_context):
+            occurrences = [(o.turn_id, o.attempt, o.event_id) for o in material.occurrences]
+            if len(set(occurrences)) != len(occurrences):
+                raise ValueError("Retained material repeats an occurrence")
+            for occurrence in material.occurrences:
+                row = turns.get(occurrence.turn_id)
+                if (row is None or row.attempt != occurrence.attempt
+                        or not row.base_approved or row.assistant_text is None):
+                    raise ValueError("Retained material lacks its approved producing turn")
+        if any(row.source_basis.world_id != self.world_id for row in self.authored_context):
+            raise ValueError("Retained authored context crossed World ownership")
+        if any(row.catalog.authority.managed_world_id != self.world_id for row in self.native_context):
+            raise ValueError("Retained native context crossed World ownership")
+        return self
+
+class BuildPriorBodyEvidenceAdmittedV3(BuildPriorBodyEvidenceAdmittedV2):
+    """Full retained closure for anchored discussion or conversation-page work."""
+    kind: Literal["build_prior_body_evidence_admitted_v3"] = "build_prior_body_evidence_admitted_v3"
+
 
 class SurfaceEvidenceCompletionV5(SurfaceEvidenceCompletionV4):
     surface_id: Literal["plan", "play"] = "plan"

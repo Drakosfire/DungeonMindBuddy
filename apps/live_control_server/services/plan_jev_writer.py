@@ -431,10 +431,12 @@ class PlanJevWriter:
                 )}]
         if not self.shared:
             self.messages.append({'role':'user','content':'Return JSON.'})
-        self.messages = [
+        from application_state.agent_conversation.retained_conversation import dialogue_messages
+        retained_dialogue = dialogue_messages(turn.graph_context_execution) if self.shared else None
+        self.messages = (retained_dialogue if retained_dialogue is not None else [
             {"role": item["role"], "content": canonical_bytes({"conversation": item["content"]}).decode()}
             for item in dialogue
-        ] + self.messages
+        ]) + self.messages
         self.prompt_components = None
         task = (_conversation_response_task(adapter._broker_execution())
                 if self.shared and getattr(rules, 'authoring', None) is None else None)
@@ -449,7 +451,8 @@ class PlanJevWriter:
         single_variant_base = self.shared and variant_format and len(variant_sources(self.work_frame)) == 1
         from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
 
-        conversation_draft = self.shared and native_conversation_terminal(turn) is not None
+        conversation_draft = (self.shared and native_conversation_terminal(turn) is not None
+            and self.provider_work.get("build_work", {}).get("requested_work", {}).get("requested_work") == "review_lore_page_from_conversation")
         default_effort = "medium" if single_variant_base or conversation_draft else "low"
         self.reasoning_effort = _discussion_reasoning_effort(
             default_effort, shared=self.shared,
@@ -545,6 +548,17 @@ class PlanJevWriter:
                 from application_state.agent_conversation.response_prompt import VARIANT_BASE
 
                 self.instructions += "\n" + VARIANT_BASE.text
+        if retained_dialogue is not None:
+            self.instructions += (
+                    '\nThe supplied dialogue is chronological. Preserve later corrections and '
+                    'retractions over earlier proposals. Retained authored context is an exact '
+                    'historical read or working draft, not the current saved page or played truth. '
+                    'Use its relevant setting details with clear attribution, separately from '
+                    'later invented directions and unresolved questions. Do not omit supplied '
+                    'context because it was absent from an earlier assistant summary. Native '
+                    'passages are already supplied; select their offered handles without '
+                    'claiming a new search or inventing citations.'
+                )
         self.model = adapter._broker_execution().policy.provider_roles.writer.model
         self.prepared = self.authorization = self.call = self.received_event = None
         self._usage_recorded = False

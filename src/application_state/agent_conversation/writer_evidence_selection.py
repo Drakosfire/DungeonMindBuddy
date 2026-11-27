@@ -345,19 +345,21 @@ def native_approval_terminal(turn):
 
 
 def native_conversation_terminal(turn):
-    from .types import BuildPriorBodyEvidenceAdmittedV1
+    from .types import BuildPriorBodyEvidenceAdmittedV1, BuildPriorBodyEvidenceAdmittedV3
     from .native_corpus import conversation_route_can_admit, prior_conversation_work
 
     if not native_build(turn) or not conversation_route_can_admit(
             turn.graph_context_receipt, turn.graph_context_execution):
         return None
     events = turn.graph_context_execution.events
-    work = prior_conversation_work(events)
     admissions = [event for event in events if isinstance(event, BuildPriorBodyEvidenceAdmittedV1)]
+    work = prior_conversation_work(events, allow_discussion=any(isinstance(event, BuildPriorBodyEvidenceAdmittedV3) for event in admissions))
     if work is None or len(admissions) != 1 or admissions[0].work_event_id != work.event_id:
         return None
     reason = ("native_lore_page_from_conversation_with_open_questions"
               if work.resolution.get("source_scope") == "uncertain" else "native_lore_page_from_conversation")
+    if work.requested_work == "discuss":
+        reason = "native_discussion_from_conversation"
     return {"status": "ready", "reason": reason}
 
 

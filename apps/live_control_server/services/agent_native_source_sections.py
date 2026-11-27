@@ -146,6 +146,13 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
         )
         authority = (turn.graph_context_receipt.authored_source_context.authority
             if play else turn.graph_context_receipt.source_authority)
+        from application_state.agent_conversation.retained_conversation import native_supports
+        retained = [support for support in native_supports(turn.graph_context_execution)
+                    if support.read.event_id == citation.read_event_id]
+        if retained:
+            if len(retained) != 1 or retained[0].catalog != catalog:
+                raise ValueError('Retained citation has ambiguous original authority')
+            authority = catalog.authority
         prepared = prepare_native_source_context(managed_world_id=authority.managed_world_id,
             principal=principal, revision_id=authority.revision_id, repository=repository,
             resolve_identity=resolve_identity)
