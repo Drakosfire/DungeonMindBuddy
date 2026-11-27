@@ -502,7 +502,8 @@ def test_scope_reader_refuses_changed_guidance_options_and_ties():
     with pytest.raises(ValueError):
         semantic.source_need(_request(options[:-1], guidance), _response(options, 'source_lookup'))
     tied = _response(options, 'source_lookup')
-    tied['answers']['source_need']['probabilities']['current_saved_page'] = 1.0
+    tied['answers']['source_need']['probabilities']['source_lookup'] = .5
+    tied['answers']['source_need']['probabilities']['current_saved_page'] = .5
     with pytest.raises(ValueError):
         semantic.source_need(_request(options, guidance), tied)
 
