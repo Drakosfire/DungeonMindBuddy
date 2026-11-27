@@ -7874,9 +7874,16 @@ def execute_agent_turn(
                 isinstance(frozen, (graph_types.PlanNativeContextReceiptV1,graph_types.SurfaceNativeContextReceiptV1))
                 or frozen is None and (_governed_build_turn(request) or request.surface.surface_id=='play' or isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)))):
             selected_resume = type(retained_pending) is NativeBuildSelectedSourceQueryPendingV1
+            from application_state.agent_conversation.authored_graph_references import AuthoredReferencesV2, AuthoredSourceReferenceV1
+            refs = request.build_authored_references
+            selected_fresh = (durable_turn is None and type(refs) is AuthoredReferencesV2
+                and bool(refs.references) and all(type(ref) is AuthoredSourceReferenceV1 for ref in refs.references)
+                and request.graph_selection is None and request.selected_knowledge is None
+                and request.graph_request.focus.kind == 'none' and request.build_write_capability is None
+                and request.build_image_move_capture is None)
             can_defer = (_governed_build_turn(request) and request.retry_of is None
                 and isinstance(submitted_intent, BuildGraphIntentV1) and submitted_intent.reviewed_step is None
-                and (request.build_authored_references is None or selected_resume)
+                and (request.build_authored_references is None or selected_resume or selected_fresh)
                 and native_corpus_context is not None)
             if resumes_deferred and not can_defer:
                 raise AgentTurnServiceError("The retained opening Graph authority is no longer available.",
@@ -7885,9 +7892,7 @@ def execute_agent_turn(
                 from .native_graph_reads import pending_build_query
                 with trace.phase("build_graph_query_pin"):
                     native_query = pending_build_query(canonical_world_id, request.message, native_corpus_context)
-                if selected_resume and native_query is not None:
-                    from application_state.agent_conversation.authored_graph_references import AuthoredReferencesV2, AuthoredSourceReferenceV1
-                    refs = request.build_authored_references
+                if (selected_resume or selected_fresh) and native_query is not None:
                     if (type(refs) is not AuthoredReferencesV2 or not refs.references
                             or any(type(ref) is not AuthoredSourceReferenceV1 for ref in refs.references)):
                         raise AgentTurnServiceError('The retained selected source is no longer available.',

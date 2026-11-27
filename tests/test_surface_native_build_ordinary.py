@@ -179,7 +179,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,selected_source_graph=False,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True):
     if failure == 'retry_controller_bad_request':
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         observe = native_corpus_source.observe_build_source_pointer
@@ -462,7 +462,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
-    if authored_source=='source_only':
+    if authored_source=='source_only' and not selected_source_graph:
         from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
         def no_object_binding(_):
             raise WorldGraphProjectionServiceError('No active object Graph',code='native_graph_binding_missing',status_code=409)
@@ -1797,7 +1797,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     context = payload['knowledge_context']
     assert context['schema'] == 'dmb_agent_surface_native_context_response_v1'
     assert context['receipt']['work_context']['surface_id'] == 'build'
-    if authored_source=='source_only':
+    if authored_source=='source_only' and selected_source_graph:
+        assert context['receipt']['native_query']['schema']=='dmb_native_build_selected_source_query_pending_v1'
+    elif authored_source=='source_only':
         assert context['receipt']['native_query']['reason']=='native_graph_binding_unavailable'
     else:
         assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
@@ -4331,3 +4333,26 @@ def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, t
     else:
         assert second.response.status_code == 200, second.response.text
         assert json.loads(second.writer.calls[0].content)['text']['format']['name'] == 'lore_page_response'
+
+
+def test_selected_source_discussion_skips_graph_and_reopens_citation(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads
+    from application_state.agent_conversation.native_context import NativeBuildSelectedSourceQueryPendingV1
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+    from application_state.agent_conversation.native_corpus import NativeAuthoredSourceReadV1
+
+    monkeypatch.setattr(native_graph_reads,'prepare_query',lambda *_args,**_kwargs:pytest.fail('unexpected Graph query'))
+    def before(adapter, provider):
+        if provider == 'typesafe':
+            assert type(adapter.native_query) is NativeBuildSelectedSourceQueryPendingV1
+            assert callable(adapter.prepare_deferred_build_query)
+    case = _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
+        authored_source='source_only',selected_source_graph=True,requested_work='discuss',source_need='anchored',
+        message='Using only my selected source, what does it say about the episode? Cite it and do not search other sources.',
+        before_provider=before)
+    assert case is not None
+    events=case.turn.graph_context_execution.events
+    assert len([event for event in events if type(event) is NativeAuthoredSourceReadV1]) == 1
+    assert not any(type(event) is NativeBuildQuerySettledV1 for event in events)
+    reopened=AgentConversationService().inspect_turn(world_id=case.world,turn_id=case.turn.turn_id)
+    assert reopened == case.turn

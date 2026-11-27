@@ -747,9 +747,12 @@ class BuildJevHarness:
                     if (image_choice not in {"move_existing", "unresolved"}
                             and resolve_graph_reference_opening(request, result) != "place_existing_reference"):
                         try:
-                            conversation_only = is_prior_conversation_work(
-                                *opening_work(policy, request, response, image_choice), allow_discussion=True,
-                            )
+                            work, scope = opening_work(policy, request, response, image_choice)
+                            from application_state.agent_conversation.native_context import NativeBuildSelectedSourceQueryPendingV1
+                            if type(getattr(adapter._broker_receipt(), 'native_query', None)) is NativeBuildSelectedSourceQueryPendingV1:
+                                conversation_only = work == 'discuss' and scope == 'anchored'
+                            else:
+                                conversation_only = is_prior_conversation_work(work, scope, allow_discussion=True)
                         except UnresolvedDiscussionSource:
                             # The driver emits the checked clarification without admitting work.
                             conversation_only = True
