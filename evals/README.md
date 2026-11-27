@@ -198,6 +198,14 @@ records the trusted Check insertion click and the matching fetch in the
 same browser clock. A fetch observed before the click fails the control. A run without a withheld receipt leaves recovery
 unverified.
 
+For the known-failure contrast, set `browser_capture.terminal_build_failure`
+on an owned ordinary Build capture with Save disabled. The injected failure
+occurs after the proposal writer response and before the proposal becomes
+reviewable. The capture checks the durable failed proposal and turn, reopens
+the exact turn in the browser, records whether Retry or Check insertion is
+offered, and verifies the page and send count. The browser leaves the Retry
+button untouched.
+
 For an unsent draft recovery control, use `capture --build-fixture --case
 RECOVERY-1 --clone-app` and set `browser_capture.unsent_draft` to `true`.
 The browser fills the composer and reloads it without clicking Send. The

@@ -155,6 +155,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     if type(lose_confirm_ack) is not bool or (lose_confirm_ack and (not live_build or confirm_save is not True)):
         raise ValueError("Lost acknowledgement requires live Build confirmation")
 
+    terminal_build_failure = manifest["browser_capture"].get("terminal_build_failure", False)
+    if type(terminal_build_failure) is not bool or (terminal_build_failure and (
+            not live_build or confirm_save or lose_confirm_ack or image_preview)):
+        raise ValueError("Terminal failure requires an ordinary Build proposal without Save")
+    failed_proposals = []
+
     unsent_draft = manifest["browser_capture"].get("unsent_draft", False)
     if unsent_draft and (live or confirm_save or not build_fixture):
         raise ValueError("Unsent draft requires provider-free Build capture")
@@ -233,7 +239,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         if live and path == "/__benchmark/browser-response-retained" and method == "GET":
             wire_path = directory / (wire_name + ".json")
             result = {"retained": wire_path.is_file()}
-            if confirm_save and result["retained"] and browser_request is not None:
+            if (confirm_save or terminal_build_failure) and result["retained"] and browser_request is not None:
                 result["idempotency_key"] = str(uuid5(
                     NAMESPACE_URL, f"dmb-agent-turn:{world}:{browser_request['turn_id']}"))
                 result["conversation_id"] = fresh["active_conversation_id"]
@@ -395,8 +401,21 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     jev_guard = (nullcontext() if live else
                  patch.object(plan_jev_dispatch._ObservedJevTransport, "handle_async_request", replay))
     writer_guard = nullcontext() if live else sink.install()
+    failure_guard = nullcontext()
+    if terminal_build_failure:
+        from apps.live_control_server.services.build_document_proposal import BuildComposeError, BuildProposalService
+        owner_advance = BuildProposalService.advance
+
+        def stop_after_response(service, world_id, action_id, *, expected_revision, state, **fields):
+            if world_id == world and state == "proposed":
+                failed_proposals.append(action_id)
+                raise BuildComposeError("benchmark_known_failure_after_writer_response")
+            return owner_advance(service, world_id, action_id, expected_revision=expected_revision, state=state, **fields)
+
+        failure_guard = patch.object(BuildProposalService, "advance", stop_after_response)
+
     try:
-        with patch.dict(os.environ, local_env), jev_guard, writer_guard:
+        with patch.dict(os.environ, local_env), jev_guard, writer_guard, failure_guard:
             thread = Thread(target=copy_context().run, args=(server.run,),
                             kwargs={"sockets": [sock]}, daemon=True)
             thread.start()
@@ -439,6 +458,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_UNSENT_DRAFT": "1" if unsent_draft else "0",
                         "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
                         "DMB_BENCHMARK_LOSE_CONFIRM_ACK": "1" if lose_confirm_ack else "0",
+                        "DMB_BENCHMARK_TERMINAL_BUILD_FAILURE": "1" if terminal_build_failure else "0",
                         "DMB_BENCHMARK_DOCUMENT_START": "1" if at_document_start else "0",
                         "DMB_BENCHMARK_SELECTION": manifest["browser_capture"].get("selection_text", "") if build_fixture or live_plan else "",
                         "DMB_BENCHMARK_BROWSER_RESULT": str(output / "browser-timing.json"),
@@ -634,6 +654,27 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "before_sha256": page_before["raw_body_sha256"],
                             "after_sha256": page_after["raw_body_sha256"],
                             "unchanged": page_before["body"] == page_after["body"],
+                        })
+                    if terminal_build_failure:
+                        timing_path = output / "browser-timing.json"
+                        mounted = (json.loads(timing_path.read_bytes()).get("terminal_build_failure")
+                                   if timing_path.is_file() else None)
+                        proposal = (BuildProposalService().get(world, failed_proposals[0])
+                                    if len(failed_proposals) == 1 else None)
+                        row = turns[0] if len(turns) == 1 else {}
+                        checks = {
+                            "known_terminal_proposal": (proposal is not None and proposal.state == "failed"
+                                and proposal.raw_response is not None and proposal.proposal is None
+                                and str(proposal.action_id) == browser_request["build_write_capability"]["idempotency_key"]),
+                            "same_terminal_turn": bool(mounted and row.get("turn_id") == mounted.get("turn_id")
+                                and row.get("lifecycle_status") in {"failed", "interrupted"}),
+                            "no_automatic_send": bool(mounted and mounted.get("turn_posts") == turn_posts == 1),
+                            "page_unchanged": page_before["body"] == page_after["body"],
+                        }
+                        artifacts.immutable_save(directory, "terminal-build-failure", {
+                            "status": "observed" if not driver_failed and all(checks.values()) else "incomplete",
+                            "checks": checks, "mounted": mounted,
+                            "owner_failure": proposal.failure_code if proposal is not None else None,
                         })
                     if live and len(turns) == 1:
                         durable_id = turns[0]["turn_id"]
