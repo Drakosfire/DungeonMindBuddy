@@ -101,13 +101,17 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     directory = Path(directory)
     names = ("request", "history-after", "context-trace", "answer-http", "related-page-probe")
     paths = {name: directory / (name + ".json") for name in names}
-    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal", "native-graph-probe", "source-window-probe", "primary-page-stability"):
+    for name in ("history-before", "fresh-history", "fixture-sources", "fixture-pin", "terminal", "native-graph-probe", "source-window-probe", "primary-page-stability", "primary-resolution-probe"):
         paths[name] = directory / (name + ".json")
     present = {name: path for name, path in paths.items() if path.is_file()}
     # Bind and parse the same immutable byte snapshot, not a second file read.
     raw_artifacts = {name: path.read_bytes() for name, path in present.items()}
     hashes = {name: sha256(raw).hexdigest() for name, raw in raw_artifacts.items()}
     rows = {name: json.loads(raw) for name, raw in raw_artifacts.items()}
+    primary_resolution = None
+    if "primary-resolution-probe" in rows:
+        from .primary_resolution_probe import validate_primary_resolution
+        primary_resolution = validate_primary_resolution(rows["primary-resolution-probe"], fixture["id"])
     source_window = None
     if "source-window-probe" in rows:
         from .source_window import validate_artifact
@@ -156,7 +160,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
         return {"schema": REPORT_SCHEMA, "case_id": fixture["id"], "rubric_sha256": rubric_sha256(rubric),
                 "status": "unproven", "missing_artifacts": missing,
                 "artifact_sha256": hashes, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe, "partial_source_window": source_window,
-                "capture_terminal": terminal}
+                "capture_terminal": terminal, "primary_resolution_probe": primary_resolution}
     if rows["request"].get("message") != fixture["request"]:
         raise ValueError("Capture request differs from the fixture")
     from .fixture_sources import related_trace_labels, verify_related_record
@@ -320,7 +324,7 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
             "fixture_pin_verified": pin_bound,
             "capture_environment_verified": None,
             "capture_terminal": terminal, "partial_probe": partial_probe, "partial_native_graph_probe": native_probe, "partial_source_window": source_window,
-            "primary_page_stability": primary_stability, "semantic_review": reviewed,
+            "primary_page_stability": primary_stability, "primary_resolution_probe": primary_resolution, "semantic_review": reviewed,
             "fixture_binding_error": binding_error if not fixture_bound else None,
             "artifact_sha256": hashes,
             "http_status": observed["http_status"], "response_latency": response_latency(rows["answer-http"]),
