@@ -55,14 +55,14 @@ async function run() {
     await page.goto(origin + (build ? "/build?world=" : "/plan?world=") +
       encodeURIComponent(process.env.DMB_BENCHMARK_WORLD) + "&documentId=" + encodeURIComponent(documentId));
     if (imagePreview) {
-      const { generatePrivatePreview } = require("./image_studio.cjs");
+      const { generatePrivatePreview, regeneratePrivatePreview } = require("./image_studio.cjs");
       const { createHash } = require("node:crypto");
       let generationPosts = 0;
       const writeRequests = [];
       page.on("request", request => {
         const path = new URL(request.url()).pathname;
         const method = request.method();
-        if (method === "POST" && path === "/api/live/media/images/generate") generationPosts++;
+        if (method === "POST" && (path === "/api/live/media/images/generate" || path.endsWith("/regenerate"))) generationPosts++;
         if (/\/api\/live\/media\/images\/.*\/(save|place)$/.test(path)
             || (!["GET", "HEAD"].includes(method) && path.startsWith("/api/live/workspace-documents/"))) {
           writeRequests.push({ method, path });
@@ -94,16 +94,21 @@ async function run() {
         });
         const editorBefore = await readDocument();
         await page.getByRole("button", { name: "Open Image Studio", exact: true }).click();
-        const { asset, model, elapsedMs } = await generatePrivatePreview(
-          page, origin, process.env.DMB_BENCHMARK_QUESTION
-        );
-        const encoded = /^data:image\/(?:png|jpeg|webp);base64,(.+)$/.exec(asset.data_url);
-        if (!encoded) throw new Error("Generated preview has no supported image bytes");
-        result.preview = {
-          asset: { asset_id: asset.asset_id, state: asset.state },
-          sha256: createHash("sha256").update(Buffer.from(encoded[1], "base64")).digest("hex"),
-          model, elapsedMs,
-        };
+        const parent = JSON.parse(process.env.DMB_BENCHMARK_IMAGE_PARENT || "null");
+        if (parent) {
+          result.preview = await regeneratePrivatePreview(page, origin, parent, process.env.DMB_BENCHMARK_QUESTION);
+        } else {
+          const { asset, model, elapsedMs } = await generatePrivatePreview(
+            page, origin, process.env.DMB_BENCHMARK_QUESTION
+          );
+          const encoded = /^data:image\/(?:png|jpeg|webp);base64,(.+)$/.exec(asset.data_url);
+          if (!encoded) throw new Error("Generated preview has no supported image bytes");
+          result.preview = {
+            asset: { asset_id: asset.asset_id, state: asset.state },
+            sha256: createHash("sha256").update(Buffer.from(encoded[1], "base64")).digest("hex"),
+            model, elapsedMs,
+          };
+        }
         result.editor_unchanged = editorBefore === await readDocument();
       } finally {
         writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({

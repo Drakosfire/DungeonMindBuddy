@@ -234,6 +234,11 @@ capture compares the committed page, complete saved image library and
 conversation before and after, and independently reopens the staged asset.
 Use an approved, configured image route in isolated benchmark state.
 
+For Image to image, add `browser_capture.image_parent` with the exact
+`asset_id` and `content_sha256`. The case question is the edit direction.
+The shared capture binds the mounted POST to that parent, verifies the decoded
+child against the staged record, and reopens the original before and after.
+
 For an ordinary Plan browser replay, select a case in the context capture
 command as well as choosing the writer sink.
 

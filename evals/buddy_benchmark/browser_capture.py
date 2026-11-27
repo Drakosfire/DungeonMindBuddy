@@ -36,6 +36,16 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
                 key in spec for key in ("selection_text", "unsent_draft", "confirm_save", "lose_confirm_ack"))
     )):
         raise ValueError("Image preview requires a Build fixture without selection, draft or confirmation")
+    parent = spec.get("image_parent")
+    if "image_parent" in spec and (
+            not image_preview or not isinstance(parent, dict)
+            or set(parent) != {"asset_id", "content_sha256"}
+            or not isinstance(parent["asset_id"], str)
+            or str(UUID(parent["asset_id"])) != parent["asset_id"]
+            or not isinstance(parent["content_sha256"], str)
+            or len(parent["content_sha256"]) != 64
+            or any(ch not in "0123456789abcdef" for ch in parent["content_sha256"])):
+        raise ValueError("Image regeneration requires an exact parent asset and digest")
     unsent_draft = spec.get("unsent_draft", False)
     if type(unsent_draft) is not bool or (unsent_draft and (not build_fixture or live_plan)):
         raise ValueError("Unsent draft requires a Build browser fixture")
@@ -83,6 +93,25 @@ def require_image_preview_page(snapshot, world, work):
         raise ValueError("Image preview does not target the pinned committed Build page")
 
 
+def read_image_parent(client, parent):
+    """Retain parent metadata and original-byte digest even for negative readbacks."""
+    route = "/api/live/media/images/" + parent["asset_id"]
+    metadata = workflow.response_envelope(client.get(route + "/metadata"))
+    original = client.get(route + "/original")
+    digest = sha256(original.content).hexdigest()
+    body = metadata["body"] if isinstance(metadata["body"], dict) else {}
+    return {
+        "metadata": metadata,
+        "original_http_status": original.status_code,
+        "original_sha256": digest,
+        "matches_pin": (
+            metadata["http_status"] == 200 and original.status_code == 200
+            and body.get("asset_id") == parent["asset_id"]
+            and body.get("state") in {"ready", "staged"}
+            and body.get("content_sha256") == digest == parent["content_sha256"]),
+    }
+
+
 def saved_image_library(client, world):
     """Read all saved assets through the media owner, even when staging shifts a page."""
     cursor = {}
@@ -111,6 +140,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             "local", "local_operator", "local_operator", "local"):
         raise ValueError("Browser capture requires explicit local operator auth")
     image_preview = manifest["browser_capture"].get("image_preview", False)
+    image_parent = manifest["browser_capture"].get("image_parent")
     if image_preview and not live_build:
         raise ValueError("Image preview requires explicit live Build capture")
     live = live_build or live_plan
@@ -420,6 +450,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         env["DMB_BENCHMARK_IMAGE_PAGE_PIN"] = json.dumps(work)
                         library_before = saved_image_library(client, world)
                         artifacts.immutable_save(directory, "image-library-before", library_before)
+                        if image_parent is not None:
+                            parent_before = read_image_parent(client, image_parent)
+                            artifacts.immutable_save(directory, "image-parent-before", parent_before)
+                            if not parent_before["matches_pin"]:
+                                raise ValueError("Selected image parent differs from the pinned original")
+                            env["DMB_BENCHMARK_IMAGE_PARENT"] = json.dumps(image_parent)
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     try:
@@ -465,6 +501,20 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "conversation_unchanged": after == fresh and turn_posts == 0
                                 and observation.get("turn_posts") == 0,
                         }
+                        if image_parent is not None:
+                            parent_after = read_image_parent(client, image_parent)
+                            artifacts.immutable_save(directory, "image-parent-after", parent_after)
+                            child = (owner_asset or {}).get("body") or {}
+                            provenance = child.get("provenance", {})
+                            checks["parent_unchanged"] = (
+                                parent_after["matches_pin"]
+                                and parent_before["metadata"]["body"] == parent_after["metadata"]["body"])
+                            checks["distinct_child_bound_to_parent"] = (
+                                child.get("asset_id") not in (None, image_parent["asset_id"])
+                                and provenance.get("parent_asset_id") == image_parent["asset_id"]
+                                and provenance.get("parent_content_sha256") == image_parent["content_sha256"]
+                                and provenance.get("mode") == "image_to_image"
+                                and provenance.get("instructions") == case["question"])
                         artifacts.immutable_save(directory, "fixture-result", {
                             "status": "observed" if not driver_failed and all(checks.values()) else "incomplete",
                             "checks": checks, "image_preview": observation,
