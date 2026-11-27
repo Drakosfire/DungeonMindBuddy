@@ -226,6 +226,14 @@ first text position, set `browser_capture.at_document_start` to true and omit
 `selection_text`. The browser positions the caret and the harness checks the
 captured range and exact committed text digest before dispatch.
 
+For a private Image Studio preview, use the live Build browser mode and set
+`browser_capture.image_preview` to true. Omit selection, unsent-draft and
+confirmation fields. The case question is the exact image description. The
+driver opens Image Studio, generates once and decodes the staged image. The
+capture compares the committed page, complete saved image library and
+conversation before and after, and independently reopens the staged asset.
+Use an approved, configured image route in isolated benchmark state.
+
 For an ordinary Plan browser replay, select a case in the context capture
 command as well as choosing the writer sink.
 

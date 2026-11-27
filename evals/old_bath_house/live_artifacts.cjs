@@ -2,6 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { performance } = require('node:perf_hooks');
+const { generatePrivatePreview } = require('../buddy_benchmark/image_studio.cjs');
 
 async function confirmVariant(page, fixture, evidence) {
   const find = page.getByRole('button', { name: 'Find reviewed statblock', exact: true });
@@ -46,33 +47,11 @@ async function confirmVariant(page, fixture, evidence) {
 async function generatePortrait(page, fixture, variant, evidence) {
   await page.goto(variant.url);
   await page.getByRole('button', { name: 'Generate or choose portrait', exact: true }).click();
-  const studio = page.getByRole('region', { name: 'Create an image', exact: true });
-  const expand = studio.getByRole('button', { name: 'Expand image studio', exact: true });
-  if (await expand.isVisible()) await expand.click();
-  const back = studio.getByRole('button', { name: 'Back to studio', exact: true });
-  if (await back.isVisible()) await back.click();
-  const prompt = studio.getByRole('textbox', { name: /What would you like to see/ });
-  await prompt.fill(fixture.live.portraitPrompt);
-  const generate = studio.getByRole('button', { name: 'Generate image', exact: true });
-  const started = performance.now();
-  const [response] = await Promise.all([
-    page.waitForResponse(result => {
-      const url = new URL(result.url());
-      return url.origin === fixture.origin && url.pathname === '/api/live/media/images/generate'
-        && result.request().method() === 'POST';
-    }, { timeout: 185000 }),
-    generate.click(),
-  ]);
-  assert.ok(response.ok(), `Portrait provider failed with HTTP ${response.status()}`);
-  const result = await response.json();
-  const [portrait] = result.images;
-  assert.ok(portrait?.asset_id, 'Generated preview is missing its media identity');
-  assert.equal(portrait.state, 'staged');
-  assert.ok(!portrait.delivery_url, 'Generated preview unexpectedly has public delivery');
-  const image = studio.getByRole('img', { name: fixture.live.portraitPrompt, exact: true });
-  await image.evaluate(async node => { await node.decode(); });
-  evidence.timings_ms.portrait_generation = performance.now() - started;
-  evidence.evidence.portrait_generation = { asset_id: portrait.asset_id, model: result.model, state: portrait.state };
+  const { asset: portrait, model, elapsedMs } = await generatePrivatePreview(
+    page, fixture.origin, fixture.live.portraitPrompt
+  );
+  evidence.timings_ms.portrait_generation = elapsedMs;
+  evidence.evidence.portrait_generation = { asset_id: portrait.asset_id, model, state: portrait.state };
   return portrait;
 }
 

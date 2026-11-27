@@ -48,6 +48,30 @@ async function run() {
     const build = process.env.DMB_BENCHMARK_SURFACE === "build";
     await page.goto(origin + (build ? "/build?world=" : "/plan?world=") +
       encodeURIComponent(process.env.DMB_BENCHMARK_WORLD) + "&documentId=" + encodeURIComponent(documentId));
+    if (process.env.DMB_BENCHMARK_IMAGE_PREVIEW === "1") {
+      const { generatePrivatePreview } = require("./image_studio.cjs");
+      let generationPosts = 0;
+      const writeRequests = [];
+      page.on("request", request => {
+        const path = new URL(request.url()).pathname;
+        const method = request.method();
+        if (method === "POST" && path === "/api/live/media/images/generate") generationPosts++;
+        if (/\/api\/live\/media\/images\/.*\/(save|place)$/.test(path)
+            || (!["GET", "HEAD"].includes(method) && path.startsWith("/api/live/workspace-documents/"))) {
+          writeRequests.push({ method, path });
+        }
+      });
+      const result = { preview: null };
+      try {
+        await page.getByRole("button", { name: "Open Image Studio", exact: true }).click();
+        result.preview = await generatePrivatePreview(page, origin, process.env.DMB_BENCHMARK_QUESTION);
+      } finally {
+        writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
+          ...result, generation_posts: generationPosts, write_requests: writeRequests, turn_posts: turnPosts,
+        }, null, 2));
+      }
+      return;
+    }
     const composer = build ? page.getByLabel("Message DungeonBuddy") :
       page.getByPlaceholder("Ask Buddy, or tell it what to change…");
     async function openComposer() {
