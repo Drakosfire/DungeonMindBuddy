@@ -646,7 +646,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
 
             using_prior_citations = native_conversation_terminal(self.adapter.turn) is not None
-            expected_effort = 'medium' if (using_prior_citations
+            admitted_discussion = failure != 'used_rules' and any(
+                isinstance(event, t.BuildRequestedWorkResolutionV1)
+                and event.requested_work == 'discuss' and event.operation == 'answer_from_sources'
+                and 'barrier' in event.resolution and event.resolution['barrier'] is None
+                for event in self.adapter._broker_execution().events
+            )
+            expected_effort = 'medium' if (using_prior_citations and current_work == 'review_lore_page_from_conversation'
+                or admitted_discussion
                 or current_work == 'draft_in_conversation' and saved_statblock == 'associated') else 'low'
             if body.get('reasoning', {}).get('effort') != expected_effort:
                 return httpx.Response(400, request=req, json={'error': {
@@ -685,17 +692,20 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert inputs[:2] == [{"conversation": message}, {"conversation": ""}]
                     assert inputs[-1] == frame
                 else:
-                    dialogue = [(role, pair[role])
-                        for pair in getattr(self.adapter, "build_frozen_history", ())
-                        for role in ("user", "assistant")]
+                    from application_state.agent_conversation.retained_conversation import dialogue_messages
+                    expected = dialogue_messages(self.adapter.turn.graph_context_execution)
+                    if expected is None:
+                        expected = [dict(role=role, content=json.dumps({"conversation": pair[role]}))
+                            for pair in getattr(self.adapter, "build_frozen_history", ())
+                            for role in ("user", "assistant")]
                     assert isinstance(body['input'], list)
-                    assert len(body['input']) == len(dialogue) + 3
-                    for row, (role, text) in zip(body['input'][:len(dialogue)], dialogue, strict=True):
-                        assert row['role'] == role
-                        assert json.loads(row['content']) == {"conversation": text}
-                    assert len(inputs) == len(dialogue) + 3
-                    assert inputs[:len(dialogue)] == [{"conversation": text} for _, text in dialogue]
-                    assert all(row['role'] == 'user' for row in body['input'][len(dialogue):])
+                    assert len(body['input']) == len(expected) + 3
+                    for row, wanted in zip(body['input'][:len(expected)], expected, strict=True):
+                        assert row['role'] == wanted['role']
+                        assert json.loads(row['content']) == json.loads(wanted['content'])
+                    assert len(inputs) == len(expected) + 3
+                    assert inputs[:len(expected)] == [json.loads(row['content']) for row in expected]
+                    assert all(row['role'] == 'user' for row in body['input'][len(expected):])
                     assert inputs[-3] == {"build_work": work}
                     assert set(inputs[-2]) == {'lookups', 'ruleset', 'supports'}
                     assert inputs[-1] == frame
@@ -733,7 +743,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     draft_in_input = json.dumps(expected_draft, ensure_ascii=False)[1:-1] if placement_question else expected_draft
                     assert sum(draft_in_input in row['content'] for row in body['input']) == 1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
-            assert (handles or saved_statblock in {"associated", "by-name"}
+            assert (handles or getattr(self.adapter._broker_execution().policy.action.intent, "authored_references", None) is None
+                    or saved_statblock in {"associated", "by-name"}
                     or authored_source == 'source_only'
                     or image_move == "other_discussion"
                     or current_work in {"review_lore_page", "review_lore_page_from_conversation"})
@@ -760,7 +771,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 return work['current_draft']['markdown']
             read_ids=[row['selection'] for row in sections]
             if saved:
-                assert read_ids and 'A proposed conversation.' in str(work)
+                assert (read_ids or using_prior_citations) and 'A proposed conversation.' in str(work)
             if mode:
                 target = contextual if contextual in {"page_end", "page_body"} else "prose_target" if contextual else "captured"
                 candidate=dict(destination='current_page',target=target,replacement_markdown=proposal_markdown or 'A proposed copper lamp.',
@@ -842,8 +853,15 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     assert all(r.excerpt.text not in json.dumps(frame) for r in acquired)
             if using_prior_citations:
                 exposed = frame["native_body_evidence"]["excerpts"]
-                assert exposed and all(row["prior_claim"] == "The source describes a source-local episode."
-                    for row in exposed)
+                assert exposed
+                retained = next((event for event in self.adapter.turn.graph_context_execution.events
+                    if isinstance(event, t.BuildPriorBodyEvidenceAdmittedV2)), None)
+                if retained is None:
+                    assert all(row["prior_claim"] == "The source describes a source-local episode."
+                        for row in exposed)
+                else:
+                    assert retained.native_context
+                    assert all("prior_claim" not in row for row in exposed)
                 candidate["answer_segments"] = [dict(kind="native_body_claim",
                     text="The source describes a source-local episode.",
                     excerpt_handles=[row["excerpt_handle"] for row in exposed])]
@@ -3214,7 +3232,10 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
             else "native_lore_page_from_conversation"
         )
         assert not acquired_body_reads(populated.graph_context_execution)
-        assert all(c.prior_reference.turn_id == producing.turn_id for c in populated.completion.native_body_citations)
+        assert all(c.prior_reference is None and c.read_event_id in {
+            read.event_id for origin in (blank, producing)
+            for read in acquired_body_reads(origin.graph_context_execution)
+        } for c in populated.completion.native_body_citations)
         for number in range(6 if carry == "anchored" else 0):
             response = workflow.capture_case(
                 case.client, case.world, template, {"question": synthesis},
@@ -3230,7 +3251,10 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
                 pin.turn_id for pin in populated.graph_context_receipt.assembled_input.included_history
             }
         assert populated.completion.native_body_citations
-        assert all(c.prior_reference.turn_id == producing.turn_id for c in populated.completion.native_body_citations)
+        assert all(c.prior_reference is None and c.read_event_id in {
+            read.event_id for origin in (blank, producing)
+            for read in acquired_body_reads(origin.graph_context_execution)
+        } for c in populated.completion.native_body_citations)
 
     completion = populated.completion
     assert completion.collaboration.destination.title == "Glass Regent"
@@ -3297,7 +3321,8 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     assert all(segment.text not in reopened.revision.markdown for segment in completion.answer_segments
                if segment.kind == "limitation")
     reads = {
-        read.event_id: read.excerpt.text for read in acquired_body_reads(producing.graph_context_execution)
+        read.event_id: read.excerpt.text for origin in (blank, producing)
+        for read in acquired_body_reads(origin.graph_context_execution)
     }
     assert completion.native_body_citations
     import re

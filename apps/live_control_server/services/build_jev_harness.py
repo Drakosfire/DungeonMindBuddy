@@ -295,7 +295,7 @@ class BuildJevHarness:
             from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
             if (adapter.native_source_authority is not None
                     and conversation_route_can_admit(adapter._broker_receipt(), adapter._broker_execution())
-                    and prior_conversation_work(adapter._broker_execution().events) is not None):
+                    and prior_conversation_work(adapter._broker_execution().events, allow_discussion=True) is not None):
                 adapter.turn, _ = adapter.fence.append(
                     "admit_build_prior_body_evidence", "event_id", uuid4(),
                 )
@@ -655,6 +655,10 @@ class BuildJevHarness:
                 wait_for_work = getattr(driver, "image_move", None) is not None
             else:
                 wait_for_work = any(q.name == "requested_work" for q in intent.questions)
+            # The semantic source decision owns whether acquisition is needed.
+            # Starting Graph while that decision is in flight violates anchored
+            # discussion even when its writer later chooses retained context.
+            wait_for_work = wait_for_work or any(q.name == "source_need" for q in intent.questions)
 
         def dispatch_started():
             nonlocal pending_query, opening_dispatched
@@ -720,7 +724,7 @@ class BuildJevHarness:
                             and resolve_graph_reference_opening(request, result) != "place_existing_reference"):
                         try:
                             conversation_only = is_prior_conversation_work(
-                                *opening_work(policy, request, response, image_choice),
+                                *opening_work(policy, request, response, image_choice), allow_discussion=True,
                             )
                         except UnresolvedDiscussionSource:
                             # The driver emits the checked clarification without admitting work.
