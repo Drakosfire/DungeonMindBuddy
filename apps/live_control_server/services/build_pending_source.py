@@ -44,7 +44,8 @@ class PendingBuildSourcePreparation:
             return False
         observed = turn.graph_context_receipt.source_observation
         binding = observed.binding
-        if binding is None or observed.requested_or_observed_revision is None:
+        revision = observed.requested_or_observed_revision
+        if binding is None or (revision is None and not observed.deferred_head):
             return False
         current = self.resolve_identity(self.world_id)
         fields = ('managed_world_id', 'native_world_id', 'binding_version', 'provisioning_id')
@@ -53,20 +54,20 @@ class PendingBuildSourcePreparation:
         if prepared is not None:
             if (type(prepared) is not tuple or len(prepared) != 2
                     or type(prepared[0]) is not ledger.NativeCorpusAuthorityV1
-                    or prepared[0].revision_id != observed.requested_or_observed_revision
+                    or (revision is not None and prepared[0].revision_id != revision)
                     or any(getattr(prepared[0], field) != getattr(binding, field) for field in fields)):
                 return False
         return True
 
     def _source(self, turn, stored=None):
         observed = turn.graph_context_receipt.source_observation
-        revision = observed.requested_or_observed_revision
-        if observed.binding is None or revision is None:
+        revision = stored[0].revision_id if stored is not None else observed.requested_or_observed_revision
+        if observed.binding is None or (revision is None and not observed.deferred_head):
             raise ValueError('Pending source has no captured scope to prepare')
         context, authority = self.prepare_source(self.world_id, self.principal, revision_id=revision,
             resolve_identity=lambda world_id: self._captured_identity(turn, world_id))
         if (context is None or type(authority) is not ledger.NativeCorpusAuthorityV1
-                or context.authority != authority or authority.revision_id != revision
+                or context.authority != authority or (revision is not None and authority.revision_id != revision)
                 or any(getattr(authority, field) != getattr(observed.binding, field) for field in (
                     'managed_world_id', 'native_world_id', 'binding_version', 'provisioning_id'))):
             raise ValueError('Pending source preparation did not verify the captured revision')
@@ -89,8 +90,9 @@ class PendingBuildSourcePreparation:
         prepared = []
         if stored is None:
             pending_source_work(adapter._broker_execution())
-            if (receipt.source_observation.binding is None
-                    or receipt.source_observation.requested_or_observed_revision is None):
+            observed = receipt.source_observation
+            if (observed.binding is None or (observed.requested_or_observed_revision is None
+                                             and not observed.deferred_head)):
                 return False  # No later World/head may substitute for an unobserved scope.
             def materialize(turn):
                 context, authority = self._source(turn)

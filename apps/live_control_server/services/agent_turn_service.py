@@ -7286,7 +7286,7 @@ def _prepare_pending_build_startup(request, *, world_id, principal, durable_turn
     else:
         from ..integrations.dungeonmind.native_corpus_source import observe_build_source_pointer
         observed = observe_build_source_pointer(managed_world_id=world_id, principal=principal,
-            revision_id=request.graph_request.revision_pin)
+            revision_id=request.graph_request.revision_pin, defer_head=True)
         conversation = None
     if authorize_world(world_id) is not None:
         raise AgentTurnServiceError('Current World access changed during Build observation.',
@@ -7882,7 +7882,7 @@ def execute_agent_turn(
         pending_build_source_preparation = PendingBuildSourcePreparation(
             world_id=canonical_world_id, principal=native_principal, app_access=pending_build_access,
             prepare_source=prepare_pending_source, resolve_query=resolve_pending_query)
-        # Only public head/binding metadata was observed. No native authority,
+        # Only the App binding was observed. No Core head, native authority,
         # Graph query or related-page catalog exists before the work decision.
         graph_result = {"status": "not_requested", "selection_found": None}
     elif native_surface_sources:

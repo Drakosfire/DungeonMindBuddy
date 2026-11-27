@@ -80,7 +80,7 @@ def _guest_access(principal, world_id):
 
 
 def observe_build_source_pointer(*, managed_world_id, principal, revision_id=None,
-                                 repository=None, resolve_identity=None):
+                                 repository=None, resolve_identity=None, defer_head=False):
     """Observe Build identity without loading or verifying revision content.
 
     Buddy's caller owns current World/principal access. A head is only an
@@ -112,7 +112,7 @@ def observe_build_source_pointer(*, managed_world_id, principal, revision_id=Non
     if binding.managed_world_id != managed_world_id:
         raise ValueError("Observed source binding belongs to another managed World")
     head_revision = None
-    if revision_id is None:
+    if revision_id is None and not defer_head:
         repo = repository if repository is not None else turn_source_repository(read_only=True)
         head = repo.get_head(binding.native_world_id)
         if head is not None:
@@ -123,7 +123,7 @@ def observe_build_source_pointer(*, managed_world_id, principal, revision_id=Non
         raise ValueError("Build source ownership changed during observation")
     return BuildSourceObservationV1(managed_world_id=managed_world_id,
         binding=binding, requested_revision_id=revision_id,
-        observed_head_revision_id=head_revision)
+        observed_head_revision_id=head_revision, deferred_head=defer_head and revision_id is None)
 
 
 def prepare_native_source_context(*, managed_world_id, principal, revision_id=None,

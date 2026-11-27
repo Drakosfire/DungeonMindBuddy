@@ -1944,7 +1944,24 @@ def test_pending_startup_observes_metadata_between_live_access_checks(monkeypatc
     assert observed == kwargs['source_observation'] and conversation is None and callable(access)
     assert [kind for kind, _ in calls] == ['access', 'metadata', 'access']
     assert calls[1][1] == {'managed_world_id': principal.managed_world_id,
-        'principal': principal, 'revision_id': request.graph_request.revision_pin}
+        'principal': principal, 'revision_id': request.graph_request.revision_pin, 'defer_head': True}
+
+
+def test_pending_startup_does_not_open_core_to_find_head():
+    from types import SimpleNamespace
+    from apps.live_control_server.integrations.dungeonmind.native_corpus_source import observe_build_source_pointer
+
+    bound = SimpleNamespace(managed_world_id='managed', native_world_id='native',
+                            binding_version=1, provisioning_id=None)
+    principal = SimpleNamespace(role='gm', managed_world_id='managed')
+    repository = SimpleNamespace(get_head=lambda *args: pytest.fail('Opening intent read Core head'))
+    deferred = observe_build_source_pointer(managed_world_id='managed', principal=principal,
+        repository=repository, resolve_identity=lambda _: bound, defer_head=True)
+    assert deferred.deferred_head and deferred.requested_or_observed_revision is None
+    pinned = observe_build_source_pointer(managed_world_id='managed', principal=principal,
+        repository=repository, resolve_identity=lambda _: bound, defer_head=True, revision_id='pinned')
+    assert not pinned.deferred_head and pinned.requested_or_observed_revision == 'pinned'
+    assert 'deferred_head' not in pinned.model_dump(mode='json')
 
 
 @pytest.mark.parametrize('reason', ['references', 'reviewed', 'selected_knowledge', 'graph_selection', 'retry', 'no_owner', 'not_gm', 'reference_image'])

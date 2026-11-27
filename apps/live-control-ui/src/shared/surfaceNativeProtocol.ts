@@ -279,8 +279,11 @@ export function isBuildPendingReceipt(v:unknown,validateWork:(work:unknown)=>wor
     ||!hash(v.context_receipt_sha256)||!hash(v.provenance_sha256)||!validateWork(v.work_context)
     ||v.work_context.surface_id!=='build'||!isNativeProviderInput(v.assembled_input,'native_build_pending_initial_v3'))return false;
   const world=v.work_context.source_basis.world_id,o=v.source_observation,c=v.conversation_observation;
+  const deferred=typeof o==='object'&&o!==null&&'deferred_head' in o;
   if(!exact(c,['conversation_id','pointer_revision'])||!uuid(c.conversation_id)||!integer(c.pointer_revision)
-    ||!exact(o,['schema','managed_world_id','binding','requested_revision_id','observed_head_revision_id'])
+    ||!exact(o,['schema','managed_world_id','binding','requested_revision_id','observed_head_revision_id',
+      ...(deferred?['deferred_head']:[])])
+    ||deferred&&(o.deferred_head!==true||o.binding===null||o.requested_revision_id!==null||o.observed_head_revision_id!==null)
     ||o.schema!=='dmb_build_source_observation_v1'||o.managed_world_id!==world
     ||!(o.requested_revision_id===null||text(o.requested_revision_id))
     ||!(o.observed_head_revision_id===null||text(o.observed_head_revision_id)))return false;

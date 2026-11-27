@@ -80,9 +80,13 @@ class BuildSourceObservationV1(Strict):
     binding: BuildSourceBindingObservedV1 | None
     requested_revision_id: str | None = Field(min_length=1, strict=True)
     observed_head_revision_id: str | None = Field(min_length=1, strict=True)
+    deferred_head: bool = Field(default=False, strict=True, exclude_if=lambda value: not value)
 
     @model_validator(mode="after")
     def observed_scope(self):
+        if self.deferred_head and (self.binding is None or self.requested_revision_id is not None
+                                   or self.observed_head_revision_id is not None):
+            raise ValueError("Deferred head requires an unpinned World binding")
         if self.binding is None:
             if self.observed_head_revision_id is not None:
                 raise ValueError("A head observation requires its observed World binding")
@@ -116,12 +120,12 @@ def validate_pending_source_settlement(receipt, settlement):
     observed, source = receipt.source_observation, settlement.source_authority
     binding = observed.binding
     revision = observed.requested_or_observed_revision
-    if binding is None or revision is None:
+    if binding is None or (revision is None and not observed.deferred_head):
         raise ValueError("Unobserved source scope cannot be replaced during settlement")
     if any(getattr(source, key) != getattr(binding, key) for key in (
             "managed_world_id", "native_world_id", "binding_version", "provisioning_id")):
         raise ValueError("Source settlement differs from the observed binding")
-    if source.revision_id != revision:
+    if revision is not None and source.revision_id != revision:
         raise ValueError("Source settlement differs from the requested or observed revision")
 
 

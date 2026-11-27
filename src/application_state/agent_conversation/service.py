@@ -3299,7 +3299,8 @@ class AgentConversationService:
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             observed = before.graph_context_receipt.source_observation
-            if observed.binding is None or observed.requested_or_observed_revision is None:
+            if (observed.binding is None or (observed.requested_or_observed_revision is None
+                                             and not observed.deferred_head)):
                 raise ApplicationStateConflictError('Pending native source has no captured scope to prepare')
             captured_receipt = before.graph_context_receipt
             captured_message, work_event_id = before.user_text, work.event_id
