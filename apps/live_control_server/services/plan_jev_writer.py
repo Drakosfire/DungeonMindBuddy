@@ -155,7 +155,7 @@ class _ReplyRejected(ValueError):
 
 def authorize_native_writer(adapter, rules, proof, prepared, expected, frame, *,
                             compact_plan_editor_prose=None, compact_plan_graph_qualifications=None,
-                            deduplicate_plan_recap_prose=None):
+                            deduplicate_plan_recap_prose=None, alias_campaign_scope=None):
     """One native admission for the exact SDK input; output schemas stay owned."""
     from generationengine.text_dispatch import PreparedTextDispatch
     from .agent_turn_service import _json_node_count, _require_fresh_execution_append
@@ -223,7 +223,8 @@ def authorize_native_writer(adapter, rules, proof, prepared, expected, frame, *,
         native_read_event_ids=native_read_event_ids(adapter._broker_execution().events),
         compact_plan_editor_prose=compact_plan_editor_prose,
         compact_plan_graph_qualifications=compact_plan_graph_qualifications,
-        deduplicate_plan_recap_prose=deduplicate_plan_recap_prose, **work_commitment)
+        deduplicate_plan_recap_prose=deduplicate_plan_recap_prose,
+        alias_campaign_scope=alias_campaign_scope, **work_commitment)
     from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
     pending = type(adapter._broker_receipt()) is BuildPendingContextReceiptV1
     adapter.turn=_require_fresh_execution_append(adapter.fence.append(
@@ -440,6 +441,7 @@ class PlanJevWriter:
                 play_context_receipt=turn.play_context_receipt if turn.graph_context_receipt.work_context.surface_id=='play' else None)
             self.provider_frame=semantic_frame(
                 self.frame, project_managed_images=isinstance(turn.graph_context_execution.policy.action, NativeBuildActionV1),
+                alias_campaign_scope=True,
             )
             self.frame=output_frame(self.frame,self.provider_frame)
             from application_state.agent_conversation.plan_jev_graph_packet import NATIVE_WORK_SCHEMA as PLAN_WORK_SCHEMA
@@ -616,6 +618,7 @@ class PlanJevWriter:
                             'If no requested fact is supported, return answer_segments:[] with the applicable\nlimitations.',
                             'If essential context is missing, ask the specific needs_context question with no draft segments.')
                 instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + native_body_instructions.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
+                instructions += '\nLocal campaign aliases identify scopes; they are not campaign names.'
                 from application_state.agent_conversation.reviewed_action import SCOPE_KEY,SCOPE_GUIDANCE
                 if SCOPE_KEY in self.work_frame:
                     instructions += '\n' + SCOPE_GUIDANCE
@@ -790,7 +793,8 @@ class PlanJevWriter:
                 event=authorize_native_writer(a,self.rules,self.proof,prepared,expected,self.provider_frame,
                     compact_plan_editor_prose=self.compact_plan_editor_prose,
                     compact_plan_graph_qualifications=self.compact_plan_graph_qualifications,
-                    deduplicate_plan_recap_prose=self.deduplicate_plan_recap_prose)
+                    deduplicate_plan_recap_prose=self.deduplicate_plan_recap_prose,
+                    alias_campaign_scope=True)
             except ApplicationStateConflictError:
                 self.target_changed=self.rules.authoring is not None
                 raise
