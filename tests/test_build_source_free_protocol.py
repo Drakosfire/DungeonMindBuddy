@@ -2219,7 +2219,7 @@ def test_pending_app_runtime_denied_or_unknown_dispatch_cannot_read_or_resend(mo
 
 
 @pytest.mark.parametrize('label,scope', [('discuss', 'anchored'), ('clarify_request', 'uncertain'),
-    ('clarify_creation', 'uncertain'), ('review_blank_lore_page', 'uncertain')])
+    ('clarify_creation', 'uncertain'), ('write_current_page', 'anchored')])
 def test_pending_app_runtime_does_not_acquire_for_retained_or_source_free_work(label, scope):
     import asyncio
     from types import SimpleNamespace

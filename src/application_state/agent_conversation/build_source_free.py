@@ -538,10 +538,14 @@ def pending_source_free_terminal(execution):
         return None
     work = [row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1]
     if len(work) != 1 or work[0].requested_work not in {
-            'clarify_request', 'clarify_creation', 'review_blank_lore_page'}:
+            'clarify_request', 'clarify_creation', 'review_blank_lore_page', 'write_current_page'}:
         return None
     work = work[0]
     validate_resolution_metadata(work, execution.policy)
+    if (work.requested_work == 'write_current_page'
+            and (work.resolution.get('source_scope') != 'anchored'
+                 or work.resolution.get('barrier') not in (None, 'current_page_target_absent'))):
+        return None
     controllers = [row for row in execution.events[:work.sequence]
         if isinstance(row, t.ProviderAttemptAuthorizedEventV3)]
     outcomes = [row.outcome for row in execution.events[:work.sequence]
