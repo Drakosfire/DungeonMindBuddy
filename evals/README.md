@@ -189,9 +189,11 @@ after the owning server has processed it. The capture retains that receipt
 and compares committed page and proposal readbacks before and after reload.
 If the page saved once and the bound review remains applying without a
 confirmation request, the harness also exercises Buddy’s Check insertion
-control after reload. The capture records whether that recovery reused the
-same receipt and left the saved revision unchanged. A run that reaches
-neither boundary leaves recovery unverified.
+control after reload. The same interception stays armed until that exact
+confirmation returns. After withholding the response, the capture reopens
+the receipt and committed page and verifies that no second confirmation or
+page change occurred. A run without a withheld receipt leaves recovery
+unverified.
 
 For an unsent draft recovery control, use `capture --build-fixture --case
 RECOVERY-1 --clone-app` and set `browser_capture.unsent_draft` to `true`.
