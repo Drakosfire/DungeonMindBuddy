@@ -1,6 +1,7 @@
 """Fail closed before starting an Old Bath House benchmark runtime."""
 
 from pathlib import Path
+import re
 from urllib.parse import urlsplit
 
 APP_DSN = "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL"
@@ -22,7 +23,8 @@ def _database_identity(dsn, expected, *, writable):
         raise ValueError("Benchmark requires an explicit loopback PostgreSQL endpoint")
     if (host, int(port), name) != (expected["host"], expected["port"], expected["database"]):
         raise ValueError("Benchmark database endpoint differs from the fixture")
-    if writable and not name.startswith("dungeonbuddy_app_state_test_"):
+    if writable and not (name.startswith("dungeonbuddy_app_state_test_")
+                         or re.fullmatch(r"benchmark_run_[0-9a-f]{32}", name)):
         raise ValueError("Benchmark writes require a disposable Buddy application database")
     with psycopg.connect(dsn) as conn:
         conn.execute("SET TRANSACTION READ ONLY")
