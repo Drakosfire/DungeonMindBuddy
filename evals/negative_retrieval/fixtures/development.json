@@ -300,6 +300,13 @@
       ]
     },
     {
+      "id": "dev-current-page-partial",
+      "page": "# Ferry Ledger\nA bronze moth tentatively accepts one truthful memory for a crossing, never money. The origin and age of the memory-trading tradition remain open questions.",
+      "history": [],
+      "request": "Using only the saved current page, what price does the ferryman accept, and on what calendar date was the memory-trading tradition founded? Cite what the page supports, say if the date is not on the page, and do not consult other sources or edit the page.",
+      "related_pages": [{"label": "irrelevant", "title": "Festival bunting", "body": "The bunting is folded in a cedar chest."}]
+    },
+    {
       "id": "dev-related-coverage-required",
       "page": "# Ceramic Studio\nA separate saved kiln card governs when glazed bowls may be moved.",
       "history": [],
