@@ -1187,3 +1187,28 @@ def test_sdk_selected_graph_settles_once_or_retains_uncertainty(source_adapter, 
     assert calls == ([] if graph_fails == 'started' else ['entered'])
     reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
     assert reopened.graph_context_execution == a.fence.turn.graph_context_execution
+
+
+def test_expired_reclaim_refuses_uncertain_or_later_provider_work():
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation.native_plan_graph_producer import safe_reclaimable_graph_need_prefix
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1
+    from tests.test_surface_native_execution import controller, execution
+    context, record, auth, lifecycle, observed = actual_need_execution('require_graph')
+    def turn(events):
+        return SimpleNamespace(status='running', graph_context_receipt=context,
+            graph_context_execution=execution(context.context_receipt_sha256, record.policy, events))
+    assert not safe_reclaimable_graph_need_prefix(turn([auth, lifecycle[0]]))
+    assert not safe_reclaimable_graph_need_prefix(turn([auth, *lifecycle]))
+    prefix = [auth, *lifecycle, observed]
+    assert safe_reclaimable_graph_need_prefix(turn(prefix))
+    grant = NativePlanGraphQueryAuthorizedV1(event_id=uuid4(), sequence=4, need_event_id=observed.event_id,
+        pending_query_sha256=observed.parent.pending_query_sha256)
+    start = NativePlanGraphQueryStartedV1(event_id=uuid4(), sequence=5, authorization_event_id=grant.event_id)
+    assert not safe_reclaimable_graph_need_prefix(turn([*prefix, grant, start]))
+    context2, closed = actual_closed_execution()
+    opening = controller('plan', closed.policy, sequence=len(closed.events), semantic=True)
+    value = SimpleNamespace(status='running', graph_context_receipt=context2,
+        graph_context_execution=execution(context2.context_receipt_sha256, closed.policy, [*closed.events, opening]))
+    assert not safe_reclaimable_graph_need_prefix(value)

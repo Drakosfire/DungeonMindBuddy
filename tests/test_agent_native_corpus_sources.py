@@ -50,6 +50,7 @@ def source_adapter(application_state_dsn, monkeypatch, lane, request):
     adapter._test_long = bool(unique and supplied.get('long_context'))
     adapter._test_missing = bool(unique and supplied.get('missing_source'))
     adapter._test_graph_required = bool(unique and supplied.get('graph_required'))
+    adapter._test_graph_recovery = bool(unique and supplied.get('graph_recovery'))
     yield adapter
     if adapter.fence is not None:
         adapter.fence.renewer.stop_and_join()
@@ -574,11 +575,12 @@ HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private contex
     {'unique_world': True, 'multi_source': True, 'sources': [('first', HTTP_BODY), ('second', HTTP_BODY.replace('Éphanna heard the guard.', 'Éphanna heard the bell.'))]},
     {'unique_world': True, 'no_source': True, 'long_context': True, 'sources': [('first', HTTP_BODY)]},
     {'unique_world': True, 'missing_source': True, 'sources': [('first', HTTP_BODY)]},
-    {'unique_world': True, 'graph_required': True, 'sources': [('first', HTTP_BODY)]}],
-    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context', 'controller-missing-source', 'controller-graph-required'])
+    {'unique_world': True, 'graph_required': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'no_source': True, 'graph_recovery': True, 'sources': [('first', HTTP_BODY)]}],
+    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context', 'controller-missing-source', 'controller-graph-required', 'controller-graph-recovery'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
-def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
+def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct, application_state_dsn):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from apps.live_control_server.routes import agent
@@ -593,6 +595,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     long_context = a._test_long
     missing = a._test_missing
     graph_required = a._test_graph_required
+    graph_recovery = a._test_graph_recovery
     if missing and direct:
         pytest.skip('Missing-source control covers lexical search')
     if long_context and direct:
@@ -697,8 +700,36 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', factory)
     app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
     client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
+    if graph_recovery:
+        from apps.live_control_server.services import plan_graph_need_dispatch, agent_turn_service
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        import psycopg
+        def historical(_body, _owner, provenance, **_kwargs):
+            reference = provenance.primary_work
+            assert reference.object_id == a.work.object_id
+            assert reference.content_sha256 == a.work.content_basis.content_sha256
+            assert str(reference.work_revision_id) == str(a.work.content_basis.work_revision_id)
+            return a.work
+        monkeypatch.setattr(agent, '_historical_work_resolver', historical)
+        original = plan_graph_need_dispatch.settle_graph_need
+        interrupted = []
+        def stop_after_closure(adapter, observed, **kwargs):
+            original(adapter, observed, **kwargs)
+            if not interrupted:
+                interrupted.append(True)
+                raise AgentTurnServiceError('Synthetic worker interruption', code='synthetic_interruption', status_code=503)
+        monkeypatch.setattr(plan_graph_need_dispatch, 'settle_graph_need', stop_after_closure)
+        monkeypatch.setattr(agent_turn_service, '_interrupt_policy_delivery', lambda *_args, **_kwargs: None)
+        first = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert first.status_code == 503 and interrupted == [True]
+        turn = wire.adapter.turn
+        assert turn.graph_context_execution.events[-1].kind == 'native_plan_graph_query_closed_without_graph_v1'
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE agent.turn SET claim_expires_at = clock_timestamp() - interval '1 second' WHERE world_id=%s AND turn_id=%s", (turn.world_id, turn.turn_id))
     response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
     assert response.status_code == 200, response.text + getattr(wire,"failure","")
+    if graph_recovery:
+        assert sum('graph_need' in call['questions'] for call in choices.calls) == 1
     data = response.json()
     assert data['plan_context']['schema'] == 'dmb_agent_surface_native_context_response_v1'
     receipt = data['plan_context']['receipt']
@@ -711,7 +742,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     else:
         assert receipt['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
-    assert len(wire.calls) == len(constructions) == 1
+    assert len(wire.calls) == 1 and len(constructions) == (2 if graph_recovery else 1)
     if creative:
         from application_state.agent_conversation.native_corpus import (
             NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
@@ -725,7 +756,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert 'Lantern Quay' in turn.assistant_text
         replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
         assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
-        assert len(wire.calls) == len(constructions) == 1
+        assert len(wire.calls) == 1 and len(constructions) == (2 if graph_recovery else 1)
         if long_context:
             for index in range(10):
                 choices.calls.clear()
