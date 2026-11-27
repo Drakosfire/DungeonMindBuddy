@@ -239,6 +239,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         path, method = scope["path"], scope["method"]
         if play_choice and method not in {"GET", "HEAD"} and path.startswith("/api/") and (method, path) not in {
             ("POST", "/api/live/agent/turn"),
+            ("POST", "/api/live/agent/local-session"),
             ("PUT", "/api/live/world-play-runs/v2/" + play_choice["run_id"] + "/progress"),
         }:
             play_rejected_writes.append({"method": method, "path": path})
