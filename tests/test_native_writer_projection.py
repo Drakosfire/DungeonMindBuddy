@@ -233,7 +233,8 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
     work=work_submission(context,record)
     turn=SimpleNamespace(graph_context_receipt=context,graph_context_execution=record,**{
         k:v for k,v in work.items() if k!='work_proof'})
-    adapter=SimpleNamespace(fence=SimpleNamespace(turn=turn),_broker_execution=lambda:record,failure=None,
+    adapter=SimpleNamespace(fence=SimpleNamespace(turn=turn),_broker_execution=lambda:record,
+        _broker_receipt=lambda:context,failure=None,
         budget={'outputReserveTokens':4096,'contextLimitTokens':128000,
             'estimator':record.policy.provider_input_accounting.estimator})
     rules=SimpleNamespace(frame=lambda:PlanRulesEvidenceFrameV1(schema='dmb_plan_rules_evidence_v1',
@@ -296,6 +297,9 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
         assert semantic['predicate'] == host['predicate']
         assert semantic['value'] == host['value']  # This fixture contains literal values.
         expected_metadata = {key: host['metadata'][key] for key in semantic_qualifiers}
+        assert all(binding['value'].startswith('campaign') for binding in semantic['metadata']['scope']
+                   if binding['axis'] == 'dungeonbuddy.scope:campaign')
+        expected_metadata['scope'] = semantic['metadata']['scope']
         expected_metadata['domain_metadata'] = [
             {'world_context': entry['payload']}
             if entry['schema'] == 'dungeonbuddy.domain_metadata:world_context_v1' else entry
@@ -308,6 +312,9 @@ def test_heavy_native_proofs_fit_unchanged_budget_without_losing_facts(published
         for value in [json.loads(message['content'])]
         if is_semantic_frame(value))
     stored,grant=authorize(context,record,raw,actual_frame)
+    from tests.test_surface_native_execution import execution
+    grant=grant.model_copy(update={'alias_campaign_scope':True})
+    stored=execution(stored.context_receipt_sha256,stored.policy,[*stored.events[:-1],grant])
     accepted=verify_input_records(context,stored,grant,raw,**work)
     assert len(accepted.native_assertions)==len(writer.frame['native_assertions']['assertions'])
     assert all(read.evidence and read.spans for _,_,read in accepted.native_assertions)
@@ -808,3 +815,156 @@ def test_campaign_alias_never_repeats_an_admitted_host_identity():
     collection = view['native_assertions']
     values = [q['scope'][0]['value'] for q in collection['qualifications'].values()]
     assert 'campaign0' not in values
+
+
+def test_campaign_aliases_across_actual_multiple_campaign_reads(published_lane):
+    from dataclasses import replace
+    from tests.test_source_statements import commit, transport, wk, NOW, GM, CAMPAIGN_SCOPE_AXIS
+    from graph_memory.vnext.domain_runtime import dungeonbuddy_world_domain_contract, dungeonbuddy_dnd5e_custom_predicate_profile
+    from tests.test_surface_native_execution import execution
+    lane = published_lane
+    runtime = transport.runtime(lane.repo, dungeonbuddy_world_domain_contract(),
+        dungeonbuddy_dnd5e_custom_predicate_profile(), now=NOW, operation_id='second-campaign-alias-test')
+    meta = replace(lane.meta, scope=(wk.ScopeBinding(CAMPAIGN_SCOPE_AXIS, 'c2'),))
+    operations = tuple(wk.UseExisting(identity, (wk.CreateFact('c2-name-' + name, 'dnd5e:name',
+        wk.LiteralFactValue(name), meta),)) for name, identity in lane.ids.items())
+    operations += (wk.UseExisting(lane.ids['B'], (wk.CreateFact('c2-summary', 'dnd5e:summary',
+        wk.LiteralFactValue('A second campaign account.'), meta),)),)
+    change = wk.WorldChangeIntent(lane.world.world_id, 'second-campaign', operations)
+    runtime.commit_prepared_change(runtime.prepare_change(change), confirmed_by=GM.subject)
+    lane.selection = lane.selection.model_copy(update={'campaign_id': 'c2', 'episode': 'episode-c2',
+        'expected_parent_revision_id': lane.repo.get_head(lane.world.world_id).head_revision_id})
+    commit(lane)
+    context, record = published_case('build', lane)
+    host = model_frame(context, record)
+    statements = {r['payload']['clause']['campaign'] for r in host['native_statements']['statements']}
+    scopes = {b['value'] for r in host['native_assertions']['assertions']
+              for b in r['assertion']['metadata']['scope'] if b['axis'] == CAMPAIGN_SCOPE_AXIS}
+    assert {'c1', 'c2'} <= statements and {'c1', 'c2'} <= scopes
+    frame = semantic_frame(host, alias_campaign_scope=True)
+    assert '"c1"' not in json.dumps(frame) and '"c2"' not in json.dumps(frame)
+    work = work_submission(context, record)
+    raw = asyncio.run(actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work)))
+    stored, grant = authorize(context, record, raw, frame)
+    grant = grant.model_copy(update={'alias_campaign_scope': True})
+    stored = execution(stored.context_receipt_sha256, stored.policy, [*stored.events[:-1], grant])
+    evidence = verify_input_records(context, stored, grant, raw, **work)
+    assert evidence.native_statements and evidence.native_assertions
+    assert all(read.evidence and read.spans for _, _, read in evidence.native_assertions)
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan'])
+def test_campaign_alias_actual_writer_authorization(published_lane, surface):
+    from types import SimpleNamespace
+    from hashlib import sha256
+    from uuid import uuid4
+    import httpx
+    from openai import AsyncOpenAI
+    from generationengine.text_dispatch import PreparedTextDispatch
+    from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
+    from application_state.agent_conversation.types import canonical_sha256
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    context, record = published_case(surface, published_lane)
+    work = work_submission(context, record)
+    turn = SimpleNamespace(graph_context_receipt=context, graph_context_execution=record,
+        **{k: v for k, v in work.items() if k != 'work_proof'})
+    adapter = SimpleNamespace(fence=SimpleNamespace(turn=turn), _broker_execution=lambda: record,
+        _broker_receipt=lambda: context,
+        failure=None, budget={'outputReserveTokens': 4096, 'contextLimitTokens': 128000,
+                              'estimator': record.policy.provider_input_accounting.estimator})
+    rules = SimpleNamespace(frame=lambda: PlanRulesEvidenceFrameV1(schema='dmb_plan_rules_evidence_v1',
+        ruleset='synthetic', lookups=(), supports=()), authoring=None,
+        native=SimpleNamespace(record=SimpleNamespace(revision=1)))
+    writer = PlanJevWriter(adapter, work['work_proof'], rules)
+    assert 'Local campaign aliases identify scopes; they are not campaign names.' in writer.instructions
+    assert writer.provider_frame == semantic_frame(model_frame(context, record),
+        project_managed_images=surface == 'build', alias_campaign_scope=True)
+    body = {'model': writer.model, 'input': writer.messages, 'instructions': writer.instructions,
+            'max_output_tokens': writer.output_reserve, 'text': {'format': writer.output_format},
+            'tools': [], 'stream': False, 'reasoning': {'effort': writer.reasoning_effort}, 'service_tier': 'fast'}
+    async def prepare():
+        captured = []
+        def wire(request):
+            captured.append(request.content)
+            return httpx.Response(200, request=request, json={'id': 'synthetic', 'object': 'response',
+                'created_at': 1, 'model': writer.model, 'status': 'completed', 'output': []})
+        async with AsyncOpenAI(api_key='synthetic', http_client=httpx.AsyncClient(transport=httpx.MockTransport(wire))) as client:
+            await client.responses.create(**body)
+        raw, = captured
+        return PreparedTextDispatch(str(uuid4()), 'openai', 'responses', writer.model, 'POST',
+            'https://api.openai.com/v1/responses', raw, sha256(raw).hexdigest(), len(raw))
+    prepared = asyncio.run(prepare())
+    events = []
+    class ReachedAdmission(Exception):
+        pass
+    def append(*args, **kwargs):
+        events.append(args[2])
+        raise ReachedAdmission
+    adapter.fence.append = append
+    with pytest.raises(ReachedAdmission):
+        writer.authorize(prepared)
+    assert len(events) == 1 and events[0].alias_campaign_scope is True
+    assert events[0].frame_sha256 == canonical_sha256(writer.provider_frame)
+
+
+def test_campaign_alias_actual_play_writer_authorization():
+    from types import SimpleNamespace
+    from hashlib import sha256
+    from uuid import uuid4
+    import httpx
+    from openai import AsyncOpenAI
+    from generationengine.text_dispatch import PreparedTextDispatch
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.play_graph_authority import play_source_frame
+    from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
+    from apps.live_control_server.services.plan_jev_writer import PlanJevWriter
+    from tests.test_surface_native_execution import component, decision_prefix, choice, execution
+    from tests.test_surface_native_context import seal
+    context, record = component('play', unavailable=True)
+    data = context.model_dump(mode='json', by_alias=True)
+    data['assembled_input']['tokenizer_name'] = 'synthetic'
+    context = type(context).model_validate_json(json.dumps(seal(data)))
+    record = execution(context.context_receipt_sha256, record.policy)
+    prefix, active = decision_prefix('play', context, record)
+    prefix.append(choice(context, record, active, len(prefix), 'finish_retrieval'))
+    record = execution(context.context_receipt_sha256, record.policy, prefix)
+    work = work_submission(context, record)
+    basis = context.work_context.play_basis
+    source = play_source_frame((t.PlaySourcePayloadV1(source_kind='current_moment',
+        locator=t.play_source_locator(basis), text='Exact saved Play moment.'),))
+    work.update(play_context_receipt=basis, work_proof=dict(
+        source_frame=source.model_dump(mode='json', by_alias=True), session_evidence=[], dialogue=[]))
+    turn = SimpleNamespace(graph_context_receipt=context, graph_context_execution=record,
+        **{k: v for k, v in work.items() if k != 'work_proof'})
+    adapter = SimpleNamespace(fence=SimpleNamespace(turn=turn), _broker_execution=lambda: record,
+        _broker_receipt=lambda: context, failure=None,
+        budget={'outputReserveTokens': 4096, 'contextLimitTokens': 128000,
+                'estimator': record.policy.provider_input_accounting.estimator})
+    rules = SimpleNamespace(frame=lambda: PlanRulesEvidenceFrameV1(schema='dmb_plan_rules_evidence_v1',
+        ruleset='synthetic', lookups=(), supports=()), authoring=None,
+        native=SimpleNamespace(record=SimpleNamespace(revision=1)))
+    writer = PlanJevWriter(adapter, work['work_proof'], rules)
+    assert 'Local campaign aliases identify scopes; they are not campaign names.' in writer.instructions
+    body = {'model': writer.model, 'input': writer.messages, 'instructions': writer.instructions,
+            'max_output_tokens': writer.output_reserve, 'text': {'format': writer.output_format},
+            'tools': [], 'stream': False, 'reasoning': {'effort': writer.reasoning_effort}, 'service_tier': 'fast'}
+    async def prepare():
+        captured = []
+        def wire(request):
+            captured.append(request.content)
+            return httpx.Response(200, request=request, json={'id': 'synthetic', 'object': 'response',
+                'created_at': 1, 'model': writer.model, 'status': 'completed', 'output': []})
+        async with AsyncOpenAI(api_key='synthetic', http_client=httpx.AsyncClient(transport=httpx.MockTransport(wire))) as client:
+            await client.responses.create(**body)
+        raw, = captured
+        return PreparedTextDispatch(str(uuid4()), 'openai', 'responses', writer.model, 'POST',
+            'https://api.openai.com/v1/responses', raw, sha256(raw).hexdigest(), len(raw))
+    events = []
+    class ReachedAdmission(Exception):
+        pass
+    def append(*args, **kwargs):
+        events.append(args[2]); raise ReachedAdmission
+    adapter.fence.append = append
+    with pytest.raises(ReachedAdmission):
+        writer.authorize(asyncio.run(prepare()))
+    assert len(events) == 1 and events[0].alias_campaign_scope is True
