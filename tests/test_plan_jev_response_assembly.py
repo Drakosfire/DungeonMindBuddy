@@ -14,9 +14,10 @@ from apps.live_control_server.services.plan_jev_writer import PlanJevWriter, _co
 from tests.test_surface_native_context import seal
 from tests.test_surface_native_execution import component, controller, decision_prefix, choice, execution, build_resolution
 from tests.test_surface_native_writer import work_submission, with_work_selection
+from tests.test_native_corpus_source_access import lane as native_lane
 
 
-def staged(surface, *, requested='discuss', rules=False, current_plan=False, dialogue=()):
+def staged(surface, *, requested='discuss', rules=False, current_plan=False, dialogue=(), anchored=False):
     if surface == 'plan_current':
         surface, current_plan = 'plan', True
     context, record = component(surface, unavailable=True)
@@ -40,6 +41,10 @@ def staged(surface, *, requested='discuss', rules=False, current_plan=False, dia
                   if isinstance(e, t.PlanRequestedWorkSelectedV2) else e for e in events]
     if surface == 'build' and requested != 'discuss':
         events = [build_resolution(record.policy, events[0], e.sequence, requested=requested)
+                  if isinstance(e, t.BuildRequestedWorkResolutionV1) else e for e in events]
+    if surface == 'build' and anchored:
+        from application_state.agent_conversation.build_intentional_response import resolution_for
+        events = [e.model_copy(update={'resolution': resolution_for(record.policy, 'discuss', source_scope='anchored')})
                   if isinstance(e, t.BuildRequestedWorkResolutionV1) else e for e in events]
     events.append(choice(context, record, active, len(events), 'finish_retrieval'))
     record = with_work_selection(execution(context.context_receipt_sha256, record.policy, events))
@@ -340,3 +345,130 @@ def test_discussion_effort_preserves_other_work(default, shared, work, rules_act
 
     assert _discussion_reasoning_effort(default, shared=shared, provider_work=work,
         rules_active=rules_active, authoring=authoring) == expected
+
+
+@pytest.mark.parametrize('family', ['body', 'statement', 'assertion'])
+def test_supplied_native_evidence_disables_discussion_only_shortcut(family):
+    from application_state.agent_conversation.plan_writer_output_schema import has_native_citable_evidence
+    frame = {'native_body_evidence': {'excerpts': []}, 'native_statements': {'statements': []},
+             'native_assertions': {'assertions': []}}
+    assert not has_native_citable_evidence(frame)
+    group, key = {'body': ('native_body_evidence', 'excerpts'),
+                  'statement': ('native_statements', 'statements'),
+                  'assertion': ('native_assertions', 'assertions')}[family]
+    frame[group][key] = [{}]
+    assert has_native_citable_evidence(frame)
+    frame['native_assertions'] = None
+    if family == 'assertion':
+        assert not has_native_citable_evidence(frame)
+
+
+def test_actual_anchored_writer_exposes_only_supplied_native_body_selector(monkeypatch):
+    """Exercise the real schema and TextRequest assembly without a provider."""
+    import generationengine
+    from application_state.agent_conversation import native_writer
+    from jsonschema import Draft202012Validator
+
+    original = native_writer.model_frame
+    def with_admitted_body(*args, **kwargs):
+        frame = original(*args, **kwargs)
+        frame['native_body_evidence']['excerpts'] = [{
+            'excerpt_handle': 'host-only-original', 'source_name': 'Selected source',
+            'section_title': 'A section', 'extent_kind': 'section', 'line_start': 1,
+            'line_end': 1, 'campaign_scope': 'unestablished', 'session_scope': 'unestablished',
+            'text': 'The supplied fixture supports this fact.',
+        }]
+        return frame
+    monkeypatch.setattr(native_writer, 'model_frame', with_admitted_body)
+    writer, _ = staged('build', anchored=True)
+    sent = []
+    class StopBeforeProvider(Exception): pass
+    class CaptureClient:
+        def __init__(self, **kwargs): pass
+        async def generate_structured(self, request):
+            sent.append(request); raise StopBeforeProvider()
+        async def aclose(self): pass
+    writer.adapter.context_capture = N(observe=lambda event: None, provider_usage=lambda calls: None)
+    monkeypatch.setattr(writer, 'observe', lambda *args, **kwargs: None)
+    monkeypatch.setattr(writer, 'capture_draft', lambda *args, **kwargs: None)
+    monkeypatch.setattr(generationengine, 'GenerationClient', CaptureClient)
+    with pytest.raises(StopBeforeProvider):
+        asyncio.run(writer.run(api_key='synthetic-not-secret'))
+    assert len(sent) == 1
+    assert sent[0].schema_name != 'surface_native_evidence_selectors_v7'
+    validator = Draft202012Validator(sent[0].json_schema['properties']['answer_segments']['items'])
+    assert validator.is_valid({'kind': 'native_body_claim', 'text': 'Supported.', 'excerpt_handles': ['body0']})
+    assert not validator.is_valid({'kind': 'native_body_claim', 'text': 'Fabricated.', 'excerpt_handles': ['body1']})
+
+
+def test_actual_anchored_writer_keeps_discussion_only_without_native_evidence():
+    from jsonschema import Draft202012Validator
+    writer, _ = staged('build', anchored=True)
+    assert writer.output_format['name'] == 'build_reply'
+    items = writer.output_format['schema']['properties']['answer_segments']['items']
+    validator = Draft202012Validator(items)
+    assert validator.is_valid({'kind': 'discussion', 'text': 'A creative idea.'})
+    assert not validator.is_valid({'kind': 'native_body_claim', 'text': 'Unsupported.', 'excerpt_handles': ['body0']})
+
+
+@pytest.mark.parametrize(('group', 'field', 'handle', 'kind', 'selector'), [
+    ('native_statements', 'statements', 'statement_handle', 'native_statement_report', 'statement_handles'),
+    ('native_assertions', 'assertions', 'assertion_handle', 'native_assertion_claim', 'assertion_handles'),
+])
+def test_native_statement_and_assertion_formats_only_offer_supplied_handles(group, field, handle, kind, selector):
+    from jsonschema import Draft202012Validator
+    from application_state.agent_conversation.build_primary_context import NATIVE_WORK_SCHEMA
+    from application_state.agent_conversation.native_writer import SCHEMA
+    from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+    from application_state.agent_conversation.surface_evidence_answer import ASSERTION_POLICY
+    from tests.test_plan_writer_output_schema import rules
+
+    evidence = {'schema': SCHEMA, 'answer_policy': ASSERTION_POLICY,
+                'native_body_evidence': {'excerpts': []}, 'native_statements': {'statements': []},
+                'native_assertions': {'assertions': []}}
+    evidence[group][field] = [{handle: 'offered0'}]
+    work = {'schema': NATIVE_WORK_SCHEMA, 'artifact_under_edit': {'sections': []},
+            'working_draft_context': {'record_id': '4c63e929-fcec-4d8a-b787-4f908b3ce857'}}
+    fmt = native_output_format(evidence, rules(), work, build_local=True, format_version=2)
+    validator = Draft202012Validator(fmt['schema']['properties']['answer_segments']['items'])
+    assert validator.is_valid({'kind': kind, 'text': 'Supported.', selector: ['offered0']})
+    assert not validator.is_valid({'kind': kind, 'text': 'Unsupported.', selector: ['unoffered']})
+    historical = native_output_format(evidence, rules(), work, build_local=True, format_version=7)
+    old = Draft202012Validator(historical['schema']['properties']['answer_segments']['items'])
+    assert old.is_valid({'kind': 'discussion', 'text': 'Historical discussion.'})
+    assert not old.is_valid({'kind': kind, 'text': 'Supported.', selector: ['offered0']})
+
+
+def test_anchored_actual_native_read_can_bind_only_its_offered_citation(native_lane, monkeypatch):
+    from jsonschema import Draft202012Validator
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+    from application_state.agent_conversation.native_completion import normalize_output
+    from application_state.agent_conversation.native_writer import model_input_frame
+    from tests.test_surface_native_writer import body_case
+    from tests import test_surface_native_completion as completion
+
+    context, record, read = body_case('build', native_lane)
+    events = [e.model_copy(update={'resolution': resolution_for(record.policy, 'discuss', source_scope='anchored')})
+              if isinstance(e, t.BuildRequestedWorkResolutionV1) else e for e in record.events]
+    record = execution(context.context_receipt_sha256, record.policy, events)
+    work = work_submission(context, record)
+    turn = N(graph_context_receipt=context, graph_context_execution=record,
+             **{k: v for k, v in work.items() if k != 'work_proof'})
+    adapter = N(fence=N(turn=turn), budget={'outputReserveTokens': 4096, 'contextLimitTokens': 128000},
+                _broker_execution=lambda: record)
+    rules = N(frame=lambda: N(ruleset='dnd_2024_srd_5_2_1', supports=(), lookups=()))
+    writer = PlanJevWriter(adapter, work['work_proof'], rules)
+    assert writer.output_format['name'] != 'surface_native_evidence_selectors_v7'
+    items = writer.output_format['schema']['properties']['answer_segments']['items']
+    candidate = {'kind': 'native_body_claim', 'text': 'The source supports this.', 'excerpt_handles': ['body0']}
+    assert Draft202012Validator(items).is_valid(candidate)
+    monkeypatch.setattr(completion, 'model_frame', model_input_frame)
+    stored, auth, proof = completion.producing_case(context, record, completion.answer([candidate]))
+    result = normalize_output(context, stored, auth, **proof)
+    assert len(result.native_body_citations) == 1
+    assert result.native_body_citations[0].read_event_id == read.event_id
+    bad = candidate | {'excerpt_handles': ['body999']}
+    assert not Draft202012Validator(items).is_valid(bad)
+    stored, auth, proof = completion.producing_case(context, record, completion.answer([bad]))
+    with pytest.raises(ValueError, match='excerpt selections'):
+        normalize_output(context, stored, auth, **proof)
