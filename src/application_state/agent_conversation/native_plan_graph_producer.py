@@ -63,3 +63,40 @@ def validate_prepared_authorization(context, execution, authorization, raw):
     prospective = execution.model_copy(update={'events': [*execution.events, authorization]})
     validate_context_binding(context, prospective)
     return prospective
+
+
+def query_transition(context, execution, *, action, event_id, query=None, reason=None):
+    """Derive a single query transition from its already retained predecessor."""
+    from . import types as t
+    from .native_context import NativePlanGraphQueryPendingV1
+    from .native_execution import validate_context_binding
+    from .native_plan_graph_need import (
+        NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+        NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1, NativePlanGraphQueryFailedV1,
+    )
+    validate_context_binding(context, execution)
+    if type(context.native_query) is not NativePlanGraphQueryPendingV1:
+        raise ValueError('Graph transition requires a pending Plan query')
+    events = execution.events
+    needs = [e for e in events if type(e) is NativePlanGraphNeedObservedV1]
+    grants = [e for e in events if type(e) is NativePlanGraphQueryAuthorizedV1]
+    starts = [e for e in events if type(e) is NativePlanGraphQueryStartedV1]
+    sequence = len(events)
+    pending_sha = t.canonical_sha256(context.native_query)
+    common = dict(event_id=event_id, sequence=sequence)
+    if action == 'authorize' and len(needs) == 1 and query is None and reason is None:
+        event = NativePlanGraphQueryAuthorizedV1(**common, need_event_id=needs[0].event_id,
+            pending_query_sha256=pending_sha)
+    elif action == 'close' and len(needs) == 1 and query is None and reason is None:
+        event = NativePlanGraphQueryClosedV1(**common, need_event_id=needs[0].event_id,
+            pending_query_sha256=pending_sha)
+    elif action == 'start' and len(grants) == 1 and query is None and reason is None:
+        event = NativePlanGraphQueryStartedV1(**common, authorization_event_id=grants[0].event_id)
+    elif action == 'settle' and len(starts) == 1 and query is not None and reason is None:
+        event = NativePlanGraphQuerySettledV1(**common, started_event_id=starts[0].event_id, query=query)
+    elif action == 'fail' and len(starts) == 1 and query is None and reason is not None:
+        event = NativePlanGraphQueryFailedV1(**common, started_event_id=starts[0].event_id, reason=reason)
+    else:
+        raise ValueError('Graph transition requires its exact retained predecessor and typed result')
+    prospective = execution.model_copy(update={'events': [*events, event]})
+    return event, validate_context_binding(context, prospective)

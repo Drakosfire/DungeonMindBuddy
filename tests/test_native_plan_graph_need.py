@@ -1026,3 +1026,74 @@ def test_actual_sdk_callback_persists_graph_need_result(source_adapter, monkeypa
         'sdk_entered', 'response_received']
     with pytest.raises(ValueError, match='one actual authorized SDK dispatch'):
         dispatch.acknowledge(None)
+
+
+def test_query_transitions_require_decision_order_and_pinned_query():
+    from uuid import uuid4
+    from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2
+    from application_state.agent_conversation.native_plan_graph_producer import query_transition
+    from tests.test_surface_native_context import wire
+    from tests.test_surface_native_execution import execution
+    context, record, auth, lifecycle, observed = actual_need_execution('no_graph')
+    prefix = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle, observed])
+    closed, done = query_transition(context, prefix, action='close', event_id=uuid4())
+    assert closed.kind == 'native_plan_graph_query_closed_without_graph_v1'
+    with pytest.raises(ValueError):
+        query_transition(context, done, action='authorize', event_id=uuid4())
+    context, record, auth, lifecycle, observed = actual_need_execution('require_graph')
+    prefix = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle, observed])
+    with pytest.raises(ValueError):
+        query_transition(context, prefix, action='close', event_id=uuid4())
+    grant, prefix = query_transition(context, prefix, action='authorize', event_id=uuid4())
+    started, prefix = query_transition(context, prefix, action='start', event_id=uuid4())
+    data = wire('plan')['native_query']; data['authority']['scope_mode'] = 'world'; data['authority']['campaign_id'] = None
+    query = NativePlanQueryV2.model_validate(data)
+    with pytest.raises(ValueError, match='pinned authority or question'):
+        query_transition(context, prefix, action='settle', event_id=uuid4(),
+            query=query.model_copy(update={'question': 'different'}))
+    settled, done = query_transition(context, prefix, action='settle', event_id=uuid4(), query=query)
+    assert settled.query == query and started.authorization_event_id == grant.event_id
+    with pytest.raises(ValueError):
+        query_transition(context, done, action='start', event_id=uuid4())
+    _, failed = query_transition(context, prefix, action='fail', event_id=uuid4(), reason='uncertain_owner_result')
+    with pytest.raises(ValueError):
+        query_transition(context, failed, action='settle', event_id=uuid4(), query=query)
+
+
+@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
+@pytest.mark.parametrize('failure', ['timeout_after_entry', 'result_append_failure'])
+def test_actual_sdk_failure_never_replays_graph_need(source_adapter, monkeypatch, failure):
+    import asyncio
+    import httpx2
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+    from apps.live_control_server.services.plan_graph_need_dispatch import PlanGraphNeedDispatch
+    from application_state.errors import ApplicationStateConflictError
+    a = source_adapter
+    service, created = _admitted_pending_turn(a, monkeypatch)
+    turn = service.claim_turn(created.world_id, created.conversation_id, created.turn_id,
+        expected_revision=created.revision).turn
+    a.turn = turn; a.fence = _ClaimFence(service, turn); a.context_capture = None
+    monkeypatch.setattr(a, '_capture_prepared_prompt', lambda *_args, **_kwargs: None)
+    calls = []
+    class Wire(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            calls.append(request.content)
+            if failure == 'timeout_after_entry':
+                raise httpx2.ReadTimeout('synthetic timeout', request=request)
+            return httpx2.Response(200, request=request, json={'model': 'typesafe-ai/jev-1.14.0',
+                'answers': {'graph_need': {'type': 'choice', 'choice': 'no_graph', 'confidence': 1,
+                    'probabilities': {'require_graph': 0, 'no_graph': 1, 'uncertain': 0}}},
+                'usage': {'input_tokens': 10, 'output_tokens': 1}})
+    if failure == 'result_append_failure':
+        monkeypatch.setattr(service, '_record_plan_graph_need_result',
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(ApplicationStateConflictError('synthetic append failure')))
+    dispatch = PlanGraphNeedDispatch(a, dialogue=())
+    with pytest.raises(Exception):
+        asyncio.run(dispatch.run(transport=Wire(), api_key='synthetic-not-secret'))
+    assert len(calls) == 1
+    reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert not any(event.kind == 'native_plan_graph_need_observed_v1' for event in reopened.graph_context_execution.events)
+    retry = PlanGraphNeedDispatch(a, dialogue=())
+    with pytest.raises(Exception):
+        asyncio.run(retry.run(transport=Wire(), api_key='synthetic-not-secret'))
+    assert len(calls) == 1
