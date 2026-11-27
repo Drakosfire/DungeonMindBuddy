@@ -4397,3 +4397,31 @@ def test_selected_source_changed_content_fails_before_writer(lane, tmp_path, mon
     assert response.status_code==409,response.text
     assert response.json()['detail']['code']=='authored_source_unavailable'
     assert len(case.writer.calls)==before
+
+
+def test_selected_source_recovers_after_accept_before_claim(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+
+    def dispatch(client, _world, body):
+        with monkeypatch.context() as patch:
+            def interrupted(*_args, **_kwargs):
+                raise RuntimeError('interrupted after durable acceptance')
+            patch.setattr(AgentConversationService, 'claim_turn', interrupted)
+            first = client.post('/api/live/agent/turn', json=body)
+        assert first.status_code == 503, first.text
+        return client.post('/api/live/agent/turn', json=body)
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        source_need='anchored', dispatch=dispatch,
+        message='Use only my selected source and cite it.')
+    events = case.turn.graph_context_execution.events
+    assert not any(type(event) is NativeBuildQuerySettledV1 for event in events)
+    assert sum(isinstance(event, t.ProviderAttemptAuthorizedEventV5)
+               and event.context_phase == 'select' for event in events) == 1
+
+
+def test_selected_source_unknown_writer_outcome_is_not_retried(lane, tmp_path, monkeypatch):
+    _fresh_case(lane, tmp_path, monkeypatch, 'retry_unknown', False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        source_need='anchored', message='Use only my selected source and cite it.')
