@@ -126,7 +126,8 @@ async function verifyLinkedVariant(page, fixture, variant, evidence) {
   await fresh.reload();
   assert.deepEqual(await get(snap), after);
   const editor = fresh.locator('.tiptap');
-  const savedLink = editor.getByRole('link', { name: 'Open saved statblock variant', exact: true });
+  const savedLink = editor.getByRole('link', { name: 'Open saved statblock variant', exact: true })
+    .and(editor.locator(`a[href=${JSON.stringify(relative)}], a[href=${JSON.stringify(saved.href)}]`));
   await savedLink.waitFor();
   assert.equal(await savedLink.count(), 1);
   const reopenedLink = new URL(await savedLink.getAttribute('href'), origin);
