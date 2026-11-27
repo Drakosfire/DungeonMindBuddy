@@ -201,7 +201,18 @@ def report_case(case, base):
                 "ingestion_publication", "retrieval", "composition", "citations")}}
     documents = {name: json.loads(path.read_text()) for name, path in paths.items()}
     request = documents["request"]
-    if request.get("message") != case["question"]:
+    reviewed_plan = case.get("reviewed_work_plan")
+    if reviewed_plan is not None:
+        from .browser_capture import validate_reviewed_work_plan_request
+
+        owner = json.loads((directory / "reviewed-work-plan-at-dispatch.json").read_bytes())
+        fresh = json.loads((directory / "history-before.json").read_bytes())
+        card = json.loads((directory / "reviewed-work-plan-fixture-card.json").read_bytes())
+        work = {"kind": "build", "object_id": card["reference"]["document_id"],
+                "expected_revision": card["registry_revision_prepared"],
+                "expected_content_sha256": card["prepared"]["content_sha256"]}
+        validate_reviewed_work_plan_request(request, reviewed_plan, owner, work, fresh)
+    elif request.get("message") != case["question"]:
         raise ValueError("Retained request belongs to another question")
     history = _wrapped(paths["history-after"])
     trace = _wrapped(paths["context-trace"])
@@ -981,6 +992,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
             current["detailed_trace"] = detailed_trace
         elif current.get("capture_boundary", "response") != "response":
             raise ValueError("Context capture requires the explicit capture-context mode")
+        if browser_case is not None and "reviewed_work_plan" in manifest.get("browser_capture", {}):
+            current["reviewed_work_plan"] = manifest["browser_capture"]["reviewed_work_plan"]
         retained["cases"].append(dict(current, capture_dir=str((output / case["id"]).resolve()),
             prompt_dir=str((output / "runtime-artifacts/out/agent_request_evidence").resolve())))
     # Preserve relative input pins/review bindings by resolving them before moving
