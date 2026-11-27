@@ -82,3 +82,11 @@ driver, and exercises the actual Build completion branch with an independently
 constructed source execution and provider-free writer. It does not establish a
 full persisted-Turn interruption/recovery or revoked-access boundary; those are
 still required before reader activation.
+
+The first real App reclaim attempt (case 517) failed: the existing claim owner
+increments the attempt after a pre-provider crash, but native authored-capture
+validation required the capture's original attempt to equal the new one. For
+this new codec only, recovery may retain an earlier capture from the same turn,
+conversation and fingerprint. The existing claim owner forbids reclaim once
+any provider authorization exists; this is essential to that allowance. Verify
+both sides at the real App boundary before accepting the change.

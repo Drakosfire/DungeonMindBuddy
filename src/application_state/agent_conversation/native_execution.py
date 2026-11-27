@@ -1225,7 +1225,8 @@ def _join_request_identity(receipt, execution, envelope):
     from .authored_graph_references import validate_native_capture_identity
     validate_native_capture_identity(execution, turn_id=envelope.turn_id,
         conversation_id=envelope.conversation_id, attempt=envelope.attempt,
-        fingerprint=envelope.submitted_intent_fingerprint_v2)
+        fingerprint=envelope.submitted_intent_fingerprint_v2,
+        allow_prior_attempt=type(receipt.native_query) is NativeBuildSelectedSourceQueryPendingV1)
     binding=getattr(intent,'reviewed_step',None)
     if binding is not None and binding.reference.conversation_id!=envelope.conversation_id:
         raise ValueError('Reviewed native action belongs to a different conversation')

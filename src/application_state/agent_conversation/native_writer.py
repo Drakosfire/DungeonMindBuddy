@@ -223,13 +223,14 @@ class NativeWriterEvidence:
 def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_proof,
                      world_id, conversation_id, turn_id, attempt, play_context_receipt=None):
     """Reconstruct real surface work through its owner; no second stored authority."""
-    from .native_context import validate_work_context, BuildWorkContextV1, PlanWorkContextV1
+    from .native_context import validate_work_context, BuildWorkContextV1, PlanWorkContextV1, NativeBuildSelectedSourceQueryPendingV1
     _validate_writer_binding(receipt,execution)
     validate_work_context(receipt,provenance,play_context_receipt=play_context_receipt)
     action=execution.policy.action
     from .authored_graph_references import validate_native_capture_identity
     validate_native_capture_identity(execution, turn_id=turn_id, conversation_id=conversation_id,
-        attempt=attempt, fingerprint=t.submitted_turn_intent_fingerprint_v2(action.intent))
+        attempt=attempt, fingerprint=t.submitted_turn_intent_fingerprint_v2(action.intent),
+        allow_prior_attempt=type(getattr(receipt, 'native_query', None)) is NativeBuildSelectedSourceQueryPendingV1)
     if (world_id != action.intent.world_id or provenance.surface_instance_id != action.intent.surface_instance_id
             or any(type(value) is not UUID for value in (idempotency_key,conversation_id,turn_id))
             or type(attempt) is not int or attempt < 1):
