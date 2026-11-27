@@ -1,7 +1,7 @@
 import {useState} from 'react'
 import {ConversationReplyDetails} from './ConversationReplyDetails'
 import {BuddyContextTraceLoader} from './BuddyContextTraceLoader'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { BuddyActivity, activityObservations } from './BuddyActivity'
 import { BuddyTurnInspection } from './BuddyTurnInspection'
@@ -137,9 +137,10 @@ it('opens every recorded event in the existing timeline, with no shortened activ
   const observations=Array.from({length:18},(_,sequence)=>({kind:'failure' as const,phase:'tool',code:`recorded_${sequence}`,sequence,elapsed_ms:sequence*100}));
   const {loadPrompt}=mount(trace(observations));
   fireEvent.click(await screen.findByText('Hit a snag—open the report.'));
-  const timeline=await screen.findByText('Execution timeline');
-  expect(timeline.closest('details')).toHaveAttribute('open');
-  expect(document.querySelectorAll('.buddy-context-trace > details > ol > li')).toHaveLength(18);
+  const timeline=await screen.findByText('Execution timeline', {selector:'summary'});
+  const timelineDetails=timeline.closest('details')!;
+  expect(timelineDetails).toHaveAttribute('open');
+  expect(within(within(timelineDetails).getByRole('list', {name:'Recorded activity'})).getAllByRole('listitem')).toHaveLength(18);
   expect(screen.getByText(/recorded_0$/)).toBeInTheDocument();expect(screen.getByText(/recorded_17$/)).toBeInTheDocument();
   expect(screen.queryByText('Prompts and technical details')).toBeNull();
   expect(document.querySelector('.buddy-activity__body > ol')).toBeNull();
@@ -203,7 +204,7 @@ it.each([
   expect(status).toHaveAttribute('title',expected)
   fireEvent.click(status)
   await waitFor(()=>expect(screen.getAllByText(expected)).toHaveLength(2))
-  expect(screen.getByText('Execution timeline').closest('details')).toHaveAttribute('open')
+  expect(screen.getByText('Execution timeline', {selector:'summary'}).closest('details')).toHaveAttribute('open')
 })
 
 
@@ -295,8 +296,9 @@ it('advances from a captured native prompt to its recorded writer authorization 
   expect(status).not.toHaveTextContent('Preparing the request')
   expect(screen.queryByText('A response has arrived.')).toBeNull()
   fireEvent.click(status)
-  await screen.findByText('Execution timeline')
-  expect(document.querySelectorAll('.buddy-context-trace > details > ol > li')).toHaveLength(3)
-  expect(screen.getByText('Execution timeline').closest('details')).toHaveAttribute('open')
+  const summary=await screen.findByText('Execution timeline', {selector:'summary'})
+  const list=within(summary.closest('details')!).getByRole('list', {name:'Recorded activity'})
+  expect(within(list).getAllByRole('listitem')).toHaveLength(3)
+  expect(screen.getByText('Execution timeline', {selector:'summary'}).closest('details')).toHaveAttribute('open')
   expect(loadPrompt).not.toHaveBeenCalled()
 })

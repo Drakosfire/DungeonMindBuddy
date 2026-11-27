@@ -33,6 +33,7 @@ class NativeThreatReview(Closed):
     source_artifact_id: str
     source_revision_id: str
     pdf_evidence_ids: tuple[str, ...] = ()
+    stored_region_evidence_ids: tuple[str, ...] = ()
     pdf_regions: tuple[NativePdfRegionV1, ...] = ()
     mechanics_locator: MechanicsLocator | None = None
     prepared_digest: str = Field(pattern=r"^[0-9a-f]{64}$")
