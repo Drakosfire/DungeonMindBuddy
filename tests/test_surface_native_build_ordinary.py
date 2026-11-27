@@ -638,7 +638,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
 
             using_prior_citations = native_conversation_terminal(self.adapter.turn) is not None
             expected_effort = ('medium' if (current_work == 'draft_in_conversation' and saved_statblock == 'associated'
-                    or selected_source_graph and current_work == 'discuss' and source_need == 'anchored')
+                    or selected_source_graph and current_work == 'discuss')
                 else 'none' if using_prior_citations and current_work == 'review_lore_page_from_conversation' else 'low')
             if body.get('reasoning', {}).get('effort') != expected_effort:
                 return httpx.Response(400, request=req, json={'error': {
