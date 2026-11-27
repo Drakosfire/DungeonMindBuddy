@@ -154,6 +154,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         raise ValueError("Image preview requires explicit live Build capture")
     live = live_build or live_plan
     play_choice = manifest["browser_capture"].get("play_choice")
+    play_rejected_writes = []
     wire_name = "plan-wire-response" if live_plan else "build-wire-response"
     confirm_save = manifest["browser_capture"].get("confirm_save", False)
     lose_confirm_ack = manifest["browser_capture"].get("lose_confirm_ack", False)
@@ -236,9 +237,11 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         if scope["type"] != "http":
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
-        if play_choice and method not in {"GET", "HEAD"} and path.startswith("/api/") and path not in {
-            "/api/live/agent/turn", "/api/live/world-play-runs/v2/" + play_choice["run_id"] + "/progress",
+        if play_choice and method not in {"GET", "HEAD"} and path.startswith("/api/") and (method, path) not in {
+            ("POST", "/api/live/agent/turn"),
+            ("PUT", "/api/live/world-play-runs/v2/" + play_choice["run_id"] + "/progress"),
         }:
+            play_rejected_writes.append({"method": method, "path": path})
             return await JSONResponse({"code": "benchmark_unexpected_play_write"}, 409)(scope, receive, send)
         if (image_placement is not None and method == "POST"
                 and path.startswith("/api/live/media/images/")
@@ -541,7 +544,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         artifacts.immutable_save(directory, "browser-driver-failure", driver_status)
                     if play_choice:
                         choice_after = read_choice_state(client, directory, "play-choice-after", world, play_choice, template)
-                        record_choice_result(directory, output, choice_before, choice_after, play_choice, driver_failed, turn_posts)
+                        record_choice_result(directory, output, choice_before, choice_after, play_choice, driver_failed, turn_posts,
+                                             play_rejected_writes)
                         return
                     if image_preview:
                         timing_path = output / "browser-timing.json"

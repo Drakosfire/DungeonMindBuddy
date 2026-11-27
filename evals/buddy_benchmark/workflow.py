@@ -865,6 +865,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
                           and template["surface"]["surface_id"] == "plan")
         play_choice = ("play_choice" in manifest.get("browser_capture", {}) and not any(
             (build_fixture, live_build, live_plan, context_only, writer_transport, detailed_trace, build_sequence)))
+        if "play_choice" in manifest.get("browser_capture", {}) and not play_choice:
+            raise ValueError("Play Choice is a provider-free browser control")
         if not (plan_replay or build_preflight or plan_placement or play_choice):
             raise ValueError("Browser capture requires Plan replay or Build selection preflight")
         selected = next((case for case in manifest["cases"] if case["id"] == browser_case), None)
