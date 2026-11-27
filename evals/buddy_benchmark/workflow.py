@@ -159,6 +159,9 @@ def report_case(case, base):
         raise ValueError("Detailed host trace differs from the requested mode")
     if detailed_trace:
         names += ("detailed-host-trace",)
+    reviewed_plan = case.get("reviewed_work_plan")
+    if reviewed_plan is not None:
+        names += ("reviewed-work-plan-at-dispatch", "history-before", "reviewed-work-plan-fixture-card")
     paths = {name: directory / (name + ".json") for name in names}
     if context_only and (directory / "answer-http.json").exists():
         paths["answer-http"] = directory / "answer-http.json"
@@ -201,13 +204,12 @@ def report_case(case, base):
                 "ingestion_publication", "retrieval", "composition", "citations")}}
     documents = {name: json.loads(path.read_text()) for name, path in paths.items()}
     request = documents["request"]
-    reviewed_plan = case.get("reviewed_work_plan")
     if reviewed_plan is not None:
         from .browser_capture import validate_reviewed_work_plan_request
 
-        owner = json.loads((directory / "reviewed-work-plan-at-dispatch.json").read_bytes())
-        fresh = json.loads((directory / "history-before.json").read_bytes())
-        card = json.loads((directory / "reviewed-work-plan-fixture-card.json").read_bytes())
+        owner = documents["reviewed-work-plan-at-dispatch"]
+        fresh = documents["history-before"]
+        card = documents["reviewed-work-plan-fixture-card"]
         work = {"kind": "build", "object_id": card["reference"]["document_id"],
                 "expected_revision": card["registry_revision_prepared"],
                 "expected_content_sha256": card["prepared"]["content_sha256"]}
