@@ -23,6 +23,11 @@ DESCRIPTIONS = {
     'no_graph': 'The supplied conversation and current work are sufficient without World Graph facts',
     'uncertain': 'It is unclear whether World Graph facts are needed',
 }
+EXCLUSION_DESCRIPTIONS_V1 = {
+    'require_graph': 'World Graph facts are needed to satisfy the request and the author permits consulting them.',
+    'no_graph': 'The request can be answered from supplied context, or the author explicitly excludes searching or consulting World sources; respect that exclusion even when information is missing.',
+    'uncertain': 'The intended context or permission to use World Graph facts is genuinely unclear.',
+}
 
 
 class NativePlanGraphNeedInputV1(Strict):
@@ -33,6 +38,8 @@ class NativePlanGraphNeedInputV1(Strict):
     question: str = Field(min_length=1, strict=True)
     dialogue: tuple[RetrievalDialogue, ...]
     current_work: str = Field(strict=True)
+    exclusion_guidance_version: Literal['v1'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
     @property
     def digest(self):
@@ -54,12 +61,15 @@ def validate_input_binding(parent, *, pending_sha256, admission_sha256, question
 def prepare_decision(parent):
     if type(parent) is not NativePlanGraphNeedInputV1:
         raise ValueError('Plan Graph-need decision requires its exact versioned input')
+    if parent.exclusion_guidance_version not in (None, 'v1'):
+        raise ValueError('Unsupported Plan Graph-need guidance version')
     return DecisionRequest(provider=PROVIDER, model=MODEL, state={
         'user_request': parent.question,
         'dialogue_reference': [row.model_dump() for row in parent.dialogue],
         'current_work': parent.current_work,
     }, questions=(ChoiceDecisionQuestion(name='graph_need', question=QUESTION,
-        options=OPTIONS, option_descriptions=DESCRIPTIONS),), max_transport_retries=0)
+        options=OPTIONS, option_descriptions=(EXCLUSION_DESCRIPTIONS_V1
+            if parent.exclusion_guidance_version == 'v1' else DESCRIPTIONS)),), max_transport_retries=0)
 
 
 def canonical_wire(parent, *, expected_model=MODEL):
