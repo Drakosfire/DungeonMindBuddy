@@ -360,6 +360,11 @@ def report_case(case, base):
             "failures": failures, "verified_prompt_witnesses": prompt_count,
             "artifacts": {name: {"path": str(path), "sha256": sha256(path.read_bytes()).hexdigest()}
                 for name, path in paths.items()}}
+    owner_path = directory / "lore-confirmation-result.json"
+    owner_observation = None
+    if owner_path.is_file():
+        paths["lore-confirmation-result"] = owner_path
+        owner_observation = json.loads(owner_path.read_bytes())
     elapsed = answer.get("elapsed_ms")
     if elapsed is None and (directory / "terminal.json").exists():
         elapsed = json.loads((directory / "terminal.json").read_text())["elapsed_seconds"] * 1000
@@ -367,6 +372,7 @@ def report_case(case, base):
         return sum(c[key] for c in calls.values()) if calls and all(c[key] is not None for c in calls.values()) else None
     return {"case_id": case["id"], "question": case["question"], "capture_status": "complete",
         "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
+        **({"owner_observation": owner_observation} if owner_observation is not None else {}),
         "delivery": {"status": delivery_status, "http_status": answer["http_status"],
             "lifecycle_status": turn["lifecycle_status"]},
         "operation": {"elapsed_ms": elapsed, "provider_attempts": len(calls),
@@ -508,6 +514,91 @@ def require_pinned_history(history, expected, *, allow_interrupted=False):
         raise ValueError("Active conversation differs from the pinned conversation history")
 
 
+def capture_lore_confirmation(client, directory, route, world, conversation, turn, completion, foreign):
+    """Exercise revision-bound review, confirmation and exact receipt recovery."""
+    from application_state.agent_conversation.rules_authority_types import canonical_sha256
+
+    def snapshot(label):
+        response = client.get("/api/live/workspace-documents",
+                              params={"world_id": world, "kind": "worldbuilding_source"})
+        evidence = response_envelope(response)
+        immutable_save(directory, label, evidence)
+        response.raise_for_status()
+        return {row["document_id"]: row for row in evidence["body"]["records"]}
+
+    def post(label, action, command):
+        response = client.post(f"{route}/lore-pages/{action}", json=command)
+        evidence = response_envelope(response)
+        immutable_save(directory, label, evidence)
+        return evidence
+
+    if foreign == conversation:
+        raise ValueError("Foreign lore confirmation requires a different conversation")
+    if (completion.get("collaboration") or {}).get("kind") != "lore_page":
+        immutable_save(directory, "lore-confirmation-result", {"status": "unavailable", "reason": "no_lore_review"})
+        return
+    command = {"conversation_id": conversation, "turn_id": turn, "review_sha256": canonical_sha256(completion)}
+    immutable_save(directory, "lore-confirmation-request", command)
+    before = snapshot("lore-pages-before")
+    wrong_digest = "0" * 64 if command["review_sha256"] != "0" * 64 else "1" * 64
+    rejected = []
+    for label, override, expected in (
+        ("lore-wrong-digest", {"review_sha256": wrong_digest}, 409),
+        ("lore-foreign-conversation", {"conversation_id": foreign}, 404),
+        ("lore-before-review", {}, 409),
+    ):
+        response = post(label, "confirm", {**command, **override})
+        unchanged = snapshot(label + "-pages") == before
+        rejected.append(response["http_status"] == expected and unchanged)
+        if not rejected[-1]:
+            immutable_save(directory, "lore-confirmation-result", {
+                "status": "incomplete", "reason": label, "protected_pages_unchanged": unchanged,
+            })
+            return
+    review = post("lore-present-review", "review", command)
+    if (review["http_status"] != 200 or review["body"].get("review_sha256") != command["review_sha256"]
+            or snapshot("lore-after-review-pages") != before):
+        immutable_save(directory, "lore-confirmation-result", {"status": "incomplete", "reason": "review_not_bound"})
+        return
+    confirmation = post("lore-confirm", "confirm", command)
+    if confirmation["http_status"] != 200:
+        immutable_save(directory, "lore-confirmation-result", {"status": "incomplete", "reason": "confirmation_failed"})
+        return
+    receipt = confirmation["body"]
+    document = str(UUID(receipt["document_id"]))
+    after = snapshot("lore-after-confirm-pages")
+    if (set(after) != set(before) | {document} or document in before
+            or any(after[item] != row for item, row in before.items())):
+        immutable_save(directory, "lore-confirmation-result", {"status": "incomplete", "reason": "unexpected_page_effect"})
+        return
+    reopened = response_envelope(client.get(f"/api/live/workspace-documents/{document}/snapshot",
+                                            params={"view": "committed"}))
+    immutable_save(directory, "lore-committed-reopen", reopened)
+    body = reopened["body"] if isinstance(reopened["body"], dict) else {}
+    expected_links = [f"{route}/turns/{turn}/native-body-excerpts/{index}"
+                      for index in range(len(completion.get("native_body_citations") or []))]
+    citations = json.loads((directory / "native-citation-reopen.json").read_bytes()) if expected_links else {}
+    replay = post("lore-confirm-retry", "confirm", command)
+    after_retry = snapshot("lore-after-retry-pages")
+    checks = {
+        "invalid_confirmations_no_effect": all(rejected),
+        "one_new_page": True,
+        "receipt_bound_to_review": receipt.get("review_sha256") == command["review_sha256"] and bool(receipt.get("revision_id")),
+        "reopened_committed_page": (reopened["http_status"] == 200 and body.get("record") == after[document]
+            and body["record"].get("world_id") == world and body["record"].get("content_status") == "committed"
+            and isinstance(body.get("markdown"), str) and body["markdown"] == body.get("committed_markdown")),
+        "reopened_own_turn_links": bool(expected_links) and all(
+            link in body.get("markdown", "") for link in expected_links),
+        "exact_citations_reopened": bool(expected_links) and len(citations.get("citations", [])) == len(expected_links)
+            and all(item["exact_reopen"] for item in citations["citations"]),
+        "same_receipt_no_second_page": (replay["http_status"] == 200 and replay["body"] == receipt
+            and after_retry == after),
+    }
+    immutable_save(directory, "lore-confirmation-result", {
+        "status": "observed" if all(checks.values()) else "incomplete", "checks": checks,
+    })
+
+
 def capture_case(client, world, template, case, directory, *, context_only=False, writer_transport=False, detailed_trace=False,
                  build_thread_id=None, expected_conversation_id=None, build_editor_snapshot=None, pinned_history=None):
     """The single ordinary route sequence, shared by all question fixtures."""
@@ -612,6 +703,11 @@ def capture_case(client, world, template, case, directory, *, context_only=False
                     raise ValueError("Build turn delivery or trace could not be verified")
             if not context_only and known_response and response.status_code == 200:
                 retain_citation_readbacks(client, directory, route, world, durable["turn_id"], response.json())
+                if case.get("lore_confirmation") is not None:
+                    completion = response.json()["knowledge_context"]["completion"]
+                    capture_lore_confirmation(client, directory, route, world, fresh["active_conversation_id"],
+                                              durable["turn_id"], completion, case["lore_confirmation"]["foreign_conversation_id"])
+
             if context_stop is not None:
                 from application_state.agent_conversation import AgentConversationService
                 observed = AgentConversationService().inspect_turn(world_id=world, turn_id=UUID(turns[0]["turn_id"]))
@@ -673,6 +769,10 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
                       or context_only or writer_transport or detailed_trace):
         raise ValueError("Live Plan browser capture requires its own App clone and selected case in response mode")
     manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
+    if any("lore_confirmation" in case for case in manifest["cases"]) and (
+            manifest.get("conversation_mode") != "build_sequence" or browser_case is not None
+            or context_only or writer_transport or detailed_trace or (not clone_app and cohort_app is None)):
+        raise ValueError("Lore confirmation requires ordinary Build capture on an owned App clone")
     if "build_history" in manifest and (
             manifest.get("conversation_mode") != "build_sequence"
             or browser_case is not None or context_only or writer_transport or detailed_trace
@@ -724,6 +824,14 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
     if mode not in {"fresh_per_case", "build_sequence"}:
         raise ValueError("Unknown benchmark conversation mode")
     build_sequence = mode == "build_sequence"
+    for case in manifest["cases"]:
+        if "lore_confirmation" not in case:
+            continue
+        confirmation = case["lore_confirmation"]
+        if (not build_sequence or browser_case is not None or context_only or writer_transport or detailed_trace
+                or not isinstance(confirmation, dict) or set(confirmation) != {"foreign_conversation_id"}
+                or str(UUID(confirmation["foreign_conversation_id"])) != confirmation["foreign_conversation_id"]):
+            raise ValueError("Lore confirmation requires a pinned foreign conversation and ordinary Build response")
     build_history = None
     if "build_history" in manifest:
         if not build_sequence or browser_case is not None or context_only or writer_transport or detailed_trace:

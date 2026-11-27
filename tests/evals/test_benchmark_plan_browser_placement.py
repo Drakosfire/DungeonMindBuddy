@@ -280,3 +280,59 @@ def test_pinned_build_history_can_preserve_exact_interrupted_turn():
     turn["lifecycle_status"] = "running"
     with pytest.raises(ValueError, match="pinned conversation history"):
         require_pinned_history(history, expected, allow_interrupted=True)
+
+
+@pytest.mark.parametrize("unsafe_rejection", [False, True])
+def test_lore_confirmation_reads_back_one_saved_revision(tmp_path, unsafe_rejection):
+    import json
+
+    import httpx
+
+    from evals.buddy_benchmark.workflow import capture_lore_confirmation
+
+    world = "elderwyld"
+    route = f"/api/live/agent/worlds/{world}/conversation"
+    conversation, foreign, turn, document, revision = (str(uuid4()) for _ in range(5))
+    original = {"document_id": str(uuid4())}
+    records = [original]
+    actions = []
+    receipt = {"document_id": document, "revision_id": revision}
+    new_page = {"document_id": document, "world_id": world, "content_status": "committed"}
+    markdown = f"[Source]({route}/turns/{turn}/native-body-excerpts/0)"
+    completion = {"collaboration": {"kind": "lore_page"}, "native_body_citations": [{}]}
+    (tmp_path / "native-citation-reopen.json").write_text(json.dumps({"citations": [{"exact_reopen": True}]}))
+
+    def handle(request):
+        path = request.url.path
+        if request.method == "GET":
+            if path.endswith("/snapshot"):
+                assert request.url.params["view"] == "committed"
+                return httpx.Response(200, json={"record": new_page, "markdown": markdown, "committed_markdown": markdown})
+            return httpx.Response(200, json={"records": records})
+        command = json.loads(request.content)
+        actions.append(path.rsplit("/", 1)[1])
+        if len(actions) == 1:
+            if unsafe_rejection:
+                records.append(new_page)
+            return httpx.Response(409, json={})
+        if command["conversation_id"] == foreign:
+            return httpx.Response(404, json={})
+        if len(actions) == 3:
+            return httpx.Response(409, json={})
+        if actions[-1] == "review":
+            return httpx.Response(200, json={"review_sha256": command["review_sha256"]})
+        if len(actions) == 5:
+            records.append(new_page)
+        return httpx.Response(200, json={**receipt, "review_sha256": command["review_sha256"]})
+
+    with httpx.Client(base_url="http://localhost", transport=httpx.MockTransport(handle)) as client:
+        capture_lore_confirmation(client, tmp_path, route, world, conversation, turn, completion, foreign)
+
+    result = json.loads((tmp_path / "lore-confirmation-result.json").read_bytes())
+    if unsafe_rejection:
+        assert actions == ["confirm"]
+        assert result == {"status": "incomplete", "reason": "lore-wrong-digest", "protected_pages_unchanged": False}
+    else:
+        assert actions == ["confirm", "confirm", "confirm", "review", "confirm", "confirm"]
+        assert result["status"] == "observed"
+        assert all(result["checks"].values())

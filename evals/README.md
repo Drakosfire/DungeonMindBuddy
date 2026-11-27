@@ -253,6 +253,13 @@ ordinary citation readbacks. For an interrupted Build turn, pin
 `lifecycle_status: interrupted` and use a null assistant digest when the saved
 turn has no reply. In-progress turns cannot be admitted.
 
+An owned Build response capture can opt into a lore-page confirmation by
+setting `lore_confirmation.foreign_conversation_id` to a different retained
+conversation in the fixture. The harness records rejected confirmations,
+presents the delivered review, confirms once, reopens the committed revision
+and exact citations, and checks that a repeated confirmation returns the same
+receipt without saving a second page.
+
 For an ordinary Plan browser replay, select a case in the context capture
 command as well as choosing the writer sink.
 
