@@ -1036,6 +1036,10 @@ def test_actual_sdk_callback_persists_graph_need_result(source_adapter, monkeypa
     assert reopened.graph_context_execution == closed.graph_context_execution
     with pytest.raises(ApplicationStateValidationError):
         a.fence.commit('_transition_plan_graph_need', action='close', event_id=uuid4())
+    from apps.live_control_server.services.plan_graph_need_dispatch import settle_graph_need
+    before = a.fence.turn.revision
+    settle_graph_need(a, observed, prepare_graph=lambda: pytest.fail('Closed Graph was reopened'))
+    assert a.fence.turn.revision == before and a.native_query is None
 
 
 def test_query_transitions_require_decision_order_and_pinned_query():
@@ -1110,7 +1114,7 @@ def test_actual_sdk_failure_never_replays_graph_need(source_adapter, monkeypatch
 
 
 @pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
-@pytest.mark.parametrize('graph_fails', [False, True])
+@pytest.mark.parametrize('graph_fails', [False, True, 'started'])
 def test_sdk_selected_graph_settles_once_or_retains_uncertainty(source_adapter, monkeypatch, graph_fails):
     import asyncio
     import httpx2
@@ -1143,7 +1147,15 @@ def test_sdk_selected_graph_settles_once_or_retains_uncertainty(source_adapter, 
         if graph_fails:
             raise RuntimeError('synthetic Core failure after entry')
         return SimpleNamespace(query=query), query
-    if graph_fails:
+    if graph_fails == 'started':
+        from uuid import uuid4
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        a.fence.commit('_transition_plan_graph_need', action='authorize', event_id=uuid4())
+        a.fence.commit('_transition_plan_graph_need', action='start', event_id=uuid4())
+        with pytest.raises(AgentTurnServiceError, match='uncertain outcome'):
+            settle_graph_need(a, observed, prepare_graph=acquire)
+        assert not calls
+    elif graph_fails:
         with pytest.raises(RuntimeError, match='Core failure'):
             settle_graph_need(a, observed, prepare_graph=acquire)
         assert a.fence.turn.graph_context_execution.events[-1].kind == 'native_plan_graph_query_failed_v1'
@@ -1161,6 +1173,6 @@ def test_sdk_selected_graph_settles_once_or_retains_uncertainty(source_adapter, 
         monkeypatch.setattr(native_graph_reads, 'reopen_context', reopen)
         settle_graph_need(a, observed, prepare_graph=acquire)
         assert reopen_calls == [query]
-    assert calls == ['entered']
+    assert calls == ([] if graph_fails == 'started' else ['entered'])
     reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
     assert reopened.graph_context_execution == a.fence.turn.graph_context_execution
