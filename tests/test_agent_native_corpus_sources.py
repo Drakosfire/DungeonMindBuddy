@@ -581,6 +581,8 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     a = source_adapter
     creative = a._test_creative
     multi = a._test_multi
+    if multi and direct:
+        pytest.skip('Multi-source control covers lexical selection; direct selection has separate single-source controls')
     request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor.' if creative else 'Whom did Éphanna hear?'),
         'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
