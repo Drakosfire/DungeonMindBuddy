@@ -4323,7 +4323,7 @@ class AgentConversationService:
         provider_attempt_event, prepared_decision_json, trace_id, prompt, authorized,
     ):
         from .context_trace_store import append_opening_prompt_locked
-        from .native_context import NativeBuildQueryPendingV1
+        from .native_context import NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1
         from .types import ProviderAttemptAuthorizedEventV5
 
         if (type(provider_attempt_event) is not ProviderAttemptAuthorizedEventV5
@@ -4340,7 +4340,8 @@ class AgentConversationService:
             )
             if not fresh:
                 raise ApplicationStateConflictError("opening provider authorization is already committed")
-            if not isinstance(getattr(turn.graph_context_receipt, 'native_query', None), NativeBuildQueryPendingV1):
+            if not isinstance(getattr(turn.graph_context_receipt, 'native_query', None),
+                              (NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1)):
                 raise ApplicationStateValidationError("opening prompt requires pending Build Graph admission")
             trace = append_opening_prompt_locked(conn, turn, trace_id, prompt, authorized)
         return turn, fresh, trace

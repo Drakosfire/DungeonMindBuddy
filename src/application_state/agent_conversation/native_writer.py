@@ -147,7 +147,14 @@ def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, pas
         raise ValueError("Native evidence projection requires the prefix before its writer")
     from .native_execution import effective_native_query
     query = effective_native_query(receipt, execution)
-    from .native_context import NativeBuildQueryPendingV1
+    from .native_context import NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1
+    if isinstance(query, NativeBuildSelectedSourceQueryPendingV1):
+        from .native_corpus import NativeAuthoredSourceReadV1
+        references = execution.policy.action.intent.authored_references.references
+        reads = [event for event in execution.events if type(event) is NativeAuthoredSourceReadV1]
+        if sorted(event.reference_index for event in reads) != list(range(len(references))):
+            raise ValueError('Selected-source writer requires every exact selected source read')
+        query = None
     if isinstance(query, NativeBuildQueryPendingV1):
         if not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events):
             raise ValueError("Native writer requires the settled Build Graph query or conversation evidence admission")

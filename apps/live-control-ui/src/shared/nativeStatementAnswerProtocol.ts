@@ -131,8 +131,9 @@ function isNativeQueryAuthority(a:unknown,worldId:string):a is import('../api/ty
     if(!exact(r,['authority_id','revision','descriptor_sha256']) || !text(r.authority_id) || !text(r.revision) || !hash(r.descriptor_sha256))return false;
   return true;
 }
-export function isNativeBuildQueryPending(q:unknown,worldId:string):q is import('../api/types').NativeBuildQueryPendingV1 {
-  return exact(q,['schema','authority','question'])&&q.schema==='dmb_native_build_query_pending_v1'
+export function isNativeBuildQueryPending(q:unknown,worldId:string):q is import('../api/types').NativeBuildQueryPendingV1|import('../api/types').NativeBuildSelectedSourceQueryPendingV1 {
+  return (exact(q,['schema','authority','question'])&&q.schema==='dmb_native_build_query_pending_v1'
+    ||exact(q,['schema','authority','question','selected_references_sha256'])&&q.schema==='dmb_native_build_selected_source_query_pending_v1'&&hash(q.selected_references_sha256))
     &&text(q.question)&&isNativeQueryAuthority(q.authority,worldId)
     &&q.authority.scope_mode==='world'&&q.authority.campaign_id===null&&q.authority.session_id===null;
 }
@@ -175,7 +176,7 @@ export function isNativePlanQuery(v:unknown,worldId:string):v is import('../api/
 }
 
 /** Human targets remain separate from search hits; this checks presentation only. */
-export function isNativeGraphQuery(v:unknown,worldId:string):v is Exclude<import('../api/types').SurfaceNativeContextReceiptV1['native_query'],import('../api/types').NativeBuildQueryPendingV1> {
+export function isNativeGraphQuery(v:unknown,worldId:string):v is Exclude<import('../api/types').SurfaceNativeContextReceiptV1['native_query'],import('../api/types').NativeBuildQueryPendingV1|import('../api/types').NativeBuildSelectedSourceQueryPendingV1> {
   if(typeof v!=='object'||v===null||!('schema' in v)||!['dmb_native_graph_query_v3','dmb_native_graph_query_v4'].includes(String(v.schema)))
     return isNativePlanQuery(v,worldId)&&v.schema!=='dmb_native_plan_query_v1';
   const q=v as Record<string,unknown>;

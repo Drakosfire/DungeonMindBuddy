@@ -738,3 +738,207 @@ def test_build_query_settlement_requires_exact_opening_response(failure):
         assert frame["native_assertions"]["authority"] == catalog.authority.model_dump(
             mode="json", by_alias=True,
         )
+
+
+def _selected_source_pending():
+    from application_state.agent_conversation.authored_graph_references import AuthoredReferencesV2, AuthoredSourceReferenceV1
+    from application_state.agent_conversation.native_context import NativeBuildSelectedSourceQueryPendingV1
+
+    context, policy, catalog = _pending_build_query()
+    authority = context.native_query.authority
+    selected = AuthoredReferencesV2(references=(AuthoredSourceReferenceV1(
+        managed_world_id=authority.managed_world_id, native_world_id=authority.native_world_id,
+        binding_version=authority.binding_version, knowledge_revision=authority.revision_id,
+        source_artifact_id='source-one', source_revision_id='revision-one', evidence_ref_id='evidence-one',
+        content_sha256='a'*64, selection_kind='full_document', label='Selected note',
+    ),))
+    raw_intent = policy.action.intent.model_dump(mode='json', by_alias=True)
+    raw_intent.update(schema='dmb_build_graph_intent_v2', authored_references=selected.model_dump(mode='json', by_alias=True))
+    intent = t.BuildGraphIntentV2.model_validate_json(json.dumps(raw_intent))
+    action = policy.action.model_copy(update={'intent': intent})
+    pending = NativeBuildSelectedSourceQueryPendingV1(
+        authority=authority, question=intent.message, selected_references_sha256=selected.sha256)
+    data = context.model_dump(mode='json', by_alias=True)
+    data['native_query'] = pending.model_dump(mode='json', by_alias=True)
+    context = type(context).model_validate_json(json.dumps(seal(data)))
+    policy = policy.model_copy(update={'action': action,
+        'native_query_sha256': t.canonical_sha256(pending.model_dump(mode='json', by_alias=True))})
+    return context, policy, catalog
+
+
+def test_selected_source_pending_binds_the_exact_source_only_manifest():
+    from application_state.agent_conversation.native_execution import effective_native_query
+    from application_state.agent_conversation.native_writer import model_frame
+
+    context, policy, _ = _selected_source_pending()
+    record = execution(context.context_receipt_sha256, policy, [])
+    validate_context_binding(context, record)
+    assert effective_native_query(context, record) == context.native_query
+    with pytest.raises(ValueError, match='every exact selected source read'):
+        model_frame(context, record)
+
+    changed = policy.action.intent.authored_references.model_copy(update={'references': (
+        policy.action.intent.authored_references.references[0].model_copy(update={'source_revision_id': 'other'}),)})
+    changed_action = policy.action.model_copy(update={'intent': policy.action.intent.model_copy(update={'authored_references': changed})})
+    changed_policy = policy.model_copy(update={'action': changed_action})
+    with pytest.raises(ValueError, match='source-only request'):
+        validate_context_binding(context, execution(context.context_receipt_sha256, changed_policy, []))
+
+
+from tests.test_native_corpus_source_access import lane as source_lane
+
+
+def test_selected_source_pending_accepts_only_admitted_exact_body(source_lane):
+    from application_state.agent_conversation import native_corpus as corpus
+    from application_state.agent_conversation.authored_graph_references import AuthoredReferencesV2, AuthoredSourceReferenceV1
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+    from application_state.agent_conversation.native_context import NativeBuildSelectedSourceQueryPendingV1
+    from application_state.agent_conversation.native_writer import model_frame
+    from tests.test_native_corpus_source_access import BODY, admit, capture
+
+    admit(source_lane, body=BODY)
+    sources = capture(source_lane)
+    body_catalog = corpus.build_native_body_catalog(sources.authority, sources.members[0], BODY)
+    excerpt = corpus.select_native_full_document(body_catalog, BODY)
+    context, policy, _ = _pending_build_query()
+    source = sources.members[0]
+    authority = context.native_query.authority.model_copy(update={
+        key: getattr(sources.authority, key) for key in ('managed_world_id','native_world_id','binding_version',
+            'revision_id','domain_ref','profile_ref','acquisition_epoch')})
+    selected = AuthoredReferencesV2(references=(AuthoredSourceReferenceV1(
+        managed_world_id=authority.managed_world_id, native_world_id=authority.native_world_id,
+        binding_version=authority.binding_version, knowledge_revision=authority.revision_id,
+        source_artifact_id=source.artifact.source_artifact_id, source_revision_id=source.revision.source_revision_id,
+        evidence_ref_id=source.evidence_ref_id, content_sha256=source.revision.content_sha256,
+        selection_kind='full_document', label='Selected note'),))
+    raw_intent = policy.action.intent.model_dump(mode='json', by_alias=True)
+    raw_intent.update(schema='dmb_build_graph_intent_v2', world_id='managed',
+        authored_references=selected.model_dump(mode='json', by_alias=True))
+    raw_intent['graph_request']['world_id'] = 'managed'
+    intent = t.BuildGraphIntentV2.model_validate_json(json.dumps(raw_intent))
+    query = NativeBuildSelectedSourceQueryPendingV1(authority=authority, question=intent.message,
+        selected_references_sha256=selected.sha256)
+    data = context.model_dump(mode='json', by_alias=True)
+    data['work_context']['source_basis']['world_id'] = 'managed'
+    data['source_authority'] = sources.authority.model_dump(mode='json', by_alias=True)
+    data['native_query'] = query.model_dump(mode='json', by_alias=True)
+    work = type(context.work_context).model_validate(data['work_context'])
+    data['provenance_sha256'] = t.canonical_sha256(provenance_for(work).model_copy(update={'surface_instance_id':'build:one'}))
+    context = type(context).model_validate_json(json.dumps(seal(data)))
+    action = policy.action.model_copy(update={'intent':intent})
+    policy = policy.model_copy(update={'action':action,
+        'source_authority_sha256':t.canonical_sha256(context.source_authority),
+        'native_query_sha256':t.canonical_sha256(context.native_query)})
+    captured = t.BuildAuthoredReferencesCapturedV1(kind='build_authored_references_captured_v1',event_id=uuid4(),
+        sequence=0,references=selected,read_graph_revision=authority.revision_id,turn_id=BUILD_TURN_ID,
+        conversation_id=uuid4(),attempt=1,submitted_intent_fingerprint=t.submitted_turn_intent_fingerprint_v2(intent))
+    opening = controller('build',policy,sequence=1)
+    prefix = [captured,opening,*outcomes(opening,2)]
+    resolution = build_resolution(policy,opening,len(prefix))
+    resolution = resolution.model_copy(update={'resolution':resolution_for(policy,'discuss',source_scope='anchored')})
+    read = corpus.NativeAuthoredSourceReadV1(event_id=uuid4(),sequence=len(prefix)+1,capture_event_id=captured.event_id,
+        reference_index=0,catalog=body_catalog,excerpt=excerpt)
+    record = execution(context.context_receipt_sha256,policy,[*prefix,resolution,read])
+    validate_context_binding(context,record)
+    reopened = type(record).model_validate_json(record.model_dump_json(by_alias=True))
+    validate_context_binding(context, reopened)
+    from application_state.agent_conversation.native_replay import _replay_query
+    assert _replay_query(context.model_dump(mode='json',by_alias=True),
+        reopened.model_dump(mode='json',by_alias=True)) is None
+    frame = model_frame(context,record)
+    assert any(row['text'] == BODY for row in frame['native_body_evidence']['excerpts'])
+    writer_with_source = native_writer('build',policy,sequence=len(prefix)+2,read_ids=[read.event_id])
+    validate_context_binding(context,execution(context.context_receipt_sha256,policy,
+        [*prefix,resolution,read,writer_with_source]))
+    citation = t.NativeBodyExcerptCitationV1(segment_index=0, text_sha256='a'*64,
+        provider_attempt_id=uuid4(), envelope_sha256='b'*64, read_event_id=read.event_id,
+        catalog_sha256=body_catalog.catalog_sha256, source_artifact_id=source.artifact.source_artifact_id,
+        native_source_revision_id=source.revision.source_revision_id, content_sha256=source.revision.content_sha256,
+        excerpt_sha256=excerpt.excerpt_sha256, section_id=excerpt.section.section_id,
+        selector_policy=excerpt.selector_policy, source_name=corpus.body_source_name(body_catalog),
+        section_title=excerpt.section.label, line_start=excerpt.section.line_start, line_end=excerpt.section.line_end)
+    assert corpus.resolve_retained_body_citation(reopened,citation)[2] == BODY
+    with pytest.raises(ValueError, match='source identity'):
+        corpus.resolve_retained_body_citation(reopened,citation.model_copy(update={'native_source_revision_id':'wrong'}))
+
+    without_read = execution(context.context_receipt_sha256,policy,[*prefix,resolution])
+    with pytest.raises(ValueError, match='every exact selected source read'):
+        model_frame(context,without_read)
+    writer = native_writer('build',policy,sequence=len(prefix)+1)
+    with pytest.raises(ValueError, match='settled reads|exact anchored source reads'):
+        validate_context_binding(context,execution(context.context_receipt_sha256,policy,[*prefix,resolution,writer]))
+    lookup = resolution.model_copy(update={'resolution':resolution_for(policy,'discuss',source_scope='source_lookup')})
+    with pytest.raises(ValueError, match='anchored discussion'):
+        validate_context_binding(context,execution(context.context_receipt_sha256,policy,[*prefix,lookup,read]))
+    wrong_capture = captured.model_copy(update={'read_graph_revision':'wrong'})
+    with pytest.raises(ValueError, match='deferred revision'):
+        validate_context_binding(context,execution(context.context_receipt_sha256,policy,[wrong_capture]))
+    with pytest.raises(ValueError, match='selected source'):
+        model_frame(context,execution(context.context_receipt_sha256,policy,[*prefix,resolution,read,
+            read.model_copy(update={'event_id':uuid4(),'sequence':read.sequence+1})]))
+
+
+@pytest.mark.parametrize('failure', [None, 'wrong_attempt', 'wrong_epoch', 'repeated', 'missing_response'])
+def test_selected_source_deferred_graph_settles_only_after_its_opening(failure):
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1, effective_native_query
+
+    context, policy, catalog = _selected_source_pending()
+    refs = policy.action.intent.authored_references
+    capture = t.BuildAuthoredReferencesCapturedV1(kind='build_authored_references_captured_v1',
+        event_id=uuid4(),sequence=0,references=refs,read_graph_revision=context.native_query.authority.revision_id,
+        turn_id=BUILD_TURN_ID,conversation_id=uuid4(),attempt=1,
+        submitted_intent_fingerprint=t.submitted_turn_intent_fingerprint_v2(policy.action.intent))
+    opening = controller('build',policy,sequence=1)
+    prefix = [capture,opening,*outcomes(opening,2)]
+    if failure == 'missing_response':
+        prefix.pop()
+    if failure == 'wrong_epoch':
+        catalog = catalog.model_copy(update={'authority':catalog.authority.model_copy(update={
+            'acquisition_epoch':catalog.authority.acquisition_epoch+1})})
+    settlement = NativeBuildQuerySettledV1(event_id=uuid4(),sequence=len(prefix),
+        controller_attempt_id=uuid4() if failure == 'wrong_attempt' else opening.provider_attempt_id,query=catalog)
+    events = [*prefix,settlement]
+    if failure == 'repeated':
+        events.append(settlement.model_copy(update={'event_id':uuid4(),'sequence':len(events)}))
+    if failure:
+        with pytest.raises(ValueError, match='settle|Settled'):
+            validate_context_binding(context,execution(context.context_receipt_sha256,policy,events))
+    else:
+        record = execution(context.context_receipt_sha256,policy,events)
+        validate_context_binding(context,record)
+        assert effective_native_query(context,record) == catalog
+        from application_state.agent_conversation.native_replay import _replay_query
+        assert _replay_query(context.model_dump(mode='json',by_alias=True),
+            record.model_dump(mode='json',by_alias=True)) == catalog.model_dump(mode='json',by_alias=True)
+
+
+@pytest.mark.parametrize('mutation',['graph_object','mixed','stale_revision','wrong_binding','empty'])
+def test_selected_source_pending_rejects_non_source_or_unbound_selections(mutation):
+    from application_state.agent_conversation.authored_graph_references import (
+        AuthoredGraphReferenceV1, AuthoredReferencesV2,
+    )
+    context, policy, _ = _selected_source_pending()
+    query = context.native_query
+    source = policy.action.intent.authored_references.references[0]
+    obj = AuthoredGraphReferenceV1(managed_world_id=source.managed_world_id,native_world_id=source.native_world_id,
+        binding_version=source.binding_version,graph_revision=source.knowledge_revision,node_id='object',label='Object')
+    if mutation == 'graph_object':
+        members=(obj,)
+    elif mutation == 'mixed':
+        members=(source,obj)
+    elif mutation == 'stale_revision':
+        members=(source.model_copy(update={'knowledge_revision':'stale'}),)
+    elif mutation == 'wrong_binding':
+        members=(source.model_copy(update={'binding_version':source.binding_version+1}),)
+    else:
+        members=()
+    refs=AuthoredReferencesV2(references=members)
+    query=query.model_copy(update={'selected_references_sha256':refs.sha256})
+    data=context.model_dump(mode='json',by_alias=True)
+    data['native_query']=query.model_dump(mode='json',by_alias=True)
+    context=type(context).model_validate_json(json.dumps(seal(data)))
+    intent=policy.action.intent.model_copy(update={'authored_references':refs})
+    policy=policy.model_copy(update={'action':policy.action.model_copy(update={'intent':intent}),
+        'native_query_sha256':t.canonical_sha256(query.model_dump(mode='json',by_alias=True))})
+    with pytest.raises(ValueError,match='source-only request|deferred query authority'):
+        validate_context_binding(context,execution(context.context_receipt_sha256,policy,[]))

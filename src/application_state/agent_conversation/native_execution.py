@@ -19,7 +19,7 @@ from .build_related_pages import PagePointer
 from .build_source_free import BuildAppPageCatalogObservedV1
 from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read as validate_saved_statblock_read
 from .native_context import (
-    SurfaceNativeContextReceiptV1, NativeBuildQueryPendingV1, BuildWorkContextV1, PlanWorkContextV1,
+    SurfaceNativeContextReceiptV1, NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1, BuildWorkContextV1, PlanWorkContextV1,
     PlayWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1, NativePlanRequestAdmissionV1, work_world_id,
 )
 from .native_statement_input import Strict
@@ -543,6 +543,8 @@ class NativeBuildSourceSettledV1(Strict):
 def effective_native_query(context, execution):
     """Return the query admitted by this prefix, or the typed pending commitment."""
     query = context.native_query
+    if type(query) is NativeBuildSelectedSourceQueryPendingV1:
+        return _effective_selected_source_query(context, execution, query)
     settlements = [e for e in execution.events if type(e) is NativeBuildQuerySettledV1]
     if type(query) is not NativeBuildQueryPendingV1:
         if settlements:
@@ -593,6 +595,80 @@ def effective_native_query(context, execution):
             or settlement.query.authored_targets):
         raise ValueError("Settled Graph query differs from its opening Build authorization")
     return settlement.query
+
+
+def _effective_selected_source_query(context, execution, query):
+    """Join a source-only selection without treating it as a Graph result."""
+    from .authored_graph_references import AuthoredReferencesV2, AuthoredSourceReferenceV1
+    from .native_corpus import NativeAuthoredSourceReadV1, NativeBodyProviderIncludedV1
+
+    action = execution.policy.action
+    refs = getattr(getattr(action, 'intent', None), 'authored_references', None)
+    if (type(action) is not NativeBuildActionV1 or action.intent.reviewed_step is not None
+            or type(refs) is not AuthoredReferencesV2 or not refs.references
+            or any(type(ref) is not AuthoredSourceReferenceV1 for ref in refs.references)
+            or refs.sha256 != query.selected_references_sha256
+            or query.question != action.intent.message
+            or action.intent.graph_request.revision_pin not in (None, query.authority.revision_id)):
+        raise ValueError('Deferred selected-source query differs from the submitted source-only request')
+    authority = query.authority
+    if any((ref.managed_world_id, ref.native_world_id, ref.binding_version, ref.knowledge_revision)
+           != (authority.managed_world_id, authority.native_world_id, authority.binding_version, authority.revision_id)
+           for ref in refs.references):
+        raise ValueError('Selected source differs from the deferred query authority')
+    captures = [event for event in execution.events if type(event) is t.BuildAuthoredReferencesCapturedV1]
+    if captures and captures[0].read_graph_revision != authority.revision_id:
+        raise ValueError('Selected-source capture differs from the deferred revision')
+
+    settlements = [e for e in execution.events if type(e) is NativeBuildQuerySettledV1]
+    if len(settlements) > 1:
+        raise ValueError('Build can settle its pending Graph query only once')
+    settlement = settlements[0] if settlements else None
+    if settlement is not None:
+        # The existing Graph settlement occurs after the opening response, before
+        # the selected-source acquisition or later work-resolution append.
+        authorization = None
+        responded = False
+        for event in execution.events[:settlement.sequence]:
+            if type(event) in (t.BuildAuthoredReferencesCapturedV1, t.BuildDraftContextCapturedV1) and authorization is None:
+                continue
+            if (type(event) is t.ProviderAttemptAuthorizedEventV5 and authorization is None
+                    and event.context_phase == 'select'
+                    and (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.controller.identity()):
+                authorization = event
+                continue
+            if (type(event) is t.ProviderOutcomeEventV1 and authorization is not None
+                    and event.provider_attempt_id == authorization.provider_attempt_id):
+                responded = event.outcome == 'response_received'
+                continue
+            raise ValueError('Graph-dependent Build work requires its settled query')
+        if (authorization is None or not responded
+                or settlement.controller_attempt_id != authorization.provider_attempt_id
+                or settlement.query.authority != authority or settlement.query.question != query.question
+                or settlement.query.authored_targets):
+            raise ValueError('Settled Graph query differs from its opening Build authorization')
+        return settlement.query
+
+    work = [event for event in execution.events if type(event) is t.BuildRequestedWorkResolutionV1]
+    reads = [event for event in execution.events if type(event) is NativeAuthoredSourceReadV1]
+    if any(isinstance(event, t.NATIVE_BODY_EVENTS)
+           and type(event) not in (NativeAuthoredSourceReadV1, NativeBodyProviderIncludedV1)
+           for event in execution.events):
+        raise ValueError('Unsettled Graph query cannot acquire additional native evidence')
+    if any(type(event) is t.RelatedPageRead for event in execution.events):
+        raise ValueError('Unsettled selected-source query cannot acquire related pages')
+    if reads and (len(work) != 1 or work[0].requested_work != 'discuss'
+                  or work[0].resolution.get('source_scope') != 'anchored'
+                  or work[0].resolution.get('barrier') is not None
+                  or any(read.sequence <= work[0].sequence for read in reads)):
+        raise ValueError('Selected-source reads require the admitted anchored discussion')
+    if any(type(event) in NATIVE_WRITER_TYPES for event in execution.events):
+        if (len(work) != 1 or work[0].requested_work != 'discuss'
+                or work[0].resolution.get('source_scope') != 'anchored'
+                or work[0].resolution.get('barrier') is not None
+                or sorted(read.reference_index for read in reads) != list(range(len(refs.references)))):
+            raise ValueError('Unsettled selected-source writer requires the exact anchored source reads')
+    return query
 
 
 # Current owner event codecs are reused. Classic Graph operations/scopes and
