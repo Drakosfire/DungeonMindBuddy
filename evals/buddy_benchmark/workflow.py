@@ -117,7 +117,7 @@ def report_case(case, base):
     directory = Path(case["capture_dir"])
     directory = directory if directory.is_absolute() else base / directory
     boundary = case.get("capture_boundary", "response")
-    if boundary == "image_preview":
+    if boundary in {"image_preview", "play_choice"}:
         result = directory / "fixture-result.json"
         if not result.is_file():
             return {"case_id": case["id"], "capture_boundary": boundary,
@@ -795,6 +795,9 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
     if manifest.get("browser_capture", {}).get("image_preview") is True and (
             not live_build or browser_case is None or (not clone_app and cohort_app is None)):
         raise ValueError("Image preview requires a selected live Build case and an owned App clone")
+    if "play_choice" in manifest.get("browser_capture", {}) and (
+            browser_case is None or (not clone_app and cohort_app is None)):
+        raise ValueError("Play Choice requires a selected browser case and an owned App clone")
     options = dict(context_only=context_only, writer_transport=writer_transport,
                    detailed_trace=detailed_trace, browser_case=browser_case,
                    cohort_member=cohort_manifest_sha256 is not None, build_fixture=build_fixture, live_build=live_build, live_plan=live_plan)
@@ -860,7 +863,9 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
                            and template["surface"]["surface_id"] == "build")
         plan_placement = (live_plan and not context_only and not writer_transport and not build_sequence
                           and template["surface"]["surface_id"] == "plan")
-        if not (plan_replay or build_preflight or plan_placement):
+        play_choice = ("play_choice" in manifest.get("browser_capture", {}) and not any(
+            (build_fixture, live_build, live_plan, context_only, writer_transport, detailed_trace, build_sequence)))
+        if not (plan_replay or build_preflight or plan_placement or play_choice):
             raise ValueError("Browser capture requires Plan replay or Build selection preflight")
         selected = next((case for case in manifest["cases"] if case["id"] == browser_case), None)
         if selected is None:
@@ -927,7 +932,9 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
     for case in manifest["cases"]:
         # A new capture never inherits an old semantic assessment.
         current = {key: value for key, value in case.items() if key not in {"assessment", "assessments", "detailed_trace"}}
-        if manifest.get("browser_capture", {}).get("image_preview") is True:
+        if "play_choice" in manifest.get("browser_capture", {}):
+            current["capture_boundary"] = "play_choice"
+        elif manifest.get("browser_capture", {}).get("image_preview") is True:
             current["capture_boundary"] = "image_preview"
         elif context_only:
             current["capture_boundary"] = "writer_transport" if writer_transport else "context_ready"

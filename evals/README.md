@@ -206,6 +206,14 @@ the exact turn in the browser, records whether Retry or Check insertion is
 offered, and verifies the page and send count. The browser leaves the Retry
 button untouched.
 
+For a provider-free Play Choice control, use ordinary `capture --case
+<case-id> --clone-app` with a pinned saved Plan and
+`browser_capture.play_choice` containing the Run ID, Run revision, current
+scene ID, Choice ID and alternate option ID. The browser clicks the exact
+option, reopens its selection and records the progress request. The harness
+independently checks the Run, saved Plan and zero assistant sends. This
+measures an operator action and produces no assistant action-choice score.
+
 For an unsent draft recovery control, use `capture --build-fixture --case
 RECOVERY-1 --clone-app` and set `browser_capture.unsent_draft` to `true`.
 The browser fills the composer and reloads it without clicking Send. The

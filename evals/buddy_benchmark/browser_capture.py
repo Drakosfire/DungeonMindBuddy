@@ -53,8 +53,12 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
     unsent_draft = spec.get("unsent_draft", False)
     if type(unsent_draft) is not bool or (unsent_draft and (not build_fixture or live_plan)):
         raise ValueError("Unsent draft requires a Build browser fixture")
-    wire = [] if build_fixture or live_plan else json.loads(workflow.read_pin(spec["jev_wire"], base))
-    if not (build_fixture or live_plan) and (not wire or any(
+    play_choice = spec.get("play_choice")
+    if "play_choice" in spec:
+        from .play_choice import validate_play_choice
+        validate_play_choice(play_choice)
+    wire = [] if build_fixture or live_plan or play_choice else json.loads(workflow.read_pin(spec["jev_wire"], base))
+    if not (build_fixture or live_plan or play_choice) and (not wire or any(
         row["method"] != "POST" or row["response_status"] != 200
         or not bytes.fromhex(row["request_hex"]) or not bytes.fromhex(row["response_hex"])
         for row in wire
@@ -149,6 +153,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     if image_preview and not live_build:
         raise ValueError("Image preview requires explicit live Build capture")
     live = live_build or live_plan
+    play_choice = manifest["browser_capture"].get("play_choice")
     wire_name = "plan-wire-response" if live_plan else "build-wire-response"
     confirm_save = manifest["browser_capture"].get("confirm_save", False)
     lose_confirm_ack = manifest["browser_capture"].get("lose_confirm_ack", False)
@@ -231,6 +236,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         if scope["type"] != "http":
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
+        if play_choice and method not in {"GET", "HEAD"} and path.startswith("/api/") and path not in {
+            "/api/live/agent/turn", "/api/live/world-play-runs/v2/" + play_choice["run_id"] + "/progress",
+        }:
+            return await JSONResponse({"code": "benchmark_unexpected_play_write"}, 409)(scope, receive, send)
         if (image_placement is not None and method == "POST"
                 and path.startswith("/api/live/media/images/")
                 and path.rsplit("/", 1)[-1] in {"generate", "regenerate"}):
@@ -282,7 +291,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 active_plan_get.reset(token)
         if path == "/api/live/agent/turn" and method == "POST":
             turn_posts += 1
-            if unsent_draft or image_preview:
+            if unsent_draft or image_preview or play_choice:
                 return await JSONResponse({"code": "benchmark_unexpected_draft_dispatch"}, 409)(scope, receive, send)
             tick = monotonic_ns()
             chunks = []
@@ -433,7 +442,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     if plan_jev_dispatch.request_budget() != manifest["provider_policy"]:
                         raise ValueError("Effective ordinary provider policy differs")
                     fresh = client.get(route).raise_for_status().json()
-                    if image_preview:
+                    if image_preview or play_choice:
                         artifacts.immutable_save(directory, "history-before", fresh)
                     elif pinned_history is None:
                         command = {"schema": "dmb_agent_new_conversation_v1", "command_id": str(uuid4()),
@@ -465,6 +474,29 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
                         "DMB_BENCHMARK_CHROMIUM": os.environ["DMB_BENCHMARK_CHROMIUM"],
                     }
+                    if play_choice:
+                        from .play_choice import read_choice_state, record_choice_result
+                        choice_before = read_choice_state(client, directory, "play-choice-before", world, play_choice, template)
+                        run, plan = choice_before
+                        if (run["world_id"] != world or run["run_id"] != play_choice["run_id"]
+                                or run["run_revision"] != play_choice["revision"]
+                                or run["lifecycle_status"] != "active"
+                                or run["progress"]["current_scene_id"] != play_choice["scene_id"]
+                                or run["playable_artifact_id"] != work["object_id"]
+                                or plan["sha256"] != work["expected_content_sha256"]
+                                or plan["object"]["object_revision"] != work["expected_revision"]
+                                or run["progress"]["selections"].get(play_choice["choice_id"]) == play_choice["option_id"]):
+                            raise ValueError("Play Choice fixture differs from the pinned Run and saved Plan")
+                        run_route = "/api/live/world-play-runs/v2/" + play_choice["run_id"]
+                        reference = client.get(run_route + "/reference-manifest", params={"world_id": world}).raise_for_status().json()
+                        choice = play_choice["choice_id"]
+                        if (not any(row["choice_id"] == choice and row["scene_id"] == play_choice["scene_id"]
+                                    for row in reference["choices"])
+                                or not any(row["choice_id"] == choice and row["option_id"] == play_choice["option_id"]
+                                           for row in reference["options"])):
+                            raise ValueError("Play Choice or option is absent from the pinned scene")
+                        artifacts.immutable_save(directory, "play-choice-reference", reference)
+                        env["DMB_BENCHMARK_PLAY_CHOICE"] = json.dumps(play_choice)
                     if live or unsent_draft:
                         page_route = "/api/live/workspace-documents/" + work["object_id"]
                         page_route += "/committed-revision" if live_plan else "/snapshot"
@@ -507,6 +539,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     driver_failed = driver_status != {"return_code": 0}
                     if driver_failed:
                         artifacts.immutable_save(directory, "browser-driver-failure", driver_status)
+                    if play_choice:
+                        choice_after = read_choice_state(client, directory, "play-choice-after", world, play_choice, template)
+                        record_choice_result(directory, output, choice_before, choice_after, play_choice, driver_failed, turn_posts)
+                        return
                     if image_preview:
                         timing_path = output / "browser-timing.json"
                         observation = json.loads(timing_path.read_bytes()) if timing_path.is_file() else {}
