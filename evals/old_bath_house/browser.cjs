@@ -16,6 +16,8 @@ async function main() {
   const fixture = JSON.parse(fixtureBytes);
   assert.equal(fixture.schema, 'dmb_old_bath_house_benchmark_v1');
   assert.match(fixture.sourceFixtureDigest, /^[a-f0-9]{64}$/);
+  const variantOnly = fixture.live?.variantConfirmationOnly ?? false;
+  assert.equal(typeof variantOnly, 'boolean', 'variantConfirmationOnly must be a boolean');
   const origin = new URL(fixture.origin);
   assert.match(origin.href, /^http:\/\/127\.0\.0\.1:[0-9]+\/$/);
   assert.ok(process.env.DMB_BENCHMARK_BROWSER_TOKEN, 'The isolated runtime must supply its operator token');
@@ -28,7 +30,7 @@ async function main() {
   });
   const evidence = {
     run_id: randomUUID(),
-    track: fixture.live ? 'live-provider' : 'pinned-assets',
+    track: variantOnly ? 'live-variant-confirmation' : fixture.live ? 'live-provider' : 'pinned-assets',
     fixture_digest: fixture.sourceFixtureDigest,
     run_manifest_digest: fixtureDigest,
     conditions: 'fresh-browser-context',
@@ -76,6 +78,7 @@ async function main() {
         writeFileSync(output + '.checkpoint', JSON.stringify(checkpoint), { mode: 0o600 });
       });
       const variant = await confirmVariant(page, fixture, evidence);
+      if (variantOnly) return;
       const generated = await generatePortrait(page, fixture, variant, evidence);
       assert.notEqual(generated.asset_id, fixture.boss.assetId);
       evidence.evidence.portrait_handoff = {
