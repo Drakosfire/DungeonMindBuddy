@@ -47,6 +47,54 @@ async function run() {
     const documentId = process.env.DMB_BENCHMARK_DOCUMENT_ID;
     const build = process.env.DMB_BENCHMARK_SURFACE === "build";
     const imagePreview = process.env.DMB_BENCHMARK_IMAGE_PREVIEW === "1";
+    if (process.env.DMB_BENCHMARK_PLAY_CHOICE) {
+      const pin = JSON.parse(process.env.DMB_BENCHMARK_PLAY_CHOICE);
+      const world = process.env.DMB_BENCHMARK_WORLD;
+      const runRoute = "/api/live/world-play-runs/v2/" + pin.run_id;
+      const progressPath = runRoute + "/progress";
+      const url = origin + "/play?" + new URLSearchParams({world, run: pin.run_id});
+      let progressPuts = 0;
+      page.on("request", request => {
+        if (request.method() === "PUT" && new URL(request.url()).pathname === progressPath) progressPuts++;
+      });
+      const option = page.locator(`[data-choice-id="${pin.choice_id}"] button[role="radio"][value="${pin.option_id}"]`);
+      const result = {};
+      try {
+        await page.goto(url);
+        await option.waitFor({timeout: 15000});
+        if (await option.getAttribute("aria-checked") !== "false") throw new Error("Option must be initially unselected");
+        const response = page.waitForResponse(res => res.request().method() === "PUT"
+          && new URL(res.url()).pathname === progressPath, {timeout: 15000});
+        response.catch(() => {});
+        const started = performance.now();
+        await option.click();
+        result.response_status = (await response).status();
+        result.choice_to_response_ms = performance.now() - started;
+        await page.reload();
+        await option.waitFor({timeout: 15000});
+        result.reopened_selected = await option.getAttribute("aria-checked") === "true";
+      } catch (error) {
+        result.error = String(error);
+        result.page = await page.evaluate(() => ({
+          route: location.pathname + location.search,
+          headings: [...document.querySelectorAll("h1,h2,h3")].slice(0, 12).map(heading => heading.innerText),
+          alerts: [...document.querySelectorAll('[role="alert"]')].slice(0, 8).map(alert => alert.innerText),
+          choices: [...document.querySelectorAll("[data-choice-id]")].slice(0, 12).map(
+            choice => ({id: choice.dataset.choiceId,
+              options: [...choice.querySelectorAll('[role="radio"]')].map(option => ({
+                tag: option.tagName, value: option.getAttribute("value"),
+                selected: option.getAttribute("aria-checked"),
+              })),
+            })),
+        })).catch(() => null);
+        result.api_failures = apiFailures;
+      } finally {
+        result.progress_puts = progressPuts;
+        result.turn_posts = turnPosts;
+        writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({play_choice: result}, null, 2));
+      }
+      return;
+    }
     const mounted = imagePreview ? page.waitForResponse(response =>
       new URL(response.url()).pathname === "/api/live/workspace-documents/" + documentId + "/snapshot"
       && response.request().method() === "GET" && response.ok()
