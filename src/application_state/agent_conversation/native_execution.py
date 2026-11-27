@@ -1161,6 +1161,11 @@ def _join_context_binding(context, execution):
     from .native_plan_statements import validate_selected_record_events
     validate_selected_record_events(query, execution)
     from .authored_graph_references import validate_native_context
+    if type(context.native_query) is NativePlanGraphQueryPendingV1:
+        grants = [event for event in execution.events if type(event) is BuildAuthoredReferenceAuthorizedV2]
+        if grants and (query is None or type(query) is NativePlanGraphQueryPendingV1
+                or not hasattr(query, 'sha256') or any(event.query_sha256 != query.sha256 for event in grants)):
+            raise ValueError('Pending Plan authored Graph grants require the exact settled query digest')
     if type(query) is not NativePlanGraphQueryPendingV1:
         validate_native_context(query, execution)
     from .native_batch_completion import selected_read_closure

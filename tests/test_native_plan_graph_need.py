@@ -509,7 +509,7 @@ def test_no_graph_writer_authorization_roundtrips_and_rejects_late_graph_events(
         validate_context_binding(context, bad)
 
 
-def test_pending_graph_allows_exact_authored_reference_after_query_settlement():
+def test_pending_graph_allows_exact_authored_reference_after_query_settlement(monkeypatch):
     from uuid import uuid4
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredReferencesV2
@@ -579,13 +579,28 @@ def test_pending_graph_allows_exact_authored_reference_after_query_settlement():
     from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2
     authored_grant = BuildAuthoredReferenceAuthorizedV2(event_id=uuid4(), sequence=8, capture_event_id=capture.event_id,
         node_id=ref.node_id, context_receipt_sha256=context.context_receipt_sha256,
-        execution_policy_sha256=retained.execution_policy_sha256, query_sha256=policy.native_query_sha256)
+        execution_policy_sha256=retained.execution_policy_sha256, query_sha256=query.sha256)
     authored_read = BuildAuthoredReferenceReadV2(event_id=uuid4(), sequence=9, capture_event_id=capture.event_id,
         authorization_event_id=authored_grant.event_id, node_id=ref.node_id,
         statement_reads=(), assertion_reads=(), unavailable_statement_ids=(), unavailable_assertion_ids=(), status='complete')
     with_read = execution(context.context_receipt_sha256, policy, [*retained.events, authored_grant, authored_read])
     assert validate_context_binding(context, with_read) == with_read
     assert validate_context_binding(context, type(with_read).model_validate_json(with_read.model_dump_json(by_alias=True))) == with_read
+    from types import SimpleNamespace
+    from apps.live_control_server.services import native_graph_reads
+    from tests.test_native_corpus_source_access import GM
+    binding = object()
+    core = SimpleNamespace(query=query, repository=object(), pinned=(object(), SimpleNamespace(source_view=object()), None, None),
+        binding=binding, resolve_binding=lambda _world: binding)
+    monkeypatch.setattr(native_graph_reads, 'EvidenceReadService',
+        lambda: SimpleNamespace(get_assertions_evidence=lambda _ctx, ids: () if not ids else pytest.fail('Unexpected evidence read')))
+    captured = native_graph_reads.read_authored_reference(core, authored_grant, GM)
+    assert captured.query_sha256 == query.sha256 and captured.node_id == ref.node_id
+    assert not captured.statement_reads and not captured.assertion_reads
+    bad_grant = authored_grant.model_copy(update={'query_sha256': policy.native_query_sha256})
+    bad = execution(context.context_receipt_sha256, policy, [*retained.events, bad_grant, authored_read])
+    with pytest.raises(ValueError, match='exact settled query digest'):
+        validate_context_binding(context, bad)
 
 
 def test_no_graph_writer_reconstructs_actual_sdk_request_without_false_graph_evidence():
@@ -678,3 +693,16 @@ def test_reader_only_generic_append_refuses_new_graph_events_before_database(eve
     with pytest.raises(ApplicationStateValidationError, match='producer is not active'):
         service._append_graph_execution_event('synthetic-world', uuid4(), uuid4(), expected_revision=1,
             expected_attempt=1, event=event, duplicate_key='event_id')
+
+
+def test_forged_settlement_cannot_extend_legacy_receipt_authority():
+    from uuid import uuid4
+    from application_state.agent_conversation.native_execution import validate_context_binding
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQuerySettledV1
+    from tests.test_surface_native_execution import component, execution
+    context, record = component('plan')
+    forged = NativePlanGraphQuerySettledV1(event_id=uuid4(), sequence=0,
+        started_event_id=uuid4(), query=context.native_query)
+    candidate = execution(context.context_receipt_sha256, record.policy, [forged])
+    with pytest.raises(ValueError, match='require a pending Plan query'):
+        validate_context_binding(context, candidate)

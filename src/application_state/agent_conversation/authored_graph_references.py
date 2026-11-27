@@ -224,8 +224,15 @@ def validate_native_execution(execution):
         if event.capture_event_id != captured.event_id or event.node_id not in nodes:
             raise ValueError('Native authored read has no exact captured selection')
         if isinstance(event, BuildAuthoredReferenceAuthorizedV2):
+            # This is only a structural candidate until the receipt owner joins
+            # the exact pending Plan query and validates its settlement chain.
+            from .native_plan_graph_need import NativePlanGraphQuerySettledV1
+            settlements = [prior for prior in execution.events[:event.sequence]
+                           if type(prior) is NativePlanGraphQuerySettledV1]
+            settled_digest = (settlements[0].query.sha256 if len(settlements) == 1
+                              and hasattr(settlements[0].query, 'sha256') else None)
             if (event.node_id in grants or event.sequence <= captured.sequence
-                    or event.query_sha256 != execution.policy.native_query_sha256
+                    or event.query_sha256 not in (execution.policy.native_query_sha256, settled_digest)
                     or event.context_receipt_sha256 != execution.context_receipt_sha256
                     or event.execution_policy_sha256 != execution.execution_policy_sha256):
                 raise ValueError('Native human grant differs from its frozen context or is repeated')
