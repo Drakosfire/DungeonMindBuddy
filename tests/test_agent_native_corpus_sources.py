@@ -46,6 +46,7 @@ def source_adapter(application_state_dsn, monkeypatch, lane, request):
         budget=request_budget(), context_read_enabled=True,
         native_corpus_context=context, native_source_authority=authority)
     adapter._test_creative = bool(unique and supplied.get('no_source'))
+    adapter._test_multi = bool(unique and supplied.get('multi_source'))
     yield adapter
     if adapter.fence is not None:
         adapter.fence.renewer.stop_and_join()
@@ -563,8 +564,9 @@ HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private contex
 
 @pytest.mark.parametrize('source_adapter', [[('first', HTTP_BODY)],
     {'unique_world': True, 'sources': [('first', HTTP_BODY)]},
-    {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]}],
-    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative'])
+    {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'multi_source': True, 'sources': [('first', HTTP_BODY), ('second', HTTP_BODY)]}],
+    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
 def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
@@ -578,6 +580,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     from tests.test_plan_jev_writer import WriterWire
     a = source_adapter
     creative = a._test_creative
+    multi = a._test_multi
     request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor.' if creative else 'Whom did Éphanna hear?'),
         'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
@@ -632,9 +635,9 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             prose = evidence[0]['content']
             assert evidence[0]['role'] == 'user'
             handles = re.findall(r'^\[(body\d+)\] [^\n]+$', prose, re.MULTILINE)
-            assert len(handles) == 1, prose
-            handle, = handles
-            assert prose.count(HTTP_PASSAGE) == 1 and HTTP_BODY not in prose
+            assert len(handles) == (2 if multi else 1), prose
+            handle = handles[0]
+            assert prose.count(HTTP_PASSAGE) == (2 if multi else 1) and HTTP_BODY not in prose
             assert 'Unselected unrelated private context.' not in prose
             assert 'native_body_evidence' not in prose and 'source_artifact_id' not in prose
             authority = self.adapter.turn.graph_context_receipt.source_authority
@@ -642,7 +645,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             self.excerpt_handle = handle
             from application_state.agent_conversation.native_plan_assertions import POLICY
             self.text = json.dumps({'schema': POLICY, 'limitations': [],
-                'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.', 'excerpt_handles': [handle]}]})
+                'answer_segments': [{'kind': 'native_body_claim', 'text': 'The source says Éphanna heard the guard.', 'excerpt_handles': handles}]})
             return await super().handle_async_request(request)
     wire = SourceWriter(None, '')
     class Harness(PlanJevHarness):
@@ -692,6 +695,30 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert len(wire.calls) == len(constructions) == 1
         return
     selection_count = len(choices.calls)
+    if multi:
+        from application_state.agent_conversation.native_corpus import (
+            NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+            NativeBodyReadObservedV1,
+        )
+        turn = wire.adapter.turn
+        events = turn.graph_context_execution.events
+        assert turn.graph_context_execution.policy.action.source_discovery_mode == 'controller_selection_v1'
+        assert not any(type(event) is NativePlanRequestSearchAuthorizedV1 for event in events)
+        assert sum(type(event) is NativeBodySearchAuthorizedV1 for event in events) == 1
+        reads = [event for event in events if type(event) is NativeBodyReadObservedV1]
+        assert len(reads) == 2
+        completed = wire.adapter.service.inspect_turn(world_id=a.world_id, turn_id=turn.turn_id)
+        citations = completed.completion.native_body_citations
+        assert len(citations) == 2
+        assert {citation.read_event_id for citation in citations} == {read.event_id for read in reads}
+        assert len({citation.source_artifact_id for citation in citations}) == 2
+        for index in range(2):
+            opened = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation/turns/{turn.turn_id}/native-body-excerpts/{index}')
+            assert opened.status_code == 200 and opened.json()['content'] == HTTP_PASSAGE
+        replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
+        assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == selection_count
+        return
     groups = [group for group in choices.selected_kinds if group]
     if not direct:
         assert groups[0] == ('Source lexical navigation; not evidence or semantic completeness',)
