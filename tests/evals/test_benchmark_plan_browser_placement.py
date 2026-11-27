@@ -169,3 +169,25 @@ def test_image_preview_report_distinguishes_missing_and_incomplete_capture(tmp_p
     assert report_case(case, tmp_path)["delivery"]["status"] == "fail"
     result.write_text(json.dumps({"status": "observed", "checks": {"single_generation": True}}))
     assert report_case(case, tmp_path)["delivery"]["status"] == "pass"
+
+
+def test_image_parent_readback_requires_original_byte_digest():
+    from hashlib import sha256
+    import httpx
+    from evals.buddy_benchmark.browser_capture import read_image_parent
+
+    asset_id = "05e64f01-adc1-4ebb-859f-3cfabcc54839"
+    original = b"pinned image bytes"
+    metadata = {"asset_id": asset_id, "state": "ready", "content_sha256": sha256(original).hexdigest()}
+
+    def handle(request):
+        assert request.url.path.startswith(f"/api/live/media/images/{asset_id}/")
+        if request.url.path.endswith("/metadata"):
+            return httpx.Response(200, json=metadata)
+        assert request.url.path.endswith("/original")
+        return httpx.Response(200, content=original)
+
+    with httpx.Client(base_url="http://localhost", transport=httpx.MockTransport(handle)) as client:
+        assert read_image_parent(client, metadata) == metadata
+        with pytest.raises(ValueError, match="pinned original"):
+            read_image_parent(client, {**metadata, "content_sha256": "0" * 64})

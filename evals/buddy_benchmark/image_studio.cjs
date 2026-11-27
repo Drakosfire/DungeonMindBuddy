@@ -33,4 +33,69 @@ async function generatePrivatePreview(page, origin, description) {
   return { asset: portrait, model: result.model, elapsedMs: performance.now() - started };
 }
 
-module.exports = { generatePrivatePreview };
+async function regeneratePrivatePreview(page, origin, parent, instructions) {
+  const studio = page.getByRole("region", { name: "Create an image", exact: true });
+  await studio.getByRole("button", { name: "Image library", exact: true }).click();
+  const library = studio.getByRole("region", { name: "Image library", exact: true });
+  const card = library.getByRole("button").filter({ hasText: parent.caption });
+  while (!(await card.count())) {
+    const more = library.getByRole("button", { name: "More images", exact: true });
+    await more.waitFor();
+    const previousCount = await library.locator(".media-image-wizard__card").count();
+    const nextPage = page.waitForResponse(response =>
+      new URL(response.url()).pathname === "/api/live/media/images/library" && response.ok());
+    const [response] = await Promise.all([nextPage, more.click()]);
+    const rows = (await response.json()).items;
+    if (!rows.length) throw new Error("Pinned parent is absent from the mounted library");
+    await library.locator(".media-image-wizard__card").nth(previousCount).waitFor();
+  }
+  await card.click();
+  await studio.getByRole("button", { name: "Edit image", exact: true }).click();
+  const edit = page.getByRole("dialog", { name: "Edit image", exact: true });
+  await edit.getByLabel("Action").selectOption("image_to_image");
+  await edit.getByLabel("Instructions").fill(instructions);
+  const path = "/api/live/media/images/" + parent.asset_id + "/regenerate";
+  const editRoute = url => url.origin === origin && url.pathname.endsWith("/regenerate");
+  const expected = { mode: "image_to_image", instructions, expected_content_sha256: parent.content_sha256 };
+  let observed;
+  await page.route(editRoute, async route => {
+    const request = route.request();
+    const body = request.postDataJSON();
+    if (new URL(request.url()).pathname !== path || request.method() !== "POST"
+        || !Object.keys(expected).every(key => body?.[key] === expected[key])) {
+      await route.abort();
+      return;
+    }
+    observed = body;
+    await route.fallback();
+  });
+  const started = performance.now();
+  const completion = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.origin === origin && url.pathname === path && response.request().method() === "POST";
+  }, { timeout: 185000 });
+  try {
+    const [response] = await Promise.all([
+      completion, edit.getByRole("button", { name: "Generate", exact: true }).click(),
+    ]);
+    assert.ok(response.ok(), `Image edit failed with HTTP ${response.status()}`);
+    const asset = await response.json();
+    assert.ok(asset.asset_id && asset.asset_id !== parent.asset_id);
+    assert.equal(asset.parent_asset_id, parent.asset_id);
+    assert.equal(asset.state, "staged");
+    assert.deepEqual(observed, expected);
+    const image = edit.getByRole("img", { name: "Generated alternative", exact: true });
+    const sha256 = await image.evaluate(async element => {
+      await element.decode();
+      const bytes = await (await fetch(element.currentSrc)).arrayBuffer();
+      return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
+        byte => byte.toString(16).padStart(2, "0")).join("");
+    });
+    return { asset: { asset_id: asset.asset_id, state: asset.state }, parent_request: observed,
+      model: asset.model, sha256, elapsedMs: performance.now() - started };
+  } finally {
+    await page.unroute(editRoute);
+  }
+}
+
+module.exports = { generatePrivatePreview, regeneratePrivatePreview };
