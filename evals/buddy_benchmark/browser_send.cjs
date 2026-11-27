@@ -342,8 +342,9 @@ async function run() {
     }
     const live = process.env.DMB_BENCHMARK_LIVE_BROWSER === "1";
     let send = page.getByRole("button", { name: build || live ? /^(Send message|Propose edit)$/ : /^Send message$/ });
+    let reviewedPlanPath;
     if (reviewedWork) {
-      const path = "/api/live/agent/worlds/" + encodeURIComponent(process.env.DMB_BENCHMARK_WORLD)
+      const path = reviewedPlanPath = "/api/live/agent/worlds/" + encodeURIComponent(process.env.DMB_BENCHMARK_WORLD)
         + "/conversations/" + reviewedWork.conversation_id + "/work-plans/" + reviewedWork.source_turn_id;
       const card = page.getByRole("region", { name: "Work plan", exact: true });
       await card.scrollIntoViewIfNeeded();
@@ -398,6 +399,34 @@ async function run() {
     await send.evaluate(button => {
       button.addEventListener("click", () => performance.mark("benchmark-browser-send"), { once: true, capture: true });
     });
+    if (process.env.DMB_BENCHMARK_WORK_PLAN_DISCONNECT === "1") {
+      const url = page.url();
+      await send.click({ timeout: 12000 });
+      await pollBrowserRead(() => page.evaluate(async () => {
+        const response = await fetch("/__benchmark/work-plan-accepted", { cache: "no-store" });
+        return response.ok && (await response.json()).accepted;
+      }), 25000, 100, "durable Work Plan acceptance");
+      await page.close();
+      const reopened = await context.newPage();
+      reopened.on("request", request => {
+        if (request.method() === "POST" && new URL(request.url()).pathname === "/api/live/agent/turn")
+          turnPosts += 1;
+      });
+      await reopened.goto(url);
+      const reopenComposer = reopened.getByLabel("Message DungeonBuddy");
+      if (!(await reopenComposer.isVisible())) {
+        await reopened.locator(".conversation-dock__launcher").getByRole("button").click({ timeout: 15000 });
+      }
+      await reopened.getByRole("region", { name: "Work plan", exact: true }).waitFor({ timeout: 20000 });
+      const response = await reopened.request.get(origin + reviewedPlanPath, {
+        headers: { authorization: "Bearer " + process.env.DMB_BENCHMARK_BROWSER_TOKEN },
+      });
+      if (!response.ok()) throw new Error("Interrupted Work Plan did not reopen");
+      writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
+        work_plan_disconnect: { reopened: (await response.json()).plan, turn_posts: turnPosts },
+      }, null, 2));
+      return;
+    }
     const response = page.waitForResponse(result =>
       new URL(result.url()).pathname === "/api/live/agent/turn" && result.request().method() === "POST",
     { timeout: 60000 });

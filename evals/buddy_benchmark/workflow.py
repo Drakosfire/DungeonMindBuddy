@@ -135,8 +135,9 @@ def report_case(case, base):
     directory = Path(case["capture_dir"])
     directory = directory if directory.is_absolute() else base / directory
     boundary = case.get("capture_boundary", "response")
-    if boundary in {"image_preview", "play_choice", "ingest_name_review", "build_fixture"}:
-        result = directory / "fixture-result.json"
+    if boundary in {"image_preview", "play_choice", "ingest_name_review", "build_fixture", "work_plan_disconnect"}:
+        result = directory / ("work-plan-disconnect.json" if boundary == "work_plan_disconnect"
+                              else "fixture-result.json")
         if not result.is_file():
             return {"case_id": case["id"], "capture_boundary": boundary,
                     "delivery": {"status": "unknown"}}
@@ -1014,6 +1015,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
             current["capture_boundary"] = "ingest_name_review"
         elif manifest.get("browser_capture", {}).get("image_preview") is True:
             current["capture_boundary"] = "image_preview"
+        elif manifest.get("browser_capture", {}).get("recover_work_plan_disconnect") is True:
+            current["capture_boundary"] = "work_plan_disconnect"
         elif cohort_member and build_fixture and not live_build:
             current["capture_boundary"] = "build_fixture"
         elif context_only:

@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import socket
 import subprocess
-from threading import Thread
+from threading import Event, Thread
 from time import monotonic_ns, sleep
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
@@ -90,6 +90,9 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
             or not isinstance(work_plan["objective"], str) or not work_plan["objective"].strip()
             or any(key in spec for key in ("image_preview", "selection_text", "confirm_save", "unsent_draft"))):
         raise ValueError("Reviewed continuation requires an exact standalone Build fixture")
+    recover_step = spec.get("recover_work_plan_disconnect", False)
+    if type(recover_step) is not bool or (recover_step and work_plan is None):
+        raise ValueError("Work Plan disconnect requires a pinned reviewed continuation")
     if work_plan is None and not image_preview and not unsent_draft and not caret and (build_fixture or live_plan) and (
             not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()
     ):
@@ -215,6 +218,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     reviewed_plan = manifest["browser_capture"].get("reviewed_work_plan")
     if reviewed_plan is not None and not live_build:
         raise ValueError("Reviewed continuation requires live Build capture")
+    recover_step = manifest["browser_capture"].get("recover_work_plan_disconnect", False)
+    recovery_disconnected = Event()
+    recovery_receipt = None
+    recovery_execution = None
     play_choice = manifest["browser_capture"].get("play_choice")
     ingest_review = manifest["browser_capture"].get("ingest_name_review")
     rejected_ingest_writes = []
@@ -300,6 +307,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         dependant.call = measured_handler
 
     async def dispatch(scope, receive, send):
+        nonlocal recovery_receipt
         nonlocal browser_request, turn_posts, image_generation_posts
         if scope["type"] != "http":
             return await application(scope, receive, send)
@@ -380,6 +388,11 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 and path.rsplit("/", 1)[-1] in {"generate", "regenerate"}):
             image_generation_posts += 1
             return await JSONResponse({"code": "benchmark_unexpected_image_generation"}, 409)(scope, receive, send)
+        if recover_step and path == "/__benchmark/work-plan-accepted" and method == "GET":
+            return await JSONResponse(
+                {"accepted": recovery_execution is not None},
+                headers={"Cache-Control": "no-store"},
+            )(scope, receive, send)
         if live and path == "/__benchmark/browser-response-retained" and method == "GET":
             wire_path = directory / (wire_name + ".json")
             result = {"retained": wire_path.is_file()}
@@ -447,7 +460,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         from application_state.agent_conversation import work_plan
                         owner = work_plan.read(world, UUID(reviewed_plan["conversation_id"]),
                                                UUID(reviewed_plan["source_turn_id"]))["plan"]
-                        validate_reviewed_work_plan_request(parsed, reviewed_plan, owner, work, fresh)
+                        receipt = validate_reviewed_work_plan_request(parsed, reviewed_plan, owner, work, fresh)
+                        if recover_step:
+                            recovery_receipt = receipt
                         artifacts.immutable_save(directory, "reviewed-work-plan-at-dispatch", owner)
                     else:
                         validate_build_browser_request(parsed, world=world, work=work, question=case["question"],
@@ -489,6 +504,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     frame = await receive()
                     if frame["type"] == "http.disconnect":
                         disconnect_ns = monotonic_ns()
+                        if recover_step:
+                            recovery_disconnected.set()
                     return frame
                 raw, body = body, None
                 return {"type": "http.request", "body": raw, "more_body": False}
@@ -546,7 +563,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     origin = "http://" + sock_host
     local_env = dict(owned_env, DMB_AGENT_GRAPH_LOCAL_UI_ORIGIN=origin,
                      DMB_AGENT_GRAPH_LOCAL_API_HOST=sock_host)
-    if not live:
+    if not live or recover_step:
         local_env.update(TYPESAFE_JEV_API_KEY="retained-jev-replay",
                          OPENAI_API_KEY="local-writer-transport-sink")
     server = uvicorn.Server(uvicorn.Config(with_startup_gc(serve), log_level="warning",
@@ -555,7 +572,31 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     from contextlib import nullcontext
     jev_guard = (nullcontext() if live else
                  patch.object(plan_jev_dispatch._ObservedJevTransport, "handle_async_request", replay))
-    writer_guard = nullcontext() if live else sink.install()
+    if recover_step:
+        async def hold_recovery_transport(transport, request):
+            from asyncio import to_thread
+            from application_state.agent_conversation import work_plan
+
+            nonlocal recovery_execution
+            if recovery_receipt is None or recovery_execution is not None:
+                raise ValueError("Work Plan recovery requires a single bound transport")
+            owner = work_plan.read(world, UUID(reviewed_plan["conversation_id"]),
+                                   UUID(reviewed_plan["source_turn_id"]))["plan"]
+            execution = observed_work_plan_execution(owner, recovery_receipt)
+            if execution is None:
+                raise ValueError("Work Plan recovery transport reached before durable acceptance")
+            artifacts.immutable_save(directory, "work-plan-accepted-before-disconnect", {
+                "receipt": recovery_receipt, "execution": execution,
+            })
+            recovery_execution = execution
+            if not await to_thread(recovery_disconnected.wait, 30):
+                raise TimeoutError("Work Plan recovery browser did not disconnect")
+            # End the controlled attempt without contacting a provider.
+            raise ValueError("Benchmark interrupted the held Work Plan transport")
+
+        jev_guard = patch.object(plan_jev_dispatch._ObservedJevTransport,
+                                 "handle_async_request", hold_recovery_transport)
+    writer_guard = nullcontext() if live and not recover_step else sink.install()
     failure_guard = nullcontext()
     if terminal_build_failure:
         from apps.live_control_server.services.build_document_proposal import BuildComposeError, BuildProposalService
@@ -631,6 +672,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_LIVE_BROWSER": "1" if live else "0",
                         "DMB_BENCHMARK_IMAGE_PREVIEW": "1" if image_preview else "0",
                         "DMB_BENCHMARK_REVIEWED_WORK_PLAN": json.dumps(reviewed_plan),
+                        "DMB_BENCHMARK_WORK_PLAN_DISCONNECT": "1" if recover_step else "0",
                         "DMB_BENCHMARK_UNSENT_DRAFT": "1" if unsent_draft else "0",
                         "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
                         "DMB_BENCHMARK_LOSE_CONFIRM_ACK": "1" if lose_confirm_ack else "0",
@@ -874,6 +916,29 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         except Exception as error:
                             result = {"status": "readback_error", "error_type": type(error).__name__}
                         artifacts.immutable_save(directory, "reviewed-work-plan-after", result)
+                        if recover_step:
+                            timing_path = output / "browser-timing.json"
+                            mounted = (json.loads(timing_path.read_bytes()).get("work_plan_disconnect")
+                                       if timing_path.is_file() else None)
+                            receipt_present = bool(recovery_receipt and mounted
+                                and mounted["reopened"]["dispatches"].count(recovery_receipt) == 1
+                                and result.get("plan", {}).get("dispatches", []).count(recovery_receipt) == 1)
+                            before = json.loads((directory / "reviewed-work-plan-at-dispatch.json").read_bytes())
+                            current = result.get("plan", {})
+                            checks = {
+                                "accepted_before_disconnect": (
+                                    recovery_execution is not None and recovery_disconnected.is_set()),
+                                "same_receipt_reopened": receipt_present,
+                                "same_turn": bool(recovery_execution and len(turns) == 1
+                                    and turns[0]["turn_id"] == recovery_execution["turn_id"]),
+                                "no_second_send": bool(mounted and mounted["turn_posts"] == turn_posts == 1),
+                                "deferred_steps_unchanged": (current.get("steps") == before["steps"]
+                                    and current.get("dispatches") == before["dispatches"]),
+                            }
+                            artifacts.immutable_save(directory, "work-plan-disconnect", {
+                                "status": "observed" if not driver_failed and all(checks.values()) else "incomplete",
+                                "checks": checks, "provider_calls": 0,
+                            })
                     if live:
                         if confirm_save:
                             timing_path = output / "browser-timing.json"
@@ -1071,6 +1136,23 @@ def prepare_reviewed_work_plan_page(world, work, fixture, directory):
             "expected_content_sha256": prepared.content_sha256}
 
 
+def observed_work_plan_execution(owner, receipt):
+    """Resolve one mounted continuation to an owner execution or fail closed."""
+    command_id = receipt["command_id"]
+    dispatches = [row for row in owner["dispatches"] if row["command_id"] == command_id]
+    executions = [row for row in owner["execution"] if row["command_id"] == command_id]
+    if len(dispatches) != 1 or dispatches[0] != receipt or len(executions) != 1:
+        raise ValueError("Work Plan recovery receipt does not match the owner")
+    execution = executions[0]
+    if execution["step_id"] != receipt["step_id"]:
+        raise ValueError("Work Plan recovery execution belongs to a different step")
+    if execution["status"] == "awaiting_dispatch":
+        return None
+    if execution["status"] not in {"accepted", "running"} or not execution["turn_id"]:
+        raise ValueError("Work Plan recovery did not observe a nonterminal accepted turn")
+    return execution
+
+
 def validate_reviewed_work_plan_request(request, fixture, owner, work, history):
     """Accept the exact owner-reserved discussion from the mounted editor."""
     from apps.live_control_server.models.agent_turn import AgentTurnRequest
@@ -1098,6 +1180,7 @@ def validate_reviewed_work_plan_request(request, fixture, owner, work, history):
             or dispatch["client_thread_id"] != request["client_thread_id"]
             or dispatch.get("scope", {}).get("task", {}).get("kind") != "discuss"):
         raise ValueError("Reviewed discussion differs from the reserved step")
+    return dispatch
 
 
 def validate_build_browser_request(request, *, world, work, question, selection_text,
