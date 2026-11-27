@@ -739,7 +739,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert not any(type(event) is NativeBodyReadObservedV1 for event in events)
         completed = wire.adapter.service.inspect_turn(world_id=a.world_id, turn_id=turn.turn_id)
         assert not completed.completion.native_body_citations
-        assert any(item.code in ('missing_requested_details', 'partial_retrieval') for item in completed.completion.limitations)
+        assert any(getattr(item, 'code', None) in ('missing_requested_details', 'partial_retrieval') for item in completed.completion.answer_segments)
         return
     if multi:
         from application_state.agent_conversation.native_corpus import (
