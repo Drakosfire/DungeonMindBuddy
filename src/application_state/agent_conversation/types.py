@@ -5705,8 +5705,10 @@ def validate_provider_envelope_accounting(assembled, execution, event) -> None:
     if not previous_attempts:
         from .native_context import NativePlanRequestAdmissionV1
         if type(assembled) is NativePlanRequestAdmissionV1:
-            from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
-            if (type(event) not in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1)
+            from .native_retrieval import (NativePlanAuthorScopeAuthorizedV1,
+                NativePlanOpeningAuthorizedV1, NativePlanGraphNeedAuthorizedV1)
+            if (type(event) not in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1,
+                                    NativePlanGraphNeedAuthorizedV1)
                     or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.controller.identity()
                     or event.input_accounting_kind != execution.policy.provider_input_accounting.kind
                     or event.input_estimator != assembled.tokenizer_name
