@@ -49,6 +49,7 @@ def source_adapter(application_state_dsn, monkeypatch, lane, request):
     adapter._test_multi = bool(unique and supplied.get('multi_source'))
     adapter._test_long = bool(unique and supplied.get('long_context'))
     adapter._test_missing = bool(unique and supplied.get('missing_source'))
+    adapter._test_graph_required = bool(unique and supplied.get('graph_required'))
     yield adapter
     if adapter.fence is not None:
         adapter.fence.renewer.stop_and_join()
@@ -228,7 +229,8 @@ def test_source_only_actual_rules_selection_reads_once_under_its_own_authority(s
 
 
 class SourceChoices(httpx2.AsyncBaseTransport):
-    def __init__(self, *, sections=False, direct=False, writer_passages=False, controller_source=False, no_source=False):
+    def __init__(self, *, sections=False, direct=False, writer_passages=False, controller_source=False, no_source=False, graph_required=False):
+        self.graph_required = graph_required
         self.controller_source = controller_source
         self.no_source = no_source
         self.calls = []
@@ -247,7 +249,7 @@ class SourceChoices(httpx2.AsyncBaseTransport):
         answers = {}
         selected_kinds = []
         for name, entry in body['questions'].items():
-            choice = ('no_graph' if name == 'graph_need' else
+            choice = (('require_graph' if self.graph_required else 'no_graph') if name == 'graph_need' else
                       'discuss' if name == 'requested_work' else
                       'finish_retrieval' if name == 'operation' else
                       'review_after_reads' if name == 'post_read_plan' else 'exclude')
@@ -571,8 +573,9 @@ HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private contex
     {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]},
     {'unique_world': True, 'multi_source': True, 'sources': [('first', HTTP_BODY), ('second', HTTP_BODY.replace('Éphanna heard the guard.', 'Éphanna heard the bell.'))]},
     {'unique_world': True, 'no_source': True, 'long_context': True, 'sources': [('first', HTTP_BODY)]},
-    {'unique_world': True, 'missing_source': True, 'sources': [('first', HTTP_BODY)]}],
-    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context', 'controller-missing-source'])
+    {'unique_world': True, 'missing_source': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'graph_required': True, 'sources': [('first', HTTP_BODY)]}],
+    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context', 'controller-missing-source', 'controller-graph-required'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
 def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
@@ -589,6 +592,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     multi = a._test_multi
     long_context = a._test_long
     missing = a._test_missing
+    graph_required = a._test_graph_required
     if missing and direct:
         pytest.skip('Missing-source control covers lexical search')
     if long_context and direct:
@@ -631,7 +635,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert verification_cache is None or verification_cache is _turn_revision_proof
         return lane.repo
     monkeypatch.setattr(native_registry_source, 'repository', read_repository)
-    choices = SourceChoices(direct=direct, writer_passages=True, controller_source=True, no_source=creative)
+    choices = SourceChoices(direct=direct, writer_passages=True, controller_source=True, no_source=creative, graph_required=graph_required)
     if creative:
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         monkeypatch.setattr(native_corpus_source, 'capture_native_sources',
@@ -698,7 +702,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     data = response.json()
     assert data['plan_context']['schema'] == 'dmb_agent_surface_native_context_response_v1'
     receipt = data['plan_context']['receipt']
-    assert receipt['work_context']['surface_id'] == 'plan' and graph_calls == ([] if graph_available else [True])
+    assert receipt['work_context']['surface_id'] == 'plan' and graph_calls == ([True] if not graph_available or graph_required else [])
     assert 'graph_capability' not in receipt
     if graph_available:
         assert receipt['native_query']['schema'] == 'dmb_native_plan_graph_query_pending_v1'
@@ -847,7 +851,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     assert replay.json()['plan_context']['completion'] == data['plan_context']['completion']
     assert replay.json()['plan_context']['delivery_replay']
     assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == selection_count
-    assert graph_calls == ([] if graph_available else [True])  # Replay does not reacquire Graph.
+    assert graph_calls == ([True] if not graph_available or graph_required else [])  # Replay does not reacquire Graph.
     history = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation?include_turn_correlation=true')
     assert history.status_code == 200, history.text
     assert history.json()['turns'][0]['plan_context']['completion'] == data['plan_context']['completion']
