@@ -1,5 +1,6 @@
 """Selected-source recovery against one isolated App fixture; no provider calls."""
 import json
+from types import SimpleNamespace
 from uuid import uuid4
 
 import psycopg
@@ -57,6 +58,9 @@ def test_selected_source_capture_survives_pre_dispatch_reclaim_but_not_provider_
     assert AgentConversationService().inspect_turn(world_id=world,turn_id=recovered.turn_id) == recovered
     assert recovered.graph_context_execution.events[0].references == refs
     assert recovered.graph_context_execution.events[0].attempt == captured.attempt
+    from apps.live_control_server.services.native_authored_references import capture_input
+    fence = SimpleNamespace(turn=recovered,append=lambda *_args,**_kwargs:pytest.fail('duplicate capture'))
+    capture_input(SimpleNamespace(fence=fence,turn=recovered))
 
     # Simulate only the durable authorization record; no provider was called.
     auth = controller('build',policy,sequence=1)

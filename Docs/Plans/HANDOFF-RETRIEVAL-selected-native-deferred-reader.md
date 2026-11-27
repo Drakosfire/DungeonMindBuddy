@@ -41,7 +41,8 @@ Reader owners as needed: `src/application_state/agent_conversation/native_contex
 `native_execution.py`, `native_corpus.py`, `native_reads.py`, `native_writer.py`,
 `native_replay.py`, `authored_graph_references.py`, `writer_evidence_selection.py`
 (selected-source terminal reader), `service.py` and
-`apps/live_control_server/services/agent_turn_service.py` and
+`apps/live_control_server/services/agent_turn_service.py`,
+`apps/live_control_server/services/native_authored_references.py` and
 `apps/live_control_server/services/build_jev_harness.py` (existing-record
 opening, resume and citation projection readers only), and corresponding strict API
 codec or frontend reader files if a real recorded state reaches them; focused
