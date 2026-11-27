@@ -4530,3 +4530,260 @@ def test_capture_retains_unavailable_witness_if_setup_fails(tmp_path, monkeypatc
                        observe_core=True)
     row = json.loads((out / 'core-connection-probe.json').read_bytes())
     assert probe.validate_artifact(row, 'case1')['status'] == 'unavailable'
+
+
+def test_gateway_policy_tracks_simple_and_reused_prepared_execution():
+    import struct
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy
+    policy = FrontendPolicy()
+    policy.frontend(b'Q', b'BEGIN\0')
+    assert policy.snapshot()['pending'] == 1
+    policy.backend(b'C', b'BEGIN\0')
+    policy.backend(b'Z', b'T')
+    policy.frontend(b'P', b's\0SELECT 1\0' + struct.pack('!H', 0))
+    for name in (b'p1', b'p2'):
+        policy.frontend(b'B', name + b'\0s\0' + struct.pack('!HHH', 0, 0, 0))
+        policy.frontend(b'E', name + b'\0' + struct.pack('!I', 0))
+    policy.frontend(b'S', b'')
+    policy.backend(b'C', b'SELECT 1\0')
+    policy.backend(b'C', b'SELECT 1\0')
+    policy.backend(b'Z', b'T')
+    policy.frontend(b'Q', b'ROLLBACK\0')
+    policy.backend(b'C', b'ROLLBACK\0')
+    policy.backend(b'Z', b'I')
+    policy.frontend(b'X', b'')
+    result = policy.snapshot()
+    assert result['ended'] and result['ready'] and not result['failed'] and result['pending'] == 0
+    assert [e['kind'] for e in result['events']] == ['simple', 'execute', 'execute', 'simple']
+    assert all(e['outcome'] == 'completed' for e in result['events'])
+    assert all(set(e) == {'sequence', 'kind', 'query_sha256', 'category', 'outcome'} for e in result['events'])
+
+
+@pytest.mark.parametrize('tag,body', [
+    (b'Q', b'SELECT 1; SELECT 17\0'),
+    (b'Q', b'SELECT pg_read_file($$secret$$)\0'),
+    (b'Q', b'SELECT 1\0trailing'),
+    (b'P', b's\0SELECT $1::int\0\x00\x01\x00\x00\x00\x17'),
+    (b'E', b'missing\0\x00\x00\x00\x00'),
+    (b'F', b''), (b'd', b'source data'), (b'H', b''),
+])
+def test_gateway_policy_rejects_unknown_sql_and_protocol_before_forwarding(tag, body):
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy, ProtocolDenied
+    policy = FrontendPolicy()
+    with pytest.raises(ProtocolDenied):
+        policy.frontend(tag, body)
+    assert policy.snapshot()['failed'] and not policy.snapshot()['events']
+
+
+def test_gateway_policy_fails_closed_on_unknown_binding_and_backend_error():
+    import struct
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy, ProtocolDenied
+    policy = FrontendPolicy()
+    policy.frontend(b'P', b's\0SELECT 1\0' + struct.pack('!H', 0))
+    with pytest.raises(ProtocolDenied):
+        policy.frontend(b'B', b'p\0missing\0' + struct.pack('!HHH', 0, 0, 0))
+    assert policy.snapshot()['failed']
+    other = FrontendPolicy()
+    other.frontend(b'Q', b'SELECT 1\0')
+    other.backend(b'E', b'synthetic error contents')
+    assert other.snapshot()['events'][0]['outcome'] == 'failed' and other.snapshot()['failed']
+    with pytest.raises(ProtocolDenied):
+        other.frontend(b'Q', b'SELECT 17\0')
+
+
+def test_gateway_refuses_clean_termination_with_open_transaction():
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy, ProtocolDenied
+    policy = FrontendPolicy()
+    policy.frontend(b'Q', b'BEGIN\0')
+    policy.backend(b'C', b'BEGIN\0')
+    policy.backend(b'Z', b'T')
+    with pytest.raises(ProtocolDenied, match='unresolved'):
+        policy.frontend(b'X', b'')
+    assert policy.snapshot()['transaction_status'] == 'T' and policy.snapshot()['failed']
+
+
+def test_gateway_startup_refuses_foreign_database_options_and_cancel():
+    import socket
+    import struct
+    from evals.negative_retrieval.closed_db_gateway import _startup
+    from evals.negative_retrieval.gateway_protocol import ProtocolDenied
+
+    def frame(fields):
+        body = struct.pack('!I', 196608) + b''.join(k + b'\0' + v + b'\0' for k, v in fields) + b'\0'
+        return struct.pack('!I', len(body) + 4) + body
+
+    for fields in ([(b'user', b'sandbox'), (b'database', b'other')],
+                   [(b'user', b'sandbox'), (b'database', b'owned'), (b'options', b'-c role=admin')],
+                   [(b'user', b'sandbox'), (b'user', b'sandbox'), (b'database', b'owned')]):
+        client, server = socket.socketpair()
+        try:
+            client.sendall(frame(fields))
+            with pytest.raises(ProtocolDenied):
+                _startup(server, 'owned')
+        finally:
+            client.close(); server.close()
+    client, server = socket.socketpair()
+    try:
+        client.sendall(struct.pack('!II', 16, 80877102) + b'\0' * 8)
+        with pytest.raises(ProtocolDenied):
+            _startup(server, 'owned')
+    finally:
+        client.close(); server.close()
+
+
+def test_gateway_never_forwards_unknown_sql():
+    import socket
+    import struct
+    from threading import Thread
+    from evals.negative_retrieval.closed_db_gateway import _ClosedDatabaseGateway
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy
+    gateway = _ClosedDatabaseGateway('/tmp', 'unused', {'database': 'owned'})
+    client, incoming = socket.socketpair()
+    outgoing, backend = socket.socketpair()
+    backend.settimeout(.1)
+    policy = FrontendPolicy()
+    thread = Thread(target=gateway._relay, args=(incoming, outgoing, policy, True))
+    thread.start()
+    try:
+        body = b'SELECT pg_read_file($$secret$$)\0'
+        client.sendall(b'Q' + struct.pack('!I', len(body) + 4) + body)
+        thread.join(2)
+        assert not thread.is_alive() and policy.failed
+        with pytest.raises(TimeoutError):
+            backend.recv(1)
+        assert not policy.events
+    finally:
+        for sock in (client, incoming, outgoing, backend):
+            sock.close()
+
+
+def test_gateway_finish_is_retryable_after_interruption(monkeypatch):
+    import subprocess
+    from evals.negative_retrieval.closed_db_gateway import _ClosedDatabaseGateway
+    gateway = _ClosedDatabaseGateway('/tmp', 'unused', {'database': 'owned'})
+    calls = []
+    def interrupted_once():
+        calls.append('close')
+        if len(calls) == 1:
+            raise KeyboardInterrupt('synthetic cleanup interruption')
+        gateway._closed = True
+    monkeypatch.setattr(gateway, '_close', interrupted_once)
+    worker = subprocess.Popen(['/bin/true'])
+    worker.wait(timeout=5)
+    with pytest.raises(KeyboardInterrupt):
+        gateway.finish(worker)
+    assert not gateway._finished
+    assert gateway.finish(worker)['status'] == 'unsealed'
+    assert calls == ['close', 'close']
+
+
+def test_owned_gateway_retries_cleanup_when_finish_is_interrupted(tmp_path, monkeypatch):
+    import json
+    import subprocess
+    from evals.negative_retrieval import closed_db_gateway as module
+    ledger = tmp_path / 'owner.json'
+    ledger.write_text(json.dumps({'database': {'database': 'owned'}}))
+    monkeypatch.setenv('DMB_NEGATIVE_RETRIEVAL_OWNER_LEDGER', str(ledger))
+    monkeypatch.setattr(module, '_checked_owner_dsn', lambda: 'postgresql://role@/owned')
+    monkeypatch.setattr(module._ClosedDatabaseGateway, 'start', lambda self: self)
+    calls = []
+    def interrupted_once(self):
+        calls.append('close')
+        if len(calls) == 1:
+            raise KeyboardInterrupt('synthetic cleanup interruption')
+        self._closed = True
+    monkeypatch.setattr(module._ClosedDatabaseGateway, '_close', interrupted_once)
+    worker = subprocess.Popen(['/bin/true'])
+    worker.wait(timeout=5)
+    with pytest.raises(KeyboardInterrupt):
+        with module.owned_gateway(tmp_path) as gateway:
+            gateway.finish(worker)
+    assert calls == ['close', 'close'] and gateway._closed and not gateway._finished
+
+
+def test_gateway_closes_a_backend_stalled_during_identity(monkeypatch):
+    import socket
+    from threading import Event, Thread
+    from types import SimpleNamespace
+    import psycopg
+    from evals.negative_retrieval import closed_db_gateway as module
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy
+    app_client, app_server = socket.socketpair()
+    database, peer = socket.socketpair()
+    entered = Event()
+    calls = []
+
+    class Backend:
+        pgconn = SimpleNamespace(socket=database.fileno(), ssl_in_use=False)
+        info = SimpleNamespace(host='127.0.0.1', port=1234)
+        def __enter__(self): return self
+        def __exit__(self, *args): database.close()
+        def execute(self, _query):
+            entered.set()
+            database.recv(1)
+            raise OSError('synthetic closed backend')
+
+    def connect(*args, **kwargs):
+        calls.append(kwargs)
+        return Backend()
+    monkeypatch.setattr(module, '_startup', lambda *_: None)
+    monkeypatch.setattr(module, '_checked_owner_dsn', lambda: 'owned')
+    monkeypatch.setattr(psycopg, 'connect', connect)
+    identity = {'database': 'owned', 'host': '127.0.0.1', 'port': 1234, 'oid': '1', 'system_identifier': '2'}
+    gateway = module._ClosedDatabaseGateway('/tmp', 'owned', identity)
+    gateway._sockets.add(app_server)
+    thread = Thread(target=gateway._serve, args=(app_server, FrontendPolicy()))
+    gateway._threads.append(thread)
+    thread.start()
+    try:
+        assert entered.wait(5)
+        gateway._close()
+        assert not thread.is_alive() and gateway._closed
+        assert calls[0]['connect_timeout'] == module._CONNECT_TIMEOUT
+        assert 'statement_timeout=3000' in calls[0]['options']
+        assert 'forced_shutdown' in gateway._errors
+    finally:
+        app_client.close(); peer.close()
+
+
+def test_gateway_owner_verification_timeout_fails_closed(monkeypatch):
+    import subprocess
+    from evals.negative_retrieval import closed_db_gateway as module
+    def timeout(*args, **kwargs):
+        assert kwargs['timeout'] == module._OWNER_TIMEOUT
+        raise subprocess.TimeoutExpired(args[0], kwargs['timeout'])
+    monkeypatch.setattr(module.subprocess, 'run', timeout)
+    with pytest.raises(RuntimeError, match='verification timed out'):
+        module._checked_owner_dsn()
+
+
+@pytest.mark.parametrize('actual_role,hostaddr', [('other', '127.0.0.1'), ('reader', '127.0.0.2')])
+def test_gateway_refuses_backend_role_or_address_mismatch_before_auth(monkeypatch, actual_role, hostaddr):
+    import socket
+    from types import SimpleNamespace
+    import psycopg
+    from evals.negative_retrieval import closed_db_gateway as module
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy
+    app_client, app_server = socket.socketpair()
+    database, peer = socket.socketpair()
+
+    class Backend:
+        pgconn = SimpleNamespace(socket=database.fileno(), ssl_in_use=False)
+        info = SimpleNamespace(host='127.0.0.1', hostaddr=hostaddr, port=1234, user=actual_role)
+        def __enter__(self): return self
+        def __exit__(self, *args): database.close()
+        def execute(self, _query):
+            return SimpleNamespace(fetchone=lambda: ('owned', '1', '2', actual_role, actual_role))
+
+    monkeypatch.setattr(module, '_startup', lambda *_: None)
+    monkeypatch.setattr(module, '_checked_owner_dsn', lambda: 'owned')
+    monkeypatch.setattr(psycopg, 'connect', lambda *args, **kwargs: Backend())
+    identity = {'database': 'owned', 'host': '127.0.0.1', 'port': 1234,
+                'oid': '1', 'system_identifier': '2', 'user': 'reader'}
+    gateway = module._ClosedDatabaseGateway('/tmp', 'owned', identity)
+    try:
+        gateway._serve(app_server, FrontendPolicy())
+        assert app_client.recv(1) == b''
+        assert 'session_failure' in gateway._errors
+    finally:
+        app_client.close(); peer.close()

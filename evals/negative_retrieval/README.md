@@ -659,6 +659,26 @@ Zero observations prove neither no Core use nor complete acquisition coverage.
 The report retains and validates this artifact but cannot upgrade the environment
 or a cohort result on its basis.
 
+`closed_db_gateway.owned_gateway` is a first, deliberately restricted transport
+boundary for an already owned App clone. Its policy accepts only the exact
+parameter-free `SELECT 1`, `SELECT 17`, `BEGIN`, `COMMIT` and `ROLLBACK`
+statements. It rejects other SQL, bound values, COPY, cancellation, replication,
+unknown protocol and pipelining across Sync before forwarding. It retains only
+query hashes, categories and outcomes, never SQL text, values or credentials.
+The gateway binds each backend to the owned clone and refuses a transport seal
+if the worker, sessions, protocol or cleanup are unsettled. Its backend has a
+three-second statement timeout, so it does not preserve arbitrary production
+session settings or latency. It is not an
+application-SQL allowlist and cannot run Buddy turns.
+
+Run its client only in a separately verified network-isolated worker with a
+read-only mount of the private socket directory and no database credentials,
+Docker socket, source data or provider credentials. The host process and its
+database credential are trusted. The transport seal does not attest the worker,
+container, provider or source coverage; it is not a complete acquisition journal
+or a benchmark result. A future integrated runner must enforce and prove those
+boundaries, audit any expanded SQL policy and bind fixture source identities.
+
 A provider-free case 364 checked the deployed-source inventory owner against a
 single synthetic World on the retained read-only App clone, with a one-row
 limit. It classified one scoped page-inventory attempt and two unmatched calls.
