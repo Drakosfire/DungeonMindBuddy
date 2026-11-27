@@ -1823,11 +1823,11 @@ class AgentConversationService:
         # Graph decision or query events until their trusted producer exists.
         from .native_retrieval import NativePlanGraphNeedAuthorizedV1
         from .native_plan_graph_need import (
-            NativePlanGraphNeedObservedV1, NativePlanGraphQueryAuthorizedV1,
+            NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1, NativePlanGraphQueryAuthorizedV1,
             NativePlanGraphQueryStartedV1, NativePlanGraphQueryClosedV1,
             NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1,
         )
-        reader_only_events = (NativePlanGraphNeedAuthorizedV1, NativePlanGraphNeedObservedV1,
+        reader_only_events = (NativePlanGraphNeedAuthorizedV1, NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1,
             NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
             NativePlanGraphQueryClosedV1, NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1)
         if type(event) in reader_only_events:
