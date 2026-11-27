@@ -150,8 +150,12 @@ def safe_reclaimable_graph_need_prefix(turn):
     starts = [event for event in events if type(event) is NativePlanGraphQueryStartedV1]
     settled = [event for event in events if type(event) is NativePlanGraphQuerySettledV1]
     if (len(auths) != 1 or type(auths[0]) is not NativePlanGraphNeedAuthorizedV1
-            or len(observed) != 1 or observed[0].choice not in {'no_graph', 'require_graph'}
+            or len(observed) != 1 or observed[0].choice not in {'no_graph', 'require_graph', 'uncertain'}
             or bool(starts) != bool(settled)):
+        return False
+    # Only the fully acknowledged decision itself may precede a recovered
+    # host clarification. Never repeat a started acquisition or later work.
+    if observed[0].choice == 'uncertain' and events[-1] is not observed[0]:
         return False
     try:
         validate_context_binding(receipt, execution)

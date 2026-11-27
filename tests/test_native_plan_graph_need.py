@@ -1226,6 +1226,16 @@ def test_expired_reclaim_refuses_uncertain_or_later_provider_work():
         pending_query_sha256=observed.parent.pending_query_sha256)
     start = NativePlanGraphQueryStartedV1(event_id=uuid4(), sequence=5, authorization_event_id=grant.event_id)
     assert not safe_reclaimable_graph_need_prefix(turn([*prefix, grant, start]))
+    uncertain_context, uncertain_record, uncertain_auth, uncertain_lifecycle, uncertain = actual_need_execution('uncertain')
+    uncertain_prefix = [uncertain_auth, *uncertain_lifecycle, uncertain]
+    uncertain_turn = SimpleNamespace(status='running', graph_context_receipt=uncertain_context,
+        graph_context_execution=execution(uncertain_context.context_receipt_sha256, uncertain_record.policy, uncertain_prefix))
+    assert safe_reclaimable_graph_need_prefix(uncertain_turn)
+    forbidden = NativePlanGraphQueryAuthorizedV1(event_id=uuid4(), sequence=len(uncertain_prefix),
+        need_event_id=uncertain.event_id, pending_query_sha256=uncertain.parent.pending_query_sha256)
+    uncertain_turn.graph_context_execution = execution(uncertain_context.context_receipt_sha256,
+        uncertain_record.policy, [*uncertain_prefix, forbidden])
+    assert not safe_reclaimable_graph_need_prefix(uncertain_turn)
     context2, closed = actual_closed_execution()
     opening = controller('plan', closed.policy, sequence=len(closed.events), semantic=True)
     value = SimpleNamespace(status='running', graph_context_receipt=context2,

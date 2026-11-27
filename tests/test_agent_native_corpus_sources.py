@@ -985,8 +985,9 @@ def test_shared_legacy_plan_action_builder_keeps_historical_mode(monkeypatch):
 
 
 @pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', HTTP_BODY)]}], indirect=True)
+@pytest.mark.parametrize('interrupted', [False, True])
 def test_ordinary_http_uncertain_graph_need_delivers_replayable_clarification(
-        source_adapter, lane, monkeypatch, tmp_path, application_state_dsn):
+        source_adapter, lane, monkeypatch, tmp_path, application_state_dsn, interrupted):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from apps.live_control_server.routes import agent
@@ -1026,11 +1027,32 @@ def test_ordinary_http_uncertain_graph_need_delivers_replayable_clarification(
     class NoWriter(httpx2.AsyncBaseTransport):
         async def handle_async_request(self, wire):
             pytest.fail('Uncertain Graph decision dispatched a writer')
-    monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', lambda: PlanJevHarness(
+    holder = {}
+    class Harness(PlanJevHarness):
+        def execute(self, adapter, **kwargs):
+            holder['adapter'] = adapter
+            return super().execute(adapter, **kwargs)
+    monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', lambda: Harness(
         decision_transport=UncertainWire(), writer_transport=NoWriter(),
         decision_api_key='synthetic-not-secret', writer_api_key='synthetic-not-secret'))
     app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
     with TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token}) as client:
+        if interrupted:
+            import psycopg
+            from apps.live_control_server.services import plan_graph_need_dispatch, agent_turn_service
+            from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+            original = plan_graph_need_dispatch.settle_graph_need
+            def stop_after_decision(*_args, **_kwargs):
+                raise AgentTurnServiceError('Synthetic interruption', code='synthetic_interruption', status_code=503)
+            monkeypatch.setattr(plan_graph_need_dispatch, 'settle_graph_need', stop_after_decision)
+            monkeypatch.setattr(agent_turn_service, '_interrupt_policy_delivery', lambda *_args, **_kwargs: None)
+            stopped = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+            assert stopped.status_code == 503 and len(calls) == 1
+            current = holder['adapter'].turn
+            assert current.graph_context_execution.events[-1].kind == 'native_plan_graph_need_observed_v1'
+            with psycopg.connect(application_state_dsn) as conn:
+                conn.execute("UPDATE agent.turn SET claim_expires_at = clock_timestamp() - interval '1 second' WHERE world_id=%s AND turn_id=%s", (current.world_id, current.turn_id))
+            monkeypatch.setattr(plan_graph_need_dispatch, 'settle_graph_need', original)
         first = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
         assert first.status_code == 200, first.text
         data = first.json()
