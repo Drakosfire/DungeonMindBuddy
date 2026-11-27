@@ -1564,6 +1564,14 @@ def test_response_member_uses_pinned_driver(tmp_path, monkeypatch, driver, optio
                          cohort_app=None, **options)]
 
 
+@pytest.mark.parametrize(("outcome", "delivery"), [("captured", "pass"), ("observed", "pass"), ("incomplete", "unknown")])
+def test_response_cohort_build_fixture_report(tmp_path, outcome, delivery):
+    put(tmp_path / "fixture-result.json", {"status": outcome, "provider_calls": 0})
+    row = w.report_case({"id": "mounted", "capture_boundary": "build_fixture", "capture_dir": str(tmp_path)}, tmp_path)
+    assert row["delivery"] == {"status": delivery}
+    assert row["owner_observation"]["provider_calls"] == 0
+
+
 def test_cohort_member_verifies_exact_manifest_bytes_before_startup(tmp_path):
     path = tmp_path / "member.json"
     expected = put(path, {"schema": "dmb_ordinary_benchmark_v1", "cases": []})

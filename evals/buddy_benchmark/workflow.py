@@ -135,15 +135,18 @@ def report_case(case, base):
     directory = Path(case["capture_dir"])
     directory = directory if directory.is_absolute() else base / directory
     boundary = case.get("capture_boundary", "response")
-    if boundary in {"image_preview", "play_choice", "ingest_name_review"}:
+    if boundary in {"image_preview", "play_choice", "ingest_name_review", "build_fixture"}:
         result = directory / "fixture-result.json"
         if not result.is_file():
             return {"case_id": case["id"], "capture_boundary": boundary,
                     "delivery": {"status": "unknown"}}
         raw = result.read_bytes()
         observation = json.loads(raw)
+        status = "pass" if observation["status"] == "observed" else "fail"
+        if boundary == "build_fixture":
+            status = {"captured": "pass", "observed": "pass"}.get(observation["status"], "unknown")
         return {"case_id": case["id"], "capture_boundary": boundary,
-                "delivery": {"status": "pass" if observation["status"] == "observed" else "fail"},
+                "delivery": {"status": status},
                 "owner_observation": observation,
                 "evidence": {"path": str(result), "sha256": sha256(raw).hexdigest()}}
     if boundary not in {"response", "context_ready", "writer_transport"}:
@@ -1001,6 +1004,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
             current["capture_boundary"] = "ingest_name_review"
         elif manifest.get("browser_capture", {}).get("image_preview") is True:
             current["capture_boundary"] = "image_preview"
+        elif cohort_member and build_fixture and not live_build:
+            current["capture_boundary"] = "build_fixture"
         elif context_only:
             current["capture_boundary"] = "writer_transport" if writer_transport else "context_ready"
             current["detailed_trace"] = detailed_trace
@@ -1057,7 +1062,7 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
         if not cohort_member:
             native_after = row_inventory(native_dsn, readonly=readonly)
             immutable_save(output, "native-after", native_after)
-        if not build_fixture or live_build:
+        if cohort_member or not build_fixture or live_build:
             immutable_save(output, "report", report(output / "capture-manifest.json"))
         if not cohort_member and native_before != native_after:
             raise ValueError("Native authority changed during ordinary capture")

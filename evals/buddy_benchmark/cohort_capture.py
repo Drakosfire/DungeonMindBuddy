@@ -80,7 +80,7 @@ def _endpoint(dsn, expected):
         raise ValueError("Cohort database identity differs from its pin")
 
 
-_BROWSER_OWNER_BOUNDARIES = {"ingest_name_review", "play_choice", "image_preview"}
+_BROWSER_OWNER_BOUNDARIES = {"ingest_name_review", "play_choice", "image_preview", "build_fixture"}
 _RESPONSE_DRIVERS = {
     "request": {},
     "build_fixture": {"build_fixture": True},
