@@ -953,3 +953,16 @@ def test_sdk_result_owner_fences_and_reopens_actual_app_turn(source_adapter, mon
     with pytest.raises(ApplicationStateValidationError, match='unresolved authorization'):
         service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
             expected_revision=reopened.revision, expected_attempt=reopened.attempt, event_id=uuid4(), sdk_result=typed)
+
+
+def test_graph_need_sdk_entry_requires_its_exact_authorization():
+    from uuid import uuid4
+    from application_state.agent_conversation.native_plan_opening import validate_opening_sdk_entry
+    from tests.test_surface_native_execution import execution
+    context, record, auth, lifecycle, _ = actual_need_execution()
+    prefix = execution(context.context_receipt_sha256, record.policy, [auth])
+    validate_opening_sdk_entry(prefix, lifecycle[0], auth)
+    with pytest.raises(ValueError, match='exact admitted prepared authorization'):
+        validate_opening_sdk_entry(prefix, lifecycle[0], auth.model_copy(update={'event_id': uuid4()}))
+    with pytest.raises(ValueError, match='exact admitted prepared authorization'):
+        validate_opening_sdk_entry(prefix, lifecycle[0], None)

@@ -802,10 +802,12 @@ def validate_opening_sdk_entry(execution, outcome, expected_authorization):
     This is the same real authorization already proven against prepared bytes,
     not a new receipt or permission to replay an interrupted provider.
     """
-    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
+    from .native_retrieval import (NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1,
+        NativePlanGraphNeedAuthorizedV1)
     authorizations = [e for e in execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
     current = authorizations[-1] if authorizations else None
-    opening_entry = (type(current) in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1)
+    opening_entry = (type(current) in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1,
+        NativePlanGraphNeedAuthorizedV1)
         and outcome.outcome == 'sdk_entered' and outcome.provider_attempt_id == current.provider_attempt_id)
     if opening_entry:
         if type(expected_authorization) is not type(current) or expected_authorization != current:
