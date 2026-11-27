@@ -91,4 +91,75 @@ async function generatePortrait(page, fixture, variant, evidence) {
   return portrait;
 }
 
-module.exports = { confirmVariant, generatePortrait };
+async function verifyLinkedVariant(page, fixture, variant, evidence) {
+ const { worldId: world, origin } = fixture;
+ const edgeId = fixture.live.pageId;
+ const saved = new URL(variant.url);
+ assert.equal(saved.origin, origin);
+ assert.equal(saved.pathname, '/statblock');
+ assert.equal(saved.searchParams.get('world'), world);
+ const relative = saved.pathname + saved.search;
+ const edge=new URL('/build',origin); edge.search=new URLSearchParams({world,documentId:edgeId});
+ const fresh=await page.context().newPage();
+ fresh.setDefaultTimeout(20000);
+ const get=async path=>fresh.evaluate(async url=>{const response=await fetch(url,{cache:'no-store'});if(!response.ok)throw Error('GET '+response.status);return response.json()},path);
+ try {
+  await fresh.goto(edge.href);
+  const snap='/api/live/workspace-documents/'+edgeId+'/snapshot?view=committed';
+  const before=await get(snap);
+  assert.equal(typeof before.markdown,'string');
+  assert.equal(before.markdown.split(relative).length-1,0);
+  const chat=fresh.getByLabel('Message DungeonBuddy',{exact:true});
+  if(!(await chat.isVisible()))await fresh.locator('.conversation-dock__launcher').getByRole('button').click();
+  const approval=evidence.evidence.turns.at(-1).turnId;
+  const find=fresh.locator('article[data-turn-id="'+approval+'"]').getByRole('button',{name:'Find reviewed statblock',exact:true});
+  await find.click();
+  const region=fresh.getByRole('region',{name:'Statblock variant review',exact:true});
+  const link=region.getByRole('link',{name:'Open saved variant',exact:true});
+  await link.waitFor();
+  assert.equal(new URL(await link.getAttribute('href'),origin).href,saved.href);
+  const insert=region.getByRole('button',{name:'Insert at cursor and save page',exact:true});
+  await insert.click();
+  await region.getByText('Variant link verified on the saved page.',{exact:true}).waitFor();
+  const after=await get(snap);
+  assert.equal(after.markdown.split(relative).length-1,1);
+  await fresh.reload();
+  assert.deepEqual(await get(snap), after);
+  const editor = fresh.locator('.tiptap');
+  const savedLink = editor.getByRole('link', { name: 'Open saved statblock variant', exact: true })
+    .and(editor.locator(`a[href=${JSON.stringify(relative)}], a[href=${JSON.stringify(saved.href)}]`));
+  await savedLink.waitFor();
+  assert.equal(await savedLink.count(), 1);
+  const reopenedLink = new URL(await savedLink.getAttribute('href'), origin);
+  assert.equal(reopenedLink.href, saved.href);
+  evidence.checks.edge_link_once = true;
+  const combat = new URL(reopenedLink);
+  combat.pathname = '/combat';
+  await fresh.goto(combat.href);
+  await fresh.getByLabel('New encounter title',{exact:true}).fill('Saved variant reopen');
+  const create=fresh.waitForResponse(r=>new URL(r.url()).pathname==='/api/live/combat/encounters'&&r.request().method()==='POST');
+  await fresh.getByRole('button',{name:'Create',exact:true}).click();
+  const created=await create;assert.ok(created.ok());const enc=await created.json();
+  await fresh.getByText('Add combatants',{exact:true}).click();
+  const preview=fresh.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/conversation-variant/preview')&&r.request().method()==='POST');
+  await fresh.getByRole('button',{name:'Load saved statblock variant',exact:true}).click();
+  const response=await preview;assert.ok(response.ok());const value=await response.json();
+  assert.deepEqual(value.locator,variant.locator);
+  await fresh.getByLabel('Combatant name',{exact:true}).fill(variant.name);
+  await fresh.getByLabel('Combatant team',{exact:true}).selectOption('enemy');
+  await fresh.getByRole('button',{name:'Add to encounter draft',exact:true}).click();
+  const path='/api/live/combat/encounters/'+enc.encounter_id;
+  const commit=fresh.waitForResponse(r=>new URL(r.url()).pathname===path&&r.request().method()==='PUT');
+  await fresh.getByRole('button',{name:'Save',exact:true}).click();
+  assert.ok((await commit).ok());
+  const reopen=new URL('/combat',origin);reopen.search=new URLSearchParams({world,encounter:enc.encounter_id});
+  await fresh.goto(reopen.href);
+  const reopened=await get(path+'?world_id='+encodeURIComponent(world));
+  const actor=reopened.draft.entities.find(x=>x.name===variant.name);
+  assert.deepEqual(actor?.mechanics_snapshot?.locator,variant.locator);
+  evidence.checks.exact_variant_in_combat=true;
+  evidence.evidence.linked_variant={href:relative,locator:variant.locator,encounter:enc.encounter_id,edge_revision:after.loaded_revision??after.revision??null};
+ } finally {await fresh.close();}
+}
+
+module.exports = { confirmVariant, generatePortrait, verifyLinkedVariant };

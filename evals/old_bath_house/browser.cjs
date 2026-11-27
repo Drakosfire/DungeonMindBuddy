@@ -5,11 +5,13 @@ const { createHash, randomUUID } = require('node:crypto');
 const { readFileSync, writeFileSync } = require('node:fs');
 const { runPinnedAssets, runEncounter } = require('./pinned.cjs');
 const { runLiveTurns } = require('./live_turns.cjs');
-const { confirmVariant, generatePortrait } = require('./live_artifacts.cjs');
+const { confirmVariant, generatePortrait, verifyLinkedVariant } = require('./live_artifacts.cjs');
 const { bindSavedPortrait, chooseLibraryPortrait } = require('./portrait.cjs');
 
 async function main() {
-  const [fixturePath, fixtureDigest, output] = process.argv.slice(2);
+  const [fixturePath, fixtureDigest, output, track, ...extra] = process.argv.slice(2);
+  assert.ok(!extra.length && (track === undefined || track === '--verify-linked-variant'), 'Unknown browser track');
+  const linkedVariant = track === '--verify-linked-variant';
   assert.ok(fixturePath && fixtureDigest && output, 'Expected fixture path, SHA-256 and new evidence path');
   const fixtureBytes = readFileSync(fixturePath);
   assert.equal(createHash('sha256').update(fixtureBytes).digest('hex'), fixtureDigest);
@@ -18,6 +20,7 @@ async function main() {
   assert.match(fixture.sourceFixtureDigest, /^[a-f0-9]{64}$/);
   const variantOnly = fixture.live?.variantConfirmationOnly ?? false;
   assert.equal(typeof variantOnly, 'boolean', 'variantConfirmationOnly must be a boolean');
+  assert.ok(!linkedVariant || fixture.live, 'Linked variant verification requires a live fixture');
   const origin = new URL(fixture.origin);
   assert.match(origin.href, /^http:\/\/127\.0\.0\.1:[0-9]+\/$/);
   assert.ok(process.env.DMB_BENCHMARK_BROWSER_TOKEN, 'The isolated runtime must supply its operator token');
@@ -30,7 +33,7 @@ async function main() {
   });
   const evidence = {
     run_id: randomUUID(),
-    track: variantOnly ? 'live-variant-confirmation' : fixture.live ? 'live-provider' : 'pinned-assets',
+    track: linkedVariant ? 'live-variant-continuation' : variantOnly ? 'live-variant-confirmation' : fixture.live ? 'live-provider' : 'pinned-assets',
     fixture_digest: fixture.sourceFixtureDigest,
     run_manifest_digest: fixtureDigest,
     conditions: 'fresh-browser-context',
@@ -78,6 +81,10 @@ async function main() {
         writeFileSync(output + '.checkpoint', JSON.stringify(checkpoint), { mode: 0o600 });
       });
       const variant = await confirmVariant(page, fixture, evidence);
+      if (linkedVariant) {
+        await verifyLinkedVariant(page, fixture, variant, evidence);
+        return;
+      }
       if (variantOnly) return;
       const generated = await generatePortrait(page, fixture, variant, evidence);
       assert.notEqual(generated.asset_id, fixture.boss.assetId);

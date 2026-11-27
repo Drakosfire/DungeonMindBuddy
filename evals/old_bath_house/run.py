@@ -63,9 +63,11 @@ def wait_ready(origin, container):
     raise TimeoutError("Isolated Buddy did not reach readiness")
 
 
-def run(fixture_path, fixture_digest, output):
+def run(fixture_path, fixture_digest, output, *, verify_linked_variant=False):
     fixture = read_fixture(fixture_path, fixture_digest)
     verify_target(fixture, os.environ)
+    if verify_linked_variant and not fixture.get("live"):
+        raise ValueError("Linked variant verification requires a live fixture")
     if fixture.get("live"):
         from .live_sources import live_manifest, verify_core_snapshot
 
@@ -165,7 +167,8 @@ def run(fixture_path, fixture_digest, output):
         browser = Path(__file__).with_name("browser.cjs")
         browser_status = subprocess.run(
             [os.environ["DMB_BENCHMARK_NODE"], str(browser), str(fixture_path),
-             fixture_digest, str(output / "run.json")],
+             fixture_digest, str(output / "run.json"),
+             *(["--verify-linked-variant"] if verify_linked_variant else [])],
             env=dict(os.environ, DMB_BENCHMARK_BROWSER_TOKEN=token),
             check=False,
         ).returncode
@@ -195,8 +198,10 @@ def main():
     parser.add_argument("--fixture", required=True, type=Path)
     parser.add_argument("--fixture-sha256", required=True)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--verify-linked-variant", action="store_true")
     args = parser.parse_args()
-    raise SystemExit(run(args.fixture, args.fixture_sha256, args.output))
+    raise SystemExit(run(args.fixture, args.fixture_sha256, args.output,
+                         verify_linked_variant=args.verify_linked_variant))
 
 
 if __name__ == "__main__":

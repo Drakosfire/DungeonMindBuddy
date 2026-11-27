@@ -2,7 +2,7 @@
 
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { confirmVariant } = require('./live_artifacts.cjs');
+const { confirmVariant, verifyLinkedVariant } = require('./live_artifacts.cjs');
 
 const origin = 'http://127.0.0.1:5202';
 const producer = '31ff7229-cd2b-44d7-88ec-b6a48b7d0f12';
@@ -74,4 +74,15 @@ test('refuses a changed revision before save', async () => {
   const stale = mountedFixture({ revision: 3 });
   await assert.rejects(stale.run(), /revision changed/);
   assert.deepEqual(stale.calls, ['find']);
+});
+
+test('refuses a foreign saved variant before creating a browser tab', async () => {
+  const page = { context: () => assert.fail('Opened a tab before checking variant authority') };
+  const fixture = { origin, worldId: 'test', live: { pageId: 'edge' } };
+  const evidence = { evidence: {}, checks: {} };
+  await assert.rejects(
+    verifyLinkedVariant(page, fixture, { url: 'http://127.0.0.1:5203/statblock?world=test' }, evidence),
+    /strictly equal/,
+  );
+  assert.deepEqual(evidence.checks, {});
 });
