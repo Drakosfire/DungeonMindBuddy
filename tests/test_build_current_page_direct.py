@@ -125,7 +125,8 @@ def test_direct_runtime_never_enumerates_when_current_page_is_missing_or_denied(
             assert direct.effective_pending_app_catalog(adapter._broker_receipt(), adapter._broker_execution()) == ()
 
 
-def test_direct_runtime_selects_and_reads_only_frozen_current_page(monkeypatch):
+@pytest.mark.parametrize("vote,interrupt", [("read", False), ("skip", False), ("skip", True)])
+def test_direct_runtime_selects_and_reads_only_frozen_current_page(monkeypatch, vote, interrupt):
     import hashlib
     import json
     import httpx2
@@ -146,8 +147,8 @@ def test_direct_runtime_selects_and_reads_only_frozen_current_page(monkeypatch):
         async def handle_async_request(self, request):
             body = json.loads(request.content)
             return httpx2.Response(200, request=request, json={'model': body['model'], 'usage': {'input_tokens': 23, 'output_tokens': 4},
-                'answers': {key: {'type': 'choice', 'choice': 'read', 'confidence': 1,
-                    'probabilities': {'read': 1.0, 'skip': 0.0}} for key in body['questions']}})
+                'answers': {key: {'type': 'choice', 'choice': vote, 'confidence': 1,
+                    'probabilities': {'read': float(vote == 'read'), 'skip': float(vote == 'skip')}} for key in body['questions']}})
 
     with pending_app_runtime_case(monkeypatch) as (state, adapter):
         receipt = state.turn.graph_context_receipt
@@ -180,15 +181,43 @@ def test_direct_runtime_selects_and_reads_only_frozen_current_page(monkeypatch):
         metadata = SimpleNamespace(visibility_state=basis.visibility, document_class='lore', authority_state='draft')
         monkeypatch.setattr(pages, 'get_page', lambda document_id, *, world_id: SimpleNamespace(page=page, metadata=metadata))
         monkeypatch.setattr(build_related_pages, 'discover', lambda *a, **kw: pytest.fail('World catalog enumerated'))
-        monkeypatch.setattr(build_related_pages, 'materialize', lambda pointer: dict(
-            pointer.model_dump(mode='json'), content_sha256=digest, markdown=text))
+        def materialize(pointer):
+            return dict(pointer.model_dump(mode='json'), content_sha256=digest, markdown=text)
+        if interrupt:
+            def interrupted(_):
+                raise RuntimeError('Simulated interruption before materialization')
+            monkeypatch.setattr(build_related_pages, 'materialize', interrupted)
+        else:
+            monkeypatch.setattr(build_related_pages, 'materialize', materialize)
         harness = BuildJevHarness(decision_transport=Transport())
         harness.adapter, harness.calls, harness.timings, harness._inflight = adapter, [], [], {}
+        if interrupt:
+            with pytest.raises(RuntimeError, match='Simulated interruption'):
+                asyncio.run(direct.acquire_pending_app_pages(adapter, harness))
+            from application_state.agent_conversation.build_related_pages import RelatedPagesSelection
+            assert len([event for event in state.turn.graph_context_execution.events
+                        if type(event) is RelatedPagesSelection]) == 1
+            # Reconstruct the durable turn and start a fresh harness. A resumed
+            # attempt must use the stored selection without another provider call.
+            state.turn = t.Turn.model_validate_json(state.turn.model_dump_json(by_alias=True))
+            adapter.turn = state.turn
+            adapter.fence.renewer.update_turn(state.turn)
+            monkeypatch.setattr(build_related_pages, 'materialize', materialize)
+            class NoDispatch(httpx2.AsyncBaseTransport):
+                async def handle_async_request(self, request):
+                    pytest.fail('Resumed stored selection dispatched another decision')
+            harness = BuildJevHarness(decision_transport=NoDispatch())
+            harness.adapter, harness.calls, harness.timings, harness._inflight = adapter, [], [], {}
         asyncio.run(direct.acquire_pending_app_pages(adapter, harness))
         reads = [event for event in adapter._broker_execution().events if type(event) is RelatedPageRead]
         assert len(reads) == 1 and reads[0].markdown == text
         assert str(reads[0].page.document_id) == basis.document_id
         assert reads[0].page.content_sha256 == basis.content_sha256
+        # An interrupted caller resumes the stored selection/read without a
+        # second provider decision or duplicate materialization.
+        monkeypatch.setattr(build_related_pages, 'materialize', lambda _: pytest.fail('Duplicate page read'))
+        asyncio.run(direct.acquire_pending_app_pages(adapter, harness))
+        assert len([event for event in adapter._broker_execution().events if type(event) is RelatedPageRead]) == 1
 """Read old optional votes and future host-required exact-current selections."""
 import json
 from hashlib import sha256
