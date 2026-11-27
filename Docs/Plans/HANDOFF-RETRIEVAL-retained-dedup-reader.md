@@ -1,7 +1,8 @@
 # RETRIEVAL: retained evidence presentation reader
 
-Status: ACTIVE. Serial reader-first prerequisite for a later producer change;
-this slice does not emit the new presentation. Base serving revision
+Status: MERGED as `22f871c8e73752756593858311cb1580471b5f38` in #4959;
+reader deployment and verification remain prerequisites for the producer.
+This slice does not emit the new presentation. Base serving revision
 `c3f58d55b7df156ab101ed2b607a8309b502c74b`, branch
 `codex/retrieval-retained-dedup-reader`. The user authorized the retrieval goal,
 reviewed merges and deployment.

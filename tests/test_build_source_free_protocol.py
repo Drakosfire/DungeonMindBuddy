@@ -2524,6 +2524,7 @@ def test_pending_retained_runtime_freezes_full_existing_context_without_search_a
         assert admit_pending_conversation(adapter)
         value = admission(state.turn.graph_context_execution)
         assert type(value) is t.BuildPriorBodyEvidenceAdmittedV3 and len(value.history) == 60
+        assert value.presentation_policy == 'retained_conversation_semantic_v5'
         assert len(value.authored_context) == 1 and len(value.authored_context[0].occurrences) == 2
         messages = dialogue_messages(state.turn.graph_context_execution)
         assert len(messages) == 120 and 'Constraint 0' in messages[0]['content']
@@ -5431,7 +5432,7 @@ def retained_saved_page_writer_case(monkeypatch):
         yield (*value, captured[0])
 
 
-def retained_saved_page_completed_fixture(monkeypatch, pretty=False, *, presentation='retained_conversation_semantic_v4'):
+def retained_saved_page_completed_fixture(monkeypatch, pretty=False, *, presentation='retained_conversation_semantic_v5'):
     import asyncio
     import httpx
     from types import SimpleNamespace
@@ -5439,13 +5440,8 @@ def retained_saved_page_completed_fixture(monkeypatch, pretty=False, *, presenta
     from application_state.agent_conversation.retained_conversation import admission
     from apps.live_control_server.services.build_related_pages import open_page
     if presentation == 'retained_conversation_semantic_v5':
-        from application_state.agent_conversation import retained_conversation as history
         from apps.live_control_server.services import build_jev_dispatch
         monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
-        original_capture = history.capture
-        def capture_v5(*args, **kwargs):
-            return original_capture(*args, **kwargs).model_copy(update={'presentation_policy': presentation})
-        monkeypatch.setattr(history, 'capture', capture_v5)
     calls = []
     def respond(request):
         body = json.loads(request.content);calls.append(body)
@@ -5549,10 +5545,12 @@ def test_retained_v5_preserves_v4_saved_page_citation_identity(monkeypatch):
     with retained_saved_page_writer_case(monkeypatch) as (state, _adapter, _rules, _writer, _prepared, _original):
         execution = state.turn.graph_context_execution
         value = admission(execution)
+        v4 = value.model_copy(update={'presentation_policy': 'retained_conversation_semantic_v4'})
+        execution = execution.model_copy(update={'events': tuple(v4 if e is value else e for e in execution.events)})
         expected = retained_saved_page_references(execution)
         assert expected
-        v5 = value.model_copy(update={'presentation_policy': 'retained_conversation_semantic_v5'})
-        execution = execution.model_copy(update={'events': tuple(v5 if e is value else e for e in execution.events)})
+        v5 = v4.model_copy(update={'presentation_policy': 'retained_conversation_semantic_v5'})
+        execution = execution.model_copy(update={'events': tuple(v5 if e is v4 else e for e in execution.events)})
         assert retained_saved_page_references(execution) == expected
 
 

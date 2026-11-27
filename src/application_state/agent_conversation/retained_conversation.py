@@ -144,7 +144,7 @@ def capture(current, turns, *, event_id, work_event_id, pointer_revision, seed=N
         work_event_id=work_event_id, supports=(), world_id=current.world_id,
         conversation_id=current.conversation_id, turn_id=current.turn_id, attempt=current.attempt,
         conversation_sequence=current.sequence, pointer_revision=pointer_revision,
-        presentation_policy=("retained_conversation_semantic_v4" if citable_saved_pages
+        presentation_policy=("retained_conversation_semantic_v5" if citable_saved_pages
                              else "retained_conversation_semantic_v3"),
         history=tuple(history), authored_context=tuple(t.RetainedAuthoredContextV1(**row) for row in authored.values()),
         native_context=tuple(t.RetainedNativeContextV1(**row) for row in native.values()))
