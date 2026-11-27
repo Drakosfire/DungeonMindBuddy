@@ -161,10 +161,32 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
             raise ValueError("Duplicate protected fixture work object")
     app_template = None
     jobs = []
+    fixture = None
     output = Path(output).resolve()
     for entry in config["members"]:
         member_path = (path.parent / entry["path"]).resolve()
         member, base = load_manifest(member_path, expected_sha256=entry["sha256"])
+        if "build_fixture_restore" in entry:
+            from .cohort_fixture import load_build_fixture
+
+            if (jobs or context_only or entry.get("driver", "request") != "request"
+                    or member.get("conversation_mode") != "build_sequence"
+                    or "build_history" not in member):
+                raise ValueError("Build fixture restore requires the first serial ordinary Build member")
+            restore = entry["build_fixture_restore"]
+            seed = restore.get("seed")
+            if not isinstance(seed, dict) or set(seed) != {
+                "page_revision", "page_sha256", "active_conversation_id", "pointer_revision", "working_copy"
+            }:
+                raise ValueError("Build fixture restore requires a pinned seed page and pointer")
+            bundle, page = load_build_fixture(
+                {key: value for key, value in restore.items() if key != "seed"},
+                path.parent, world=member["world"], history_pin=member["build_history"],
+                history_base=base,
+            )
+            if page["object"]["work_object_id"] not in protected_objects:
+                raise ValueError("The restored Build page must be a protected work object")
+            fixture = (bundle, page, seed)
         app = member["isolation"]["app"]
         current_native = member["isolation"]["native"]
         locator = {k: v for k, v in current_native.items() if k != "inventory"}
@@ -225,6 +247,12 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
 
                 with patch.dict(os.environ, {APP_DSN: shared_dsn}):
                     upgrade_to_head()
+                if fixture is not None:
+                    from .cohort_fixture import restore_build_fixture
+
+                    bundle, page, seed = fixture
+                    receipt = restore_build_fixture(shared_dsn, shared_app, bundle, page, seed=seed)
+                    immutable_save(output, "build-fixture-restored", receipt)
                 jobs = [((manifest, member, shared_dsn, digest), ids, driver)
                         for (manifest, member, _, digest), ids, driver in jobs]
             if not context_only:
