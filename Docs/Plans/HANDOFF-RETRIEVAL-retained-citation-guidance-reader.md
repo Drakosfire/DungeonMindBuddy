@@ -1,6 +1,7 @@
 # RETRIEVAL: read explicit retained-citation routing
 
-Status: ACTIVE, serial reader-first prerequisite. Base serving revision
+Status: MERGED as `4816694498f3f9f34799758abd42c18175540712` in #4962;
+deployment and verification are the producer's prerequisites. Base serving revision
 `66f685b983e1b8d9b76e42cf14c3be69111bb11b`; branch
 `codex/retrieval-retained-citation-guidance-reader`. The user authorized the
 over-retrieval goal, reviewed merges and Actions deployment.
