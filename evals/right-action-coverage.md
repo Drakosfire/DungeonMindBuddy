@@ -41,6 +41,9 @@ The catalog records which capabilities have verification evidence.
 | RECOVERY | Restore an unsent draft without dispatching it. | Distinguish a lost acknowledgement from a known failed action before offering Retry. | Recover a committed action receipt on reopen and prove retry creates no second mutation. |
 | OPERATOR-HANDOFF | Give the correct operator control for an unsupported direct Save. | Contrast suggesting mechanics or map coordinates with directly changing them. | After a reviewed relationship or roster handoff, verify Buddy waits for the owner's confirmation and reports only observed results. |
 
+See the [closed baseline record](right-action-baseline.md) for case grades and
+unscored fixture and workflow findings.
+
 ## Baseline sequence
 
 1. Pin the product build, ordinary tool presentation, model settings, fixtures,
