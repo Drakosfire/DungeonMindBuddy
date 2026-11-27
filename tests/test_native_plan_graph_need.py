@@ -1026,6 +1026,16 @@ def test_actual_sdk_callback_persists_graph_need_result(source_adapter, monkeypa
         'sdk_entered', 'response_received']
     with pytest.raises(ValueError, match='one actual authorized SDK dispatch'):
         dispatch.acknowledge(None)
+    from uuid import uuid4
+    from application_state.errors import ApplicationStateValidationError
+    with pytest.raises(ApplicationStateValidationError):
+        a.fence.commit('_transition_plan_graph_need', action='authorize', event_id=uuid4())
+    closed, fresh = a.fence.commit('_transition_plan_graph_need', action='close', event_id=uuid4())
+    assert fresh and closed.graph_context_execution.events[-1].kind == 'native_plan_graph_query_closed_without_graph_v1'
+    reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.graph_context_execution == closed.graph_context_execution
+    with pytest.raises(ApplicationStateValidationError):
+        a.fence.commit('_transition_plan_graph_need', action='close', event_id=uuid4())
 
 
 def test_query_transitions_require_decision_order_and_pinned_query():
