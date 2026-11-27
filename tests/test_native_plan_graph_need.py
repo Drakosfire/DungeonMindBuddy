@@ -1153,8 +1153,14 @@ def test_sdk_selected_graph_settles_once_or_retains_uncertainty(source_adapter, 
         settle_graph_need(a, observed, prepare_graph=acquire)
         assert a.native_query == query and a.native_query_context.query == query
         assert a.fence.turn.graph_context_execution.events[-1].kind == 'native_plan_graph_query_settled_v1'
-        with pytest.raises(Exception):
-            settle_graph_need(a, observed, prepare_graph=acquire)
+        from apps.live_control_server.services import native_graph_reads
+        reopen_calls = []
+        def reopen(saved, _principal):
+            reopen_calls.append(saved)
+            return SimpleNamespace(query=saved)
+        monkeypatch.setattr(native_graph_reads, 'reopen_context', reopen)
+        settle_graph_need(a, observed, prepare_graph=acquire)
+        assert reopen_calls == [query]
     assert calls == ['entered']
     reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
     assert reopened.graph_context_execution == a.fence.turn.graph_context_execution

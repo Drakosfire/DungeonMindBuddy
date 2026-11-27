@@ -120,15 +120,40 @@ def settle_graph_need(adapter, observed, *, prepare_graph):
     if observed.choice == 'uncertain':
         raise AgentTurnServiceError('The Graph requirement could not be determined safely.',
             code='plan_graph_need_uncertain', status_code=503, provider_dispatched=True)
+    from application_state.agent_conversation.native_plan_graph_need import (
+        NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+        NativePlanGraphQuerySettledV1, NativePlanGraphQueryClosedV1, NativePlanGraphQueryFailedV1,
+    )
+    events = adapter.fence.turn.graph_context_execution.events
+    closed = [event for event in events if type(event) is NativePlanGraphQueryClosedV1]
+    settled = [event for event in events if type(event) is NativePlanGraphQuerySettledV1]
+    grants = [event for event in events if type(event) is NativePlanGraphQueryAuthorizedV1]
+    starts = [event for event in events if type(event) is NativePlanGraphQueryStartedV1]
+    failures = [event for event in events if type(event) is NativePlanGraphQueryFailedV1]
     if observed.choice == 'no_graph':
-        adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
-            action='close', event_id=uuid4()))
+        if not closed:
+            adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
+                action='close', event_id=uuid4()))
         adapter.native_query_context = adapter.native_query = None
         return
     if observed.choice != 'require_graph' or not callable(prepare_graph):
         raise ValueError('Graph acquisition requires the exact authorized decision and owner')
-    adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
-        action='authorize', event_id=uuid4()))
+    if settled:
+        query = settled[0].query
+        from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
+        if type(query) is NativePlanQueryUnavailableV1:
+            context = None
+        else:
+            from .native_graph_reads import reopen_context
+            context = reopen_context(query, adapter.native_principal)
+        adapter.native_query_context, adapter.native_query = context, query
+        return
+    if starts or failures:
+        raise AgentTurnServiceError('The earlier Graph acquisition has an uncertain outcome and cannot be repeated.',
+            code='plan_graph_query_outcome_uncertain', status_code=409, provider_dispatched=False)
+    if not grants:
+        adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
+            action='authorize', event_id=uuid4()))
     adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
         action='start', event_id=uuid4()))
     try:

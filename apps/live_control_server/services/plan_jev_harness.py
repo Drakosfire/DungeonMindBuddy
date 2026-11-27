@@ -95,8 +95,18 @@ class PlanJevHarness:
                 prepare_graph = getattr(adapter, 'prepare_deferred_plan_query', None)
                 if prepare_graph is not None:
                     from .plan_graph_need_dispatch import PlanGraphNeedDispatch, settle_graph_need
-                    graph_need = PlanGraphNeedDispatch(adapter, dialogue=dialogue)
-                    observed = asyncio.run(graph_need.run(transport=self.decision_transport, api_key=self.decision_api_key))
+                    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphNeedObservedV1
+                    from application_state.agent_conversation.native_retrieval import NativePlanGraphNeedAuthorizedV1
+                    events = adapter.fence.turn.graph_context_execution.events
+                    observed_events = [event for event in events if type(event) is NativePlanGraphNeedObservedV1]
+                    if observed_events:
+                        observed = observed_events[0]
+                    elif any(type(event) is NativePlanGraphNeedAuthorizedV1 for event in events):
+                        raise AgentTurnServiceError('The earlier Graph decision has an uncertain outcome and cannot be repeated.',
+                            code='plan_graph_need_outcome_uncertain', status_code=409, provider_dispatched=False)
+                    else:
+                        graph_need = PlanGraphNeedDispatch(adapter, dialogue=dialogue)
+                        observed = asyncio.run(graph_need.run(transport=self.decision_transport, api_key=self.decision_api_key))
                     settle_graph_need(adapter, observed, prepare_graph=prepare_graph)
                 from application_state.agent_conversation.native_execution import NativePlanActionV3
                 action = adapter.fence.turn.graph_context_execution.policy.action

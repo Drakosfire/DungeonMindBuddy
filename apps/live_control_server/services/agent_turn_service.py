@@ -7852,9 +7852,9 @@ def execute_agent_turn(
             and request.selected_knowledge is None and (request.graph_request.mode == 'none'
                 or request.graph_request.focus.kind == 'none'))
         from application_state.agent_conversation.native_context import NativePlanGraphQueryPendingV1
-        if type(retained_pending) is NativePlanGraphQueryPendingV1:
-            raise AgentTurnServiceError('The retained Plan Graph decision cannot be safely resumed yet.',
-                code='plan_graph_need_recovery_unavailable', status_code=409, provider_dispatched=False)
+        resumes_plan = type(retained_pending) is NativePlanGraphQueryPendingV1
+        if resumes_plan:
+            can_defer_plan = True
         selective_plan = None
         if (not can_defer_plan and os.environ.get("DMB_PLAN_SELECTIVE_QUERY") == "1"
                 and request.surface.surface_id == "plan"
@@ -7932,6 +7932,9 @@ def execute_agent_turn(
                 from .native_graph_reads import pending_plan_query
                 with trace.phase('plan_graph_query_pin'):
                     native_query = pending_plan_query(canonical_world_id, request.message, native_corpus_context)
+                if resumes_plan and native_query != retained_pending:
+                    raise AgentTurnServiceError('The retained Plan Graph authority changed.',
+                        code='turn_receipt_unverifiable', status_code=409, provider_dispatched=False)
                 if native_query is not None:
                     def prepare_deferred_plan_query():
                         from ..integrations.dungeonmind.native_corpus_source import _refresh_native_context
