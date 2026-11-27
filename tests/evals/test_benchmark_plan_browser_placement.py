@@ -391,3 +391,42 @@ def test_play_response_correlation_excludes_same_text_with_a_different_key():
                 "idempotency_key": str(uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world}:{client_turn}"))}
     other = {**expected, "idempotency_key": str(uuid4())}
     assert _request_turns({"turns": [other, expected]}, request, world) == [expected]
+
+
+def test_image_save_recovery_transport_fences_the_fixture(monkeypatch):
+    import asyncio
+    from uuid import UUID
+
+    from application_state import media
+    from apps.live_control_server.services import media_storage
+    from evals.buddy_benchmark.browser_capture import isolated_image_storage
+
+    asset = UUID("02aa39dc-4a69-402f-8c15-325d7756d0e9")
+    row = {"asset_id": asset, "owner_id": "local_operator",
+           "content_sha256": "1" * 64, "provenance_sha256": "2" * 64}
+    monkeypatch.setattr(media, "get_asset", lambda *_: row)
+
+    async def save(candidate, owner, *, client):
+        account, _ = media_storage._configuration()
+        base = f"https://api.cloudflare.com/client/v4/accounts/{account}/images/v1"
+        target = f"{base}/{media_storage._object_id(row)}"
+        assert (await client.get(target)).status_code == 404
+        assert (await client.post(base)).status_code == 200
+        found = await client.get(target)
+        return media_storage._verified_receipt(found, row, account)
+
+    monkeypatch.setattr(media_storage, "save_asset", save)
+
+    async def recover():
+        calls = []
+        with isolated_image_storage(str(asset), calls):
+            with pytest.raises(ValueError, match="Unexpected benchmark media Save"):
+                await media_storage.save_asset(asset, "other_operator")
+            assert calls == []
+            receipt = await media_storage.save_asset(asset, "local_operator")
+            assert receipt["asset_id"] == str(asset)
+            with pytest.raises(ValueError, match="Unexpected benchmark media Save"):
+                await media_storage.save_asset(asset, "local_operator")
+            assert calls == ["GET", "POST", "GET"]
+
+    asyncio.run(recover())

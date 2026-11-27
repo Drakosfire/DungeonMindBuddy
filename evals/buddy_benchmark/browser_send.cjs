@@ -103,7 +103,7 @@ async function run() {
     await page.goto(origin + (build ? "/build?world=" : "/plan?world=") +
       encodeURIComponent(process.env.DMB_BENCHMARK_WORLD) + "&documentId=" + encodeURIComponent(documentId));
     if (imagePreview) {
-      const { generatePrivatePreview, regeneratePrivatePreview, selectLibraryImage } = require("./image_studio.cjs");
+      const { generatePrivatePreview, regeneratePrivatePreview, selectLibraryImage, recoverImageSave } = require("./image_studio.cjs");
       const { createHash } = require("node:crypto");
       let generationPosts = 0;
       const writeRequests = [];
@@ -167,6 +167,10 @@ async function run() {
           const initial = await committed();
           if (initial.revision !== pin.expected_revision || initial.sha256 !== pin.expected_content_sha256)
             throw new Error("Placement page changed before the interaction");
+          if (placement.lose_save_ack) {
+            result.save_recovery = {};
+            await recoverImageSave(page, origin, studio, parent.asset_id, result.save_recovery);
+          }
           const started = performance.now();
           await studio.getByRole("button", { name: "Place on page", exact: true }).click();
           await editor.and(page.locator(".is-media-placement-target")).waitFor();
