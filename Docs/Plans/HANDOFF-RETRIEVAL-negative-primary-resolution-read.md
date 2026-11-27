@@ -7,7 +7,8 @@ slice is the predecessor. Relevant open retrieval and benchmark PRs were
 checked. No new database, port or provider is allocated.
 
 Write lease: this handoff; `evals/negative_retrieval/primary_resolution_probe.py`,
-`capture.py`, `report.py`, and `README.md` in that directory; focused tests in
+`capture.py`, `report.py`, and `README.md` in that directory;
+`Docs/Benchmarks/OBSERVATION-negative-retrieval-h4.md`; focused tests in
 `tests/evals/test_negative_retrieval_assessment.py`.
 
 The ordinary Build work resolver loads a saved primary page to validate the
