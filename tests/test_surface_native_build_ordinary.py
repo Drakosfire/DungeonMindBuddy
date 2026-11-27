@@ -32,7 +32,7 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-@pytest.mark.parametrize('mode', ['legacy', 'pending', 'recover'])
+@pytest.mark.parametrize('mode', ['legacy', 'pending', 'recover', 'cited-recover'])
 def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, mode):
     table = (
         "| NPC | Job | Detail |\n| --- | --- | --- |\n"
@@ -43,6 +43,9 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
         "| Mara | Courier | Knows the flood routes |\n"
         "| Sela | Gardener | Grows striped mint |"
     )
+    if mode == 'cited-recover':
+        table = ("An\n\n| Supply | Quantity |\n| --- | ---: |\n| towels | 6 |\n| slippers | 6 |"
+                 "\n| washcloths | 12 |\n| soap | 3 |\n| lanterns | 2 |\n| buckets | 2 |")
     if mode != 'legacy':
         from application_state.build_proposal.service import BuildProposalService
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
@@ -51,7 +54,8 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
         def forbidden(*args, **kwargs):
             pytest.fail('Anchored pending placement attempted new source acquisition')
 
-        monkeypatch.setattr(build_related_pages, 'discover', forbidden)
+        if mode != 'cited-recover':
+            monkeypatch.setattr(build_related_pages, 'discover', forbidden)
         monkeypatch.setattr(native_corpus_source, 'prepare_native_source_context', forbidden)
         monkeypatch.setattr(plan_source_turn, 'prepare_native_source_context', forbidden)
         monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **kwargs: lane.repo)
@@ -62,7 +66,8 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
                 capability = body['build_write_capability']
                 capability.pop('boundary_editor_json', None)
                 capability['basis']['selection'] = {'end': 3, 'text': 'An'}
-                return client.post('/api/live/agent/turn', json=body)
+                if mode == 'pending':
+                    return client.post('/api/live/agent/turn', json=body)
 
             def stop_before_terminal(*args, **kwargs):
                 raise RuntimeError('synthetic interruption after proposal persistence')
@@ -82,9 +87,14 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
 
         case = _fresh_case(
             lane, tmp_path, monkeypatch, None, True, False, True,
-            message="Create six NPCs for Edge, with jobs and a distinguishing detail, and add them as a table.",
+            message=("Stage six supply rows after the selection. Verify towels from Optional lore and cite it. "
+                     "Use slippers 6, washcloths 12, soap 3, lanterns 2, buckets 2. Do not apply or save."
+                     if mode == 'cited-recover' else
+                     "Create six NPCs for Edge, with jobs and a distinguishing detail, and add them as a table."),
             proposal_markdown=table, requested_work='write_current_page',
-            source_need='anchored', dispatch=send, capture_pending=True,
+            source_need='source_lookup' if mode == 'cited-recover' else 'anchored',
+            dispatch=send, capture_pending=True, cite_optional_page=mode == 'cited-recover',
+            read_optional_page=mode == 'cited-recover',
         )
         assert case.response.status_code == 200, case.response.text
         assert case.turn.graph_context_receipt.schema_ == 'dmb_build_pending_context_receipt_v1'
@@ -97,6 +107,16 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
             assert 'edit_target is an offered captured edit target' in request['instructions']
         proposed, = BuildProposalService().list(case.world, case.turn.conversation_id)
         assert proposed.state == 'proposed' and proposed.proposal.replacement_markdown == table
+        if mode == 'cited-recover':
+            citation, = proposed.proposal.citations
+            assert citation.quote == "The linen inventory lists six towels."
+            assert citation.supports == "| towels | 6 |"
+            route = f"/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/related-pages"
+            opened = case.client.get(f"{route}/{citation.read_id}")
+            assert opened.status_code == 200, opened.text
+            assert opened.json()["markdown"] == citation.quote
+            assert opened.json()["page"] == citation.page.model_dump(mode="json")
+            assert case.client.get(f"{route}/{uuid4()}").status_code == 409
         return
 
     _fresh_case(
@@ -261,7 +281,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,capture_pending=False):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,capture_pending=False,cite_optional_page=False):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -558,7 +578,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         optional_page = create_page_fixture(tmp_path, world_id=world, campaign_id=world,
             title="Optional lore", kind="worldbuilding_source", source_domain="worldbuilding",
             document_class="lore", authority_state="draft", visibility_state="internal")
-        save_page(tmp_path, optional_page.document_id, "This unrelated lore should remain unread.")
+        save_page(tmp_path, optional_page.document_id, "The linen inventory lists six towels."
+                  if cite_optional_page else "This unrelated lore should remain unread.")
 
     class Decisions(httpx2.AsyncBaseTransport):
         def __init__(self):
@@ -595,6 +616,15 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if self.deny_routing and name=='requested_work':
                     raise AssertionError('The reviewed operation must not be reselected by a model')
                 choices = question['criteria']
+                if cite_optional_page and (name == "source_requirement" or name.startswith("page") and name[4:].isdigit()):
+                    if name == "source_requirement":
+                        chosen = "saved_pages_sufficient"
+                    else:
+                        title = next(row["title"] for row in body["state"]["saved_pages"] if row["choice"] == name)
+                        chosen = "read" if title == "Optional lore" else "skip"
+                    answers[name] = dict(type="choice", choice=chosen, confidence=1,
+                        probabilities={key: float(key == chosen) for key in choices})
+                    continue
                 if name == "source_need" and failure == "discussion_source_tie":
                     answers[name] = dict(type="choice", choice="uncertain", confidence=.07,
                                          probabilities={"anchored": .24, "source_lookup": .38, "uncertain": .38})
@@ -833,6 +863,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 target = contextual if contextual in {"page_end", "page_body"} else "prose_target" if contextual else "captured"
                 candidate=dict(destination='current_page',target=target,replacement_markdown=proposal_markdown or 'A proposed copper lamp.',
                     summary='Proposed detail.',assumptions=['The lamp is invented.'])
+                properties = body["text"]["format"]["schema"]["properties"]
+                if "citations" in properties:
+                    candidate["citations"] = []
+                    if cite_optional_page:
+                        handle, = properties["citations"]["items"]["properties"]["source"]["enum"]
+                        candidate["citations"].append({"source": handle,
+                            "quote": "The linen inventory lists six towels.", "supports": "| towels | 6 |"})
                 if failure == 'target_unavailable' and len(self.calls) == 1:
                     candidate.update(target='unavailable', replacement_markdown='', summary='Untrusted provider summary.')
                 if mode=='image':

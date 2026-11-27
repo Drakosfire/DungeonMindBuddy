@@ -189,7 +189,7 @@ def open_page(service, world_id, turn_id, read_id):
     turn = service.inspect_turn(world_id=world_id, turn_id=turn_id)
     from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
     from application_state.agent_conversation.types import (
-        Turn,
+        Turn, BuildAuthoringCompletionV1,
         BuildDraftContextCompletionV1, BuildIntentionalResponseCompletionV1,
     )
     from application_state.agent_conversation.rules_authority_reads import (
@@ -205,7 +205,7 @@ def open_page(service, world_id, turn_id, read_id):
     if (
         not isinstance(turn, Turn)
         or turn.status != "completed"
-        or not isinstance(turn.completion, (BuildDraftContextCompletionV1, BuildIntentionalResponseCompletionV1, SurfaceNativeCompletionV1))
+        or not isinstance(turn.completion, (BuildDraftContextCompletionV1, BuildIntentionalResponseCompletionV1, SurfaceNativeCompletionV1, BuildAuthoringCompletionV1))
     ):
         raise ValueError("Related page requires its completed authored answer")
     matches = [
@@ -218,6 +218,16 @@ def open_page(service, world_id, turn_id, read_id):
         for e in turn.graph_context_execution.events
         if isinstance(e, RelatedPageRead) and e.read_id == read_id
     ]
+    if isinstance(turn.completion, BuildAuthoringCompletionV1):
+        from application_state.agent_conversation.build_authoring import proposal_result_digest
+        from application_state.build_proposal.service import BuildProposalService
+
+        completion = turn.completion
+        record = BuildProposalService().get(world_id, completion.action_id)
+        if (record.reservation.origin is None or record.reservation.origin.durable_turn_id != turn_id
+                or proposal_result_digest(record) != completion.proposal_result_sha256):
+            raise ValueError("Related page differs from its exact completed proposal")
+        matches = [citation for citation in record.proposal.citations if citation.read_id == read_id]
     from application_state.agent_conversation.collaboration import ProposedConnectedPage
     proposed=getattr(turn.completion,"collaboration",None)
     review_match=isinstance(proposed,ProposedConnectedPage) and str(proposed.read_id)==str(read_id)

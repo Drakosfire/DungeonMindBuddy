@@ -203,7 +203,7 @@ def validate_stored_proposal(conn, turn, completion, *, proposal_payloads=None):
                 placement = getattr(selected, "paragraph_placement", None)
                 if placement is None or placement.target != reservation.prose_target:
                     raise ValueError("Native proposal result differs from its admitted paragraph boundary")
-                output = normalize_boundary_proposal_output(record.raw_response)
+                normalize = normalize_boundary_proposal_output
                 excluded.update({"page_body_offer", "page_end_offer", "prose_target", "boundary_editor_json"})
             else:
                 required_target = explicit_build_page_target(capability, selected)
@@ -211,8 +211,11 @@ def validate_stored_proposal(conn, turn, completion, *, proposal_payloads=None):
                     raise ValueError("Native contextual proposal requires its selected target")
                 if required_target is not None:
                     excluded.add("boundary_editor_json")
-                output = normalize_proposal_output(record.raw_response,reservation.page_body_offer,reservation.page_end_offer,
-                                                   required_target=required_target)
+                def normalize(raw):
+                    return normalize_proposal_output(raw, reservation.page_body_offer, reservation.page_end_offer,
+                        required_target=required_target)
+            from application_state.build_proposal.citations import normalize_cited_proposal
+            output = normalize_cited_proposal(record.raw_response, normalize, load_turn=lambda: turn, authorization=auth)
             if (origin.broker_operation_id!=selected.broker_operation_id
                     or origin.arguments_sha256!=selected.arguments_sha256
                     or reservation.model_dump(mode='json',exclude=excluded)

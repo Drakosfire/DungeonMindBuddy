@@ -6,9 +6,9 @@ import type {BuildComposeBridge,CapturedBuildInsertion,SavedProposalProjection} 
 import {buildProposalMarkdown} from './buildProposalMarkdown';
 import {SurfacePageProposal,SurfaceProposalReview} from '../surface/SurfacePageProposal';
 
-export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,onComplete,inspector}: {
+export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,onComplete,inspector,citations}: {
   record:BuildProposalRecord;bridge:BuildComposeBridge;sourceKey:string;requestKey:number;
-  inspector:ReactNode;onStatus:(text:string)=>void;onComplete:(state:'applied'|'discarded')=>void;
+  inspector:ReactNode;citations?:ReactNode;onStatus:(text:string)=>void;onComplete:(state:'applied'|'discarded')=>void;
 }) {
   const [review,setReview]=useState<BuildProposalReview|null>(null);
   const [placement,setPlacement]=useState<CapturedBuildInsertion|null>(null);
@@ -267,7 +267,7 @@ export function BuildPageProposal({record,bridge,sourceKey,requestKey,onStatus,o
     <button type="button" disabled={busy} onClick={recover}>Check insertion</button>{error?<p role="alert">{error}</p>:null}
   </section>;
   if(placement&&review?.state==='editing')return <SurfacePageProposal editor={placement.editor} position={placement.proseTarget?.from??(wholePage?0:atEnd?placement.pageEndTarget!.end:placement.basis.caret)}
-    editorJson={placement.editorJson} placementId={record.action_id} onMove={fixedTarget||basisFor(review).selection ? undefined : move} busy={busy||conflict} revealKey={requestKey} onStale={()=>{if(running.current!==epoch.current){setPlacement(null);setError('The page changed. The saved suggestion is retained; request a new placement.');}}}>{controls}</SurfacePageProposal>;
+    editorJson={placement.editorJson} placementId={record.action_id} onMove={fixedTarget||basisFor(review).selection ? undefined : move} busy={busy||conflict} revealKey={requestKey} onStale={()=>{if(running.current!==epoch.current){setPlacement(null);setError('The page changed. The saved suggestion is retained; request a new placement.');}}}>{controls}{citations}</SurfacePageProposal>;
   return error?<section aria-label="Suggestion placement unavailable" role="status"><p>{error}</p><p>The saved suggestion is retained.</p><blockquote>{text}</blockquote>{review&&replacementControls}</section>:null;
 }
 

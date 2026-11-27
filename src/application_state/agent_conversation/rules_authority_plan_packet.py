@@ -341,8 +341,17 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         schema = ImageDirectionV2 if operation == "prepare_build_image" else BuildComposeOutput
         if operation == "propose_build_insertion" and placement is not None and placement.target is not None:
             schema = BuildProseBoundaryOutput
+        output_schema = schema.model_json_schema()
+        if operation == 'propose_build_insertion':
+            from application_state.build_proposal.citations import offer_citations
+            from .build_proposal_input import proposal_packet_text
+            from .source_writer_output import strict_json
+
+            retained_properties = body.get('text', {}).get('format', {}).get('schema', {}).get('properties', {})
+            offer_citations(output_schema, strict_json(proposal_packet_text(body)),
+                enabled=not allow_retained_format or 'citations' in retained_properties)
         output_format=dict(type='json_schema',name='build_image_direction' if operation=='prepare_build_image' else 'build_document_proposal',
-            schema=schema.model_json_schema(),strict=True)
+            schema=output_schema,strict=True)
     else:
         # Historical grammar is read-only: fresh admission never opts into it.
         retained = (allow_retained_format and body.get('text', {}).get('format', {}).get('name')
