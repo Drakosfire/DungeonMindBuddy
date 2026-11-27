@@ -6,12 +6,14 @@ existing capture owner; this wrapper never modifies its request or response.
 """
 from pathlib import Path
 from hashlib import sha256
+from contextlib import nullcontext
 from threading import Lock
 from types import SimpleNamespace
 from unittest.mock import patch
 import json
 import sys
 import inspect
+import os
 
 from evals.buddy_benchmark.artifacts import immutable_save
 from evals.buddy_benchmark import workflow
@@ -25,6 +27,7 @@ from .owned_db_fixture import checked_owned_dsn
 from .primary_page_stability import inspect_primary_page, expected_primary_page
 from .primary_resolution_probe import observe_primary_resolution
 from .sql_window import observe_sql_window, runtime_identity
+from .core_connection_probe import observe_core_connections
 
 _lock = Lock()
 
@@ -45,7 +48,7 @@ def fixture_sha256(fixtures):
 
 
 def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture_sha256=None,
-            clone_app=False, fixtures=None):
+            clone_app=False, fixtures=None, observe_core=False):
     """Delegate ordinary capture with partial per-turn observation.
 
     Optional fixtures are evaluator-side only and never enter a product request.
@@ -53,6 +56,8 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
     """
     if clone_app:
         raise ValueError("Use the already owned workstream App clone; per-capture cloning is disabled")
+    if type(observe_core) is not bool:
+        raise ValueError("Core observation must be explicitly enabled or disabled")
     if (not isinstance(expected_manifest_sha256, str) or len(expected_manifest_sha256) != 64
             or any(c not in "0123456789abcdef" for c in expected_manifest_sha256)):
         raise ValueError("A frozen manifest SHA-256 is required")
@@ -155,6 +160,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
             source_window_state = None
             primary_resolution_state = None
             sql_window_state = None
+            core_connection_state = None
             sql_scope_ref = [None]
             source_window_setup_failed = False
             dispatch_started = False
@@ -170,7 +176,7 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     return getattr(self.wrapped, name)
 
                 def post(self, route, *args, **options):
-                    nonlocal records, native_records, source_window_state, primary_resolution_state, sql_window_state, source_window_setup_failed, dispatch_started, post_entered, dispatch_uncertain
+                    nonlocal records, native_records, source_window_state, primary_resolution_state, sql_window_state, core_connection_state, source_window_setup_failed, dispatch_started, post_entered, dispatch_uncertain
                     if route != "/api/live/agent/turn":
                         return self.wrapped.post(route, *args, **options)
                     if dispatch_started:
@@ -178,7 +184,10 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     dispatch_started = True
                     if inspect.iscoroutinefunction(self.wrapped.post):
                         raise TypeError("Async clients are unsupported for serial capture")
-                    with observe_sql_window(scope_ref=sql_scope_ref) as sql_window_state, observe_primary_resolution() as primary_resolution_state, observe_related_page_owners() as records:
+                    core_observer = (observe_core_connections(os.environ['DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL'],
+                                     spec['isolation']['native'], scope_ref=sql_scope_ref)
+                                     if observe_core else nullcontext(None))
+                    with core_observer as core_connection_state, observe_sql_window(scope_ref=sql_scope_ref) as sql_window_state, observe_primary_resolution() as primary_resolution_state, observe_related_page_owners() as records:
                         with observe_native_graph_owners() as native_records:
                             try:
                                 with observe_source_window() as source_window_state:
@@ -214,6 +223,18 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
             finally:
                 failure = sys.exc_info()[1]
                 try:
+                    if observe_core:
+                        core_row = dict(core_connection_state) if core_connection_state is not None else {
+                            'coverage': 'partial', 'status': 'unavailable' if dispatch_started else 'not_started',
+                            'connections': {'scoped': 0, 'unscoped': 0},
+                            'transactions': {'scoped': 0, 'unscoped': 0},
+                            'verified': {'scoped': 0, 'unscoped': 0},
+                            'mismatches': 0, 'errors': 0, 'pending_at_close': 0, 'owner_source_sha256': None,
+                        }
+                        immutable_save(Path(directory), 'core-connection-probe', {
+                            'schema': 'dmb_negative_retrieval_core_connection_v1', 'case_id': case['id'],
+                            'window': 'turn_post_v1', **core_row,
+                        })
                     sql_row = dict(sql_window_state) if sql_window_state is not None else {
                         "coverage": "partial", "status": "unavailable" if dispatch_started else "not_started",
                         "started": 0, "returned": 0, "raised": 0, "pending_at_close": 0,

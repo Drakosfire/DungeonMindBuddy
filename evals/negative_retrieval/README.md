@@ -637,6 +637,28 @@ required-source proof, a complete journal, or proof of zero reads. Legacy v1/v2
 and unknown fingerprints remain diagnostic. Unpropagated threads and other
 processes are not covered.
 
+An optional `observe_core=True` capture witnesses transaction admissions through
+the known synchronous Core `PostgresDatabase` and scoped-read owners. Before
+the turn it checks the pinned loopback Core and dedicated non-writing login.
+Inside each observed transaction, it compares the actual database, cluster,
+effective and session principals, and transaction read-only setting to that
+baseline before yielding the connection to product code. A mismatch fails the
+transaction and the Core owner controls rollback. A separate cursor performs
+the check; its SQL is excluded from the SQL-window counts. The retained
+`core-connection-probe.json` contains only scoped/unscoped counts, a source
+fingerprint and failure state; it contains no credentials or identity values.
+
+This is a partial witness, not a qualified environment. Connection openings and
+transaction admissions can overlap and are not counts of queries or sources.
+Pre-existing aliases, direct connection use, other drivers, pools, processes,
+late work and changes after admission may escape it. A non-writing login and
+read-only session are checked at admission, not continuously. Witness SQL can
+affect transaction timing and snapshot acquisition, and preflight adds overhead;
+do not compare these captures directly with uninstrumented latency samples.
+Zero observations prove neither no Core use nor complete acquisition coverage.
+The report retains and validates this artifact but cannot upgrade the environment
+or a cohort result on its basis.
+
 A provider-free case 364 checked the deployed-source inventory owner against a
 single synthetic World on the retained read-only App clone, with a one-row
 limit. It classified one scoped page-inventory attempt and two unmatched calls.

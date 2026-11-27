@@ -7,7 +7,8 @@ necessary source reads and qualifying capture environments. Existing open
 retrieval and benchmark PRs were checked; none owns this evaluator boundary.
 
 The write set is this brief, a focused negative-retrieval Core connection
-observer, its capture integration, focused tests and the evaluator README. The
+observer, its capture, SQL-window and report integration, focused tests and the
+evaluator README. The
 observer must check the connection actually delivered by the known Core
 PostgreSQL owner against the frozen local Core identity and a separately checked
 non-writing login, including transaction read-only status. Record only

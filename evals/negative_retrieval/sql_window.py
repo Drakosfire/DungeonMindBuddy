@@ -14,6 +14,7 @@ import os
 import sys
 
 from .source_window import _normalize_code, _scope as _turn_scope
+from .core_connection_probe import _witness_sql
 
 _lock = Lock()
 _poisoned = False
@@ -162,6 +163,8 @@ def observe_sql_window(*, owners=None, roots=None, endpoints=None, scope_ref=Non
 
         def on_start(code, offset):
             try:
+                if _witness_sql.get():
+                    return
                 frame = sys._getframe(1)
                 with guard:
                     if not active:
@@ -208,6 +211,8 @@ def observe_sql_window(*, owners=None, roots=None, endpoints=None, scope_ref=Non
 
         def on_resume(code, offset):
             try:
+                if _witness_sql.get():
+                    return
                 frame = sys._getframe(1)
                 with guard:
                     if active and id(frame) not in pending:
