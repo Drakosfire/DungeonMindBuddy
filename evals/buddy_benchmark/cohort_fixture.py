@@ -157,8 +157,11 @@ def load_composed_page_fixture(pin, base, *, world, work):
     from .workflow import read_pin
 
     fixture = json.loads(read_pin(pin, base))
-    if set(fixture) != {"asset", "markdown", "page_presentation", "title", "world_id"}:
+    if set(fixture) != {"asset", "document_class", "markdown", "page_presentation", "title", "world_id"}:
         raise ValueError("Invalid composed Page fixture")
+    document_class = fixture["document_class"]
+    if not isinstance(document_class, str) or not document_class or document_class != document_class.strip():
+        raise ValueError("Composed Page fixture requires an explicit document class")
     markdown = fixture["markdown"]
     digest = sha256(markdown.encode()).hexdigest()
     asset_id = str(UUID(fixture["asset"]["asset_id"]))
@@ -177,7 +180,7 @@ def prepare_composed_page_fixture(dsn, owned_app, fixture, document_id):
     from unittest.mock import patch
 
     from application_state.content.pages import (
-        PAGE_LAYOUT_WRITER_PROFILE, committed_page, commit_page, create_page,
+        PAGE_LAYOUT_WRITER_PROFILE, PageMetadata, committed_page, commit_page, create_page,
     )
     from .cohort_capture import APP_DSN
     from .disposable_database import _identity
@@ -203,14 +206,15 @@ def prepare_composed_page_fixture(dsn, owned_app, fixture, document_id):
     presentation = fixture["page_presentation"]
     profile = PAGE_LAYOUT_WRITER_PROFILE if presentation["schema_version"] == "dmb_page_presentation_v2" else None
     with patch.dict("os.environ", {APP_DSN: dsn}):
-        draft = create_page(world_id=world, title=fixture["title"], document_id=document_id)
+        metadata = PageMetadata(document_class=fixture["document_class"])
+        draft = create_page(world_id=world, title=fixture["title"], document_id=document_id, metadata=metadata)
         _, revision = commit_page(document_id, fixture["markdown"], world_id=world,
                                   expected_revision=draft.page.object_revision,
                                   expected_working_copy_revision=None,
                                   page_presentation=presentation, layout_writer_profile=profile)
         saved = committed_page(document_id, world_id=world)
     if (saved.page.object_revision != 2 or saved.revision != revision or saved.layout_writer_profile != profile
-            or saved.revision.markdown != fixture["markdown"]
+            or saved.metadata != metadata or saved.revision.markdown != fixture["markdown"]
             or saved.presentation is None
             or saved.presentation.model_dump(mode="json") != fixture["page_presentation"]):
         raise ValueError("Composed Page owner did not reopen the exact fixture")
