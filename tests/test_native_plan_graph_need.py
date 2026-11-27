@@ -1087,7 +1087,7 @@ def test_query_transitions_require_decision_order_and_pinned_query():
 
 @pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
 @pytest.mark.parametrize('failure', ['timeout_after_entry', 'result_append_failure'])
-def test_actual_sdk_failure_never_replays_graph_need(source_adapter, monkeypatch, failure):
+def test_actual_sdk_failure_never_replays_graph_need(source_adapter, monkeypatch, failure, application_state_dsn):
     import asyncio
     import httpx2
     from apps.live_control_server.services.agent_turn_service import _ClaimFence
@@ -1122,6 +1122,16 @@ def test_actual_sdk_failure_never_replays_graph_need(source_adapter, monkeypatch
     with pytest.raises(Exception):
         asyncio.run(retry.run(transport=Wire(), api_key='synthetic-not-secret'))
     assert len(calls) == 1
+    # After actual lease expiry the claim owner also refuses this prefix.
+    import psycopg
+    a.fence.renewer.stop_and_join()
+    current = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute("UPDATE agent.turn SET claim_expires_at = clock_timestamp() - interval '1 second' WHERE world_id=%s AND turn_id=%s", (turn.world_id, turn.turn_id))
+    with pytest.raises(ApplicationStateConflictError, match='cannot be reclaimed'):
+        service.claim_turn(turn.world_id, turn.conversation_id, turn.turn_id, expected_revision=current.revision)
+    interrupted = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert interrupted.status == 'interrupted' and len(calls) == 1
 
 
 @pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
