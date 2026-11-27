@@ -46,10 +46,17 @@ async function run() {
     });
     const documentId = process.env.DMB_BENCHMARK_DOCUMENT_ID;
     const build = process.env.DMB_BENCHMARK_SURFACE === "build";
+    const imagePreview = process.env.DMB_BENCHMARK_IMAGE_PREVIEW === "1";
+    const mounted = imagePreview ? page.waitForResponse(response =>
+      new URL(response.url()).pathname === "/api/live/workspace-documents/" + documentId + "/snapshot"
+      && response.request().method() === "GET" && response.ok()
+    ) : null;
+    mounted?.catch(() => {});
     await page.goto(origin + (build ? "/build?world=" : "/plan?world=") +
       encodeURIComponent(process.env.DMB_BENCHMARK_WORLD) + "&documentId=" + encodeURIComponent(documentId));
-    if (process.env.DMB_BENCHMARK_IMAGE_PREVIEW === "1") {
+    if (imagePreview) {
       const { generatePrivatePreview } = require("./image_studio.cjs");
+      const { createHash } = require("node:crypto");
       let generationPosts = 0;
       const writeRequests = [];
       page.on("request", request => {
@@ -63,8 +70,34 @@ async function run() {
       });
       const result = { preview: null };
       try {
+        const snapshot = await (await mounted).json();
+        const pin = JSON.parse(process.env.DMB_BENCHMARK_IMAGE_PAGE_PIN);
+        const record = snapshot.record;
+        if (record?.world_id !== process.env.DMB_BENCHMARK_WORLD ||
+            record.document_id !== documentId || record.revision !== pin.expected_revision ||
+            snapshot.loaded_revision !== pin.expected_revision ||
+            snapshot.committed_content_sha256 !== pin.expected_content_sha256) {
+          throw new Error("Mounted Build image preview differs from the pinned page");
+        }
+        result.mounted_page = {
+          record: { world_id: record.world_id, document_id: record.document_id, revision: record.revision },
+          loaded_revision: snapshot.loaded_revision,
+          committed_content_sha256: snapshot.committed_content_sha256,
+        };
         await page.getByRole("button", { name: "Open Image Studio", exact: true }).click();
-        result.preview = await generatePrivatePreview(page, origin, process.env.DMB_BENCHMARK_QUESTION);
+        const editor = page.locator(".build-surface-shell .ProseMirror[contenteditable=true]:visible");
+        const editorBefore = await editor.innerHTML();
+        const { asset, model, elapsedMs } = await generatePrivatePreview(
+          page, origin, process.env.DMB_BENCHMARK_QUESTION
+        );
+        const encoded = /^data:image\/(?:png|jpeg|webp);base64,(.+)$/.exec(asset.data_url);
+        if (!encoded) throw new Error("Generated preview has no supported image bytes");
+        result.preview = {
+          asset: { asset_id: asset.asset_id, state: asset.state },
+          sha256: createHash("sha256").update(Buffer.from(encoded[1], "base64")).digest("hex"),
+          model, elapsedMs,
+        };
+        result.editor_unchanged = editorBefore === await editor.innerHTML();
       } finally {
         writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
           ...result, generation_posts: generationPosts, write_requests: writeRequests, turn_posts: turnPosts,

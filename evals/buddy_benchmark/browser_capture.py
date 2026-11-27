@@ -74,6 +74,15 @@ def browser_scratch_directory(output):
     return scratch.resolve()
 
 
+def require_image_preview_page(snapshot, world, work):
+    record = snapshot.get("record") or {}
+    if (record.get("world_id"), record.get("document_id"), record.get("revision"),
+            snapshot.get("loaded_revision"), snapshot.get("committed_content_sha256")) != (
+            world, work["object_id"], work["expected_revision"], work["expected_revision"],
+            work["expected_content_sha256"]):
+        raise ValueError("Image preview does not target the pinned committed Build page")
+
+
 def saved_image_library(client, world):
     """Read all saved assets through the media owner, even when staging shifts a page."""
     cursor = {}
@@ -225,7 +234,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             finally:
                 active_plan_get.reset(token)
         if path == "/api/live/agent/turn" and method == "POST":
-            if unsent_draft:
+            if unsent_draft or image_preview:
                 turn_posts += 1
                 return await JSONResponse({"code": "benchmark_unexpected_draft_dispatch"}, 409)(scope, receive, send)
             tick = monotonic_ns()
@@ -407,6 +416,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                                                        manifest["browser_capture"].get("selection_text"),
                                                        require_clean=at_document_start)
                     if image_preview:
+                        require_image_preview_page(page_before["body"], world, work)
+                        env["DMB_BENCHMARK_IMAGE_PAGE_PIN"] = json.dumps(work)
                         library_before = saved_image_library(client, world)
                         artifacts.immutable_save(directory, "image-library-before", library_before)
                     driver = Path(__file__).with_name("browser_send.cjs")
@@ -437,15 +448,20 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             owner_asset = workflow.response_envelope(
                                 client.get(f"/api/live/media/images/{asset_id}/metadata"))
                             artifacts.immutable_save(directory, "image-owner-readback", owner_asset)
+                        if observation.get("mounted_page") is not None:
+                            require_image_preview_page(observation["mounted_page"], world, work)
                         checks = {
+                            "mounted_page_pinned": observation.get("mounted_page") is not None,
                             "private_staged_preview": bool(owner_asset and owner_asset["http_status"] == 200
                                 and owner_asset["body"]["asset_id"] == asset_id
                                 and owner_asset["body"]["state"] == "staged"
+                                and owner_asset["body"]["content_sha256"] == preview["sha256"]
                                 and not owner_asset["body"].get("delivery_url")),
                             "single_generation": observation.get("generation_posts") == 1,
                             "no_save_or_place_request": observation.get("write_requests") == [],
                             "saved_library_unchanged": library_before == library_after,
                             "committed_page_unchanged": page_after["body"] == page_before["body"],
+                            "mounted_editor_unchanged": observation.get("editor_unchanged") is True,
                             "conversation_unchanged": after == fresh and turn_posts == 0
                                 and observation.get("turn_posts") == 0,
                         }
