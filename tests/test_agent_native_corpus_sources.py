@@ -47,6 +47,7 @@ def source_adapter(application_state_dsn, monkeypatch, lane, request):
         native_corpus_context=context, native_source_authority=authority)
     adapter._test_creative = bool(unique and supplied.get('no_source'))
     adapter._test_multi = bool(unique and supplied.get('multi_source'))
+    adapter._test_long = bool(unique and supplied.get('long_context'))
     yield adapter
     if adapter.fence is not None:
         adapter.fence.renewer.stop_and_join()
@@ -565,8 +566,9 @@ HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private contex
 @pytest.mark.parametrize('source_adapter', [[('first', HTTP_BODY)],
     {'unique_world': True, 'sources': [('first', HTTP_BODY)]},
     {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]},
-    {'unique_world': True, 'multi_source': True, 'sources': [('first', HTTP_BODY), ('second', HTTP_BODY.replace('Éphanna heard the guard.', 'Éphanna heard the bell.'))]}],
-    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source'])
+    {'unique_world': True, 'multi_source': True, 'sources': [('first', HTTP_BODY), ('second', HTTP_BODY.replace('Éphanna heard the guard.', 'Éphanna heard the bell.'))]},
+    {'unique_world': True, 'no_source': True, 'long_context': True, 'sources': [('first', HTTP_BODY)]}],
+    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
 def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
@@ -581,9 +583,12 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     a = source_adapter
     creative = a._test_creative
     multi = a._test_multi
+    long_context = a._test_long
+    if long_context and direct:
+        pytest.skip('Long-context control covers creative lexical-free route once')
     if multi and direct:
         pytest.skip('Multi-source control covers lexical selection; direct selection has separate single-source controls')
-    request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor.' if creative else 'Whom did Éphanna hear?'),
+    request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor. The keeper accepts a blue bead at dawn.' if creative else 'Whom did Éphanna hear?'),
         'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
@@ -625,9 +630,13 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             assert b'source_discovery_mode' not in request.content
             assert b'controller_selection_v1' not in request.content
             if creative:
+                final_context_question = long_context and b'What token was accepted at dawn?' in request.content
+                if final_context_question:
+                    assert b'blue bead at dawn' in request.content, 'Earliest conversation evidence missing'
                 self.text = json.dumps({'schema': 'dmb_surface_evidence_answer_v8', 'limitations': [],
                     'answer_segments': [
-                        {'kind': 'proposal', 'label': 'invented_idea', 'text': 'Lantern Quay.'}]})
+                        {'kind': 'proposal', 'label': 'invented_idea',
+                         'text': 'A blue bead.' if final_context_question else 'Lantern Quay.'}]})
                 return await super().handle_async_request(request)
             import re
             from application_state.agent_conversation.native_evidence_view import PLAN_EVIDENCE_HEADING
@@ -697,6 +706,17 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
         assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
         assert len(wire.calls) == len(constructions) == 1
+        if long_context:
+            for index in range(10):
+                choices.calls.clear()
+                followup = request.model_copy(update={'turn_id': str(uuid4()),
+                    'message': ('What token was accepted at dawn?' if index == 9 else f'Consider harbor detail {index}.')})
+                response = client.post('/api/live/agent/turn', json=followup.model_dump(mode='json', by_alias=True))
+                assert response.status_code == 200, response.text + getattr(wire, 'failure', '')
+                turn = wire.adapter.turn
+                assert not any(isinstance(event, (NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+                    NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1)) for event in turn.graph_context_execution.events)
+            assert 'blue bead' in turn.assistant_text
         return
     selection_count = len(choices.calls)
     if multi:
