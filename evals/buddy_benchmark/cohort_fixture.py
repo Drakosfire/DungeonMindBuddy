@@ -200,15 +200,16 @@ def prepare_composed_page_fixture(dsn, owned_app, fixture, document_id):
             raise ValueError("Composed Page fixture image bytes or storage state differ from the pinned asset")
 
     world = fixture["world_id"]
+    presentation = fixture["page_presentation"]
+    profile = PAGE_LAYOUT_WRITER_PROFILE if presentation["schema_version"] == "dmb_page_presentation_v2" else None
     with patch.dict("os.environ", {APP_DSN: dsn}):
         draft = create_page(world_id=world, title=fixture["title"], document_id=document_id)
         _, revision = commit_page(document_id, fixture["markdown"], world_id=world,
                                   expected_revision=draft.page.object_revision,
                                   expected_working_copy_revision=None,
-                                  page_presentation=fixture["page_presentation"],
-                                  layout_writer_profile=PAGE_LAYOUT_WRITER_PROFILE)
+                                  page_presentation=presentation, layout_writer_profile=profile)
         saved = committed_page(document_id, world_id=world)
-    if (saved.page.object_revision != 2 or saved.revision != revision
+    if (saved.page.object_revision != 2 or saved.revision != revision or saved.layout_writer_profile != profile
             or saved.revision.markdown != fixture["markdown"]
             or saved.presentation is None
             or saved.presentation.model_dump(mode="json") != fixture["page_presentation"]):
