@@ -12,12 +12,12 @@ from tests.test_build_source_free_protocol import pending_catalog_case
 
 def test_pending_opening_offers_the_reader_registered_scope():
     from application_state.agent_conversation.build_intentional_response import (
-        FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE, FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS)
+        EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE, FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS)
     from tests.test_build_source_free_protocol import pending_adapter_driver_case
     adapter, _ = pending_adapter_driver_case()
     question = next(q for q in adapter.create_build_jev_driver().step.questions if q.name == 'source_need')
     assert question.options == FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS
-    assert question.question == FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE
+    assert question.question == EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE
 
 
 def test_unavailable_action_writer_distinguishes_capability_from_factual_gaps(monkeypatch):
