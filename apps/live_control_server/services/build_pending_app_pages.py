@@ -9,7 +9,7 @@ from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.build_related_pages import RelatedPagesSelection, RelatedPageRead, should_read_page
 from application_state.agent_conversation.build_source_free import (
     BuildAppPageCatalogObservedV1, effective_pending_app_catalog,
-    pending_app_page_selection_input, pending_source_work, pending_work_requests_evidence,
+    pending_app_page_selection_input, pending_required_current_page, pending_source_work, pending_work_requests_evidence,
 )
 from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
 from application_state.agent_conversation.native_execution import BuildAppPageSelectionAuthorizedV1
@@ -191,6 +191,12 @@ class PendingAppPageDriver:
             if should_read_page(page, self.wire['questions'][f'page{index + 1}'],
                 actual_response.answers[f'page{index + 1}'], semantic=True,
                 current_offer=current_offer, is_current=str(page.document_id) == current_id)], key=str)
+        # The navigation vote remains captured as returned. The host must also
+        # honor an admitted request for the exact current saved page, even if
+        # optional navigation voted to skip that sole eligible pointer.
+        required = pending_required_current_page(self.receipt, adapter._broker_execution())
+        if required is not None:
+            chosen = [required]
         event = RelatedPagesSelection(event_id=uuid4(), sequence=len(adapter._broker_execution().events),
             controller_attempt_id=UUID(self.prepared.attempt_id),
             controller_envelope_sha256=self.prepared.body_sha256,
