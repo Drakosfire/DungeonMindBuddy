@@ -383,7 +383,9 @@ def test_current_partial_reader_requires_exact_saved_page_and_coverage():
     decoded = pending_execution(receipt, execution.policy, [*execution.events, selection])
     assert validate_pending_execution_binding(receipt, decoded) == decoded
     assert native_work_terminal(SimpleNamespace(graph_context_receipt=receipt,
-        graph_context_execution=execution)) == selection.terminal_disposition
+        graph_context_execution=execution)) is None
+    assert native_work_terminal(SimpleNamespace(graph_context_receipt=receipt,
+        graph_context_execution=decoded)) == selection.terminal_disposition
 
 
 def test_current_partial_reader_rejects_mismatched_saved_body():
