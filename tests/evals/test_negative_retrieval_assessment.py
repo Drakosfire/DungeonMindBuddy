@@ -4591,6 +4591,17 @@ def test_gateway_policy_fails_closed_on_unknown_binding_and_backend_error():
         other.frontend(b'Q', b'SELECT 17\0')
 
 
+def test_gateway_refuses_clean_termination_with_open_transaction():
+    from evals.negative_retrieval.gateway_protocol import FrontendPolicy, ProtocolDenied
+    policy = FrontendPolicy()
+    policy.frontend(b'Q', b'BEGIN\0')
+    policy.backend(b'C', b'BEGIN\0')
+    policy.backend(b'Z', b'T')
+    with pytest.raises(ProtocolDenied, match='unresolved'):
+        policy.frontend(b'X', b'')
+    assert policy.snapshot()['transaction_status'] == 'T' and policy.snapshot()['failed']
+
+
 def test_gateway_startup_refuses_foreign_database_options_and_cancel():
     import socket
     import struct

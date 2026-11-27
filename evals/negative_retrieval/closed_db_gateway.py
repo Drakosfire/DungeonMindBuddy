@@ -205,6 +205,7 @@ class _ClosedDatabaseGateway:
                     if (backend.pgconn.ssl_in_use
                             or (backend.info.host, str(backend.info.port)) != (
                                 self._identity['host'], str(self._identity['port']))
+                            or backend.info.hostaddr != self._identity['host']
                             or actual != (self._database, str(self._identity['oid']),
                                           str(self._identity['system_identifier']))):
                         raise ProtocolDenied('Backend differs from owned local database')
@@ -281,11 +282,14 @@ class _ClosedDatabaseGateway:
     def _close(self):
         if self._closed:
             return
+        deadline = time.monotonic() + _IDLE_TIMEOUT
+        def join(thread):
+            thread.join(max(0, deadline - time.monotonic()))
         self._stop.set()
         if self._listener is not None:
             self._listener.close()
         if self._listener_thread is not None:
-            self._listener_thread.join(_IDLE_TIMEOUT)
+            join(self._listener_thread)
         if any(thread.is_alive() for thread in self._threads):
             self._record_error('forced_shutdown')
             with self._lock:
@@ -296,9 +300,9 @@ class _ClosedDatabaseGateway:
                 except OSError:
                     pass
             for thread in self._threads:
-                thread.join(_IDLE_TIMEOUT)
+                join(thread)
         for thread in self._backend_threads:
-            thread.join(_IDLE_TIMEOUT)
+            join(thread)
         if ((self._listener_thread is not None and self._listener_thread.is_alive())
                 or any(thread.is_alive() for thread in self._threads)
                 or any(thread.is_alive() for thread in self._backend_threads)):
