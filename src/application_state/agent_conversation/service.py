@@ -494,6 +494,27 @@ def _validated_base_execution_locked(
     return execution
 
 
+def _retained_authored_authorizer(conn, world_id):
+    checked_documents = set()
+    def authorize_authored(basis):
+        if basis.document_id in checked_documents:
+            return
+        # Legacy registry documents have no APP page identity. Their
+        # validated historical World receipt remains their read owner;
+        # the current request has already passed World authorization.
+        try:
+            UUID(basis.document_id)
+        except ValueError:
+            return
+        from application_state.content.pages import _state
+        page = _state(conn, basis.document_id, world_id)
+        if page.page.status != "active":
+            raise ValueError("Retained authored page is no longer available")
+        checked_documents.add(basis.document_id)
+
+    return authorize_authored
+
+
 class AgentConversationService:
     """Stateless storage boundary. World verification belongs to the caller."""
 
@@ -2936,7 +2957,9 @@ class AgentConversationService:
             try:
                 turns, seed = repo.list_retained_build_turns(conn, turn)
                 event = capture(turn, turns, seed=seed, event_id=event_id, work_event_id=work.event_id,
-                    pointer_revision=receipt.conversation_observation.pointer_revision, discussion=True)
+                    pointer_revision=receipt.conversation_observation.pointer_revision,
+                    authorize_authored=_retained_authored_authorizer(conn, world_id),
+                    discussion=work.requested_work == "discuss")
             except (ValueError, TypeError, KeyError, AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             if authorize_current_access(conn, turn, None) is not True:
@@ -2957,27 +2980,11 @@ class AgentConversationService:
                     or pointer is None or pointer.active_conversation_id != current.conversation_id):
                 raise ValueError("Retained context requires the current Build conversation")
 
-            checked_documents = set()
-            def authorize_authored(basis):
-                if basis.document_id in checked_documents:
-                    return
-                # Legacy registry documents have no APP page identity. Their
-                # validated historical World receipt remains their read owner;
-                # the current request has already passed World authorization.
-                try:
-                    UUID(basis.document_id)
-                except ValueError:
-                    return
-                from application_state.content.pages import _state
-                page = _state(conn, basis.document_id, current.world_id)
-                if page.page.status != "active":
-                    raise ValueError("Retained authored page is no longer available")
-                checked_documents.add(basis.document_id)
-
             turns, seed = repo.list_retained_build_turns(conn, current)
             return capture(current, turns, seed=seed,
                 event_id=event_id, work_event_id=work.event_id,
-                pointer_revision=pointer.revision, authorize_authored=authorize_authored,
+                pointer_revision=pointer.revision,
+                authorize_authored=_retained_authored_authorizer(conn, current.world_id),
                 discussion=work.requested_work == "discuss")
 
         # Match reset's World -> conversation -> turn lock order. Holding only

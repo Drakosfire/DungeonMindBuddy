@@ -529,7 +529,6 @@ def validate_pending_retained_admission(execution, event):
     work = prior_conversation_work(prefix, allow_discussion=True)
     if (work is None or work.event_id != event.work_event_id
             or event.world_id != execution.policy.action.intent.world_id
-            or event.presentation_policy != 'retained_conversation_semantic_v3'
             or any(isinstance(prior, t.BuildPriorBodyEvidenceAdmittedV1)
                 or type(prior) in (NativeBuildSourceSettledV1, BuildAppPageCatalogObservedV1,
                     t.RelatedPagesSelection, t.RelatedPageRead) for prior in prefix)):

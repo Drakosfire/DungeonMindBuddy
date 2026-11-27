@@ -2479,6 +2479,14 @@ def pending_retained_runtime_case(monkeypatch, *, lore_page=False):
             'source_basis': event.source_basis.model_copy(update={'world_id': state.turn.world_id})})
             for event in turn.graph_context_execution.events)
     state.retained_reads, state.on_capture = 0, None
+    from application_state.content import pages
+    state.authored_status = 'active'
+    state.authored_checks = []
+    def page_state(conn, document_id, world_id):
+        assert state.depth == 1 and conn is state.conn and world_id == state.turn.world_id
+        state.authored_checks.append(document_id)
+        return SimpleNamespace(page=SimpleNamespace(status=state.authored_status))
+    monkeypatch.setattr(pages, '_state', page_state)
     def rows(conn, turn):
         assert state.depth == 1 and conn is state.conn and turn == state.turn
         state.retained_reads += 1
@@ -2519,6 +2527,7 @@ def test_pending_retained_runtime_freezes_full_existing_context_without_search_a
         assert admit_pending_conversation(adapter)
         assert state.retained_reads == state.persisted == 1 and state.materialized == 0
         assert state.locks == ['world', 'conversation', 'turn'] * 2 and state.access_calls == 3
+        assert len(state.authored_checks) == 1
 
 
 @pytest.mark.parametrize('failure', ['pointer', 'expiry', 'access', 'successor', 'access_after', 'expiry_after', 'cas'])
@@ -2593,6 +2602,18 @@ def test_pending_retained_lookup_cannot_admit_conversation_as_a_lookup_substitut
                 expected_revision=state.turn.revision, expected_attempt=1, event_id=uuid4(),
                 authorize_current_access=state.authorize)
         assert state.persisted == 0 and state.materialized == 0
+
+
+def test_pending_retained_capture_refuses_inactive_authored_page(monkeypatch):
+    from application_state.errors import ApplicationStateValidationError
+    from apps.live_control_server.services.build_pending_retained import admit_pending_conversation
+
+    with pending_retained_runtime_case(monkeypatch) as (state, adapter, _):
+        state.authored_status = 'archived'
+        with pytest.raises(ApplicationStateValidationError, match='no longer available'):
+            admit_pending_conversation(adapter)
+        assert len(state.authored_checks) == 1
+        assert state.persisted == 0
 
 
 def test_pending_retained_capture_refuses_foreign_history_and_conflicting_duplicate(monkeypatch):
