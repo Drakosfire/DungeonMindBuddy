@@ -59,6 +59,9 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
         def send(client, world, body):
             body['build_authored_references'] = None
             if mode != 'recover':
+                capability = body['build_write_capability']
+                capability.pop('boundary_editor_json', None)
+                capability['basis']['selection'] = {'end': 3, 'text': 'An'}
                 return client.post('/api/live/agent/turn', json=body)
 
             def stop_before_terminal(*args, **kwargs):
@@ -87,6 +90,11 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
         assert case.turn.graph_context_receipt.schema_ == 'dmb_build_pending_context_receipt_v1'
         assert case.turn.status == 'completed'
         assert len(case.writer.calls) == 1
+        if mode == 'pending':
+            request = json.loads(case.writer.calls[0].content)
+            target = json.loads(request['input'])['surface_work']['build_work']['edit_target']
+            assert target['selection']['text'] == 'An'
+            assert 'edit_target is an offered captured edit target' in request['instructions']
         proposed, = BuildProposalService().list(case.world, case.turn.conversation_id)
         assert proposed.state == 'proposed' and proposed.proposal.replacement_markdown == table
         return
