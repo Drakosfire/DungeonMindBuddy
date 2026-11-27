@@ -33,3 +33,12 @@ activation with focused tests, then independently review the cumulative diff.
 The producer is a separate serial successor, not part of reader acceptance.
 Use the already-owned single App clone and shared read-only Core for any
 benchmark, serially; do not create a new database or scan its contents.
+
+Local evidence: the focused V5 and old/new reader checks passed, including a
+pending owner proof and a multi-source selection. Three existing
+`test_historical_native_question_bytes_remain_at_adopted_control` cases fail
+in the same local dependency environment on both this branch and deployed base
+`50e66dd286a673da5fcef8074600d82fc99275d4`, with matching actual hashes. An
+independent deterministic comparison of V1 through V4 between that base and
+this change produced identical bytes. The cause of the adopted-hash mismatch
+is not established; retain it as an inherited verification limitation.
