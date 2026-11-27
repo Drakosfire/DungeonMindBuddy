@@ -168,7 +168,7 @@ def dialogue_messages(execution):
 
 def current_request_message(execution):
     value = admission(execution)
-    if value is None or value.presentation_policy not in {"retained_conversation_semantic_v3", "retained_conversation_semantic_v4"}:
+    if value is None or value.presentation_policy not in {"retained_conversation_semantic_v3", "retained_conversation_semantic_v4", "retained_conversation_semantic_v5"}:
         return None
     return dict(role="user", content=canonical_bytes(
         dict(request_now=execution.policy.action.intent.message)).decode())
@@ -256,9 +256,32 @@ def native_supports(execution):
                                            for i, row in enumerate(value.native_context)))
 
 
+def writer_native_supports(execution):
+    """Project v5's exact equivalent reads once; keep the closure intact."""
+    supports = native_supports(execution)
+    value = admission(execution)
+    if value is None or value.presentation_policy != "retained_conversation_semantic_v5":
+        return supports
+    selected, seen = [], set()
+    for support in supports:
+        catalog, excerpt = support.catalog, support.read.excerpt
+        key = canonical_sha256({
+            "authority": catalog.authority.model_dump(mode="json", exclude={"acquisition_epoch"}),
+            "source": catalog.source.model_dump(mode="json", exclude={"proof_epoch"}),
+            "selector_policy": catalog.selector_policy,
+            "sections": [section.model_dump(mode="json") for section in catalog.sections],
+            "body_chars": catalog.body_chars, "body_bytes": catalog.body_bytes,
+            "excerpt": excerpt.model_dump(mode="json", exclude={"catalog_sha256"}),
+        })
+        if key not in seen:
+            seen.add(key)
+            selected.append(support)
+    return tuple(selected)
+
+
 def require_current_presentation(execution):
     value = admission(execution)
-    if value is not None and value.presentation_policy not in {"retained_conversation_semantic_v3", "retained_conversation_semantic_v4"}:
+    if value is not None and value.presentation_policy not in {"retained_conversation_semantic_v3", "retained_conversation_semantic_v4", "retained_conversation_semantic_v5"}:
         raise ValueError("Historical retained presentation is replay-only; start a fresh turn")
 
 
@@ -266,7 +289,7 @@ def native_frame_rows(execution, source_authority, selector):
     from .native_corpus import model_body_frame_rows
     from .model_markdown import project_retained_source_markdown
     rows = model_body_frame_rows(source_authority, (), selector,
-        passage_supports=native_supports(execution))["excerpts"]
+        passage_supports=writer_native_supports(execution))["excerpts"]
     value = admission(execution)
     if value is not None and value.presentation_policy != "retained_conversation_full_v1":
         rows = [row | {"text": project_retained_source_markdown(row["text"])} for row in rows]

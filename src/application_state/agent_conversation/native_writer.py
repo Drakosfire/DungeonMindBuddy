@@ -636,8 +636,8 @@ def read_evidence_records(prefix, frame, *, passages_only=False):
         bodies.NativeBodySupport(body_handle(read), read, catalogs[read.excerpt.catalog_sha256])
         for read in bodies.selected_body_reads(prefix)))
     supports += bodies.prior_body_writer_supports(prefix)
-    from .retained_conversation import native_supports
-    supports += native_supports(prefix)
+    from .retained_conversation import writer_native_supports
+    supports += writer_native_supports(prefix)
     statement_reads = statements.selected_read_records(prefix)
     assertion_reads = _writer_assertion_reads(prefix, passages_only=passages_only)
     return dict(body_excerpts=tuple(replace(support, handle=row['excerpt_handle']) for row, support in

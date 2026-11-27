@@ -126,7 +126,7 @@ def retained_saved_page_references(execution):
     from .native_execution import BuildPendingExecutionV1
 
     value = admission(execution)
-    if value is None or value.presentation_policy != 'retained_conversation_semantic_v4':
+    if value is None or value.presentation_policy not in {'retained_conversation_semantic_v4', 'retained_conversation_semantic_v5'}:
         return ()  # Historical producing frames and v3 citations stay unchanged.
     if (type(execution) is not BuildPendingExecutionV1
             or value.world_id != execution.policy.action.intent.world_id):
