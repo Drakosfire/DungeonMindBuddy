@@ -491,3 +491,11 @@ signed-in app after the producer was deployed in PR #4923. Those are individual
 observations, not a cohort rate or a complete acquisition journal; the synthetic
 wire-audited timings included manual pauses. The case is development material,
 not independent held-out qualification.
+
+The native PDF probe wraps the admitted PDF opener used by Graph reads and
+the module opener used by rendering. It records only calls that reach the
+provided PDF source loader, including failures, with no inputs or PDF bytes.
+A locator rejected before the loader is not counted. These are attempts, not
+proof of a returned PDF or source-specific support; prebound aliases outside
+these paths, other workers and late work remain uncovered. Legacy artifacts
+with no PDF observations remain unknown, and the journal is still partial.

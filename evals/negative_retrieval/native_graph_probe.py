@@ -20,6 +20,7 @@ _OWNERS = {
 }
 _GRAPH_BODY_OWNERS = {"open_admitted_native_text": "native_graph_body_open",
                       "open_admitted_native_text_batch": "native_graph_body_open_batch"}
+_PDF_OWNER = "native_pdf_source_load"
 _PREPARATION_OWNERS = {"prepare": "native_source_preparation"}
 _APP_SOURCE_OWNERS = {"get_source_markdown": "app_source_body_read",
                       "get_source_markdown_batch": "app_source_body_read_batch",
@@ -38,19 +39,19 @@ def summarize_records(records):
     if not isinstance(records, list) or any(
         not isinstance(row, dict) or set(row) != {"owner", "state"}
         or not isinstance(row["owner"], str) or not isinstance(row["state"], str)
-        or row["owner"] not in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values(), *_APP_SOURCE_OWNERS.values(), *_GRAPH_BODY_OWNERS.values())
+        or row["owner"] not in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values(), *_APP_SOURCE_OWNERS.values(), *_GRAPH_BODY_OWNERS.values(), _PDF_OWNER)
         or row["state"] not in {"entered", "returned", "raised"}
         for row in records
     ):
         raise ValueError("Malformed native Graph probe evidence")
     counts = {owner: {state: sum(row["owner"] == owner and row["state"] == state for row in records)
                       for state in ("entered", "returned", "raised")}
-              for owner in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values(), *_APP_SOURCE_OWNERS.values(), *_GRAPH_BODY_OWNERS.values())}
+              for owner in (*_OWNERS.values(), *_PREPARATION_OWNERS.values(), *_CORPUS_OWNERS.values(), *_APP_SOURCE_OWNERS.values(), *_GRAPH_BODY_OWNERS.values(), _PDF_OWNER)}
     # Old v1 artifacts predate these hooks. Without an observed call, their
     # records cannot distinguish an inactive owner from absent instrumentation.
     for owner in ("native_source_preparation", "native_graph_binding", "app_source_body_read",
                   "native_graph_body_open", "native_graph_body_open_batch", "app_source_body_read_batch",
-                  "app_source_body_read_revision"):
+                  "app_source_body_read_revision", _PDF_OWNER):
         if not any(counts[owner].values()):
             counts[owner] = None
     return counts
@@ -64,7 +65,7 @@ def observe_native_graph_owners():
     records = []
     record_lock = Lock()
     try:
-        from apps.live_control_server.services import native_graph_reads, plan_source_turn
+        from apps.live_control_server.services import native_graph_reads, native_pdf_evidence, plan_source_turn
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         from application_state.source import repository as app_sources
 
@@ -95,7 +96,24 @@ def observe_native_graph_owners():
                 return result
             return wrapped
 
+        def watch_pdf_open(function):
+            @wraps(function)
+            def wrapped(*args, **kwargs):
+                # Record the actual loader boundary, not a locator rejected
+                # before any source acquisition. Keep inputs and PDF bytes out.
+                load = kwargs.get("load")
+                if callable(load):
+                    kwargs = {**kwargs, "load": watch(_PDF_OWNER, load)}
+                return function(*args, **kwargs)
+            return wrapped
+
         with ExitStack() as stack:
+            # Graph reads bind this alias on import; rendering resolves the
+            # module global. Cover each without layering the wrappers.
+            graph_pdf_open = native_graph_reads.open_admitted_pdf_evidence
+            module_pdf_open = native_pdf_evidence.open_admitted_pdf_evidence
+            stack.enter_context(patch.object(native_graph_reads, "open_admitted_pdf_evidence", watch_pdf_open(graph_pdf_open)))
+            stack.enter_context(patch.object(native_pdf_evidence, "open_admitted_pdf_evidence", watch_pdf_open(module_pdf_open)))
             authored = sys.modules.get("apps.live_control_server.services.native_authored_references")
             authored_reader = getattr(authored, "read_authored_reference", None)
             original_reader = native_graph_reads.read_authored_reference

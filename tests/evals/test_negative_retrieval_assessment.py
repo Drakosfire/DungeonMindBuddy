@@ -930,6 +930,9 @@ def test_offline_report_joins_real_wire_shapes_and_detects_empty_catalog_probe(t
         ("native_corpus_direct_read", "raised", False),
         ("native_graph_body_open", "returned", False),
         ("native_graph_body_open_batch", "raised", False),
+        ("native_pdf_source_load", "entered", False),
+        ("native_pdf_source_load", "returned", False),
+        ("native_pdf_source_load", "raised", False),
         ("app_source_body_read", "returned", False),
         ("app_source_body_read", "raised", False),
         ("app_source_body_read_batch", "returned", False),
@@ -3489,3 +3492,52 @@ def test_current_page_partial_regression_requires_support_and_specific_gap_judgm
     assert assess(rubric, observation(**(good | {'semantic_quality': False})))['status'] == 'fail'
     assert assess(rubric, observation(**(good | {'journal_complete': False})))['status'] == 'unproven'
     assert assess(rubric, observation(**(good | {'reads': ['current-page', 'irrelevant']})))['status'] == 'fail'
+
+
+def test_pdf_probe_counts_loader_not_rejected_locator_and_restores_aliases(monkeypatch):
+    import json
+    from types import SimpleNamespace
+    from apps.live_control_server.services import native_graph_reads, native_pdf_evidence
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners, summarize_records
+
+    region = {'schema_version': 'dm_native_pdf_region_v1', 'source_revision_id': 'srev:test',
+        'content_sha256': 'a' * 64, 'page': 1, 'left': .1, 'top': .2, 'right': .7, 'bottom': .8}
+    evidence = SimpleNamespace(source_revision_id='srev:test', source_locator=json.dumps(region))
+    invalid = SimpleNamespace(source_revision_id='srev:other', source_locator=json.dumps(region))
+    def load(*args, **kwargs):
+        return b'private PDF body'
+    def open_region(region, **kwargs):
+        return kwargs['load']('private source identity')
+    monkeypatch.setattr(native_pdf_evidence, 'open_native_pdf_region', open_region)
+    graph_original = native_graph_reads.open_admitted_pdf_evidence
+    module_original = native_pdf_evidence.open_admitted_pdf_evidence
+    with observe_native_graph_owners() as records:
+        with pytest.raises(ValueError, match='revision differs'):
+            native_graph_reads.open_admitted_pdf_evidence(invalid, space_id='private', load=load)
+        assert not records
+        assert native_graph_reads.open_admitted_pdf_evidence(evidence, space_id='private', load=load)[1] == b'private PDF body'
+        def fail(*args, **kwargs):
+            raise RuntimeError('private failure')
+        with pytest.raises(RuntimeError, match='private failure'):
+            native_pdf_evidence.open_admitted_pdf_evidence(evidence, space_id='private', load=fail)
+    assert records == [{'owner': 'native_pdf_source_load', 'state': 'returned'},
+                       {'owner': 'native_pdf_source_load', 'state': 'raised'}]
+    assert summarize_records([])['native_pdf_source_load'] is None
+    assert summarize_records(records)['native_pdf_source_load']['raised'] == 1
+    assert 'private' not in str(records)
+    assert native_graph_reads.open_admitted_pdf_evidence is graph_original
+    assert native_pdf_evidence.open_admitted_pdf_evidence is module_original
+
+
+def test_pdf_probe_observes_real_core_loader_on_missing_source():
+    import json
+    from types import SimpleNamespace
+    from apps.live_control_server.services import native_graph_reads
+    from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners
+    region = {'schema_version': 'dm_native_pdf_region_v1', 'source_revision_id': 'srev:test',
+        'content_sha256': 'a' * 64, 'page': 1, 'left': .1, 'top': .2, 'right': .7, 'bottom': .8}
+    evidence = SimpleNamespace(source_revision_id='srev:test', source_locator=json.dumps(region))
+    with observe_native_graph_owners() as records:
+        with pytest.raises(ValueError, match='Retained PDF unavailable'):
+            native_graph_reads.open_admitted_pdf_evidence(evidence, space_id='synthetic', load=lambda *_: None)
+    assert records == [{'owner': 'native_pdf_source_load', 'state': 'returned'}]
