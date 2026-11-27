@@ -3,7 +3,7 @@
 Status: ACTIVE under the user's over-retrieval goal and authorization to prepare
 releases in parallel. Existing draft [#4987](https://github.com/Drakosfire/DungeonMindBuddy/pull/4987)
 is the sole producer PR. Branch `codex/retrieval-plan-pending-graph-producer`,
-checkout `negative-current-main-eval`, based on merged reader `458dfbeb97a089a60803890b99f0757152cfedd0`.
+checkout `negative-current-main-eval`, based on merged reader `628fcc98567f860a6e23eba6f249a7e5af22a508` (#5003).
 The reader is not live: producer merge, activation and acceptance remain held
 until its compatible reader deployment and all applicable checks and reviews.
 
@@ -13,6 +13,13 @@ one fixed scope question. Do not start Graph acquisition, a writer, or an action
 do not manufacture a provider result. Reopen the exact question and permit the
 user's next turn through the ordinary conversation flow. A definite no-Graph
 or required-Graph choice continues through its existing path.
+
+The real-model creative control also exposed a work-choice failure in this same
+turn. For fresh V1 openings only, the harness emits the versioned guidance that
+#5003 can read; retained SDK openings and other versions keep their prior wire.
+The reader must be live before emission. This addition is part of making the
+producer turn usable, and needs creative, source-required, edit/follow-up and
+replay controls rather than treating a successful no-Graph choice as completion.
 
 Write scope: the existing producer PR's Graph-need dispatch, native producer,
 Plan harness and APP service; focused tests, the action/benchmark catalog, and

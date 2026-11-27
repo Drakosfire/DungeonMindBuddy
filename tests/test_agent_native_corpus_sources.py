@@ -587,10 +587,20 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import plan_jev_harness
     from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
     from apps.live_control_server.services import managed_world_graph_projection as managed
     from apps.live_control_server.integrations.dungeonmind import native_registry_source
     from tests.test_plan_jev_writer import WriterWire
     a = source_adapter
+    opening_parents = []
+    original_authorize = PlanJevDispatch.authorize
+    def capture_opening(dispatch, prepared):
+        result = original_authorize(dispatch, prepared)
+        if type(dispatch.parent) is NativePlanOpeningInputV1:
+            opening_parents.append(dispatch.parent)
+        return result
+    monkeypatch.setattr(PlanJevDispatch, 'authorize', capture_opening)
     creative = a._test_creative
     multi = a._test_multi
     long_context = a._test_long
@@ -756,6 +766,17 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert receipt['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
     assert len(wire.calls) == 1 and len(constructions) == (2 if graph_recovery else 1)
+    from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
+    opening_auths = [event for event in wire.adapter.turn.graph_context_execution.events
+                     if type(event) is NativePlanOpeningAuthorizedV1]
+    assert len(opening_auths) == 1
+    assert len(opening_parents) == 1
+    assert opening_parents[0].work_choice_guidance_version == 'v1'
+    assert opening_auths[0].parent_request_sha256 == opening_parents[0].digest
+    opening_wires = [call for call in choices.calls if 'requested_work' in call['questions']]
+    assert len(opening_wires) == 1
+    assert 'work_choice_guidance_version' not in json.dumps(opening_wires[0])
+    assert all(opening_wires[0]['questions']['requested_work']['criteria'].values())
     if creative:
         from application_state.agent_conversation.native_corpus import (
             NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,

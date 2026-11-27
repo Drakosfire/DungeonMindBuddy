@@ -123,6 +123,10 @@ class PlanJevHarness:
                 with measure("plan_opening_candidate_preparation"):
                     semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title,
                         author_scope=author_scope, **driver.decision_arguments())
+                    from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
+                    if type(semantic.parent) is NativePlanOpeningInputV1:
+                        semantic.parent = semantic.parent.model_copy(
+                            update={'work_choice_guidance_version': 'v1'})
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
             _require_guest_discussion_selection(adapter, selected)
             if selected == 'different_destination':
