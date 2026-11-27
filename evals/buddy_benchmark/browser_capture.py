@@ -550,7 +550,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                                 no_media_save=isinstance(observation.get("write_requests"), list)
                                     and all(row["path"].startswith("/api/live/workspace-documents/")
                                             for row in observation["write_requests"]),
-                                committed_unchanged_before_save=bool(placed and placed["initial"] == placed["before_save"]),
+                                single_document_commit=observation.get("document_commit_posts") == 1,
                                 mounted_reopen_exact=placed.get("mounted_reopened_exact") is True,
                                 exact_saved_image=saved["committed_markdown"] == expected
                                     and saved["loaded_revision"] == work["expected_revision"] + 1,

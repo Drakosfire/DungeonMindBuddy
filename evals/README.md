@@ -242,7 +242,7 @@ child against the staged record, and reopens the original before and after.
 For a saved-image placement, also set `browser_capture.image_placement_anchor`
 to an exact, unique destination paragraph. Use an owned App clone with image
 provider credentials unset. The browser opens the existing library asset,
-places it after the paragraph, checks the committed view before Save, saves,
+places it after the paragraph, waits for one ordinary page commit,
 and reloads. The capture verifies the resulting committed page independently.
 
 For an ordinary Plan browser replay, select a case in the context capture

@@ -59,9 +59,11 @@ async function run() {
       const { createHash } = require("node:crypto");
       let generationPosts = 0;
       const writeRequests = [];
+      let documentCommitPosts = 0;
       page.on("request", request => {
         const path = new URL(request.url()).pathname;
         const method = request.method();
+        if (method === "POST" && path === "/api/live/tiptap/markdown-write/commit") documentCommitPosts++;
         if (method === "POST" && (path === "/api/live/media/images/generate" || path.endsWith("/regenerate"))) generationPosts++;
         if (/\/api\/live\/media\/images\/.*\/(save|place)$/.test(path)
             || (!["GET", "HEAD"].includes(method) && path.startsWith("/api/live/workspace-documents/"))) {
@@ -132,11 +134,7 @@ async function run() {
               || inserted.content[0].attrs?.assetId !== parent.asset_id
               || JSON.stringify(retained) !== JSON.stringify(blocks))
             throw new Error("Mounted image placement differs from the pinned target and neighbors");
-          const beforeSave = await committed();
-          result.placement = { index, asset_id: parent.asset_id, initial, before_save: beforeSave };
-          if (JSON.stringify(initial) !== JSON.stringify(beforeSave))
-            throw new Error("Placement changed the committed page before Save");
-          await page.getByTestId("surface-edit-host").getByRole("button", { name: /^Save$/ }).click();
+          result.placement = { index, asset_id: parent.asset_id, initial };
           result.placement.after_save = await pollBrowserRead(async () => {
             const saved = await committed();
             return saved.revision > initial.revision && saved;
@@ -166,7 +164,8 @@ async function run() {
         if (!placement) result.editor_unchanged = JSON.stringify(editorBefore) === JSON.stringify(await readDocument());
       } finally {
         writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
-          ...result, generation_posts: generationPosts, write_requests: writeRequests, turn_posts: turnPosts,
+          ...result, generation_posts: generationPosts, document_commit_posts: documentCommitPosts,
+          write_requests: writeRequests, turn_posts: turnPosts,
         }, null, 2));
       }
       return;
