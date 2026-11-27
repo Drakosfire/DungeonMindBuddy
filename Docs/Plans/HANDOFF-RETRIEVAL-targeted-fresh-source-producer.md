@@ -5,7 +5,9 @@ producer slice, following reader #4972 merged and deployed at
 `2c42e181fac064454f2b998e2e2ef771a781d125` (Actions deployment 46017323051).
 Prompt-boundary prerequisite #4974 is merged and deployed at
 `6ba75fa9f27912945503ca547b43bfbbb0de105a` (Actions deployment 46019369806).
-Branch `codex/retrieval-targeted-fresh-producer`; base is that deployed revision.
+Writer-scope reader #4975 and producer #4976 are deployed at
+`6bc8b1d07cce3df64e04d2def2108904244cba9f` (Actions 46026785188).
+Branch `codex/retrieval-targeted-fresh-producer` is rebased on that revision.
 
 The signed-in development trace selected batches of 13 and 15 handles, opened
 17 native sources plus two sections and a content search, and took 236.4
@@ -36,3 +38,13 @@ independent audit found host acquisition counts in the candidate wire. That
 request was not sent; #4974 removes that aggregate from newly generated
 navigation context. Its partial capture is not a benchmark result. Start a new
 run with fresh exact-request audits and preserve the interrupted evidence.
+
+Synthetic case 582, on the pre-V5 retrieval producer, completed after eight
+independent wire audits. It asked for another source after a Session 14 recap;
+the supported answer cited that same recap, even though sections labeled
+Sessions 5 and 4 were also supplied. The different-source control therefore
+failed. Eleven native body-read events and one search were recorded; overlapping
+partial transport counts are not distinct-source totals. The 303-second run
+includes audit waits and is not comparable latency evidence. This unpaired
+result does not establish a cause or a V5 outcome. Preserve the failure and
+verify both source selection and final citation on the V5 candidate.
