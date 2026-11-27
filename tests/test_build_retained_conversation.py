@@ -187,10 +187,25 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
 
     original_authorize = AgentConversationService.authorize_native_writer
     tampered = []
+    stale_pointer_rejections = []
     def checked_authorize(owner, world, conversation, turn_id, **values):
         from apps.live_control_server.services.agent_turn_service import _json_node_count
         prior = owner.inspect_turn(world_id=world, turn_id=turn_id)
-        if retained.admission(prior.graph_context_execution) is not None:
+        admission = retained.admission(prior.graph_context_execution)
+        if isinstance(admission, t.BuildPriorBodyEvidenceAdmittedV3):
+            lock_world_state = repository.lock_world_state
+
+            def lock_stale_pointer(conn, world_id):
+                pointer = lock_world_state(conn, world_id)
+                return pointer.model_copy(update={'revision': pointer.revision + 1})
+
+            with monkeypatch.context() as stale:
+                stale.setattr(repository, 'lock_world_state', lock_stale_pointer)
+                with pytest.raises(ApplicationStateConflictError, match='lost its active conversation fence'):
+                    original_authorize(owner, world, conversation, turn_id, **values)
+            assert owner.inspect_turn(world_id=world, turn_id=turn_id) == prior
+            stale_pointer_rejections.append(turn_id)
+        if admission is not None:
             for mutation in ('omit', 'change'):
                 request = json.loads(values['prepared_request_json'])
                 if mutation == 'omit':
@@ -254,6 +269,7 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
         response = case.client.post('/api/live/agent/turn', json=case.request | {
             'turn_id': str(uuid4()), 'message': synthesis})
         assert response.status_code == 200, response.text
+    assert len(stale_pointer_rejections) == (4 if discussion else 0)
     assert decoded_rows[0] == {'rows': turn_count, 'exact_prefix_reused': False}
     assert decoded_rows[1:] == [{'rows': 1, 'exact_prefix_reused': True}] * 3
     (tmp_path / 'retained-performance.json').write_text(json.dumps({
