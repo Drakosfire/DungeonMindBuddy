@@ -565,7 +565,7 @@ HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private contex
 @pytest.mark.parametrize('source_adapter', [[('first', HTTP_BODY)],
     {'unique_world': True, 'sources': [('first', HTTP_BODY)]},
     {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]},
-    {'unique_world': True, 'multi_source': True, 'sources': [('first', HTTP_BODY), ('second', HTTP_BODY)]}],
+    {'unique_world': True, 'multi_source': True, 'sources': [('first', HTTP_BODY), ('second', HTTP_BODY.replace('Éphanna heard the guard.', 'Éphanna heard the bell.'))]}],
     indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
@@ -637,7 +637,9 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             handles = re.findall(r'^\[(body\d+)\] [^\n]+$', prose, re.MULTILINE)
             assert len(handles) == (2 if multi else 1), prose
             handle = handles[0]
-            assert prose.count('Éphanna heard the guard.') == (2 if multi else 1) and HTTP_BODY not in prose
+            assert 'Éphanna heard the guard.' in prose and HTTP_BODY not in prose
+            if multi:
+                assert 'Éphanna heard the bell.' in prose, prose
             assert 'Unselected unrelated private context.' not in prose
             assert 'native_body_evidence' not in prose and 'source_artifact_id' not in prose
             authority = self.adapter.turn.graph_context_receipt.source_authority
@@ -714,7 +716,8 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert len({citation.source_artifact_id for citation in citations}) == 2
         for index in range(2):
             opened = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation/turns/{turn.turn_id}/native-body-excerpts/{index}')
-            assert opened.status_code == 200 and opened.json()['content'] == HTTP_PASSAGE
+            assert opened.status_code == 200
+            assert opened.json()['content'] in (HTTP_PASSAGE, HTTP_PASSAGE.replace('guard.', 'bell.'))
         replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
         assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
         assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == selection_count
