@@ -301,7 +301,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     from .rules_authority_events import validate_native_packet_writer
     from .rules_authority_policy import rules_capability, rules_submission_authorization_id
     from .rules_authority_events import ref_map
-    from .plan_writer_output_schema import native_output_format
+    from .plan_writer_output_schema import has_native_citable_evidence, native_output_format
     execution = RulesExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
     writers = [e for e in graph_execution.events if type(e) in NATIVE_WRITER_TYPES
         and e.provider_attempt_id == provider_attempt_id]
@@ -383,10 +383,10 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
             from .types import BuildPriorBodyEvidenceAdmittedV3
             retained_discussion = any(isinstance(event, BuildPriorBodyEvidenceAdmittedV3)
                                       for event in graph_execution.events)
-            if ((not retained_discussion or allow_retained_format)
-                    and (not allow_retained_format or actual_format == "surface_native_evidence_selectors_v7"
-                         or evidence.semantic_reply and not retained_discussion)
-                    and any(is_anchored_discussion(event) for event in graph_execution.events)):
+            if ((allow_retained_format and actual_format == "surface_native_evidence_selectors_v7")
+                    or (not allow_retained_format and not retained_discussion
+                        and not has_native_citable_evidence(evidence.frame))) and any(
+                is_anchored_discussion(event) for event in graph_execution.events):
                 version = 7
         if isinstance(action, NativeBuildActionV1) and not allow_retained_format and not evidence.supplied_source_references:
             raise ValueError('Current Build dispatch requires supplied source references')
@@ -418,19 +418,25 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         if (type(action) in (NativePlanActionV2, NativePlanActionV3) and evidence.related_pages
                 and not allow_retained_format and not evidence.supplied_source_references):
             raise ValueError('Current Plan saved-page dispatch requires supplied source references')
-        # Both semantic generations use the same name. On readback, admit
-        # the successor only if its complete sealed format matches exactly.
-        if allow_retained_format and evidence.semantic_reply and version == 7:
-            successor = native_output_format(evidence.frame,frame,evidence.output_work_frame,
-                build_local=evidence.build_local,format_version=2,execution=graph_execution,
-                generic_reply_limits=evidence.generic_limitations, lore_outcome=evidence.lore_outcome,
-                semantic_reply=True)
-            if canonical_bytes(body.get('text',{}).get('format')) == canonical_bytes(successor):
-                version = 2
         output_format=native_output_format(evidence.frame,frame,evidence.output_work_frame,
             build_local=evidence.build_local,format_version=version,execution=graph_execution,
             generic_reply_limits=evidence.generic_limitations, lore_outcome=evidence.lore_outcome,
             semantic_reply=evidence.semantic_reply)
+        # Semantic v2 and v7 share a name. Accept an old v7 only when its
+        # complete sealed schema matches, never by the shared name alone.
+        if (allow_retained_format and evidence.semantic_reply and version == 2
+                and evidence.build_local and not frame.lookups):
+            from .build_intentional_response import is_anchored_discussion
+        if (allow_retained_format and evidence.semantic_reply and version == 2
+                and evidence.build_local and not frame.lookups
+                and canonical_bytes(body.get('text',{}).get('format')) != canonical_bytes(output_format)
+                and any(is_anchored_discussion(event) for event in graph_execution.events)):
+            old_format = native_output_format(evidence.frame,frame,evidence.output_work_frame,
+                build_local=True,format_version=7,execution=graph_execution,
+                generic_reply_limits=evidence.generic_limitations, lore_outcome=evidence.lore_outcome,
+                semantic_reply=True)
+            if canonical_bytes(body.get('text',{}).get('format')) == canonical_bytes(old_format):
+                output_format = old_format
     if (auth.request_envelope_sha256 != expected_envelope_sha256
             or included.request_envelope_sha256 != expected_envelope_sha256
             or auth.matched_outputs != outputs or included.matched_outputs != outputs

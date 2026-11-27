@@ -417,7 +417,9 @@ class PlanJevWriter:
         if self.shared:
             from application_state.agent_conversation.native_writer import model_frame, model_work_frame
             from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
-            from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+            from application_state.agent_conversation.plan_writer_output_schema import (
+                has_native_citable_evidence, native_output_format,
+            )
             turn=adapter.fence.turn
             if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1:
                 from application_state.agent_conversation.build_intentional_response import selected_action
@@ -461,6 +463,7 @@ class PlanJevWriter:
                 if variant_format:
                     format_version = variant_output_version(self.work_frame)
                 elif (not rule_frame.lookups
+                        and not has_native_citable_evidence(self.frame)
                         and not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV3)
                                     for event in turn.graph_context_execution.events)
                         and any(is_anchored_discussion(event) for event in turn.graph_context_execution.events)):

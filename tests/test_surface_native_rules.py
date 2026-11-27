@@ -360,6 +360,31 @@ def test_retained_format_name_does_not_weaken_exact_schema_proof(lane, surface, 
         normalize(case)
 
 
+def test_anchored_native_evidence_admission_and_historical_v7_readback(lane):
+    from application_state.agent_conversation.build_intentional_response import resolution_for
+
+    context, record, _read = body_case('build', lane)
+    events = [event.model_copy(update={'resolution': resolution_for(record.policy, 'discuss', source_scope='anchored')})
+              if isinstance(event, t.BuildRequestedWorkResolutionV1) else event for event in record.events]
+    record = execution(context.context_receipt_sha256, record.policy, events)
+    current = producing_case(lane, 'build', unused=True, context_record=(context, record), build_local=True)
+    assert normalize(current).base_completion.native_body_citations
+
+    def discussion(value):
+        value['answer_segments'] = [{'kind': 'discussion', 'text': 'A retained discussion.'}]
+    retained = producing_case(lane, 'build', unused=True, context_record=(context, record),
+                             build_local=True, format_version=7, candidate_mutation=discussion)
+    ctx, stored, owner, auth, proof, _capture, kwargs = retained
+    submission = {k: v for k, v in kwargs.items() if k != 'trace'}
+    with pytest.raises(ValueError, match='semantic evidence and work|declarations differ'):
+        verify_native_rules_packet_input(owner, ctx, stored, proof.prepared_request_json,
+            provider_attempt_id=auth.provider_attempt_id,
+            expected_envelope_sha256=auth.envelope_sha256, **submission)
+    verify_native_rules_packet_input(owner, ctx, stored, proof.prepared_request_json,
+        provider_attempt_id=auth.provider_attempt_id,
+        expected_envelope_sha256=auth.envelope_sha256, allow_retained_format=True, **submission)
+
+
 def test_semantic_build_shared_name_admits_current_and_exact_retained_schema(lane):
     from application_state.agent_conversation.build_intentional_response import resolution_for
 
@@ -371,10 +396,9 @@ def test_semantic_build_shared_name_admits_current_and_exact_retained_schema(lan
                              build_local=True, current_build=True)
     assert normalize(current).base_completion.native_body_citations
     ctx, stored, owner, auth, proof, _capture, kwargs = current
-    with pytest.raises(ValueError, match='declarations differ'):
-        verify_native_rules_packet_input(owner, ctx, stored, proof.prepared_request_json,
-            provider_attempt_id=auth.provider_attempt_id, expected_envelope_sha256=auth.envelope_sha256,
-            **{k: v for k, v in kwargs.items() if k != 'trace'})
+    verify_native_rules_packet_input(owner, ctx, stored, proof.prepared_request_json,
+        provider_attempt_id=auth.provider_attempt_id, expected_envelope_sha256=auth.envelope_sha256,
+        **{k: v for k, v in kwargs.items() if k != 'trace'})
 
     def discussion(value):
         value['answer_segments'] = [{'kind': 'discussion', 'text': 'A retained discussion.'}]
@@ -382,8 +406,9 @@ def test_semantic_build_shared_name_admits_current_and_exact_retained_schema(lan
         build_local=True, current_build=True, format_version=7, candidate_mutation=discussion)
     ctx, stored, owner, auth, proof, _capture, kwargs = retained
     submission = {k: v for k, v in kwargs.items() if k != 'trace'}
-    verify_native_rules_packet_input(owner, ctx, stored, proof.prepared_request_json,
-        provider_attempt_id=auth.provider_attempt_id, expected_envelope_sha256=auth.envelope_sha256, **submission)
+    with pytest.raises(ValueError, match='declarations differ'):
+        verify_native_rules_packet_input(owner, ctx, stored, proof.prepared_request_json,
+            provider_attempt_id=auth.provider_attempt_id, expected_envelope_sha256=auth.envelope_sha256, **submission)
     verify_native_rules_packet_input(owner, ctx, stored, proof.prepared_request_json,
         provider_attempt_id=auth.provider_attempt_id, expected_envelope_sha256=auth.envelope_sha256,
         allow_retained_format=True, **submission)
