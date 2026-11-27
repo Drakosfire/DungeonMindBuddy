@@ -462,7 +462,7 @@ def test_graph_need_first_provider_is_still_bounded_by_frozen_allowance():
             auth.model_copy(update={'input_tokens': context.assembled_input.context_window_limit + 1}))
 
 
-def test_no_graph_writer_authorization_roundtrips_and_rejects_late_graph_events():
+def no_graph_writer_prefix():
     from uuid import uuid4
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1, validate_context_binding
@@ -485,6 +485,18 @@ def test_no_graph_writer_authorization_roundtrips_and_rejects_late_graph_events(
         operation='finish_retrieval', selected_handles=[], post_read_plan='finish_if_selected_reads_succeed')
     before_writer = execution(context.context_receipt_sha256, policy,
         [*closed.events, opening, *outcomes(opening, 6), selected])
+    return context, before_writer
+
+
+def test_no_graph_writer_authorization_roundtrips_and_rejects_late_graph_events():
+    from uuid import uuid4
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_execution import validate_context_binding
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQueryStartedV1
+    from application_state.agent_conversation.native_writer import model_frame
+    from tests.test_surface_native_execution import execution, native_writer
+    context, before_writer = no_graph_writer_prefix()
+    policy = before_writer.policy
     frame = model_frame(context, before_writer)
     writer = native_writer('plan', policy, sequence=9).model_copy(update={'frame_sha256': t.canonical_sha256(frame)})
     retained = execution(context.context_receipt_sha256, policy, [*before_writer.events, writer])
@@ -564,3 +576,105 @@ def test_pending_graph_allows_exact_authored_reference_after_query_settlement():
     retained = execution(context.context_receipt_sha256, policy, [capture, auth, *outcomes(auth, 2), observed, grant, start, settlement])
     assert validate_context_binding(context, retained) == retained
     assert validate_context_binding(context, type(retained).model_validate_json(retained.model_dump_json(by_alias=True))) == retained
+    from application_state.agent_conversation.authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2
+    authored_grant = BuildAuthoredReferenceAuthorizedV2(event_id=uuid4(), sequence=8, capture_event_id=capture.event_id,
+        node_id=ref.node_id, context_receipt_sha256=context.context_receipt_sha256,
+        execution_policy_sha256=retained.execution_policy_sha256, query_sha256=policy.native_query_sha256)
+    authored_read = BuildAuthoredReferenceReadV2(event_id=uuid4(), sequence=9, capture_event_id=capture.event_id,
+        authorization_event_id=authored_grant.event_id, node_id=ref.node_id,
+        statement_reads=(), assertion_reads=(), unavailable_statement_ids=(), unavailable_assertion_ids=(), status='complete')
+    with_read = execution(context.context_receipt_sha256, policy, [*retained.events, authored_grant, authored_read])
+    assert validate_context_binding(context, with_read) == with_read
+    assert validate_context_binding(context, type(with_read).model_validate_json(with_read.model_dump_json(by_alias=True))) == with_read
+
+
+def test_no_graph_writer_reconstructs_actual_sdk_request_without_false_graph_evidence():
+    import asyncio
+    from application_state.agent_conversation.native_writer import model_frame, model_work_frame, verify_input_records
+    from tests.test_surface_native_writer import actual_sdk_request, authorize, work_submission
+    context, prefix = no_graph_writer_prefix()
+    from application_state.agent_conversation.native_evidence_view import semantic_frame as evidence_view
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame as work_view
+    frame = model_frame(context, prefix)
+    work = work_submission(context, prefix)
+    rendered_work = work_view(model_work_frame(context, prefix, **work), prefix)
+    rendered_frame = evidence_view(frame)
+    raw = asyncio.run(actual_sdk_request(rendered_frame, work_frame=rendered_work))
+    retained, authorization = authorize(context, prefix, raw, rendered_frame)
+    supports = verify_input_records(context, retained, authorization, raw, **work)
+    assert supports.frame['native_statements']['status'] == 'not_requested'
+    assert not supports.native_statements and not supports.native_assertions
+    reopened = type(retained).model_validate_json(retained.model_dump_json(by_alias=True))
+    assert verify_input_records(context, reopened, authorization, raw, **work) == supports
+
+
+def test_no_graph_current_plan_prose_reconstructs_from_actual_sdk_request():
+    import asyncio
+    import httpx
+    from openai import AsyncOpenAI
+    from application_state.agent_conversation.native_evidence_view import render_plan_evidence, semantic_frame as evidence_view
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame as work_view
+    from application_state.agent_conversation.native_writer import model_frame, model_work_frame, verify_input_records
+    from tests.test_surface_native_writer import authorize, work_submission
+    context, prefix = no_graph_writer_prefix()
+    work = work_submission(context, prefix)
+    rendered_frame = evidence_view(model_frame(context, prefix, passages_only=True))
+    rendered_work = work_view(model_work_frame(context, prefix, **work), prefix)
+    prose = render_plan_evidence(rendered_frame, rendered_work)
+    assert 'Graph knowledge' not in prose
+    sent = []
+    def capture(request):
+        sent.append(request.content.decode())
+        return httpx.Response(200, request=request, json={'id': 'resp_synthetic', 'object': 'response',
+            'created_at': 1, 'model': 'gpt-6-luna', 'status': 'completed', 'output': []})
+    async def request():
+        async with AsyncOpenAI(api_key='synthetic-not-secret', http_client=httpx.AsyncClient(
+                transport=httpx.MockTransport(capture))) as client:
+            await client.responses.create(model='gpt-6-luna', input=[{'role': 'user', 'content': prose}],
+                tools=[], stream=False, max_output_tokens=4096)
+    asyncio.run(request())
+    assert len(sent) == 1
+    retained, authorization = authorize(context, prefix, sent[0], rendered_frame)
+    supports = verify_input_records(context, retained, authorization, sent[0], **work)
+    assert supports.frame['native_statements']['status'] == 'not_requested'
+    assert not supports.native_statements and not supports.native_assertions
+    from application_state.agent_conversation.native_completion import normalize_candidate
+    candidate = {'schema': supports.frame['answer_policy'], 'answer_segments': [
+        {'kind': 'proposal', 'label': 'invented_idea', 'text': 'A quiet harbor.'}],
+        'limitations': [], 'requested_detail_gaps': []}
+    completion = normalize_candidate(candidate, context, retained, authorization, supports)
+    assert not completion.native_body_citations and not completion.native_clause_citations
+    assert not completion.native_assertion_citations
+    assert all(getattr(segment, 'kind', None) != 'limitation' for segment in completion.answer_segments)
+    from uuid import uuid4
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_completion import validate_retained_completion
+    from tests.test_surface_native_execution import execution
+    start = t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=len(retained.events),
+        provider_attempt_id=authorization.provider_attempt_id, outcome='sdk_entered')
+    received = t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=start.sequence + 1,
+        provider_attempt_id=authorization.provider_attempt_id, outcome='response_received',
+        request_id='synthetic-response', response_sha256='c'*64)
+    binding = t.CompletionBindingEventV1(kind='completion_binding', event_id=uuid4(), sequence=received.sequence + 1,
+        provider_attempt_id=authorization.provider_attempt_id, completion_sha256=t.canonical_sha256(completion),
+        claim_graph_event_ids={})
+    finished = execution(context.context_receipt_sha256, retained.policy, [*retained.events, start, received, binding])
+    reopened = type(finished).model_validate_json(finished.model_dump_json(by_alias=True))
+    validate_retained_completion(completion, context, reopened, authorization.provider_attempt_id, {})
+
+
+@pytest.mark.parametrize('event_class', [
+    'NativePlanGraphNeedAuthorizedV1', 'NativePlanGraphNeedObservedV1', 'NativePlanGraphQueryAuthorizedV1',
+    'NativePlanGraphQueryStartedV1', 'NativePlanGraphQueryClosedV1', 'NativePlanGraphQueryFailedV1',
+    'NativePlanGraphQuerySettledV1',
+])
+def test_reader_only_generic_append_refuses_new_graph_events_before_database(event_class):
+    from uuid import uuid4
+    from application_state.agent_conversation import AgentConversationService, native_plan_graph_need, native_retrieval
+    from application_state.errors import ApplicationStateValidationError
+    event_type = getattr(native_plan_graph_need, event_class, None) or getattr(native_retrieval, event_class)
+    event = event_type.model_construct()
+    service = AgentConversationService()
+    with pytest.raises(ApplicationStateValidationError, match='producer is not active'):
+        service._append_graph_execution_event('synthetic-world', uuid4(), uuid4(), expected_revision=1,
+            expected_attempt=1, event=event, duplicate_key='event_id')
