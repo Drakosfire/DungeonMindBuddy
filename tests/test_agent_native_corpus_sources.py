@@ -696,15 +696,11 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     if not direct:
         assert groups[0] == ('Source lexical navigation; not evidence or semantic completeness',)
         assert groups[-1] == ('Exact source section',)
-    elif direct:
-        assert len(groups) == 3 and len(groups[0]) == 1
-        assert groups[0][0].startswith('Expand to all other admitted native sources')
-        assert groups[1:] == [
+    else:
+        assert groups == [
             ('Explicit admitted full-source read; metadata choice, not evidence',),
             ('Select passage from inspected source',),
         ]
-    else:
-        assert groups == [('Exact source section',)]
     assert 'max_output_tokens' not in json.loads(wire.calls[0].content)
     turn = wire.adapter.turn
     from application_state.agent_conversation.native_corpus import (
