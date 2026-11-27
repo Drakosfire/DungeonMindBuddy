@@ -988,6 +988,9 @@ def test_reader_reopens_fixture_only_host_clarification_from_app(source_adapter,
             with pytest.raises(CheckViolation), conn.transaction():
                 conn.execute("UPDATE agent.turn SET completion=jsonb_set(completion,%s,%s::jsonb) WHERE turn_id=%s",
                     (path, value, turn.turn_id))
+        with pytest.raises(CheckViolation), conn.transaction():
+            conn.execute("UPDATE agent.turn SET graph_context_execution=jsonb_set(graph_context_execution,"
+                "'{events,-2,choice}', '\"no_graph\"'::jsonb) WHERE turn_id=%s", (turn.turn_id,))
     tampered = reopened.model_dump(mode='json', by_alias=True)
     tampered['completion']['observation_event_id'] = str(uuid4())
     with pytest.raises(ValueError):

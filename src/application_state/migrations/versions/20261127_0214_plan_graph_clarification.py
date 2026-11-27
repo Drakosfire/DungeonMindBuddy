@@ -29,6 +29,12 @@ _CLARIFICATION = """
    AND graph_context_receipt#>>'{native_query,schema}'='dmb_native_plan_graph_query_pending_v1'
    AND graph_context_execution#>>'{events,-1,kind}'='native_plan_graph_clarification_v1'
    AND graph_context_execution#>>'{events,-1,observation_event_id}'=completion->>'observation_event_id'
+   AND graph_context_execution#>>'{events,-2,kind}'='native_plan_graph_need_observed_v1'
+   AND graph_context_execution#>>'{events,-2,event_id}'=completion->>'observation_event_id'
+   AND graph_context_execution#>>'{events,-2,choice}'='uncertain'
+   AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(graph_context_execution->'events') AS event
+       WHERE event->>'kind' NOT IN ('native_plan_graph_need_authorized_v1', 'provider_outcome',
+           'native_plan_graph_need_observed_v1', 'native_plan_graph_clarification_v1'))
    AND NOT jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")')
  ELSE jsonb_typeof(completion)='object'
 """
