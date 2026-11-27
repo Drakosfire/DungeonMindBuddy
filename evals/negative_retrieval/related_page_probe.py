@@ -28,9 +28,16 @@ def observe_related_page_owners():
                 row = {"owner": name, "state": "entered"}
                 if name == "related_page_materialization" and args:
                     pointer = args[0]
-                    identity = pointer.get("document_id") if isinstance(pointer, dict) else getattr(pointer, "document_id", None)
+                    get = pointer.get if isinstance(pointer, dict) else lambda key: getattr(pointer, key, None)
+                    identity = get("document_id")
                     if isinstance(identity, (str, UUID)) and str(identity):
                         row["document_id"] = str(identity)
+                    world = get("world_id")
+                    revision = get("registry_revision")
+                    if isinstance(world, str) and world:
+                        row["world_id"] = world
+                    if type(revision) is int and revision > 0:
+                        row["registry_revision"] = revision
                 with record_lock:
                     records.append(row)
                 try:
@@ -51,7 +58,7 @@ def observe_related_page_owners():
         _lock.release()
 
 
-def acquisition_labels(records, *, label_by_document=None, completed_only=False):
+def acquisition_labels(records, *, label_by_document=None, completed_only=False, primary_pointer=None):
     """Project observed page-materialization attempts as unmapped reads.
 
     Document identity is host-side evidence, never model input. Materialization may be witnessed again
@@ -68,7 +75,12 @@ def acquisition_labels(records, *, label_by_document=None, completed_only=False)
     ):
         raise ValueError("Malformed related-page probe evidence")
     labels = label_by_document or {}
-    return [labels.get(row.get("document_id"), UNKNOWN) for row in records
+    def label(row):
+        if (primary_pointer is not None and type(row.get("registry_revision")) is int
+                and all(row.get(key) == value for key, value in primary_pointer.items())):
+            return "current-page"
+        return labels.get(row.get("document_id"), UNKNOWN)
+    return [label(row) for row in records
             if row["owner"] == "related_page_materialization"
             and (not completed_only or row["state"] == "returned")]
 

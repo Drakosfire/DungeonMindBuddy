@@ -374,6 +374,47 @@ def test_probe_wraps_real_discovery_owner_and_restores_on_exception(monkeypatch)
     assert build_related_pages.discover is original
 
 
+def test_page_probe_records_pointer_on_return_and_failure(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services import build_related_pages
+    from evals.negative_retrieval.related_page_probe import observe_related_page_owners
+
+    pointer = SimpleNamespace(world_id='world', document_id='page', registry_revision=3)
+    def materialize(value):
+        assert records[-1]['state'] == 'entered'
+        if isinstance(value, dict):
+            raise ValueError('unavailable')
+        return 'ok'
+    monkeypatch.setattr(build_related_pages, 'materialize', materialize)
+    with observe_related_page_owners() as records:
+        assert build_related_pages.materialize(pointer) == 'ok'
+        with pytest.raises(ValueError, match='unavailable'):
+            build_related_pages.materialize({'world_id': 'other', 'document_id': 'page', 'registry_revision': 4})
+    assert records == [
+        {'owner': 'related_page_materialization', 'state': 'returned', 'world_id': 'world',
+         'document_id': 'page', 'registry_revision': 3},
+        {'owner': 'related_page_materialization', 'state': 'raised', 'world_id': 'other',
+         'document_id': 'page', 'registry_revision': 4},
+    ]
+
+
+@pytest.mark.parametrize(('world', 'revision', 'expected'), [
+    ('world', 1, 'current-page'), ('other', 1, '<unmapped-acquisition>'),
+    ('world', 2, '<unmapped-acquisition>'), ('world', True, '<unmapped-acquisition>'),
+    (None, 1, '<unmapped-acquisition>'), ('world', None, '<unmapped-acquisition>'),
+])
+def test_page_attempt_label_requires_exact_pointer(world, revision, expected):
+    from evals.negative_retrieval.related_page_probe import acquisition_labels
+    row = {'owner': 'related_page_materialization', 'state': 'returned', 'document_id': 'page'}
+    if world is not None:
+        row['world_id'] = world
+    if revision is not None:
+        row['registry_revision'] = revision
+    primary = {'world_id': 'world', 'document_id': 'page', 'registry_revision': 1}
+    assert acquisition_labels([row], primary_pointer=primary) == [expected]
+    assert acquisition_labels([row]) == ['<unmapped-acquisition>']
+
+
 def test_build_budget_discovers_related_catalog_before_any_decision(monkeypatch):
     from types import SimpleNamespace
     from apps.live_control_server.services import build_related_pages
@@ -2132,17 +2173,20 @@ def test_report_does_not_credit_failed_required_page_materialization(tmp_path):
             assert result["status"] == "unproven"
 
 
-@pytest.mark.parametrize(('state', 'document', 'bound', 'collision', 'expected'), [
-    ('entered', 'primary', True, False, 1),
-    ('returned', 'primary', True, False, 1),
-    ('raised', 'primary', True, False, 1),
-    ('returned', 'foreign', True, False, 0),
-    ('returned', None, True, False, 0),
-    ('returned', 'primary', False, False, None),
-    ('returned', 'primary', True, True, 1),
+@pytest.mark.parametrize(('state', 'document', 'world', 'revision', 'bound', 'collision', 'count', 'label'), [
+    ('entered', 'primary', 'world', 1, True, False, 1, 'current-page'),
+    ('returned', 'primary', 'world', 1, True, False, 1, 'current-page'),
+    ('raised', 'primary', 'world', 1, True, False, 1, 'current-page'),
+    ('returned', 'primary', 'other', 1, True, False, 1, '<unmapped-acquisition>'),
+    ('returned', 'primary', 'world', 2, True, False, 1, '<unmapped-acquisition>'),
+    ('returned', 'primary', None, None, True, False, 1, '<unmapped-acquisition>'),
+    ('returned', 'foreign', 'world', 1, True, False, 0, '<unmapped-acquisition>'),
+    ('returned', None, 'world', 1, True, False, 0, '<unmapped-acquisition>'),
+    ('returned', 'primary', 'world', 1, False, False, None, '<unmapped-acquisition>'),
+    ('returned', 'primary', 'world', 1, True, True, 1, '<unmapped-acquisition>'),
 ])
-def test_report_primary_id_match_is_diagnostic_without_crediting_read(
-        tmp_path, monkeypatch, state, document, bound, collision, expected):
+def test_report_primary_pointer_attempt_without_crediting_read(
+        tmp_path, monkeypatch, state, document, world, revision, bound, collision, count, label):
     import hashlib
     import json
     from uuid import NAMESPACE_URL, uuid5
@@ -2155,7 +2199,7 @@ def test_report_primary_id_match_is_diagnostic_without_crediting_read(
 
     request = {'turn_id': 'turn', 'client_thread_id': 'thread', 'message': 'Use the current page.',
         'owner_scope': {'world_id': 'world'}, 'surface': {'surface_id': 'build', 'instance_id': 'primary'},
-        'primary_work': {'object_id': 'primary'}}
+        'primary_work': {'object_id': 'primary', 'expected_revision': 1}}
     turn = {'turn_id': 'saved', 'idempotency_key': str(uuid5(NAMESPACE_URL, 'dmb-agent-turn:world:turn')),
         'user_text': request['message'], 'lifecycle_status': 'completed', 'provenance': {
             'world_id': 'world', 'surface_id': 'build', 'surface_instance_id': 'primary'},
@@ -2167,6 +2211,10 @@ def test_report_primary_id_match_is_diagnostic_without_crediting_read(
     row = {'owner': 'related_page_materialization', 'state': state}
     if document is not None:
         row['document_id'] = document
+    if world is not None:
+        row['world_id'] = world
+    if revision is not None:
+        row['registry_revision'] = revision
     inventory = [{'document_id': 'other', 'label': 'current-page'}] if collision else []
     artifacts = {'request': request, 'history-before': envelope(history), 'history-after': envelope(history),
         'context-trace': envelope(trace), 'answer-http': envelope({'turn_id': 'turn', 'client_thread_id': 'thread',
@@ -2194,8 +2242,8 @@ def test_report_primary_id_match_is_diagnostic_without_crediting_read(
               'allowed_reads': ['current-page'], 'outcomes': ['clarification']}
     result = report.report_case(tmp_path, {'id': 'case1', 'request': request['message']}, rubric)
     observation, = observations
-    assert observation['reads'] == ['<unmapped-acquisition>']
-    assert result['primary_document_id_attempts_diagnostic'] == expected
+    assert observation['reads'] == [label]
+    assert result['primary_document_id_attempts_diagnostic'] == count
     assert 'current-page' not in observation['completed_reads']
     assert result['checks']['required_evidence'] is None
     assert result['status'] == 'unproven' and result['capture_environment_verified'] is None

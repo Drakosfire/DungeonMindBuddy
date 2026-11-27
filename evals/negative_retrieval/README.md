@@ -432,7 +432,9 @@ qualify a saved-page citation or count that read as a proven violation. The
 `current-page` allowance excludes this case from the zero-allowed-read cohort
 aggregate. With verified fixture binding, the report separately counts probe
 attempts whose document ID matches the primary ID. This is diagnostic only:
-the probe does not bind the world, revision, or returned body, so those
-attempts remain unmapped and cannot credit a completed saved-page read. Preserve
+older probes do not bind world or revision, so those attempts remain unmapped.
+New probes record the pointer's world, document ID and registry revision; only
+an exact match to a verified fixture is labeled `current-page` as an attempt.
+Neither form proves a returned body or completed saved-page read. Preserve
 that distinction when interpreting this case; it is not an exact historical
 replay and does not establish complete capture.
