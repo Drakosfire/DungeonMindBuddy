@@ -694,7 +694,7 @@ def test_future_retained_citation_question_rejects_tied_and_unoffered_votes():
     request = {'questions': {'source_need': {'type': 'choice',
         'instructions': semantic.FUTURE_RETAINED_CITATION_SOURCE_NEED_GUIDANCE,
         'criteria': dict.fromkeys(options)}}}
-    probabilities = {option: float(option in {'anchored', 'source_lookup'}) for option in options}
+    probabilities = {option: (0.5 if option in {'anchored', 'source_lookup'} else 0.0) for option in options}
     with pytest.raises(ValueError):
         semantic.source_need(request, {'answers': {'source_need': {'selected': 'anchored', 'probabilities': probabilities}}})
     probabilities = {option: float(option == 'anchored') for option in options}
