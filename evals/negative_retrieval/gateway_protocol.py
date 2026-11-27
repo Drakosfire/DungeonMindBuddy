@@ -1,6 +1,7 @@
 """Fail-closed PostgreSQL frontend policy for the benchmark gateway.
 
-The default permits only parameter-free constants and transaction controls.
+The default permits only parameter-free constants, transaction controls and
+idle deallocation of prepared statements.
 An experimental host-only policy also accepts one exact fixture revision read.
 Neither policy is an allowlist for a full Buddy turn.
 """
@@ -17,6 +18,7 @@ _SAFE = {
     b'BEGIN': 'transaction',
     b'COMMIT': 'transaction',
     b'ROLLBACK': 'transaction',
+    b'DEALLOCATE ALL': 'session',
 }
 # Exact production query bytes observed in a synthetic owned-clone replay.
 _REVISION_SQL = (b"\n            SELECT work_revision_id, work_object_id, world_id, revision_n,"
@@ -101,12 +103,19 @@ class FrontendPolicy:
                 query = body[:-1]
                 if query not in _SAFE:
                     self.deny('Unapproved SQL')
+                if query == b'DEALLOCATE ALL':
+                    if self.transaction_status != 'I' or self.pending:
+                        self.deny('Deallocation requires an idle session')
+                    self.statements.clear()
+                    self.portals.clear()
                 self._attempt(query, 'simple')
                 self.ready = False
                 self.sync_pending = True
             elif tag == b'P':
                 name, at = _cstring(body, 0)
                 query, at = _cstring(body, at, limit=1024)
+                if query == b'DEALLOCATE ALL':
+                    self.deny('Prepared deallocation is unsupported')
                 revision_query = query == _REVISION_SQL and self._fixture_revision is not None
                 if at + 2 > len(body):
                     self.deny('Malformed Parse')

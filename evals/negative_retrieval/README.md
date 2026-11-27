@@ -661,7 +661,8 @@ or a cohort result on its basis.
 
 `closed_db_gateway.owned_gateway` is a first, deliberately restricted transport
 boundary for an already owned App clone. Its policy accepts only the exact
-parameter-free `SELECT 1`, `SELECT 17`, `BEGIN`, `COMMIT` and `ROLLBACK`
+parameter-free `SELECT 1`, `SELECT 17`, `BEGIN`, `COMMIT`, `ROLLBACK`, and
+idle `DEALLOCATE ALL`
 statements. It rejects other SQL, bound values, COPY, cancellation, replication,
 unknown protocol and pipelining across Sync before forwarding. It retains only
 query hashes, categories and outcomes, never SQL text, values or credentials.
@@ -701,6 +702,18 @@ This narrowly scoped profile does not validate fixture provenance, secure the
 privileged session user from `RESET ROLE`, attest the worker, or authorize an
 ordinary-turn run. The caller must validate the synthetic fixture and implement
 those boundaries separately. It does not establish complete retrieval evidence.
+
+`profiled_gateway` combines an active fixture profile with the closed gateway.
+It checks the profile before listening and again for each backend, then sets
+and verifies the restricted effective role before admitting worker SQL. The
+closed policy rejects role-changing statements and still accepts only constants,
+transaction controls, idle deallocation and the pinned revision query. The session user remains
+privileged, so bypassing the gateway would bypass this protection. The owner
+must prevent profile changes and other session admission for the full run;
+receipt integrity and fixture provenance still depend on the trusted host.
+Role admission performs additional SQL, so its timings are not comparable to
+uninstrumented production latency. This is not an ordinary-turn runner or a
+complete acquisition journal.
 
 Run its client only in a separately verified network-isolated worker with a
 read-only mount of the private socket directory and no database credentials,

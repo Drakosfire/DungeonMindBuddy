@@ -1,6 +1,7 @@
 """Restricted PostgreSQL wire gateway for owned, synthetic benchmark fixtures.
 
-The public policy permits only parameter-free constants and transaction control;
+The public policy permits only parameter-free constants, transaction control and
+idle prepared-statement deallocation;
 an internal fixture-bound policy is experimental. Neither can run Buddy turns
 or qualify an acquisition journal. The trusted host
 retains the owned-clone credential. The untrusted worker receives only a Unix
@@ -88,10 +89,25 @@ def _startup(sock, database):
     raise ProtocolDenied('Too many startup negotiations')
 
 
+def _enter_profile_role(backend, profile, session_user):
+    """Check the pinned active state and switch role before worker admission."""
+    from .clone_role_profile import _snapshot
+    if _snapshot(backend) != profile['active']:
+        raise ProtocolDenied('Clone role profile changed')
+    backend.execute('SET ROLE pg_database_owner')
+    role = backend.execute('''SELECT current_user,session_user,
+        current_setting('row_security'),oid::text,rolcanlogin,rolsuper,
+        rolbypassrls,rolcreaterole,rolcreatedb
+        FROM pg_roles WHERE rolname=current_user''').fetchone()
+    if role != ('pg_database_owner', session_user, 'on', profile['active']['role'][0],
+                False, False, False, False, False):
+        raise ProtocolDenied('Backend restricted role differs')
+
+
 class _ClosedDatabaseGateway:
     """Single-use, bounded gateway. Its seal describes transport only."""
 
-    def __init__(self, directory, dsn, identity, *, fixture_revision=None):
+    def __init__(self, directory, dsn, identity, *, fixture_revision=None, role_profile=None):
         self.directory = Path(directory)
         self.path = self.directory / '.s.PGSQL.15432'
         self._dsn, self._identity = dsn, dict(identity)
@@ -102,6 +118,7 @@ class _ClosedDatabaseGateway:
         if fixture_revision is not None and not isinstance(fixture_revision, UUID):
             raise TypeError('fixture_revision must be a host-validated UUID')
         self._fixture_revision = fixture_revision
+        self._role_profile = role_profile
         self._lock = Lock()
         self._stop = Event()
         self._listener = None
@@ -219,6 +236,8 @@ class _ClosedDatabaseGateway:
                                           str(self._identity['system_identifier']),
                                           self._identity['user'], self._identity['user'])):
                         raise ProtocolDenied('Backend differs from owned local database')
+                    if self._role_profile is not None:
+                        _enter_profile_role(backend, self._role_profile, self._identity['user'])
                     client.sendall(_message(b'R', struct.pack('!I', 0)))
                     for key in ('server_version', 'server_encoding', 'client_encoding', 'DateStyle',
                                 'integer_datetimes', 'standard_conforming_strings', 'TimeZone', 'IntervalStyle'):
@@ -348,9 +367,10 @@ class _ClosedDatabaseGateway:
         return {'schema': 'dmb_negative_retrieval_closed_db_gateway_v1',
                 'status': 'transport_sealed' if clean else 'unsealed',
                 'sessions': sessions, 'errors': errors, 'bytes': total_bytes,
-                'limitations': [('constant, transaction-control and one fixture-bound revision SQL only'
+                'limitations': [('constant, transaction-control, deallocation and one fixture-bound revision SQL only'
                                  if self._fixture_revision is not None
-                                 else 'constant and transaction-control SQL only'),
+                                 else 'constant, transaction-control and deallocation SQL only'),
+                                *(['role admission adds database queries and latency'] if self._role_profile is not None else []),
                                 'worker and container isolation are not attested',
                                 'not a complete acquisition journal or qualified benchmark']}
 
@@ -367,6 +387,42 @@ def owned_gateway(directory):
         raise ValueError('Gateway target does not match its owner receipt')
     identity['user'] = connection['user']  # In-memory only; never sent to the worker or journal.
     gateway = _ClosedDatabaseGateway(Path(directory).absolute(), dsn, identity).start()
+    try:
+        yield gateway
+    finally:
+        if not gateway._finished:
+            failure = sys.exc_info()[1]
+            try:
+                gateway._close()
+            except BaseException as cleanup:
+                if failure is None:
+                    raise
+                failure.add_note('Gateway cleanup failed: ' + type(cleanup).__name__)
+            else:
+                if gateway._errors or not gateway._closed:
+                    error = RuntimeError('Gateway cleanup or observation was incomplete')
+                    if failure is None:
+                        raise error
+                    failure.add_note(str(error))
+
+
+@contextmanager
+def profiled_gateway(directory, receipt_path):
+    """Use an active host-owned fixture profile; caller ensures fixture provenance."""
+    from uuid import UUID
+    from . import clone_role_profile as profile
+    dsn, identity, run = profile._owner()
+    path = profile._receipt_path(receipt_path, run)
+    receipt, _ = profile._load(path)
+    if receipt.get('identity') != identity:
+        raise ValueError('Profile receipt identifies a different clone')
+    revision = UUID(receipt['revision'])
+    with profile._connect(dsn, identity) as conn:
+        profile._lock_and_check_idle(conn)
+        if profile._snapshot(conn) != receipt.get('active'):
+            raise ValueError('Clone role profile is not active')
+    gateway = _ClosedDatabaseGateway(Path(directory).absolute(), dsn, identity,
+                                     fixture_revision=revision, role_profile=receipt).start()
     try:
         yield gateway
     finally:
