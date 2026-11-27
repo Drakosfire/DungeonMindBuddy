@@ -104,7 +104,7 @@ def test_plan_fixture_requires_active_committed_revision(status):
 
 
 
-@pytest.mark.parametrize("mismatch", [None, "conversation", "message", "extra", "status", "paginated"])
+@pytest.mark.parametrize("mismatch", [None, "conversation", "message", "extra", "status", "paginated", "missing_reply"])
 def test_pinned_plan_history_requires_exact_completed_prefix(mismatch):
     from evals.buddy_benchmark.workflow import require_pinned_history
 
@@ -129,6 +129,9 @@ def test_pinned_plan_history_requires_exact_completed_prefix(mismatch):
         history["turns"].append({**turn, "sequence": 2})
     if mismatch == "status":
         turn["lifecycle_status"] = "interrupted"
+    if mismatch == "missing_reply":
+        turn["assistant_text"] = None
+        pin["prior_turns"][0]["assistant_text_sha256"] = None
     if mismatch is None:
         require_pinned_history(history, pin)
     else:

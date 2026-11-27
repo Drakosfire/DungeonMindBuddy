@@ -491,6 +491,8 @@ def require_pinned_history(history, expected, *, allow_interrupted=False):
         if status != "completed" and not (allow_interrupted and status == "interrupted"):
             raise ValueError("Active conversation differs from the pinned conversation history")
         answer = turn["assistant_text"]
+        if status == "completed" and not isinstance(answer, str):
+            raise ValueError("Active conversation differs from the pinned conversation history")
         row = {
             "turn_id": turn["turn_id"], "sequence": turn["sequence"],
             "user_text_sha256": sha256(turn["user_text"].encode("utf-8")).hexdigest(),
