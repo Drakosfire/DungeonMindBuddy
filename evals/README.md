@@ -361,6 +361,15 @@ entry's `seed` records `page_revision`, `page_sha256`, `working_copy`
 restores the fixture transactionally in the owned clone after migration. The
 ordinary capture checks the saved page and active history before sending.
 
+For a reviewed Work Plan recovery control, set
+`browser_capture.recover_work_plan_disconnect` on a `live_build` member that
+already pins `reviewed_work_plan`. The relay holds the first decision transport
+locally until the mounted browser disconnects. The browser reopens the plan and
+the harness verifies the same receipt and turn, one Send, and unchanged deferred
+steps. The provider-free control ends the held attempt deliberately. Its
+`work_plan_disconnect` result measures recovery and carries no ordinary answer
+or fulfillment grade.
+
 Use `protected_work_objects` for stable fixtures that later members depend
 on. Give intentional page changes their own isolated targets and verify them
 with the existing browser owner's readback. Cases that need the same mutable
