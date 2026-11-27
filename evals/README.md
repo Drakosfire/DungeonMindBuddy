@@ -352,6 +352,15 @@ fixture, or `browser_control` for Ingest name review or Play Choice. The
 usual per-surface rules and evidence pins still apply. Provider-free workers
 drop the Jev and writer credentials inherited from the parent.
 
+For a retained Build conversation, the first `request` member can declare
+`build_fixture_restore` with `conversation_export` and `page_export` digest pins.
+The member must also pin `build_history` and use `build_sequence`. The restore
+entry's `seed` records `page_revision`, `page_sha256`, `working_copy`
+(`null` or a revision and digest pair), `active_conversation_id`, and
+`pointer_revision`. The page must be in `protected_work_objects`. The harness
+restores the fixture transactionally in the owned clone after migration. The
+ordinary capture checks the saved page and active history before sending.
+
 Use `protected_work_objects` for stable fixtures that later members depend
 on. Give intentional page changes their own isolated targets and verify them
 with the existing browser owner's readback. Cases that need the same mutable

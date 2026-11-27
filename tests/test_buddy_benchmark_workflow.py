@@ -1961,3 +1961,40 @@ def test_native_citation_reopen_verifies_exact_binding_and_records_failures(tmp_
     assert [r["exact_reopen"] for r in rows] == [True, False, False, False, False, False]
     assert rows[0]["observed_excerpt_sha256"] == citation["excerpt_sha256"]
     assert rows[4]["transport_error"] == "ReadTimeout"
+
+
+def test_cohort_restore_rejects_different_request_page_before_database(tmp_path, monkeypatch):
+    from evals.buddy_benchmark import cohort_capture, cohort_fixture
+
+    restored = "77940b05-c350-428a-88a3-2fc433ad6df0"
+    member = put(tmp_path / "member.json", {
+        "schema": "dmb_ordinary_benchmark_v1",
+        "world": "test",
+        "conversation_mode": "build_sequence",
+        "build_history": {},
+        "cases": [{"id": "STANDALONE-PAGE-3", "question": "Draft the requested page."}],
+        "request_template": {"primary_work": {
+            "kind": "build", "object_id": "another-page",
+            "expected_revision": 25, "expected_content_sha256": "0" * 64,
+        }},
+    })
+    put(tmp_path / "cohort.json", {
+        "schema": "dmb_context_capture_cohort_v1",
+        "protected_work_objects": [restored],
+        "members": [{**member, "build_fixture_restore": {"seed": {
+            "page_revision": 24, "page_sha256": "0" * 64, "working_copy": None,
+            "active_conversation_id": None, "pointer_revision": 0,
+        }}}],
+    })
+    monkeypatch.setenv(cohort_capture.APP_DSN, "postgresql://127.0.0.1/app")
+    monkeypatch.setenv(cohort_capture.CORE_DSN, "postgresql://127.0.0.1/core")
+    monkeypatch.setattr(cohort_fixture, "load_build_fixture", lambda *args, **kwargs: (
+        {}, {"object": {"work_object_id": restored, "object_revision": 25},
+             "revision": {"content_sha256": "0" * 64}},
+    ))
+    with pytest.raises(ValueError, match="Build fixture page must match the first ordinary request"):
+        cohort_capture.capture_cohort(
+            tmp_path / "cohort.json", tmp_path / "output",
+            workers=1, clone_app=True, context_only=False,
+        )
+    assert not (tmp_path / "output").exists()
