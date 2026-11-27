@@ -7056,9 +7056,9 @@ export function WorldPlanAgentConversation({
                 && replySourceLabel(sourcedCompletion.answer_context_status, turn.provenance.surface_id) ? (
                 <span className="world-plan-agent-conversation__answer-basis" aria-label="Answer sources"
                   title={graphContextStatusLabel(sourcedCompletion.answer_context_status)}>
-                  {"answer_basis" in sourcedCompletion && sourcedCompletion.answer_basis === "mixed_evidence" && sourcedCompletion.answer_context_status.startsWith("graph_grounded")
+                  {sourcedCompletion.answer_basis === "mixed_evidence" && sourcedCompletion.answer_context_status.startsWith("graph_grounded")
                     ? `World evidence${sourcedCompletion.answer_context_status.endsWith("_partial") ? " · partial" : ""}`
-                    : "answer_basis" in sourcedCompletion && sourcedCompletion.answer_basis.endsWith("_plus_session_evidence") ? "Session evidence" : replySourceLabel(sourcedCompletion.answer_context_status, turn.provenance.surface_id)}
+                    : sourcedCompletion.answer_basis.endsWith("_plus_session_evidence") ? "Session evidence" : replySourceLabel(sourcedCompletion.answer_context_status, turn.provenance.surface_id)}
                 </span>
               ) : null}
               {rulesContextForTurn(turn) && <span className="world-plan-agent-conversation__answer-basis" aria-label="Rules answer sources">

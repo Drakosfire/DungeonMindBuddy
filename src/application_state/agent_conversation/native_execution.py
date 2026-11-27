@@ -37,7 +37,7 @@ from .native_plan_opening import (
     resolve_composed_opening,
 )
 from .native_plan_graph_need import (
-    NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1, NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+    NativePlanGraphNeedObservedV1, NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
     NativePlanGraphQueryClosedV1, NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1,
 )
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
@@ -705,7 +705,7 @@ SurfaceNativeEvent = Annotated[
     t.ProviderAttemptAuthorizedEventV3 | t.ProviderAttemptAuthorizedEventV5
     | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | NativePlanOpeningAuthorizedV1
     | NativePlanAuthorScopeAuthorizedV1 | NativePlanAuthorScopeObservedV1 | NativePlanGraphNeedAuthorizedV1
-    | NativePlanGraphNeedObservedV1 | NativePlanGraphClarificationEventV1 | NativePlanGraphQueryAuthorizedV1 | NativePlanGraphQueryStartedV1
+    | NativePlanGraphNeedObservedV1 | NativePlanGraphQueryAuthorizedV1 | NativePlanGraphQueryStartedV1
     | NativePlanGraphQueryClosedV1 | NativePlanGraphQueryFailedV1 | NativePlanGraphQuerySettledV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
     | t.BuildGraphReferenceCompletionBindingV1
@@ -1210,23 +1210,11 @@ def validate_turn_fields(receipt, execution, provenance, intent_fingerprint, com
 
 def _join_turn_fields(receipt, execution, completion, assistant_text):
     """Complete the structural join after the caller has checked the context binding."""
-    from .native_plan_graph_need import NativePlanGraphClarificationCompletionV1, NativePlanGraphClarificationEventV1
     bindings=[event for event in execution.events if isinstance(event,t.CompletionBindingEventV1)]
-    clarifications=[event for event in execution.events if type(event) is NativePlanGraphClarificationEventV1]
     if completion is None:
-        if assistant_text is not None or bindings or clarifications:
+        if assistant_text is not None or bindings:
             raise ValueError('Shared native text requires its typed completion and binding')
         return
-    if type(completion) is NativePlanGraphClarificationCompletionV1:
-        completion = NativePlanGraphClarificationCompletionV1.model_validate(completion.model_dump(mode='python', by_alias=True))
-        if (bindings or len(clarifications) != 1 or completion.context_receipt_sha256 != receipt.context_receipt_sha256
-                or completion.observation_event_id != clarifications[0].observation_event_id
-                or clarifications[0].completion_sha256 != t.canonical_sha256(completion)
-                or assistant_text != completion.answer_segments[0].text):
-            raise ValueError('Plan Graph clarification differs from its exact terminal binding')
-        return
-    if clarifications:
-        raise ValueError('Plan Graph clarification cannot bind another completion')
     if (len(bindings)!=1 or assistant_text!='\n'.join(s.text for s in completion.answer_segments)):
         raise ValueError('Shared native completion requires exact retained text and binding')
     from .native_completion import _join_retained_completion
