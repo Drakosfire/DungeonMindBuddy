@@ -299,6 +299,22 @@ def test_different_source_guidance_reaches_actual_build_writer():
     assert evidence['text'] in request['instructions']
 
 
+def test_different_source_guidance_reaches_pending_build_writer(monkeypatch):
+    from tests.test_build_source_free_protocol import pending_writer_runtime_case
+    from application_state.agent_conversation.rules_authority_plan_packet import PlanRulesEvidenceFrameV1
+    from application_state.agent_conversation.response_prompt import DIFFERENT_SOURCE_GUIDANCE
+    from apps.live_control_server.services import build_jev_dispatch
+    # This retained fixture was recorded under the historical controller name.
+    monkeypatch.setattr(build_jev_dispatch, 'MODEL', 'jev-1.14.0')
+    with pending_writer_runtime_case(monkeypatch) as (_, adapter, selector, _):
+        selector.settle_empty()
+        rules = N(frame=lambda: PlanRulesEvidenceFrameV1(schema='dmb_plan_rules_evidence_v1',
+            ruleset='synthetic', lookups=(), supports=()), authoring=None)
+        writer = PlanJevWriter(adapter, {}, rules)
+        assert writer.shared and _conversation_response_task(adapter._broker_execution()) is None
+        assert DIFFERENT_SOURCE_GUIDANCE in writer.instructions
+
+
 @pytest.mark.parametrize(('surface', 'requested', 'expected'), [
     ('build', 'discuss', 'medium'),
     ('build', 'clarify_request', 'low'),

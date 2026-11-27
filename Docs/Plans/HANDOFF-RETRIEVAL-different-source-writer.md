@@ -17,7 +17,8 @@ multiple sources. This is a response-guidance experiment, not a host-enforced
 identity check or a guarantee that a model will obey.
 
 Write lease: this handoff; `src/application_state/agent_conversation/response_prompt.py`;
-`tests/test_response_prompt.py`; and focused writer-assembly tests if needed.
+`apps/live_control_server/services/plan_jev_writer.py` (pending/shared writer
+guidance only); `tests/test_response_prompt.py`; and focused writer-assembly tests.
 The actual writer-assembly boundary test is in
 `tests/test_plan_jev_response_assembly.py`. The existing
 `test_build_status_guidance_reaches_the_actual_sdk_without_changing_plan_or_play`
@@ -31,9 +32,19 @@ treating audit-paused wall time as latency. Preserve case 582/586 failures.
 Exact-head independent review, re-anchored Actions deployment, signed-in app
 verification and the overall negative-retrieval benchmark remain required.
 
-Working-tree checks: four focused response-component, manifest, failure/control
-guidance and actual Build writer request-assembly cases pass. An attempted
+Working-tree checks: five focused response-component, manifest, failure/control
+guidance and actual Build writer request-assembly cases pass, including the
+pending-Build fallback. Its retained fixture uses a test-only historical
+controller-name override to match the fixture's own recorded provider policy.
+An attempted
 additional mocked asynchronous SDK check stalled and its exact process was
 stopped; it is not passing evidence. These checks establish assembly,
 not that a model obeys the guidance. Case 586 is the negative baseline; full
 wire audit and answer/citation scoring remain required for any live replay.
+
+Case 590 stopped before the writer request: the exact pending-Build branch did
+not include the composed response guidance, and independently audited domain
+qualification text contained a possible host revision selector. The request was
+not sent. Expand this slice only to apply the same source-choice guidance in the
+pending/shared fallback branch; classification of mixed source qualification
+prose is a separate prerequisite. Do not regex-scrub or discard literal meaning.

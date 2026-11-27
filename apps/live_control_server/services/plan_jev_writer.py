@@ -624,6 +624,8 @@ class PlanJevWriter:
                             'If essential context is missing, ask the specific needs_context question with no draft segments.')
                 instructions = SOURCE_ATTRIBUTION_INSTRUCTIONS + native_body_instructions.replace(BODY_POLICY,self.frame['answer_policy']) + STATEMENT_INSTRUCTIONS + ASSERTION_INSTRUCTIONS + AUTHORING_GUIDANCE
                 instructions += '\nLocal campaign aliases identify scopes; they are not campaign names.'
+                from application_state.agent_conversation.response_prompt import DIFFERENT_SOURCE_GUIDANCE
+                instructions += '\n' + DIFFERENT_SOURCE_GUIDANCE
                 from application_state.agent_conversation.reviewed_action import SCOPE_KEY,SCOPE_GUIDANCE
                 if SCOPE_KEY in self.work_frame:
                     instructions += '\n' + SCOPE_GUIDANCE
