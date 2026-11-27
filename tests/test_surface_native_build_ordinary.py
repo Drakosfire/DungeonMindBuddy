@@ -4439,3 +4439,30 @@ def test_selected_source_uncertain_scope_asks_before_acquiring_graph(lane, tmp_p
     _fresh_case(lane, tmp_path, monkeypatch, 'discussion_source_tie', False, False, False,
         authored_source='source_only', selected_source_graph=True, requested_work='discuss',
         message='What does my selection say?')
+
+
+def test_selected_source_late_graph_failure_is_not_dispatched_twice(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+    settlements = []
+    dispatches = []
+
+    def fail_settlement(*_args, **_kwargs):
+        settlements.append(True)
+        raise RuntimeError('synthetic failure during Graph settlement')
+
+    def witness(_adapter, provider):
+        dispatches.append(provider)
+
+    def send(client, _world, body):
+        first = client.post('/api/live/agent/turn', json=body)
+        again = client.post('/api/live/agent/turn', json=body)
+        assert again.status_code in {409, 503}, again.text
+        return first
+
+    monkeypatch.setattr(_PolicyExecutionAdapter, 'settle_deferred_build_query', fail_settlement)
+    _fresh_case(lane, tmp_path, monkeypatch, 'deferred_settlement_drift', False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        source_need='source_lookup', before_provider=witness, dispatch=send,
+        message='Use my selected source and search for other evidence.')
+    assert settlements == [True]
+    assert dispatches == ['typesafe']
