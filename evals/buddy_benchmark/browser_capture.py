@@ -159,6 +159,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     if unsent_draft and (live or confirm_save or not build_fixture):
         raise ValueError("Unsent draft requires provider-free Build capture")
     turn_posts = 0
+    image_generation_posts = 0
     if type(confirm_save) is not bool or (confirm_save and not live_build):
         raise ValueError("Build confirmation requires an explicit live fixture opt-in")
     if live_build and (not build_fixture or detail):
@@ -220,10 +221,15 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         dependant.call = measured_handler
 
     async def dispatch(scope, receive, send):
-        nonlocal browser_request, turn_posts
+        nonlocal browser_request, turn_posts, image_generation_posts
         if scope["type"] != "http":
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
+        if (image_placement is not None and method == "POST"
+                and path.startswith("/api/live/media/images/")
+                and path.rsplit("/", 1)[-1] in {"generate", "regenerate"}):
+            image_generation_posts += 1
+            return await JSONResponse({"code": "benchmark_unexpected_image_generation"}, 409)(scope, receive, send)
         if live and path == "/__benchmark/browser-response-retained" and method == "GET":
             wire_path = directory / (wire_name + ".json")
             result = {"retained": wire_path.is_file()}
@@ -466,6 +472,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             if (markdown.count(image_placement) != 1
                                     or f"dmb-media:{image_parent['asset_id']}" in markdown):
                                 raise ValueError("Image placement needs one unique paragraph and an absent asset")
+                            if parent_before["metadata"]["body"]["state"] != "ready":
+                                raise ValueError("Image placement requires a saved, ready library asset")
                             env["DMB_BENCHMARK_IMAGE_PLACEMENT"] = json.dumps({"anchor": image_placement})
 
                     driver = Path(__file__).with_name("browser_send.cjs")
@@ -538,9 +546,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                                         "distinct_child_bound_to_parent"):
                                 checks.pop(key)
                             checks.update(
-                                zero_generation=observation.get("generation_posts") == 0,
-                                no_media_save=all(row["path"].startswith("/api/live/workspace-documents/")
-                                                  for row in observation.get("write_requests", ())),
+                                zero_generation=observation.get("generation_posts") == 0 and image_generation_posts == 0,
+                                no_media_save=isinstance(observation.get("write_requests"), list)
+                                    and all(row["path"].startswith("/api/live/workspace-documents/")
+                                            for row in observation["write_requests"]),
                                 committed_unchanged_before_save=bool(placed and placed["initial"] == placed["before_save"]),
                                 mounted_reopen_exact=placed.get("mounted_reopened_exact") is True,
                                 exact_saved_image=saved["committed_markdown"] == expected
