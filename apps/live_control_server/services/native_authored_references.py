@@ -13,7 +13,7 @@ def capture_input(adapter):
     refs = native_references(adapter.fence.turn.graph_context_execution)
     if refs is not None and refs.references:
         from application_state.agent_conversation.native_context import NativeBuildSelectedSourceQueryPendingV1
-        from application_state.agent_conversation.native_execution import validate_context_binding
+        from application_state.agent_conversation.native_execution import validate_context_binding, validate_request_identity
         from application_state.agent_conversation.types import BuildAuthoredReferencesCapturedV1
         turn = adapter.fence.turn
         if type(getattr(turn.graph_context_receipt, 'native_query', None)) is NativeBuildSelectedSourceQueryPendingV1:
@@ -23,6 +23,7 @@ def capture_input(adapter):
                 # The claim owner permits a pre-dispatch reclaim; preserve its
                 # original immutable selection instead of capturing it twice.
                 validate_context_binding(turn.graph_context_receipt, turn.graph_context_execution)
+                validate_request_identity(turn.graph_context_receipt, turn.graph_context_execution, turn)
                 if len(captured) != 1 or captured[0].references != refs:
                     raise ValueError('Retained authored selection changed during recovery')
                 return
