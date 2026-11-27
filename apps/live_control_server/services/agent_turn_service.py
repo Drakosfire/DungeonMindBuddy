@@ -7878,6 +7878,11 @@ def execute_agent_turn(
             refs = request.build_authored_references
             selected_fresh = (durable_turn is None and type(refs) is AuthoredReferencesV2
                 and bool(refs.references) and all(type(ref) is AuthoredSourceReferenceV1 for ref in refs.references)
+                and isinstance(native_source_authority, graph_types.NativeCorpusAuthorityV1)
+                and all((ref.managed_world_id, ref.native_world_id, ref.binding_version, ref.knowledge_revision)
+                    == (native_source_authority.managed_world_id, native_source_authority.native_world_id,
+                        native_source_authority.binding_version, native_source_authority.revision_id)
+                    for ref in refs.references)
                 and request.graph_selection is None and request.selected_knowledge is None
                 and request.graph_request.focus.kind == 'none' and request.build_write_capability is None
                 and request.build_image_move_capture is None)

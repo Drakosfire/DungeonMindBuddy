@@ -434,6 +434,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     admit_unrelated(lane, 'after-human-pick-before-http')
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
+    if authored_source == 'source_only' and selected_source_graph:
+        # This case represents a source chosen at the current head; the other
+        # source-only fixtures intentionally keep the earlier selection revision.
+        source_ref = source_ref.model_copy(update={'knowledge_revision':current_revision})
+        selected = selected.model_copy(update={'references':(source_ref,)})
     if graph_reference:
         from apps.live_control_server.services import build_graph_reference
 

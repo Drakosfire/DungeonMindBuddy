@@ -9,15 +9,18 @@ open PRs and production identity before merge or deployment.
 ## Scope and invariant
 
 For ordinary fresh Build requests with a nonempty bundle consisting entirely of
-exact native source references, pin the deployed selected-source deferred Graph
+exact native source references pinned to the current knowledge revision, pin the
+deployed selected-source deferred Graph
 commitment before the controller. Use the existing semantic source-need decision:
 only an admitted anchored discussion may answer from the exact selected reads
 without Graph settlement. If the request asks for new evidence, its scope is
 uncertain, a Graph object is selected, or work requires a different capability,
 retain or settle the existing Graph route. No source reference itself proves
 exclusive intent. Exact source/version, principal and World access checks remain
-with existing owners; absent or stale evidence fails closed. Mixed objects,
-reviewed work and historical records keep their current route. The existing
+with existing owners; absent or stale evidence fails closed. Mixed objects, older still-valid source selections, reviewed work and historical
+records keep their current route. The current-revision restriction follows the
+deployed reader; supporting older selections without Graph work requires a new
+reader contract and remains part of the broader objective. The existing
 App page catalog is still eagerly acquired in this Graph-only slice; defer it
 in a later serial reader/producer change, never by labeling it empty.
 
