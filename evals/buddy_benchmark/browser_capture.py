@@ -414,6 +414,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             selection_text=manifest["browser_capture"]["selection_text"],
                             conversation_id=fresh["active_conversation_id"], pointer_revision=fresh["pointer_revision"])
                 except (ValueError, KeyError):
+                    if reviewed_plan is not None:
+                        artifacts.immutable_save(directory, "rejected-browser-request", parsed)
                     return await JSONResponse({"error": "Build fixture request did not match"}, 409)(scope, receive, send)
                 browser_request = parsed
                 if not live:
@@ -811,8 +813,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     artifacts.immutable_save(directory, "history-after", after)
                     if reviewed_plan is not None:
                         from application_state.agent_conversation import work_plan
-                        artifacts.immutable_save(directory, "reviewed-work-plan-after", work_plan.read(
-                            world, UUID(reviewed_plan["conversation_id"]), UUID(reviewed_plan["source_turn_id"])))
+                        try:
+                            result = work_plan.read(
+                                world, UUID(reviewed_plan["conversation_id"]), UUID(reviewed_plan["source_turn_id"]))
+                        except Exception as error:
+                            result = {"status": "readback_error", "error_type": type(error).__name__}
+                        artifacts.immutable_save(directory, "reviewed-work-plan-after", result)
                     if live:
                         if confirm_save:
                             timing_path = output / "browser-timing.json"

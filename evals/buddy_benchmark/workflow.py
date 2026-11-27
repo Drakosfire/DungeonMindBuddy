@@ -827,6 +827,9 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
     if manifest.get("browser_capture", {}).get("image_preview") is True and (
             not live_build or browser_case is None or (not clone_app and cohort_app is None)):
         raise ValueError("Image preview requires a selected live Build case and an owned App clone")
+    if "reviewed_work_plan" in manifest.get("browser_capture", {}) and (
+            not live_build or browser_case is None or (not clone_app and cohort_app is None)):
+        raise ValueError("Reviewed Work Plan requires a selected live Build case and an owned App clone")
     if manifest["request_template"].get("surface", {}).get("surface_id") == "play" and (
             browser_case is not None or (not clone_app and cohort_app is None)):
         raise ValueError("Play turn requires an owned App clone")
