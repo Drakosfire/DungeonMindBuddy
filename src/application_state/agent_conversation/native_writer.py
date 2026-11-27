@@ -458,7 +458,7 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
                  and message['content'].startswith(PLAN_EVIDENCE_HEADING)]
         if prose:
             prose_host = model_frame(receipt, prefix, passages_only=True)
-            prose_frame = semantic_frame(prose_host)
+            prose_frame = semantic_frame(prose_host, alias_campaign_scope=bool(authorization.alias_campaign_scope))
             from .native_plan_work_view import compact_editor_prose, semantic_frame as plan_work_view
             prose_work = plan_work_view(expected_work, prefix, supplied_source_references=plan_source_references)
             if authorization.compact_plan_editor_prose:
@@ -509,14 +509,17 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
     else:
         host = model_frame(receipt, prefix, schema=frame.get('schema'))
     semantic_evidence = is_semantic_frame(frame)
+    if authorization.alias_campaign_scope and not semantic_evidence:
+        raise ValueError('Campaign aliases require semantic native evidence')
     if generic_reply_limits and not semantic_evidence:
         raise ValueError('Generic reply limitations require semantic native evidence')
     expected = host
     if is_semantic_frame(frame):
         project_build_images = isinstance(prefix.policy.action, NativeBuildActionV1)
-        expected = expected_semantic_frame(host, frame, project_managed_images=project_build_images)
+        expected = expected_semantic_frame(host, frame, project_managed_images=project_build_images,
+                                           alias_campaign_scope=bool(authorization.alias_campaign_scope))
         if project_build_images and retained_build_proof and expected != frame:
-            expected = expected_semantic_frame(host, frame)
+            expected = expected_semantic_frame(host, frame, alias_campaign_scope=bool(authorization.alias_campaign_scope))
     schema_frame = output_frame(host,expected)
     from .native_plan_work_view import is_semantic_frame as semantic_work, semantic_frame as plan_work_view
     from .native_play_work import is_semantic_frame as semantic_play, semantic_frame as play_work_view
