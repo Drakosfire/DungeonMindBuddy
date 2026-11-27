@@ -609,7 +609,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         if not graph_available:
             return None, NativePlanQueryUnavailableV1(managed_world_id=a.world_id,
                 reason='native_graph_binding_unavailable')
-        return prepare_query(a.world_id, request.message, native_principal,
+        return prepare_query(a.world_id, _args[0].message, native_principal,
             source_context=native_source_context, repository=lane.repo, resolve_binding=lambda _:lane.bound)
     monkeypatch.setattr(agent, "_plan_context_resolver", published_graph)
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
