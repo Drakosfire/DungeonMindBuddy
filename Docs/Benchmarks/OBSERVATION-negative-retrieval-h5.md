@@ -32,7 +32,43 @@ fixture and returned materialization by World, document, revision and body
 digest. All four fixture bindings passed. All four offline reports remain
 **unproven**: acquisition completeness and capture-environment qualification
 are missing. Absence of an observed call is not proof of no acquisition. The
-native-Core source-required control is still missing.
+native-Core source-required control was subsequently exercised as described below.
+
+## Selected native source control
+
+Case 493 supplied an explicitly selected native text section and an unrelated
+synthetic App-page distractor. Its answer was factually correct, but the
+anchored-discussion writer format did not permit a citation. Case 496 repeated
+the development control against serving-port head
+`b8d5caf41d1640a9ebc06b2d9206dcf5530d036a`; independent assessment found the
+answer correct and its native-body citation bound to the supplied source,
+revision, section and excerpt. Both cases used the same fixture and are not an
+independent held-out comparison. The fixture and private rubric remain in the
+owned local evidence directory, with SHA-256 pins
+`ceecaee5ddeaad791ccafbba911e5b585e30519529481915e0fe410b4b8dff48` and
+`50ca6c9dd2c89d74300bd128599194647950c911a1b5bf142d3ea7e431ba86c7`.
+
+Case 496 observed native source preparation, a Graph query, selected-source
+read and native body open, plus related App catalog discovery. These probes are
+partial: they do not prove whether the distractor was materialized, a complete
+acquisition count, or the absence of other activity. Four controller requests
+and the writer request were independently audited before submission. Its
+124.72-second elapsed time includes manual audit pauses and is not a latency
+comparison.
+
+The citation-capable format was merged in [#4954](https://github.com/Drakosfire/DungeonMindBuddy/pull/4954).
+A reader-first compatibility release was deployed in
+[run 45989643077](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/45989643077),
+then the writer was deployed in [run 45990518822](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/45990518822)
+as serving revision `c3f58d55b7df156ab101ed2b607a8309b502c74b`. The staged and
+live identities, readiness and signed-out authentication checks passed.
+In the signed-in long chat, a creative context-only request produced three
+names; its trace showed 17.1 seconds to a validated reply and no captured Graph
+crawler replay, but does not establish complete acquisition coverage. A
+saved-page question produced a supported citation that reopened and persisted
+across reload; its trace showed 14.8 seconds to a validated reply. These are
+individual observations, not latency distributions. The native Core binding
+was verified in the isolated replay, not through that saved-page UI check.
 
 Case 400 ran against exact serving-port head
 `7e1327151d75c9405ca183e36b2353bfad57881d`; the deployed merge has the same
