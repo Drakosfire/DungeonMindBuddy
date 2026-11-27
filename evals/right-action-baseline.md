@@ -70,7 +70,7 @@ their reason below.
 
 ### Read-only Core fixture for Conks
 
-- **PLAN-CARDS-2** — Restore a Conks App World and clean Plan alongside the 13 reviewed Event revisions and exact PDF in a matching isolated read-only Core snapshot. The retained restorable inputs are pinned.
+- **PLAN-CARDS-2** — Restore a Conks App World and clean Plan alongside the three reviewed aftermath Event revisions and exact PDF in a matching isolated read-only Core snapshot. The retained restorable inputs are pinned.
 - **PLAN-CARDS-3** — Restore a Conks App World and clean Plan alongside the 13 reviewed Event revisions and exact PDF in a matching isolated read-only Core snapshot. The retained restorable inputs are pinned.
 
 ### Read-only Core fixture for identity review
