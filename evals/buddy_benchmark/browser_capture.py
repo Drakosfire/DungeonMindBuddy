@@ -995,7 +995,7 @@ def prepare_reviewed_work_plan_page(world, work, fixture, directory):
     before = pages.committed_page(doc, world_id=world)
     revision = before.revision
     if (plan["document_id"] != doc or plan["revision"] != fixture["revision"]
-            or revision is None or revision.revision_n != work["expected_revision"]
+            or revision is None or before.page.object_revision != work["expected_revision"]
             or revision.content_sha256 != work["expected_content_sha256"]
             or fixture["source_turn_id"] in revision.markdown):
         raise ValueError("Work Plan fixture page and source differ from their saved pins")
@@ -1005,14 +1005,16 @@ def prepare_reviewed_work_plan_page(world, work, fixture, directory):
                  "source_answer_sha256": plan["source_answer_sha256"], "title": "Reviewed work plan"}
     artifacts.immutable_save(directory, "reviewed-work-plan-before", plan)
     markdown = revision.markdown.rstrip() + "\n\n```dmb-work-plan-v1\n" + json.dumps(reference) + "\n```\n"
-    _, prepared = pages.commit_page(doc, markdown, world_id=world,
+    prepared_page, prepared = pages.commit_page(doc, markdown, world_id=world,
                                    expected_revision=before.page.object_revision,
                                    expected_working_copy_revision=before.working_copy_revision)
     artifacts.immutable_save(directory, "reviewed-work-plan-fixture-card", {
         "reference": reference, "before": revision.model_dump(mode="json"),
         "prepared": prepared.model_dump(mode="json"),
+        "registry_revision_before": before.page.object_revision,
+        "registry_revision_prepared": prepared_page.page.object_revision,
     })
-    return {**work, "expected_revision": prepared.revision_n,
+    return {**work, "expected_revision": prepared_page.page.object_revision,
             "expected_content_sha256": prepared.content_sha256}
 
 

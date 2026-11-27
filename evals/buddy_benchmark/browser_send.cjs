@@ -300,6 +300,10 @@ async function run() {
         throw new Error("Work plan outcome did not save once");
       const step = card.getByRole("textbox", { name: "Saved step " + (index + 1), exact: true })
         .locator("xpath=ancestor::*[contains(@class, 'surface-work-plan__step')][1]");
+      const editor = page.locator(".build-surface-shell .ProseMirror[contenteditable=true]:visible");
+      await editor.focus();
+      await editor.press("Control+Home");
+      await step.scrollIntoViewIfNeeded();
       send = step.getByRole("button", { name: "Continue step", exact: true });
     }
     await send.waitFor({ state: "visible" });
