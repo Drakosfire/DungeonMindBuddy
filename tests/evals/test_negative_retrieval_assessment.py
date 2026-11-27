@@ -398,6 +398,38 @@ def test_page_probe_records_pointer_on_return_and_failure(monkeypatch):
     ]
 
 
+def test_page_probe_distinguishes_direct_metadata_from_catalog_and_body(monkeypatch):
+    from types import SimpleNamespace
+    from evals.negative_retrieval import related_page_probe as probe
+
+    def lookup(value):
+        assert records[-1] == {'owner': 'current_page_metadata', 'state': 'entered'}
+        if value == 'bad':
+            raise ValueError('unavailable')
+        return []
+    pending = SimpleNamespace(_lookup_current_saved_page=lookup)
+    monkeypatch.setattr(probe, 'import_module', lambda name: pending)
+    with probe.observe_related_page_owners() as records:
+        assert pending._lookup_current_saved_page('ok') == []
+        with pytest.raises(ValueError, match='unavailable'):
+            pending._lookup_current_saved_page('bad')
+    assert pending._lookup_current_saved_page is lookup
+    assert records == [{'owner': 'current_page_metadata', 'state': 'returned'},
+                       {'owner': 'current_page_metadata', 'state': 'raised'}]
+    assert probe.acquisition_labels(records) == []
+    assert probe.catalog_discovery_count(records) == 0
+
+
+def test_page_probe_does_not_hide_missing_runtime_dependency(monkeypatch):
+    from evals.negative_retrieval import related_page_probe as probe
+    def broken_import(name):
+        raise ModuleNotFoundError('dependency missing', name='some_dependency')
+    monkeypatch.setattr(probe, 'import_module', broken_import)
+    with pytest.raises(ModuleNotFoundError, match='dependency missing'):
+        with probe.observe_related_page_owners():
+            pass
+
+
 @pytest.mark.parametrize(('world', 'revision', 'expected'), [
     ('world', 1, 'current-page'), ('other', 1, '<unmapped-acquisition>'),
     ('world', 2, '<unmapped-acquisition>'), ('world', True, '<unmapped-acquisition>'),
@@ -2220,7 +2252,8 @@ def test_report_primary_pointer_attempt_without_crediting_read(
         'context-trace': envelope(trace), 'answer-http': envelope({'turn_id': 'turn', 'client_thread_id': 'thread',
             'knowledge_context': turn['knowledge_context']}), 'fixture-sources': {'before': inventory}, 'fixture-pin': {},
         'related-page-probe': {'schema': 'dmb_negative_retrieval_related_page_probe_v1', 'coverage': 'partial',
-            'case_id': 'case1', 'status': 'observed', 'window': 'turn_post_v1', 'records': [row]},
+            'case_id': 'case1', 'status': 'observed', 'window': 'turn_post_v1', 'records': [row,
+                {'owner': 'current_page_metadata', 'state': 'returned'}]},
         'native-graph-probe': {'schema': 'dmb_negative_retrieval_native_graph_probe_v1', 'coverage': 'partial',
             'case_id': 'case1', 'status': 'observed', 'window': 'turn_post_v1', 'records': []}}
     for name, value in artifacts.items():
@@ -2244,6 +2277,7 @@ def test_report_primary_pointer_attempt_without_crediting_read(
     observation, = observations
     assert observation['reads'] == [label]
     assert result['primary_document_id_attempts_diagnostic'] == count
+    assert result['current_page_metadata_attempts_diagnostic'] == 1
     assert 'current-page' not in observation['completed_reads']
     assert result['checks']['required_evidence'] is None
     assert result['status'] == 'unproven' and result['capture_environment_verified'] is None

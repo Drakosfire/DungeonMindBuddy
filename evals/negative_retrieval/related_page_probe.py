@@ -3,8 +3,9 @@
 Use only inside an isolated, serial evaluator process. This does not cover Graph,
 corpus or every other source owner and is not a complete acquisition journal.
 """
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from functools import wraps
+from importlib import import_module
 from threading import Lock
 from unittest.mock import patch
 from uuid import UUID
@@ -51,8 +52,21 @@ def observe_related_page_owners():
                 return result
             return wrapped
 
-        with patch.object(build_related_pages, "discover", watch("related_catalog_discovery", build_related_pages.discover)), \
-             patch.object(build_related_pages, "materialize", watch("related_page_materialization", build_related_pages.materialize)):
+        # Older source lineages do not have the pending Build owner. Only the
+        # absence of that module is optional; broken imports must still fail.
+        module_name = "apps.live_control_server.services.build_pending_app_pages"
+        try:
+            pending = import_module(module_name)
+        except ModuleNotFoundError as exc:
+            if exc.name != module_name:
+                raise
+            pending = None
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(build_related_pages, "discover", watch("related_catalog_discovery", build_related_pages.discover)))
+            stack.enter_context(patch.object(build_related_pages, "materialize", watch("related_page_materialization", build_related_pages.materialize)))
+            direct = getattr(pending, "_lookup_current_saved_page", None)
+            if callable(direct):
+                stack.enter_context(patch.object(pending, "_lookup_current_saved_page", watch("current_page_metadata", direct)))
             yield records
     finally:
         _lock.release()
@@ -69,7 +83,7 @@ def acquisition_labels(records, *, label_by_document=None, completed_only=False,
     from .trace_observation import UNKNOWN
     if not isinstance(records, list) or any(
         not isinstance(row, dict)
-        or row.get("owner") not in {"related_catalog_discovery", "related_page_materialization"}
+        or row.get("owner") not in {"related_catalog_discovery", "related_page_materialization", "current_page_metadata"}
         or row.get("state") not in {"entered", "returned", "raised"}
         for row in records
     ):

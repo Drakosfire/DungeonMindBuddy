@@ -438,3 +438,9 @@ an exact match to a verified fixture is labeled `current-page` as an attempt.
 Neither form proves a returned body or completed saved-page read. Preserve
 that distinction when interpreting this case; it is not an exact historical
 replay and does not establish complete capture.
+
+When the pending Build runtime exposes its direct current-page metadata owner,
+the related-page probe also records its entries and outcomes. The report shows
+observed direct-metadata attempts separately from full catalog discovery and
+body reads. No entry remains unknown: older runtimes, old artifacts, aliases,
+other processes and work outside the capture window are not covered.
