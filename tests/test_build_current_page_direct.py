@@ -343,6 +343,104 @@ def test_partial_reader_decodes_only_with_unobserved_receipt_scope():
     assert receipt.source_observation.binding is None
 
 
+def _current_partial_case():
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.build_related_pages import PagePointer, PageReference
+    from tests.test_build_source_free_routing import seal_pending_receipt
+    receipt, execution, selection = _unobserved_partial_case()
+    read = next(row for row in execution.events if type(row) is t.RelatedPageRead)
+    values = receipt.model_dump(mode='json', by_alias=True)
+    values.pop('context_receipt_sha256')
+    values['work_context']['source_basis']['content_sha256'] = sha256(read.markdown.encode()).hexdigest()
+    receipt = seal_pending_receipt(values)
+    basis = receipt.work_context.source_basis
+    intent = execution.policy.action.intent
+    primary = intent.primary_work.model_copy(update={'expected_content_sha256': basis.content_sha256})
+    action = execution.policy.action.model_copy(update={'intent': intent.model_copy(update={'primary_work': primary})})
+    policy = execution.policy.model_copy(update={'action': action})
+    pointer = PagePointer(world_id=basis.world_id, document_id=UUID(basis.document_id),
+        registry_revision=basis.registry_revision, title=read.page.title, visibility=basis.visibility)
+    events = []
+    for row in execution.events:
+        if type(row) is t.BuildRequestedWorkResolutionV1:
+            row = row.model_copy(update={'resolution': resolution_for(execution.policy, 'discuss', source_scope='current_saved_page')})
+        elif type(row).__name__ == 'BuildAppPageCatalogObservedV1':
+            row = row.model_copy(update={'pages': (pointer,), 'pending_context_receipt_sha256': receipt.context_receipt_sha256})
+        elif type(row) is t.RelatedPagesSelection:
+            row = row.model_copy(update={'document_ids': [pointer.document_id]})
+        elif type(row) is t.RelatedPageRead:
+            row = row.model_copy(update={'page': PageReference(**pointer.model_dump(), content_sha256=basis.content_sha256)})
+        events.append(row)
+    execution = pending_execution(receipt, policy, events)
+    terminal = {'status': 'ready', 'reason': 'pending_current_page_partial'}
+    return receipt, execution, selection.model_copy(update={'terminal_disposition': terminal})
+
+
+def test_current_partial_reader_requires_exact_saved_page_and_coverage():
+    from application_state.agent_conversation.build_source_free import validate_pending_execution_binding
+    from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
+    receipt, execution, selection = _current_partial_case()
+    decoded = pending_execution(receipt, execution.policy, [*execution.events, selection])
+    assert validate_pending_execution_binding(receipt, decoded) == decoded
+    assert native_work_terminal(SimpleNamespace(graph_context_receipt=receipt,
+        graph_context_execution=execution)) is None
+    assert native_work_terminal(SimpleNamespace(graph_context_receipt=receipt,
+        graph_context_execution=decoded)) == selection.terminal_disposition
+
+
+def test_current_partial_reader_rejects_mismatched_saved_body():
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.build_source_free import validate_pending_execution_binding
+    receipt, execution, selection = _current_partial_case()
+    rows = [row.model_copy(update={'page': row.page.model_copy(update={'content_sha256': 'b' * 64})})
+        if type(row) is t.RelatedPageRead else row for row in execution.events]
+    with pytest.raises(ValueError):
+        validate_pending_execution_binding(receipt, pending_execution(receipt, execution.policy, [*rows, selection]))
+
+
+def test_current_partial_reader_keeps_explicit_scope_with_a_bound_native_source():
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
+    from tests.test_build_source_free_routing import seal_pending_receipt
+    receipt, execution, selection = _current_partial_case()
+    data = receipt.model_dump(mode='json', by_alias=True)
+    data.pop('context_receipt_sha256')
+    world = data['source_observation']['managed_world_id']
+    data['source_observation']['binding'] = {'managed_world_id': world, 'native_world_id': 'native-observed',
+        'binding_version': 1, 'provisioning_id': None}
+    data['source_observation']['observed_head_revision_id'] = 'observed-revision'
+    bound = seal_pending_receipt(data)
+    policy = execution.policy.model_copy(update={'source_observation_sha256': t.canonical_sha256(bound.source_observation)})
+    rows = [row.model_copy(update={'pending_context_receipt_sha256': bound.context_receipt_sha256})
+        if type(row).__name__ == 'BuildAppPageCatalogObservedV1' else row for row in execution.events]
+    decoded = pending_execution(bound, policy, [*rows, selection])
+    assert native_work_terminal(SimpleNamespace(graph_context_receipt=bound,
+        graph_context_execution=decoded)) == selection.terminal_disposition
+
+
+@pytest.mark.parametrize('failure', ['missing_read', 'wrong_page', 'foreign_catalog', 'sufficient'])
+def test_current_partial_candidate_refuses_incomplete_or_foreign_evidence(failure):
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.build_pending_app_coverage import pending_app_partial_candidate
+    receipt, execution, _ = _current_partial_case()
+    rows = list(execution.events)
+    if failure == 'missing_read':
+        rows = [row for row in rows if type(row) is not t.RelatedPageRead]
+    elif failure == 'wrong_page':
+        rows = [row.model_copy(update={'page': row.page.model_copy(update={'document_id': uuid4()})})
+            if type(row) is t.RelatedPageRead else row for row in rows]
+    elif failure == 'foreign_catalog':
+        rows = [row.model_copy(update={'pages': (*row.pages, row.pages[0].model_copy(update={'document_id': uuid4()}))})
+            if type(row).__name__ == 'BuildAppPageCatalogObservedV1' else row for row in rows]
+    else:
+        rows[-1] = rows[-1].model_copy(update={'verdict': 'saved_pages_sufficient'})
+    try:
+        result = pending_app_partial_candidate(execution.model_copy(update={'events': rows}), allow_current_page=True)
+    except ValueError:
+        result = None
+    assert result is None
+
+
 def test_partial_reader_refuses_changed_coverage_or_incomplete_read():
     from application_state.agent_conversation.build_pending_app_coverage import pending_app_partial_candidate
     receipt, execution, _ = _unobserved_partial_case()
