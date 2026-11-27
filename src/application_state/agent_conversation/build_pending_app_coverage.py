@@ -181,12 +181,13 @@ def pending_app_writer_terminal(execution):
     return {'status': 'ready', 'reason': 'pending_saved_app_pages_sufficient'}
 
 
-def pending_app_partial_candidate(execution):
-    """Structural candidate only; the receipt must independently prove absence.
+def pending_app_partial_candidate(execution, *, allow_current_page=False):
+    """Structural candidate only; receipt validation supplies remaining authority.
 
-    This does not authorize a writer or establish that other sources lack the
-    answer. It recognizes an acknowledged need for further evidence after all
-    selected App pages were read, before any native source was settled.
+    This does not establish that other sources lack the answer. It recognizes
+    an acknowledged need for further evidence after all selected App pages
+    were read, before any native source was settled. The optional current-page
+    variant also requires the sole catalog entry and read to be the primary page.
     """
     from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1, NativeRetrievalAuthorizedV1, native_read_event_ids
     from .native_retrieval import NativeRetrievalSelectedV1
@@ -195,7 +196,8 @@ def pending_app_partial_candidate(execution):
     work = [row for row in execution.events if type(row) is t.BuildRequestedWorkResolutionV1]
     from .build_source_free import pending_work_requests_evidence
     decisions = [row for row in execution.events if type(row) is BuildAppCoverageDecidedV1]
-    if (len(work) != 1 or work[0].resolution.get('source_scope') != 'source_lookup'
+    scope = work[0].resolution.get('source_scope') if len(work) == 1 else None
+    if (len(work) != 1 or scope not in ({'source_lookup', 'current_saved_page'} if allow_current_page else {'source_lookup'})
             or not pending_work_requests_evidence(work[0], execution.policy)
             or len(decisions) != 1 or decisions[0].verdict != 'native_sources_required'
             or any(type(row) in (NativeBuildSourceSettledV1, NativeRetrievalAuthorizedV1,
@@ -211,6 +213,16 @@ def pending_app_partial_candidate(execution):
             or {row.page.document_id for row in reads} != set(selections[0].document_ids)
             or any(row.selection_event_id != selections[0].event_id for row in reads)):
         return None
+    if scope == 'current_saved_page':
+        from .build_source_free import BuildAppPageCatalogObservedV1
+        primary = execution.policy.action.intent.primary_work
+        catalogs = [row for row in execution.events if type(row) is BuildAppPageCatalogObservedV1]
+        if (primary is None or len(reads) != 1
+                or str(reads[0].page.document_id) != str(primary.object_id)
+                or len(catalogs) != 1 or len(catalogs[0].pages) != 1
+                or str(catalogs[0].pages[0].document_id) != str(primary.object_id)):
+            return None
+        return {'status': 'ready', 'reason': 'pending_current_page_partial'}
     return {'status': 'ready', 'reason': 'pending_saved_app_pages_native_scope_unobserved'}
 
 

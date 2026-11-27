@@ -398,12 +398,13 @@ def native_work_terminal(turn):
     from .build_pending_app_coverage import pending_app_writer_terminal, pending_app_partial_candidate
     from .native_context import BuildPendingContextReceiptV1
     execution = turn.graph_context_execution
-    # A captured lack of usable native scope permits a bounded partial
-    # answer, not a claim that unsearched sources contain no other facts.
-    partial = pending_app_partial_candidate(execution)
+    # An unobserved native scope or an exclusive current-page request permits
+    # a bounded partial answer, not a claim about unsearched sources.
+    partial = pending_app_partial_candidate(execution, allow_current_page=True)
     receipt = turn.graph_context_receipt
     if (partial is not None and type(receipt) is BuildPendingContextReceiptV1
-            and (receipt.source_observation.binding is None
+            and (partial['reason'] == 'pending_current_page_partial'
+                 or receipt.source_observation.binding is None
                  or receipt.source_observation.requested_or_observed_revision is None)):
         validate_pending_execution_binding(turn.graph_context_receipt, execution)
         return partial

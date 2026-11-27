@@ -200,11 +200,13 @@ def _join_pending_source(receipt, execution):
     from .build_pending_app_coverage import pending_app_partial_candidate
     for event in execution.events:
         if (type(event) is t.BuildWriterEvidenceSelectionV2
-                and event.terminal_disposition.get('reason') == 'pending_saved_app_pages_native_scope_unobserved'):
-            candidate = pending_app_partial_candidate(execution)
+                and event.terminal_disposition.get('reason') in
+                {'pending_saved_app_pages_native_scope_unobserved', 'pending_current_page_partial'}):
+            candidate = pending_app_partial_candidate(execution, allow_current_page=True)
             observed = receipt.source_observation
             if (candidate is None or event.terminal_disposition != candidate
-                    or (observed.binding is not None and observed.requested_or_observed_revision is not None)):
+                    or (candidate['reason'] == 'pending_saved_app_pages_native_scope_unobserved'
+                        and observed.binding is not None and observed.requested_or_observed_revision is not None)):
                 raise ValueError('Pending partial writer requires its exact unobserved native scope')
     settlements = [event for event in execution.events if type(event) is NativeBuildSourceSettledV1]
     if not settlements:
@@ -728,7 +730,7 @@ def validate_pending_empty_writer_selection(execution, event):
     latest = controllers[-1] if controllers else None
     outcomes = [prior.outcome for prior in prefix if type(prior) is t.ProviderOutcomeEventV1
                 and latest is not None and prior.provider_attempt_id == latest.provider_attempt_id]
-    structural_partial = pending_app_partial_candidate(execution.model_copy(update={'events': prefix}))
+    structural_partial = pending_app_partial_candidate(execution.model_copy(update={'events': prefix}), allow_current_page=True)
     partial = structural_partial if structural_partial == event.terminal_disposition else None
     if (event.mode != 'empty_catalog' or event.policy != NATIVE_POLICY or event.catalog_sha256 != digest({})
             or event.judgments or event.controller_response_sha256 is not None or latest is None
@@ -778,7 +780,7 @@ def validate_pending_writer_authorization(execution, event):
             or not (any(type(row) is t.BuildPriorBodyEvidenceAdmittedV3 for row in prefix)
                 or pending_source_free_terminal(execution.model_copy(update={'events': prefix}))
                 or pending_app_writer_terminal(execution.model_copy(update={'events': prefix}))
-                or (selected and pending_app_partial_candidate(execution.model_copy(update={'events': prefix}))
+                or (selected and pending_app_partial_candidate(execution.model_copy(update={'events': prefix}), allow_current_page=True)
                     == selected[0].terminal_disposition)
                 or pending_native_terminal(execution.model_copy(update={'events': prefix})))
             or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.writer.identity()
