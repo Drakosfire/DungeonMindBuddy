@@ -506,7 +506,7 @@ def validate_author_scope_parent(context, execution, parent, authorization):
     for row in parent.scope_review or ():
         require_retained_author_scope(execution.model_copy(update={'events': prefix}),
             row.observation_event_id, row.observation)
-    validate_opening_prefix(context, prefix,
+    validate_opening_prefix(context, prefix, execution=execution,
         author_scope_event_id=review_ids[-1] if review_ids else authorization.prior_scope_event_id,
         author_scope_recheck=True, review_event_ids=review_ids, author_question=parent.question)
 
@@ -744,10 +744,10 @@ def validate_opening_parent(context, execution, parent, authorization):
     if binding is not None and binding != bind_opening_author_scope(
             execution.model_copy(update={'events': prefix}), binding.observation_event_id, binding.observation):
         raise ValueError('Opening page edit intent differs from its actual author observations')
-    validate_opening_prefix(context, prefix, author_scope_event_id=event_id, author_question=parent.question)
+    validate_opening_prefix(context, prefix, execution=execution, author_scope_event_id=event_id, author_question=parent.question)
 
 
-def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, author_scope_recheck=False,
+def validate_opening_prefix(context, prefix, *, execution, author_scope_event_id=None, author_scope_recheck=False,
                             review_event_ids=None, author_question=''):
     from .native_corpus import NativeCorpusAuthorityV1, NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
     from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
@@ -777,7 +777,11 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
     elif attempts:
         raise ValueError('Opening SDK must be the first actual provider attempt')
     grants = [e for e in prefix if isinstance(e, NativePlanRequestSearchAuthorizedV1)]
-    if isinstance(context.source_authority, NativeCorpusAuthorityV1):
+    from .native_corpus import controller_selected_source_discovery
+    if controller_selected_source_discovery(execution):
+        if grants:
+            raise ValueError('Controller-selected discovery cannot use an automatic request grant')
+    elif isinstance(context.source_authority, NativeCorpusAuthorityV1):
         if (len(grants) != 1 or len([e for e in prefix if isinstance(e, NativeBodySearchObservedV1)
                 and e.authorization_event_id == grants[0].event_id]) != 1):
             raise ValueError('Opening SDK requires actual settled request-owned discovery')
@@ -859,10 +863,10 @@ def validate_request_admission(context, execution):
             review_ids = event.scope_review_event_ids
             if review_ids is not None and event.prior_scope_event_id is not None:
                 raise ValueError('Author scope recheck and review require different authorizations')
-            validate_opening_prefix(context, execution.events[:event.sequence],
+            validate_opening_prefix(context, execution.events[:event.sequence], execution=execution,
                 author_scope_event_id=review_ids[-1] if review_ids else event.prior_scope_event_id,
                 author_scope_recheck=True, review_event_ids=review_ids, author_question=action.intent.message)
         elif type(event) is NativePlanOpeningAuthorizedV1:
-            validate_opening_prefix(context, execution.events[:event.sequence],
+            validate_opening_prefix(context, execution.events[:event.sequence], execution=execution,
                 author_scope_event_id=event.author_scope_event_id, author_question=action.intent.message)
     return admission

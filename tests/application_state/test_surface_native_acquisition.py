@@ -83,7 +83,8 @@ def test_prospective_codec_refuses_noncurrent_work_before_retrieval_transport(ap
     assert len(sent) == 1  # Requested-work response only; no retrieval SDK IO.
 
 
-def test_selected_saved_page_closure_requires_its_exact_catalog_read():
+@pytest.mark.parametrize('discovery_mode', [None, 'controller_selection_v1'])
+def test_selected_saved_page_closure_requires_its_exact_catalog_read(discovery_mode):
     from hashlib import sha256
 
     from application_state.agent_conversation.build_related_pages import (
@@ -106,7 +107,7 @@ def test_selected_saved_page_closure_requires_its_exact_catalog_read():
                            selection_event_id=selection.event_id, markdown=markdown,
                            page=PageReference(**page.model_dump(),
                                               content_sha256=sha256(markdown.encode()).hexdigest()))
-    action = NativePlanActionV2.model_construct(related_page_catalog=(page,))
+    action = NativePlanActionV2.model_construct(related_page_catalog=(page,), source_discovery_mode=discovery_mode)
     policy = SurfaceNativeExecutionPolicyV1.model_construct(action=action)
 
     def close(*reads):

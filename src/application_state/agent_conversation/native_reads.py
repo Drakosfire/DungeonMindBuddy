@@ -12,7 +12,7 @@ from hashlib import sha256
 
 from .native_corpus import (
     NativeCorpusAuthorityV1, NativeBodySearchAuthorizedV1, NativeBodySearchObservedV1,
-    NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled, validate_initial_source_search,
+    NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_required, validate_initial_source_search,
     NativePlanRequestSearchAuthorizedV1, request_source_discovery_enabled, validate_request_source_search,
     NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodySectionMatchV1,
     build_native_body_catalog, native_corpus_search_handle, native_body_handle,
@@ -245,7 +245,7 @@ def authorize_body_search_locked(turn, *, event_id):
     prior = _prior_event(execution, event_id, NativeBodySearchAuthorizedV1, query_sha256=query)
     if prior is not None:
         return prior
-    if initial_source_discovery_enabled(execution):
+    if initial_source_discovery_required(execution):
         raise ValueError("Readonly Plan source discovery belongs to its initial work, not a later search vote")
     return NativeBodySearchAuthorizedV1(event_id=event_id, sequence=len(execution.events),
         provider_attempt_id=_selected_controller(turn, native_corpus_search_handle(query)),

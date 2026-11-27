@@ -318,12 +318,21 @@ class NativePlanRequestSearchAuthorizedV1(NativeBodyEvent):
     query_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
 
 
+def controller_selected_source_discovery(execution):
+    """New request admission opts into acknowledged source discovery."""
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
+    action = execution.policy.action
+    return (type(action) in (NativePlanActionV2, NativePlanActionV3)
+            and action.source_discovery_mode == 'controller_selection_v1')
+
+
 def request_source_discovery_enabled(context, execution):
     from .native_context import NativePlanRequestAdmissionV1, SurfaceNativeContextReceiptV1
     from .native_execution import NativePlanActionV2, NativePlanActionV3
     return (type(context) is SurfaceNativeContextReceiptV1
         and type(context.assembled_input) is NativePlanRequestAdmissionV1
-        and type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3))
+        and type(execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
+        and not controller_selected_source_discovery(execution))
 
 
 def validate_request_source_search(execution, grant):
@@ -332,6 +341,7 @@ def validate_request_source_search(execution, grant):
     prefix = execution.events[:grant.sequence]
     action = execution.policy.action
     if (type(action) not in (NativePlanActionV2, NativePlanActionV3)
+            or controller_selected_source_discovery(execution)
             or grant.context_receipt_sha256 != execution.context_receipt_sha256
             or grant.execution_policy_sha256 != execution.execution_policy_sha256
             or t.canonical_sha256(grant.authority) != execution.policy.source_authority_sha256
@@ -352,6 +362,12 @@ def initial_source_discovery_enabled(execution):
             and event.requested_work in {"discuss", "clarify"} for event in execution.events))
 
 
+def initial_source_discovery_required(execution):
+    """Scan requirement; the readonly Plan batch protocol remains separate."""
+    return (initial_source_discovery_enabled(execution)
+            and not controller_selected_source_discovery(execution))
+
+
 def validate_initial_source_search(execution, grant):
     from .native_execution import NativePlanActionV2, NativePlanActionV3, NativePlanRequestedWorkSelectedV3
     from .native_retrieval import NativeRetrievalAuthorizedV1
@@ -359,6 +375,7 @@ def validate_initial_source_search(execution, grant):
     prefix = execution.events[:grant.sequence]
     work = next((event for event in prefix if event.event_id == grant.work_selection_event_id), None)
     if (type(action) not in (NativePlanActionV2, NativePlanActionV3)
+            or controller_selected_source_discovery(execution)
             or type(work) is not NativePlanRequestedWorkSelectedV3
             or work.requested_work not in {"discuss", "clarify"}
             or grant.context_receipt_sha256 != execution.context_receipt_sha256

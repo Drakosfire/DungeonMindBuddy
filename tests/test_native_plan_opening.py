@@ -123,13 +123,14 @@ def test_combined_result_is_one_closed_real_result_even_when_work_is_inactive(ch
         decode_opening_decision(opening_input(), actual)
 
 
-def request_context(*, related=False):
+def request_context(*, related=False, source_discovery_mode=None):
     context, record = component('plan')
     from application_state.agent_conversation.build_related_pages import PagePointer
     pages = (PagePointer(world_id=record.policy.action.intent.world_id, document_id=uuid4(),
         registry_revision=1, title='Saved notes', visibility='internal'),) if related else ()
     action = NativePlanActionV2.model_validate(record.policy.action.model_dump(by_alias=True) | dict(
-        action_version='plan_saved_authored_pages_v2', related_page_catalog=pages))
+        action_version='plan_saved_authored_pages_v2', related_page_catalog=pages,
+        **({'source_discovery_mode': source_discovery_mode} if source_discovery_mode else {})))
     policy = record.policy.model_copy(update={'action': action})
     admission = NativePlanRequestAdmissionV1(manifest_sha256='0' * 64,
         submitted_intent_sha256=t.canonical_sha256(action.intent), dialogue_sha256=t.canonical_sha256([]),
@@ -230,3 +231,156 @@ def test_captured_plan_opening_ui_wire_uses_the_current_backend_response_model()
     assert context.completion.native_assertion_citations
     assert wire['source']['citation'] == context.completion.native_assertion_citations[0].model_dump(mode='json',by_alias=True)
     assert wire['source']['world_id'] == context.receipt.work_context.plan_basis.world_id
+
+
+def test_controller_selected_source_mode_preserves_legacy_hash_and_real_opening_gate():
+    from application_state.agent_conversation.native_corpus import (
+        controller_selected_source_discovery, request_source_discovery_enabled,
+    )
+    from application_state.agent_conversation.native_plan_opening import validate_opening_prefix
+
+    legacy_context, legacy = request_context()
+    legacy_action = legacy.policy.action
+    legacy_wire = legacy_action.model_dump(mode='json', by_alias=True)
+    assert 'source_discovery_mode' not in legacy_wire
+    assert t.canonical_sha256(legacy_action) == t.canonical_sha256(legacy_wire)
+    assert request_source_discovery_enabled(legacy_context, legacy)
+    with pytest.raises(ValueError, match='settled request-owned discovery'):
+        validate_opening_prefix(legacy_context, (), execution=legacy)
+
+    context, record = request_context(source_discovery_mode='controller_selection_v1')
+    assert validate_context_binding(context, record) == record
+    assert controller_selected_source_discovery(record)
+    assert not request_source_discovery_enabled(context, record)
+    assert record.policy.action.model_dump(mode='json')['source_discovery_mode'] == 'controller_selection_v1'
+    assert validate_opening_prefix(context, (), execution=record) is None
+    old_auth = controller('plan', record.policy)
+    opening = NativePlanOpeningAuthorizedV1.model_validate(old_auth.model_dump(by_alias=True) | {
+        'kind': 'native_plan_opening_authorized_v1'})
+    admitted = execution(context.context_receipt_sha256, record.policy, [opening])
+    assert validate_context_binding(context, admitted) == admitted
+    forged = request_grant(context, record)
+    with pytest.raises(ValueError, match='Request discovery'):
+        execution(context.context_receipt_sha256, record.policy, [forged])
+    with pytest.raises(ValueError, match='automatic request grant'):
+        validate_opening_prefix(context, (forged,), execution=record)
+    with pytest.raises(ValueError):
+        NativePlanActionV2.model_validate(legacy_wire | {'source_discovery_mode': 'unknown'})
+
+
+def test_controller_selected_mode_cannot_be_bound_to_legacy_sdk_admission():
+    context, record = component('plan')
+    wire = record.policy.action.model_dump(mode='json', by_alias=True)
+    action = NativePlanActionV2.model_validate(wire | {
+        'action_version': 'plan_saved_authored_pages_v2', 'related_page_catalog': [],
+        'source_discovery_mode': 'controller_selection_v1',
+    })
+    changed = execution(context.context_receipt_sha256, record.policy.model_copy(update={'action': action}))
+    with pytest.raises(ValueError, match='requires current Plan request admission'):
+        validate_context_binding(context, changed)
+
+
+def test_controller_selected_navigation_offers_search_without_automatic_acquisition(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from application_state.agent_conversation.native_corpus import native_corpus_search_handle
+
+    def navigation(mode):
+        context, record = request_context(source_discovery_mode=mode)
+        turn = SimpleNamespace(graph_context_receipt=context, graph_context_execution=record,
+                               user_text=record.policy.action.intent.message)
+        adapter = SimpleNamespace(fence=SimpleNamespace(turn=turn), native_corpus_context=None)
+        source = object.__new__(NativeBodyNavigation)
+        source.adapter = adapter
+        source._source_display = {}
+        source._direct_sources = {}
+        monkeypatch.setattr(source, '_source_choices', lambda: {})
+        monkeypatch.setattr(source, '_acquired_extents', lambda: ())
+        monkeypatch.setattr(source, '_keyword_offers', lambda: ())
+        monkeypatch.setattr(source, '_scoped_offers', lambda rows, search: tuple(rows))
+        monkeypatch.setattr(source, '_commit', lambda *_a, **_kw: pytest.fail('Unexpected authorization or read'))
+        return source, turn
+
+    monkeypatch.setattr(native_corpus_source, 'capture_native_sources',
+                        lambda **_kw: pytest.fail('Unexpected source acquisition'))
+    current, turn = navigation('controller_selection_v1')
+    current.discover_initial()
+    offered = current.offered()
+    assert [item.handle for item in offered] == [native_corpus_search_handle(
+        sha256(turn.user_text.encode()).hexdigest())]
+    from application_state.agent_conversation.native_corpus import NativeBodySearchAuthorizedV1
+    execution = turn.graph_context_execution
+    interrupted = NativeBodySearchAuthorizedV1(event_id=uuid4(), sequence=0,
+        provider_attempt_id=uuid4(), context_receipt_sha256=execution.context_receipt_sha256,
+        execution_policy_sha256=execution.execution_policy_sha256,
+        authority=turn.graph_context_receipt.source_authority,
+        query_sha256=sha256(turn.user_text.encode()).hexdigest())
+    turn.graph_context_execution = execution.model_copy(update={'events': [interrupted]})
+    current.discover_initial()  # Never repeats an interrupted explicit search.
+    with pytest.raises(ValueError, match='unresolved durable grant'):
+        current.offered()
+    legacy, _ = navigation(None)
+    with pytest.raises(ValueError, match='requires initial source discovery'):
+        legacy.offered()
+
+
+def test_controller_selected_search_still_requires_exact_acknowledged_handle(monkeypatch):
+    from types import SimpleNamespace
+    from application_state.agent_conversation import native_reads, build_pending_native
+    from application_state.agent_conversation.native_corpus import (
+        initial_source_discovery_enabled, initial_source_discovery_required, native_corpus_search_handle,
+    )
+    from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV2
+
+    context, record = request_context(source_discovery_mode='controller_selection_v1')
+    choice = NativePlanOpeningSelectedV2.model_construct(
+        event_id=uuid4(), sequence=0, requested_work='discuss', operation='finish_retrieval')
+    current = record.model_copy(update={'events': [choice]})
+    assert initial_source_discovery_enabled(current)
+    assert not initial_source_discovery_required(current)
+    turn = SimpleNamespace(user_text=record.policy.action.intent.message)
+    monkeypatch.setattr(native_reads, '_owner', lambda *_a, **_kw: (context, current))
+    monkeypatch.setattr(build_pending_native, 'read_source_authority',
+                        lambda *_args: context.source_authority)
+    selected = SimpleNamespace(operation='select_candidates',
+        selected_handles=(native_corpus_search_handle(sha256(turn.user_text.encode()).hexdigest()),),
+        controller_attempt_id=uuid4())
+    monkeypatch.setattr(build_pending_native, 'read_selection', lambda *_args: selected)
+    event = native_reads.authorize_body_search_locked(turn, event_id=uuid4())
+    assert event.provider_attempt_id == selected.controller_attempt_id
+    assert event.query_sha256 == sha256(turn.user_text.encode()).hexdigest()
+    assert event.authority == context.source_authority
+    for bad in (SimpleNamespace(operation='finish_retrieval', selected_handles=selected.selected_handles),
+                SimpleNamespace(operation='select_candidates', selected_handles=('foreign',))):
+        monkeypatch.setattr(build_pending_native, 'read_selection', lambda *_args, bad=bad: bad)
+        with pytest.raises(ValueError, match='not selected'):
+            native_reads.authorize_body_search_locked(turn, event_id=uuid4())
+
+    legacy_action = record.policy.action.model_copy(update={'source_discovery_mode': None})
+    legacy = current.model_copy(update={'policy': record.policy.model_copy(update={'action': legacy_action})})
+    assert initial_source_discovery_enabled(legacy) and initial_source_discovery_required(legacy)
+    monkeypatch.setattr(native_reads, '_owner', lambda *_a, **_kw: (context, legacy))
+    with pytest.raises(ValueError, match='initial work'):
+        native_reads.authorize_body_search_locked(turn, event_id=uuid4())
+
+
+def test_controller_selected_mode_rejects_legacy_automatic_work_grant():
+    from application_state.agent_conversation.native_corpus import (
+        NativeInitialSourceSearchAuthorizedV1, validate_initial_source_search,
+    )
+    from application_state.agent_conversation.native_execution import NativePlanRequestedWorkSelectedV3
+
+    context, record = request_context()
+    work = NativePlanRequestedWorkSelectedV3.model_construct(
+        event_id=uuid4(), sequence=0, requested_work='discuss')
+    legacy = record.model_copy(update={'events': [work]})
+    grant = NativeInitialSourceSearchAuthorizedV1(event_id=uuid4(), sequence=1,
+        work_selection_event_id=work.event_id, context_receipt_sha256=legacy.context_receipt_sha256,
+        execution_policy_sha256=legacy.execution_policy_sha256, authority=context.source_authority,
+        query_sha256=sha256(record.policy.action.intent.message.encode()).hexdigest())
+    assert validate_initial_source_search(legacy, grant) is None
+    action = record.policy.action.model_copy(update={'source_discovery_mode': 'controller_selection_v1'})
+    changed = legacy.model_copy(update={'policy': record.policy.model_copy(update={'action': action})})
+    with pytest.raises(ValueError, match='original readonly work'):
+        validate_initial_source_search(changed, grant)
