@@ -394,8 +394,19 @@ def native_conversation_terminal(turn):
 
 
 def native_work_terminal(turn):
-    from .build_source_free import pending_source_free_terminal, pending_native_terminal
-    from .build_pending_app_coverage import pending_app_writer_terminal
+    from . import types as t
+    from .build_source_free import pending_source_free_terminal, pending_native_terminal, validate_pending_execution_binding
+    from .build_pending_app_coverage import pending_app_writer_terminal, pending_app_partial_candidate
+    from .native_context import BuildPendingContextReceiptV1
+    execution = turn.graph_context_execution
+    # Reader-only compatibility: recognize an already persisted partial
+    # selection after rejoining its exact receipt. Do not produce one here.
+    partial = pending_app_partial_candidate(execution)
+    if (partial is not None and type(turn.graph_context_receipt) is BuildPendingContextReceiptV1
+            and any(type(row) is t.BuildWriterEvidenceSelectionV2 and row.terminal_disposition == partial
+                    for row in execution.events)):
+        validate_pending_execution_binding(turn.graph_context_receipt, execution)
+        return partial
     return (native_approval_terminal(turn) or native_conversation_terminal(turn)
         or pending_source_free_terminal(turn.graph_context_execution)
         or pending_app_writer_terminal(turn.graph_context_execution)
