@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 from pydantic import Field, model_validator
 
 from .native_corpus import NativeCorpusAuthorityV1
+from .build_source_free import BuildSourceObservationV1, BuildConversationObservationV1
 from .native_plan_assertions import NativePlanQueryV2, NativeGraphQueryV3, NativeGraphQueryV4
 from .native_plan_statements import NativePlanQueryAuthorityV1, NativePlanQueryUnavailableV1
 from .native_statement_input import Strict
@@ -86,6 +87,11 @@ class NativeProviderInputV1(Strict):
 class NativeBuildProviderInputV2(NativeProviderInputV1):
     """Fresh Build routing presentation; all control metadata stays host-side."""
     assembler_version: Literal["native_build_semantic_initial_v2"] = "native_build_semantic_initial_v2"
+
+
+class NativeBuildPendingProviderInputV3(NativeProviderInputV1):
+    """Initial Build input before any native revision/catalog verification."""
+    assembler_version: Literal["native_build_pending_initial_v3"] = "native_build_pending_initial_v3"
 
 
 class NativeReviewedActionInputV1(Strict):
@@ -176,6 +182,33 @@ class SurfaceNativeContextReceiptV1(Strict):
         return self
 
 
+class BuildPendingContextReceiptV1(Strict):
+    """Build observation commitment, deliberately not a native source receipt.
+
+    No source authority, native query, domain/profile or evidence can be supplied
+    under this discriminator. A separate settlement must verify actual sources.
+    """
+    schema_: Literal["dmb_build_pending_context_receipt_v1"] = Field(
+        default="dmb_build_pending_context_receipt_v1", alias="schema")
+    receipt_serializer_version: Literal["canonical-json-utf8-v1"] = "canonical-json-utf8-v1"
+    context_receipt_sha256: Digest
+    provenance_sha256: Digest
+    work_context: BuildWorkContextV1
+    source_observation: BuildSourceObservationV1
+    conversation_observation: BuildConversationObservationV1
+    assembled_input: NativeBuildPendingProviderInputV3
+
+    @model_validator(mode="after")
+    def coherent_pending_build(self):
+        if work_world_id(self.work_context) != self.source_observation.managed_world_id:
+            raise ValueError("Pending Build observation differs from its actual work World")
+        value = self.model_dump(mode="json", by_alias=True,
+                                exclude={"context_receipt_sha256"})
+        if canonical_sha256(value) != self.context_receipt_sha256:
+            raise ValueError("Pending Build context digest differs from its contents")
+        return self
+
+
 def validate_work_context(context, provenance, *, play_context_receipt=None):
     """Join frozen records through their work owners; this grants no read access.
 
@@ -184,6 +217,10 @@ def validate_work_context(context, provenance, *, play_context_receipt=None):
     execution policy and acknowledged producing SDK decision.
     """
     from . import types as t
+    if type(context) is BuildPendingContextReceiptV1 and type(provenance) is t.TurnProvenance:
+        context = BuildPendingContextReceiptV1.model_validate_json(context.model_dump_json(by_alias=True))
+        provenance = t.TurnProvenance.model_validate_json(provenance.model_dump_json(by_alias=True))
+        return _join_work_context(context, provenance, play_context_receipt=play_context_receipt)
     if type(context) is not SurfaceNativeContextReceiptV1 or type(provenance) is not t.TurnProvenance:
         raise ValueError("Native work binding requires its concrete context and provenance")
     # Revalidate nested mutable work models and the complete root commitment.
@@ -222,4 +259,6 @@ def _join_work_context(context, provenance, *, play_context_receipt=None):
 def is_semantic_build_input(receipt):
     """Dispatch only the exact fresh Build input codec; never infer from text."""
     return (type(receipt) is SurfaceNativeContextReceiptV1
-        and type(receipt.assembled_input) is NativeBuildProviderInputV2)
+        and type(receipt.assembled_input) is NativeBuildProviderInputV2
+        or type(receipt) is BuildPendingContextReceiptV1
+        and type(receipt.assembled_input) is NativeBuildPendingProviderInputV3)

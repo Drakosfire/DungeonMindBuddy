@@ -1520,7 +1520,7 @@ def get_world_conversation_history(
     contains_play_source = any(source_only_play(turn) for turn in turns)
     contains_mixed = any(isinstance(turn, MixedCompletedTurnV1) for turn in turns)
     from application_state.agent_conversation.native_statement_input import NativeStatementContextReceiptV1
-    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1, PlayWorkContextV1
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1, BuildWorkContextV1, PlayWorkContextV1
     def has_play_context(turn):
         receipt = turn.graph_context_receipt
         return isinstance(receipt, PlayWorldGraphContextReceiptV1) or (
@@ -1615,7 +1615,7 @@ def get_world_conversation_history(
             history_turns.append(AgentConversationHistoryPlaySourceTurnV1(**values,
                 play_source_context=project_play_source_context(turn,delivery_replay=True)))
         elif isinstance(turn.graph_context_receipt, BuildGraphContextReceiptV1) or (
-            isinstance(turn.graph_context_receipt, SurfaceNativeContextReceiptV1)
+            isinstance(turn.graph_context_receipt, (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1))
             and isinstance(turn.graph_context_receipt.work_context, BuildWorkContextV1)
         ):
             build_model = AgentConversationHistoryBuildTurnV3 if include_turn_correlation else AgentConversationHistoryBuildTurnV2
@@ -2554,6 +2554,8 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
             raise
         trace.complete_phase(auth_span)
 
+        from apps.live_control_server.services.hosted_native_graph_access import require_conversation_access
+
         result = execute_agent_turn(
             body,
             root=repo_root(),
@@ -2577,6 +2579,8 @@ def _execute_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, A
             trace_builder=trace,
             operator_subject=principal.subject,
             native_principal=principal,
+            authorize_build_world=lambda world_id: require_conversation_access(
+                request, world_id, authorize_local=enforce_native_graph_gm),
             native_statement_transport=getattr(request.app.state, "native_statement_writer_transport", None),
         )
         if getattr(request.state, "guest_conversation_world", None) is not None:

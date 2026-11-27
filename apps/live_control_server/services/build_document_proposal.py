@@ -487,6 +487,17 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
             f"\nThe author selected the offered {target} destination. Use target {target} "
             "and destination current_page. If that is unsuitable, return unavailable with empty Markdown."
         )
+    elif _native_context is not None and request.basis.selection is not None:
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+
+        if type(_native_context[0]) is BuildPendingContextReceiptV1:
+            expected["instructions"] += (
+                "\nThe author-selected passage in surface_work.build_work.edit_target is an offered "
+                "captured edit target. For a request to insert immediately before or after it, "
+                "use target captured and destination current_page. Return the selected passage "
+                "unchanged with the requested addition on the specified side. The host preserves "
+                "the surrounding text."
+            )
     if bool(request.reference_image_id) != (_reference_image is not None) or (
             _reference_image is not None and _native_context is None):
         raise BuildComposeError("Image-grounded revision requires the authorized Build writer.")

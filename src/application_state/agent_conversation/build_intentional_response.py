@@ -635,6 +635,13 @@ def captured_capabilities(policy):
 
 
 def _captured_semantics(policy):
+    if getattr(policy, 'policy_version', None) == 'build_pending_execution_v1':
+        from .native_execution import BuildPendingExecutionPolicyV1
+        if type(policy) is not BuildPendingExecutionPolicyV1:
+            raise ValueError('Pending Build semantics require their concrete policy')
+        action = policy.action
+        return (action.capabilities, action.intent.build_write_capability_sha256,
+            action.requested_work_menu_sha256, action.response_resolver_sha256)
     if getattr(policy,'policy_version',None)=='surface_native_execution_v1':
         from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
         if type(policy) is not SurfaceNativeExecutionPolicyV1 or type(policy.action) is not NativeBuildActionV1:

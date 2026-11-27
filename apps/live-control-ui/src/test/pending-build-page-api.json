@@ -1,0 +1,78 @@
+{
+  "schema": "dmb_agent_build_pending_context_response_v1",
+  "receipt": {
+    "schema": "dmb_build_pending_context_receipt_v1",
+    "receipt_serializer_version": "canonical-json-utf8-v1",
+    "context_receipt_sha256": "69cf49da640c3cbc3f19c6647a03513b53df15d1efb1604f90339db7b5f7e9d4",
+    "provenance_sha256": "337bbbba8a2203987eb4cbac347fc35ad5211faab32227291e89ee646686f84d",
+    "work_context": {
+      "surface_id": "build",
+      "source_basis": {
+        "world_id": "world-one",
+        "document_id": "page-one",
+        "registry_revision": 3,
+        "content_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "visibility": "internal"
+      }
+    },
+    "source_observation": {
+      "schema": "dmb_build_source_observation_v1",
+      "managed_world_id": "world-one",
+      "binding": null,
+      "requested_revision_id": null,
+      "observed_head_revision_id": null
+    },
+    "conversation_observation": {
+      "conversation_id": "b3d46ecc-d4f9-4deb-a89b-4fec0e85e50a",
+      "pointer_revision": 0
+    },
+    "assembled_input": {
+      "assembler_version": "native_build_pending_initial_v3",
+      "provider_model_name": "jev-1.14.0",
+      "provider_model_version": "test-version",
+      "tokenizer_name": "o200k_double_plus_4096_adaptive_context_v4",
+      "tokenizer_version": "test-version",
+      "provider_envelope_input_tokens": 120,
+      "output_token_reserve": 200,
+      "context_window_limit": 128000,
+      "included_history": [],
+      "assembled_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  },
+  "completion": {
+    "schema": "dmb_surface_native_completion_v1",
+    "surface_id": "build",
+    "context_receipt_sha256": "69cf49da640c3cbc3f19c6647a03513b53df15d1efb1604f90339db7b5f7e9d4",
+    "producing_provider_attempt_id": "ac6669ff-fbc1-4a34-a122-f3cc548cf62e",
+    "answer_basis": "mixed_evidence",
+    "answer_context_status": "creative_proposal",
+    "answer_segments": [
+      {
+        "kind": "proposal",
+        "text": "Authored note context: Maelthor stands beside three bridges. The fare is a truthful memory.",
+        "label": "invented_idea"
+      }
+    ],
+    "collaboration": {
+      "kind": "lore_page",
+      "destination": {
+        "instruction": "Create a new page titled Maelthor from the context we discussed.",
+        "title": "Maelthor"
+      },
+      "open_questions": [
+        "Who is the traveler?"
+      ]
+    },
+    "saved_source_citations": [],
+    "native_body_citations": [],
+    "native_clause_citations": [],
+    "native_assertion_citations": []
+  },
+  "execution": {
+    "schema": "dmb_agent_plan_world_graph_execution_projection_v1",
+    "claimability": "completed",
+    "authorization_state": "response_received",
+    "automatic_redispatch": false
+  },
+  "delivery_replay": true
+}

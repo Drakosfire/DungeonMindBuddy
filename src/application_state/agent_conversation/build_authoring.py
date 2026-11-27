@@ -136,8 +136,11 @@ def validate_stored_proposal(conn, turn, completion, *, proposal_payloads=None):
         reservation, receipt = record.reservation, turn.graph_context_receipt
         origin, auth = reservation.origin, record.authorization
         basis = reservation.basis
-        from .native_context import SurfaceNativeContextReceiptV1,BuildWorkContextV1
-        shared=type(receipt) is SurfaceNativeContextReceiptV1
+        from .native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1, BuildWorkContextV1
+        from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
+        shared=(type(receipt), type(turn.graph_context_execution)) in {
+            (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1),
+            (BuildPendingContextReceiptV1, BuildPendingExecutionV1)}
         if shared and not isinstance(receipt.work_context,BuildWorkContextV1):
             raise ValueError('Native proposal requires its actual Build source')
         source=receipt.work_context.source_basis if shared else receipt.source_basis
@@ -262,8 +265,8 @@ def validate_stored_proposal(conn, turn, completion, *, proposal_payloads=None):
 
 
 def _native_build(turn):
-    from .native_execution import SurfaceNativeExecutionV1,NativeBuildActionV1
-    return (type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1, NativeBuildActionV1
+    return (type(turn.graph_context_execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1)
         and type(turn.graph_context_execution.policy.action) is NativeBuildActionV1)
 
 
@@ -305,7 +308,7 @@ def validate_prepared_native_authoring(conn,turn,result,*,trace):
     return current.execution.state
 
 
-def recover_prepared_proposal(service, turn, action_id):
+def recover_prepared_proposal(service, turn, action_id, *, authorize_current_access=None):
     """Finish only an already persisted, acknowledged proposal; never dispatch."""
     from application_state.build_proposal.service import BuildProposalService
     from application_state.errors import ApplicationStateNotFoundError
@@ -338,7 +341,8 @@ def recover_prepared_proposal(service, turn, action_id):
             completion=completion,
             producing_provider_attempt_id=record.authorization.provider_attempt_id,
             claim_graph_event_ids={},
-        )
+        ),
+        authorize_current_access=authorize_current_access,
     )
 
 

@@ -87,8 +87,54 @@ def _writer_assertion_reads(execution, *, passages_only):
     return tuple(included)
 
 
+def _validate_writer_binding(receipt, execution):
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1
+    if (type(receipt), type(execution)) == (BuildPendingContextReceiptV1, BuildPendingExecutionV1):
+        from .build_source_free import validate_pending_execution_binding
+        validate_pending_execution_binding(receipt, execution)
+    else:
+        validate_execution_binding(receipt, execution)
+
+
+def _pending_model_frame(receipt, execution, *, schema, passages_only):
+    from .build_source_free import effective_pending_source
+    from .retained_conversation import native_supports
+    if schema != SCHEMA:
+        raise ValueError('Pending Build has no historical writer evidence presentation')
+    _validate_writer_binding(receipt, execution)
+    if any(type(event) in NATIVE_WRITER_TYPES for event in execution.events):
+        raise ValueError('Pending evidence projection requires its prefix before the writer')
+    source = effective_pending_source(receipt, execution)
+    authority, query = source if source is not None else (None, None)
+    body_frame = bodies.model_body_frame_records(authority, execution, body_handle,
+        passages_only=passages_only)
+    if authority is None:
+        body_frame['source_authority_status'] = 'not_prepared'
+    body_frame['excerpts'].extend(bodies.model_body_frame_rows(
+        authority, (), body_handle, passage_supports=native_supports(execution))['excerpts'])
+    partial = (source is None or isinstance(query, statements.NativePlanQueryUnavailableV1)
+        or bodies.body_input_partial(execution) or statements.input_partial_records(query, execution)
+        or assertions.input_partial_records(query, execution))
+    statement_frame = statements.model_frame_records(query, execution)
+    if source is None:
+        statement_frame['status'] = 'not_prepared'
+    return dict(schema=schema, answer_policy=assertions.POLICY,
+        input_status='partial' if partial else 'complete',
+        user_question=execution.policy.action.intent.message, native_body_evidence=body_frame,
+        native_statements=statement_frame,
+        native_assertions=assertions.model_frame_records(query, execution,
+            schema='dmb_native_assertion_frame_v2',
+            read_records=_writer_assertion_reads(execution, passages_only=passages_only))
+            if isinstance(query, assertions.NativePlanQueryV2) else None)
+
+
 def model_frame(receipt, execution, *, schema=SCHEMA, passages_only=False):
     """Current semantic projection; V1 remains an exact historical input codec."""
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1
+    if (type(receipt), type(execution)) == (BuildPendingContextReceiptV1, BuildPendingExecutionV1):
+        return _pending_model_frame(receipt, execution, schema=schema, passages_only=passages_only)
     if schema not in {LEGACY_SCHEMA, SCHEMA}:
         raise ValueError('Unknown native writer evidence presentation')
     if (type(receipt), type(execution)) != (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1):
@@ -166,7 +212,7 @@ def model_work_frame(receipt, execution, *, provenance, idempotency_key, work_pr
                      world_id, conversation_id, turn_id, attempt, play_context_receipt=None):
     """Reconstruct real surface work through its owner; no second stored authority."""
     from .native_context import validate_work_context, BuildWorkContextV1, PlanWorkContextV1
-    validate_execution_binding(receipt,execution)
+    _validate_writer_binding(receipt,execution)
     validate_work_context(receipt,provenance,play_context_receipt=play_context_receipt)
     action=execution.policy.action
     from .authored_graph_references import validate_native_capture_identity
@@ -240,9 +286,13 @@ def authoring_input(native_context, capability, instruction, operation):
     if not isinstance(native_context,tuple) or len(native_context)!=3:
         raise ValueError('Native authoring requires concrete context, execution and submission')
     receipt,execution,work=native_context
-    from .native_execution import NativeBuildActionV1
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1, NativeBuildActionV1
     from .build_intentional_response import selected_action
-    if type(execution) is not SurfaceNativeExecutionV1 or type(execution.policy.action) is not NativeBuildActionV1:
+    if ((type(receipt), type(execution)) not in {
+            (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1),
+            (BuildPendingContextReceiptV1, BuildPendingExecutionV1)}
+            or type(execution.policy.action) is not NativeBuildActionV1):
         raise ValueError('Native authoring requires the actual Build action')
     action=execution.policy.action
     selected=selected_action(execution)
@@ -347,16 +397,20 @@ def verify_input_records(receipt, execution, authorization, raw, *, provenance, 
                          work_proof, world_id, conversation_id, turn_id, attempt, play_context_receipt=None,
                          retained_build_proof=False):
     """Bind one shared native frame to the exact stored producing SDK request."""
-    if ((type(receipt), type(execution)) != (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1)
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1
+    if ((type(receipt), type(execution)) not in {
+            (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1),
+            (BuildPendingContextReceiptV1, BuildPendingExecutionV1)}
             or type(authorization) not in NATIVE_WRITER_TYPES):
         raise ValueError("Native writer proof requires its concrete shared owner records")
-    validate_execution_binding(receipt, execution)
+    _validate_writer_binding(receipt, execution)
     writers = [event for event in execution.events if type(event) in NATIVE_WRITER_TYPES]
     if writers != [authorization] or execution.events[authorization.sequence] != authorization:
         raise ValueError("Native writer proof differs from its unique stored authorization")
     # Reparse actual records, not a legacy policy/view. Later outcomes never add
     # evidence to this producing frame; read owners refuse post-writer acquisition.
-    prefix = SurfaceNativeExecutionV1.model_validate_json(execution.model_copy(
+    prefix = type(execution).model_validate_json(execution.model_copy(
         update={"events": execution.events[:authorization.sequence]}).model_dump_json(by_alias=True))
     expected_work = model_work_frame(receipt,prefix,provenance=provenance,idempotency_key=idempotency_key,
         work_proof=work_proof,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,attempt=attempt,

@@ -32,7 +32,8 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize('mode', ['legacy', 'pending', 'recover'])
+def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, mode):
     table = (
         "| NPC | Job | Detail |\n| --- | --- | --- |\n"
         "| Nia | Baker | Carries a copper bell |\n"
@@ -42,6 +43,62 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch):
         "| Mara | Courier | Knows the flood routes |\n"
         "| Sela | Gardener | Grows striped mint |"
     )
+    if mode != 'legacy':
+        from application_state.build_proposal.service import BuildProposalService
+        from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+        from apps.live_control_server.services import build_related_pages, plan_source_turn
+
+        def forbidden(*args, **kwargs):
+            pytest.fail('Anchored pending placement attempted new source acquisition')
+
+        monkeypatch.setattr(build_related_pages, 'discover', forbidden)
+        monkeypatch.setattr(native_corpus_source, 'prepare_native_source_context', forbidden)
+        monkeypatch.setattr(plan_source_turn, 'prepare_native_source_context', forbidden)
+        monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **kwargs: lane.repo)
+
+        def send(client, world, body):
+            body['build_authored_references'] = None
+            if mode != 'recover':
+                capability = body['build_write_capability']
+                capability.pop('boundary_editor_json', None)
+                capability['basis']['selection'] = {'end': 3, 'text': 'An'}
+                return client.post('/api/live/agent/turn', json=body)
+
+            def stop_before_terminal(*args, **kwargs):
+                raise RuntimeError('synthetic interruption after proposal persistence')
+
+            with monkeypatch.context() as interrupted:
+                interrupted.setattr(AgentConversationService, 'complete_pending_native_base_turn', stop_before_terminal)
+                first = client.post('/api/live/agent/turn', json=body)
+            assert first.status_code == 503, first.text
+            key = UUID(body['build_write_capability']['idempotency_key'])
+            stored = BuildProposalService().get(world, key)
+            assert stored.state == 'proposed'
+            recovered = client.post('/api/live/agent/turn', json=body)
+            assert recovered.status_code == 200, recovered.text
+            assert recovered.json()['knowledge_context']['delivery_replay'] is True
+            assert BuildProposalService().get(world, key) == stored
+            return recovered
+
+        case = _fresh_case(
+            lane, tmp_path, monkeypatch, None, True, False, True,
+            message="Create six NPCs for Edge, with jobs and a distinguishing detail, and add them as a table.",
+            proposal_markdown=table, requested_work='write_current_page',
+            source_need='anchored', dispatch=send, capture_pending=True,
+        )
+        assert case.response.status_code == 200, case.response.text
+        assert case.turn.graph_context_receipt.schema_ == 'dmb_build_pending_context_receipt_v1'
+        assert case.turn.status == 'completed'
+        assert len(case.writer.calls) == 1
+        if mode == 'pending':
+            request = json.loads(case.writer.calls[0].content)
+            target = json.loads(request['input'])['surface_work']['build_work']['edit_target']
+            assert target['selection']['text'] == 'An'
+            assert 'edit_target is an offered captured edit target' in request['instructions']
+        proposed, = BuildProposalService().list(case.world, case.turn.conversation_id)
+        assert proposed.state == 'proposed' and proposed.proposal.replacement_markdown == table
+        return
+
     _fresh_case(
         lane, tmp_path, monkeypatch, None, True, False, True,
         message="Create six NPCs for Edge, with jobs and a distinguishing detail, and add them as a table.",
@@ -204,7 +261,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,capture_pending=False):
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import native_graph_reads as native, managed_world_graph_projection as managed
     from apps.live_control_server.services import build_jev_runtime as factory
@@ -1277,6 +1334,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     elif contextual == "foreign":
         body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
     response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
+    if capture_pending:
+        turn = AgentConversationService().inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
+        assert not classic_calls
+        assert lane.repo.get_head(world).head_revision_id == current_revision
+        assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+        return SimpleNamespace(client=client, world=world, response=response, turn=turn,
+            writer=writer, decisions=decisions, request=body)
     if image_move and failure != "discussion_source_tie":
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError

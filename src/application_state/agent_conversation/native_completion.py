@@ -129,13 +129,27 @@ def require_object_only_completion(completion):
     return checked
 
 
+def _pending_graph_identity(receipt, execution):
+    from .build_pending_native import pending_citation_identity
+    from .native_context import BuildPendingContextReceiptV1
+
+    if type(receipt) is BuildPendingContextReceiptV1:
+        return pending_citation_identity(receipt, execution)
+    return None
+
+
 def _validate_citations(completion, receipt, execution, auth, evidence):
     # Evidence is freshly reconstructed by this module's entry point, never an
     # arbitrary caller-supplied list or a second persisted inclusion manifest.
+    pending_identity = None
+    if completion.native_clause_citations or completion.native_assertion_citations:
+        pending_identity = _pending_graph_identity(receipt, execution)
     statements.validate_citation_records(completion, receipt, auth,
-        {read.support.statement_id:read for _,_,read in evidence.native_statements})
+        {read.support.statement_id:read for _,_,read in evidence.native_statements},
+        pending_identity=pending_identity)
     assertions.validate_citation_records(completion, receipt, auth,
-        {(event.event_id,read.assertion.assertion_id):(event,read) for _,event,read in evidence.native_assertions})
+        {(event.event_id,read.assertion.assertion_id):(event,read) for _,event,read in evidence.native_assertions},
+        pending_identity=pending_identity)
     bodies.validate_body_support_citations(completion, evidence.body_excerpts,
         producer=auth.provider_attempt_id,envelope_sha256=auth.envelope_sha256,before_sequence=auth.sequence)
     from .build_related_pages import validate_claims as validate_related_claims
@@ -458,6 +472,7 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
     segments, body_cites, statement_cites, assertion_cites,saved_cites = [], [], [], [],[]
     blocks,selectors=authored_block_index(evidence.authored,str(evidence.idempotency_key),local=evidence.authored_local)
     selected_blocks=set()
+    pending_identity = None
     for row in rows:
         if (not isinstance(row,dict) or row.get('kind') not in {'authored_excerpt', 'statblock_pdf_claim'}
                 and (not isinstance(row.get('text'),str) or not row['text'].strip())):
@@ -493,8 +508,11 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
         elif row.get('kind') == 'proposal':
             segments.append(t.PlanWorldGraphProposalSegmentV1.model_validate(row))
         else:
+            if pending_identity is None and row.get('kind') in {'native_assertion_claim', 'native_statement_report'}:
+                pending_identity = _pending_graph_identity(receipt, execution)
             segment, body, statement, assertion = native_fact_segment(row,policy=candidate['schema'],
-                receipt=receipt,auth=authorization,support=evidence,index=len(segments))
+                receipt=receipt,auth=authorization,support=evidence,index=len(segments),
+                pending_identity=pending_identity)
             segments.append(segment)
             body_cites.extend(body)
             statement_cites.extend(statement)
@@ -571,7 +589,19 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
     """Validate stored native citations/binding; producing admission owns acceptance."""
     from .native_execution import _revalidate_context_binding
 
-    receipt, execution = _revalidate_context_binding(receipt, execution)
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1
+    if (type(receipt), type(execution)) == (BuildPendingContextReceiptV1, BuildPendingExecutionV1):
+        from .build_source_free import _pending_components, _join_pending_source
+        receipt, execution = _pending_components(receipt, execution)
+        _join_pending_source(receipt, execution)
+        final = [event for event in execution.events if type(event) is t.CompletionBindingEventV1]
+        if (len(final) != 1 or final[0].provider_attempt_id != producer
+                or final[0].claim_graph_event_ids != bindings
+                or final[0].completion_sha256 != t.canonical_sha256(completion)):
+            raise ValueError('Pending retained completion differs from its exact final binding')
+    else:
+        receipt, execution = _revalidate_context_binding(receipt, execution)
     _join_retained_completion(completion, receipt, execution, producer, bindings)
 
 
@@ -662,8 +692,15 @@ def _join_retained_completion(completion, receipt, execution, producer, bindings
     if isinstance(completion,(t.BuildAuthoringCompletionV1,t.BuildImagePreparationCompletionV1)):
         return
     prefix = execution.model_copy(update={'events': execution.events[:auth.sequence]})
-    _validate_owned_context_binding(receipt, prefix)
-    frame = _model_frame_from_validated_prefix(receipt, prefix)
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_source_free import validate_pending_execution_binding
+        from .native_writer import model_frame
+        prefix = validate_pending_execution_binding(receipt, prefix)
+        frame = model_frame(receipt, prefix)
+    else:
+        _validate_owned_context_binding(receipt, prefix)
+        frame = _model_frame_from_validated_prefix(receipt, prefix)
     from .build_primary_context import records
     evidence=SimpleNamespace(**read_evidence_records(prefix,frame),
         saved_sections=records(prefix,receipt.work_context.source_basis) if completion.surface_id=='build' else ())

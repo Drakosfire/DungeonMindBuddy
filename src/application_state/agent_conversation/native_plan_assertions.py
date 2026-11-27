@@ -425,14 +425,21 @@ class NativeAssertionPdfCitationV1(NativeAssertionPdfRegionV1, NativeAssertionCi
 NativeAssertionCitation = NativeAssertionCitationV1 | NativeAssertionPdfCitationV1
 
 
-def citation(receipt, authorization, event, read, span, *, index):
-    authority = receipt.native_query.authority
+def citation(receipt, authorization, event, read, span, *, index, pending_identity=None):
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        if pending_identity is None:
+            raise ValueError("Pending citation requires its admitted source identity")
+        managed_world_id, native_world_id, read_revision_id = pending_identity
+    else:
+        authority = receipt.native_query.authority
+        managed_world_id, native_world_id, read_revision_id = authority.managed_world_id, authority.native_world_id, authority.revision_id
     citation_type = NativeAssertionPdfCitationV1 if isinstance(span, NativeAssertionPdfRegionV1) else NativeAssertionCitationV1
     return citation_type(**span.model_dump(exclude={'text'}), segment_index=index,
         assertion_id=read.assertion.assertion_id, read_event_id=event.event_id,
         provider_attempt_id=authorization.provider_attempt_id, envelope_sha256=authorization.envelope_sha256,
-        context_receipt_sha256=receipt.context_receipt_sha256, managed_world_id=authority.managed_world_id,
-        native_world_id=authority.native_world_id, read_revision_id=authority.revision_id,
+        context_receipt_sha256=receipt.context_receipt_sha256, managed_world_id=managed_world_id,
+        native_world_id=native_world_id, read_revision_id=read_revision_id,
         assertion_sha256=digest(read.assertion))
 
 
@@ -450,7 +457,7 @@ def validate_citations(completion, receipt, execution, authorization):
     validate_citation_records(completion, receipt, authorization, reads)
 
 
-def validate_citation_records(completion, receipt, authorization, reads):
+def validate_citation_records(completion, receipt, authorization, reads, *, pending_identity=None):
     """One assertion span/qualification closure after actual producer admission."""
     from . import types as t
     seen, cited = set(), {}
@@ -464,7 +471,8 @@ def validate_citation_records(completion, receipt, authorization, reads):
         segment = completion.answer_segments[item.segment_index]
         if (span is None or not isinstance(segment, t.NativeAssertionClaimV1)
                 or item.assertion_id not in segment.assertion_ids
-                or item != citation(receipt, authorization, event, read, span, index=item.segment_index)):
+                or item != citation(receipt, authorization, event, read, span, index=item.segment_index,
+                    pending_identity=pending_identity)):
             raise ValueError('Native assertion citation changed original source support')
         seen.add(key)
         cited.setdefault(item.segment_index, set()).add(item.assertion_id)

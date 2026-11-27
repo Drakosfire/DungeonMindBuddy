@@ -1,0 +1,9 @@
+# BUILD · Pending admission for Right Action
+
+Status: ACTIVE. The operator authorized the shared anchored host fix and isolated Right Action benchmark. This is the serial successor to merged #4994 at `3714dd269124be1d7e82776451700292b445039d` in the isolated `codex/right-action-pending-build-port` checkout.
+
+Carry the serving pending Build receipt and post-intent evidence owners forward from #4642. Reconcile the final-row App State guard on main and the native citation and client readers that consume pending receipts. The write set is the pending Build owner modules and their dispatch, persistence, response and citation integration, migration, and focused tests in the cumulative branch diff. Keep the current shared Build path available for existing retained records and requests with explicit source selections.
+
+A validated anchored edit can reach the writer without catalog selection or Graph content acquisition. A source lookup must still settle the requested authority and reopen its citation through the existing authorized endpoints. Startup captures the App World binding. An unpinned lookup resolves its first Core revision after validated work selection and preserves the settled revision on reopen. Explicit revision pins remain exact. An unobserved owner cannot stand in for zero evidence reads.
+
+Use the existing shared harness with the disposable evaluator on 32769, one serial App clone, and shared read-only Core. Keep Gold local and primary data unchanged. The ordinary direct-source control passed with simulated providers, exact citation reopening, and no additional provider dispatch on replay. Required delivery evidence includes the ordinary mounted six-row edit, disclosure of all owner reads, the discussion-only and contradictory-vote controls, a different-source lookup and exact citation reopening, and independent cumulative review.

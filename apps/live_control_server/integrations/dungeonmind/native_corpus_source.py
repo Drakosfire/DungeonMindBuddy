@@ -79,6 +79,53 @@ def _guest_access(principal, world_id):
     require_guest_read_access(principal, world_id)
 
 
+def observe_build_source_pointer(*, managed_world_id, principal, revision_id=None,
+                                 repository=None, resolve_identity=None, defer_head=False):
+    """Observe Build identity without loading or verifying revision content.
+
+    Buddy's caller owns current World/principal access. A head is only an
+    observed pointer; neither it nor an explicit request grants source access.
+    Missing binding/head remains usable for genuinely source-free work.
+    """
+    from application_state.agent_conversation.build_source_free import (
+        BuildSourceBindingObservedV1, BuildSourceObservationV1,
+    )
+    from ...services.world_graph_projection import WorldGraphProjectionServiceError
+
+    if principal is None or principal.role != "gm":
+        raise ValueError("GM authority is required for Build source observation")
+    if getattr(principal, "managed_world_id", managed_world_id) != managed_world_id:
+        raise ValueError("Build source observation differs from principal World")
+    if resolve_identity is None:
+        from ...services.managed_world_graph_projection import resolve_managed_source_identity
+        resolve_identity = resolve_managed_source_identity
+    try:
+        bound = resolve_identity(managed_world_id)
+    except WorldGraphProjectionServiceError as exc:
+        if exc.code not in {"native_graph_binding_missing", "native_graph_binding_inactive"}:
+            raise
+        return BuildSourceObservationV1(managed_world_id=managed_world_id,
+            binding=None, requested_revision_id=revision_id, observed_head_revision_id=None)
+    binding = BuildSourceBindingObservedV1(managed_world_id=bound.managed_world_id,
+        native_world_id=bound.native_world_id, binding_version=bound.binding_version,
+        provisioning_id=bound.provisioning_id)
+    if binding.managed_world_id != managed_world_id:
+        raise ValueError("Observed source binding belongs to another managed World")
+    head_revision = None
+    if revision_id is None and not defer_head:
+        repo = repository if repository is not None else turn_source_repository(read_only=True)
+        head = repo.get_head(binding.native_world_id)
+        if head is not None:
+            if head.space_id != binding.native_world_id:
+                raise ValueError("Observed head belongs to another native World")
+            head_revision = head.head_revision_id
+    if resolve_identity(managed_world_id) != bound:
+        raise ValueError("Build source ownership changed during observation")
+    return BuildSourceObservationV1(managed_world_id=managed_world_id,
+        binding=binding, requested_revision_id=revision_id,
+        observed_head_revision_id=head_revision, deferred_head=defer_head and revision_id is None)
+
+
 def prepare_native_source_context(*, managed_world_id, principal, revision_id=None,
                                   repository=None, resolve_identity=None, parsed_cache=None,
                                   open_access=None):

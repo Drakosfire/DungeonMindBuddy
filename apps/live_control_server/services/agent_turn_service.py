@@ -1542,6 +1542,104 @@ class AgentTurnExecutionPersistencePort(Protocol):
         expected_revision: int, expected_attempt: int, settlement: Any,
     ) -> tuple[Turn, bool]: ...
 
+    def settle_pending_build_source(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, event_id: UUID,
+        materialize_source: Callable[..., Any], authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def complete_pending_native_base_turn(self, result: TurnResult, *, output_proof: Any,
+        expected_rules_revision: int, work_proof: Any = None,
+        authorize_current_access: Callable[..., bool],
+    ) -> Turn: ...
+
+    def authorize_pending_build_writer(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
+        expected_attempt: int, expected_rules_revision: int, authorization: Any,
+        prepared_request_json: str, work_proof: Any, authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def record_pending_build_writer_lifecycle(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int,
+        expected_attempt: int, outcome: Any, prepared_request_json: str | None = None,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def record_pending_build_writer_selection(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, selection: Any, producer_proof: Any,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def admit_pending_build_prior_body_evidence(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, event_id: UUID,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def reopen_pending_build_source(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int,
+        reopen_source: Callable[..., Any], authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def observe_pending_build_app_catalog(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, event_id: UUID,
+        discover_pages: Callable[..., Any], authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def authorize_pending_app_page_selection(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, authorization: Any,
+        prepared_request_json: str, initial_request_json: str,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def authorize_pending_app_coverage(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, authorization: Any,
+        prepared_request_json: str, initial_request_json: str,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def record_pending_app_coverage(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, decision: Any,
+        producer_proof: Mapping[str, Any], authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def enter_pending_app_page_sdk(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, outcome: Any,
+        prepared_request_json: str, authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def record_pending_app_controller_outcome(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, outcome: Any,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def record_pending_app_page_selection(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, selection: Any,
+        producer_proof: dict, authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def read_pending_app_page(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, document_id: UUID, event_id: UUID, read_id: UUID,
+        materialize_page: Callable[..., Any], authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def authorize_pending_build_opening_with_prompt(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, provider_attempt_event: Any,
+        prepared_decision_json: str, trace_id: UUID, prompt: Any, authorized: Any,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool, Any]: ...
+
     def authorize_provider_attempt(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, provider_attempt_event: Any,
@@ -1684,9 +1782,10 @@ class _TurnClaimRenewer:
 class _ClaimFence:
     """Serialize event appends with renewals through one moving APP fence."""
 
-    def __init__(self, service: AgentTurnExecutionPersistencePort, turn: Turn, *, trace=None) -> None:
+    def __init__(self, service: AgentTurnExecutionPersistencePort, turn: Turn, *, trace=None, pending_build_access=None) -> None:
         self.service = service
         self.trace = trace
+        self.pending_build_access = pending_build_access
         self.renewer = _TurnClaimRenewer(service, turn)
 
     @property
@@ -1698,6 +1797,7 @@ class _ClaimFence:
         phase_name = {
             "authorize_provider_attempt_v2": "first_jev_provider_authorization_append",
             "authorize_build_opening_with_prompt": "first_jev_provider_authorization_append",
+            "authorize_pending_build_opening_with_prompt": "first_jev_provider_authorization_append",
             "record_provider_outcome": "first_jev_provider_outcome_append",
             "record_build_draft_context": "first_jev_build_draft_context_append",
         }.get(method_name)
@@ -1816,7 +1916,7 @@ class _ClaimFence:
                     with measure("native_writer_authorization_persistence"):
                         result = method(current.world_id, current.conversation_id, current.turn_id,
                             expected_revision=current.revision, expected_attempt=current.attempt, **fields)
-                if method_name == "authorize_build_opening_with_prompt":
+                if method_name in {"authorize_build_opening_with_prompt", "authorize_pending_build_opening_with_prompt"}:
                     updated, fresh, _ = result
                 else:
                     updated, fresh = result
@@ -1931,6 +2031,8 @@ class _PolicyExecutionAdapter:
         native_source_authority=None,
         native_principal=None,
         native_query_context=None, native_query=None,
+        pending_build_source_observation=None, pending_build_conversation_observation=None,
+        pending_build_access=None, pending_build_source_preparation=None,
     ) -> None:
         self.rules_runtime = None
         self.native_source_reply = None
@@ -1947,6 +2049,38 @@ class _PolicyExecutionAdapter:
         self.native_source_authority = native_source_authority
         self.native_principal = native_principal
         self.native_query_context, self.native_query = native_query_context, native_query
+        self.pending_build_source_observation = pending_build_source_observation
+        self.pending_build_conversation_observation = pending_build_conversation_observation
+        self.pending_build_access = pending_build_access
+        self.pending_build_source_preparation = pending_build_source_preparation
+        if pending_build_source_preparation is not None:
+            from .build_pending_source import PendingBuildSourcePreparation
+            if (type(pending_build_source_preparation) is not PendingBuildSourcePreparation
+                    or pending_build_source_observation is None
+                    or pending_build_source_preparation.world_id != world_id
+                    or pending_build_source_preparation.app_access is not pending_build_access):
+                raise ValueError('Pending source preparation differs from its current App owner')
+        if pending_build_source_observation is not None:
+            from application_state.agent_conversation.build_source_free import BuildSourceObservationV1, BuildConversationObservationV1
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            if (type(pending_build_source_observation) is not BuildSourceObservationV1
+                    or pending_build_conversation_observation is not None and type(pending_build_conversation_observation) is not BuildConversationObservationV1
+                    or not self._is_build_turn() or not callable(pending_build_access)
+                    or native_source_authority is not None or native_corpus_context is not None
+                    or native_query_context is not None or native_query is not None or bootstrap is not None
+                    or request.build_authored_references is not None or submitted_intent.reviewed_step is not None
+                    or (budget.get('buildJevActions') or {}).get('related_page_catalog') is not None):
+                raise ValueError('Pending Build requires its exact host observations/access without acquired source/catalog')
+            observed = BuildSourceObservationV1.model_validate_json(pending_build_source_observation.model_dump_json(by_alias=True))
+            if observed.managed_world_id != world_id:
+                raise ValueError('Pending Build observation belongs to another World')
+            if existing_turn is not None and (type(existing_turn.graph_context_receipt) is not BuildPendingContextReceiptV1
+                    or existing_turn.graph_context_receipt.source_observation != observed
+                    or existing_turn.graph_context_receipt.conversation_observation != pending_build_conversation_observation):
+                raise ValueError('Retained pending Build cannot refresh its captured observations')
+            self.pending_build_source_observation = observed
+        elif pending_build_conversation_observation is not None or pending_build_access is not None:
+            raise ValueError('Pending Build host inputs require their actual source observation')
         if native_source_authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
             if native_source_authority.managed_world_id != world_id:
@@ -1954,7 +2088,7 @@ class _PolicyExecutionAdapter:
             if isinstance(native_source_authority, NativeCorpusAuthorityV1) and (
                     native_corpus_context is None or native_corpus_context.authority != native_source_authority):
                 raise ValueError("Plan source execution requires its trusted source context")
-        elif bootstrap is None:
+        elif bootstrap is None and pending_build_source_observation is None:
             raise ValueError("Plan execution requires an actual capability basis")
         self.initial_session_projection = (json.loads(json.dumps(
             bootstrap.retrieval_session.project_for_hermes(), ensure_ascii=False))
@@ -2117,7 +2251,7 @@ class _PolicyExecutionAdapter:
         self, view: Mapping[str, Any],
     ) -> tuple[Turn, list[str], list[str], list[str]]:
         plan_jev_request = getattr(self, "_active_plan_jev_request", None)
-        if self.native_source_authority is not None and self._is_build_turn():
+        if (self.native_source_authority is not None or self.pending_build_source_observation is not None) and self._is_build_turn():
             if self.fence is not None:
                 return self.fence.turn, [], [], []
             return self._claim_initial(view)
@@ -2188,6 +2322,7 @@ class _PolicyExecutionAdapter:
         return self.fence.turn
 
     def _claim_initial(self, view, *, plan_jev_request=None, reviewed_admission=None, plan_request_dialogue=None):
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
         if self.fence is not None:
             receipt = self.fence.turn.graph_context_receipt
             if receipt is None:
@@ -2197,7 +2332,7 @@ class _PolicyExecutionAdapter:
                     provider_dispatched=None,
                 )
             if isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
-                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1)):
+                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1)):
                 return self.fence.turn, [], [], []
             return (
                 self.fence.turn,
@@ -2216,7 +2351,15 @@ class _PolicyExecutionAdapter:
                         managed_world_id=self.world_id, binding_version=self.bootstrap.binding_version)}
                    if self.bootstrap is not None and (self._is_build_turn() or self.request.surface.surface_id == "play") else {}),
             )
-            if self.native_source_authority is not None and self._is_build_turn():
+            if self.pending_build_source_observation is not None:
+                from .plan_source_turn import freeze_build
+                receipt, execution, membership = freeze_build(self.request, self.work, view, self.budget,
+                    authority=None, native_query=None, provenance=provenance, submitted_intent=self.submitted_intent,
+                    projection=getattr(self, '_active_build_driver_projection', None), accounting=self._build_jev_accounting,
+                    included_history=getattr(self, 'build_history_for_inclusion', ()),
+                    source_observation=self.pending_build_source_observation,
+                    conversation_observation=self.pending_build_conversation_observation)
+            elif self.native_source_authority is not None and self._is_build_turn():
                 from .plan_source_turn import freeze_build
                 receipt, execution, membership = freeze_build(self.request,self.work,view,self.budget,
                     authority=self.native_source_authority,native_query=self.native_query,provenance=provenance,
@@ -2299,7 +2442,11 @@ class _PolicyExecutionAdapter:
                 and receipt.assembled_input.dialogue_sha256 == opening_dialogue_sha256(plan_request_dialogue)) if plan_request_dialogue is not None else None
             if (
                 receipt is None
-                or (self.native_source_authority is None and (
+                or (self.pending_build_source_observation is not None and (
+                    type(receipt) is not BuildPendingContextReceiptV1
+                    or receipt.source_observation != self.pending_build_source_observation
+                    or receipt.conversation_observation != self.pending_build_conversation_observation))
+                or (self.pending_build_source_observation is None and self.native_source_authority is None and (
                     receipt.graph_authority.graph_revision != self.bootstrap.world_scope.revision_id
                     or receipt.graph_authority.binding_version != self.bootstrap.binding_version))
                 or (self.native_source_authority is not None and (
@@ -2332,7 +2479,7 @@ class _PolicyExecutionAdapter:
                     provider_dispatched=None,
                 )
         membership = (([], [], []) if isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
-                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1)) else (
+                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1)) else (
             list(receipt.assembled_input.dispatched_assertion_ids),
             list(receipt.assembled_input.dispatched_relationship_ids),
             list(receipt.assembled_input.dispatched_evidence_ref_ids),
@@ -2368,7 +2515,9 @@ class _PolicyExecutionAdapter:
         self.turn = claim.turn
         if self.trace is not None:
             self.trace.bind_durable_turn(claim.turn)
-        self.fence = _ClaimFence(self.service, claim.turn, trace=self.trace)
+        self.fence = _ClaimFence(self.service, claim.turn, trace=self.trace,
+            **({'pending_build_access': self.pending_build_access}
+               if self.pending_build_source_observation is not None else {}))
         # Build requires capture; existing Plan rollout remains explicitly opt-in.
         if (plan_request_dialogue is not None or plan_jev_request is not None or self._is_build_turn() or os.environ.get("DMB_CONTEXT_TRACE_CAPTURE") == "1"
                 or os.environ.get("DMB_AGENT_PROMPT_CAPTURE") == "1"):
@@ -3212,6 +3361,9 @@ class _PolicyExecutionAdapter:
         from application_state.agent_conversation.native_context import NativeReviewedActionInputV1
         from .build_jev_driver import wire_questions
         driver=getattr(self,'_build_jev_driver',None)
+        pending = self.pending_build_source_observation is not None
+        if pending and view.get('contextPhase') != 'select':
+            return False  # Later pending phases retain their dedicated admission owners.
         reviewed_auxiliary = (self.fence is not None
             and isinstance(self.turn.graph_context_receipt.assembled_input,NativeReviewedActionInputV1)
             and driver is not None and driver.reviewed_binding is not None
@@ -3225,7 +3377,7 @@ class _PolicyExecutionAdapter:
         if (self.failure is not None or not self._is_build_turn()
                 or self.fence is not None and view.get('contextPhase') not in {'writer_selection', 'graph_reference'} and not reviewed_auxiliary
                 or (view.get('contextPhase') == 'graph_reference') != (graph_reference_decision is not None)
-                or self.native_source_authority is None
+                or (self.native_source_authority is None and not pending)
                 or canonical(view) != canonical(prepared_driver_view(prepared,projection,accounting=self._build_jev_accounting))):
             return False
         self._active_build_driver_projection = projection
@@ -3253,9 +3405,9 @@ class _PolicyExecutionAdapter:
             graph_reference_inventory_sha256=(graph_reference_decision.host_inventory_sha256()
                                                if graph_reference_decision is not None else None))
         from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
-        opening = view["contextPhase"] == "select" and isinstance(
-            getattr(self.turn.graph_context_receipt, "native_query", None), NativeBuildQueryPendingV1,
-        )
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        opening = view["contextPhase"] == "select" and (type(self.turn.graph_context_receipt) is BuildPendingContextReceiptV1
+            or isinstance(getattr(self.turn.graph_context_receipt, "native_query", None), NativeBuildQueryPendingV1))
         if opening:
             self.turn = _require_fresh_execution_append(self.context_capture.authorize_build_opening(view, event))
         else:
@@ -3357,10 +3509,32 @@ class _PolicyExecutionAdapter:
             if (transition == "sdk_entered" and self._is_build_turn() and self.trace is not None
                     and type(self.fence.service) is AgentConversationService):
                 record_options["measure"] = self.trace.phase_before_first_jev
-            if record_options or checkpoint is None or not self.fence.commit_plan_provider_outcome(event):
-                self.turn = _require_fresh_execution_append(
-                    self.fence.append("record_provider_outcome", "outcome", event, **record_options)
-                )
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            pending = type(self._broker_receipt()) is BuildPendingContextReceiptV1
+            if pending or record_options or checkpoint is None or not self.fence.commit_plan_provider_outcome(event):
+                if pending:
+                    if not callable(self.pending_build_access):
+                        raise ValueError('Pending lifecycle requires its current App access owner')
+                    from application_state.agent_conversation.native_execution import NativeBuildWriterAuthorizedV2
+                    pending_writer = any(type(row) is NativeBuildWriterAuthorizedV2
+                        and row.provider_attempt_id == self.last_provider_attempt_id
+                        for row in self._broker_execution().events)
+                    options = {'authorize_current_access': self.pending_build_access}
+                    if transition == 'sdk_entered':
+                        prepared = getattr(self, '_prepared_build_writer' if pending_writer else '_prepared_build_decision', None)
+                        if (prepared is None or type(prepared.body) is not bytes
+                                or str(prepared.attempt_id) != str(self.last_provider_attempt_id)):
+                            raise ValueError('Pending SDK entry requires its actual prepared request')
+                        options['prepared_request_json'] = prepared.body.decode('utf-8')
+                        method = 'enter_pending_app_page_sdk'
+                    else:
+                        method = 'record_pending_app_controller_outcome'
+                    if pending_writer:
+                        method = 'record_pending_build_writer_lifecycle'
+                    result = self.fence.append(method, 'outcome', event, **options)
+                else:
+                    result = self.fence.append('record_provider_outcome', 'outcome', event, **record_options)
+                self.turn = _require_fresh_execution_append(result)
                 execution = self._broker_execution()
                 auth = next(item for item in execution.events if _is_provider_authorization(item)
                     and item.provider_attempt_id == self.last_provider_attempt_id)
@@ -5857,6 +6031,21 @@ def _completed_turn_replay(
         turn.base_projection if turn.base_projection.kind=='unclaimed' else None) if mixed else turn
     stored_receipt = getattr(stored_context,'graph_context_receipt',None)
     shared_native = type(stored_receipt) is _app_state_graph_execution_types().SurfaceNativeContextReceiptV1
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    pending_build = type(stored_receipt) is BuildPendingContextReceiptV1
+    if pending_build:
+        if not mixed:
+            _validate_policy_turn_record(stored_context, require_completed=True)
+        if (request.reviewed_step is not None or request.build_authored_references is not None
+                or request.owner_scope is None or request.owner_scope.kind != 'world'
+                or request.owner_scope.world_id != turn_meta.world_id
+                or owner.get('kind') != 'world' or owner.get('id') != turn_meta.world_id
+                or _turn_idempotency_key(turn_meta.world_id, request.turn_id) != turn_meta.idempotency_key
+                or not _governed_build_turn(request)
+                or _submitted_turn_intent(request, world_id=turn_meta.world_id)
+                    != stored_context.graph_context_execution.policy.action.intent):
+            raise AgentTurnServiceError('The pending Build reply differs from its admitted request.',
+                code='turn_receipt_unverifiable', status_code=409, provider_dispatched=False)
     native_authority = None
     if shared_native:
         from application_state.agent_conversation.native_execution import effective_native_query, validate_request_identity
@@ -5867,7 +6056,7 @@ def _completed_turn_replay(
     from application_state.agent_conversation.types import LoreSaveReviewReference
 
     lore_reference = turn.completion if not mixed and isinstance(turn.completion, LoreSaveReviewReference) else None
-    play_graph_binding = None if shared_native else _stored_play_graph_binding(
+    play_graph_binding = None if shared_native or pending_build else _stored_play_graph_binding(
         request, turn_meta.provenance, local_lore=lore_reference is not None,
     )
     segment_thread_id = request.client_thread_id if lore_reference is not None else _provider_segment_thread_id(
@@ -5895,7 +6084,7 @@ def _completed_turn_replay(
     primary = turn_meta.provenance.primary_work
     graph_reference = _stored_graph_reference(turn_meta.provenance)
     selected_reference = turn_meta.provenance.selected_object
-    graph_requested = request.graph_request.mode != "none" and lore_reference is None
+    graph_requested = request.graph_request.mode != "none" and lore_reference is None and not pending_build
     if not graph_requested and graph_reference is not None:
         raise AgentTurnServiceError(
             "The completed receipt contains Graph provenance for a non-Graph intent.",
@@ -6208,8 +6397,9 @@ def _validate_policy_turn_record(
 ) -> None:
     """Check the immutable receipt, historical Plan reference, and lifecycle agree."""
     receipt = turn.graph_context_receipt
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
     if isinstance(receipt, (_app_state_graph_execution_types().PlanSourceContextReceiptV1,
-                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1)):
+                    _app_state_graph_execution_types().SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1)):
         try:
             Turn.model_validate_json(turn.model_dump_json(by_alias=True))
         except ValueError as exc:
@@ -6752,6 +6942,31 @@ def project_plan_turn_context(
             authorization_state,
             completed=turn.status == "completed",
         )
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from apps.live_control_server.models.agent_turn import AgentBuildPendingContextResponseV1, DeferredBuildCitationMembership
+        from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+        completion, membership = turn.completion, None
+        if (type(completion) is SurfaceNativeCompletionV1
+                and (completion.native_clause_citations or completion.native_assertion_citations)):
+            # This is presentation of actual retained acquisition, not a query
+            # reconstructed from metadata or a new source grant.
+            from application_state.agent_conversation.build_pending_native import prepared_pending_source
+            _, query = prepared_pending_source(receipt, execution)
+            # _validate_policy_turn_record above already checks the complete
+            # retained producer/citation binding; do not validate it twice.
+            authority = getattr(query, 'authority', None)
+            if authority is None or any((cite.managed_world_id, cite.native_world_id, cite.read_revision_id)
+                    != (authority.managed_world_id, authority.native_world_id, authority.revision_id)
+                    for cite in [*completion.native_clause_citations, *completion.native_assertion_citations]):
+                raise ValueError('Pending citation presentation differs from its actual settled scope')
+            membership = DeferredBuildCitationMembership(context_receipt_sha256=receipt.context_receipt_sha256,
+                producing_provider_attempt_id=completion.producing_provider_attempt_id,
+                settled_revision_id=authority.revision_id if receipt.source_observation.deferred_head else None,
+                statements=sorted({(c.statement_id, c.campaign_id) for c in completion.native_clause_citations}),
+                assertions=sorted({(c.assertion_id, c.assertion_sha256) for c in completion.native_assertion_citations}))
+        return AgentBuildPendingContextResponseV1(receipt=receipt, completion=completion,
+            execution=execution_projection, delivery_replay=delivery_replay, deferred_build_citations=membership)
     if type(receipt) is _app_state_graph_execution_types().SurfaceNativeContextReceiptV1:
         from apps.live_control_server.models.agent_turn import (
             AgentSurfaceNativeContextResponseV1, DeferredBuildCitationMembership,
@@ -7008,6 +7223,78 @@ def _interrupt_policy_delivery(
         ) from exc
 
 
+def _pending_build_app_access(world_id, authorize_world):
+    """Adapt the existing live route authorization owner for pending App checks.
+
+    This grants neither Core source access nor a new permission. The original
+    request-scoped owner rechecks current World access on every invocation.
+    """
+    if not isinstance(world_id, str) or not world_id or not callable(authorize_world):
+        raise ValueError('Pending Build requires its actual live World authorization owner')
+
+    def authorize(conn, turn, pages):
+        from application_state.agent_conversation.build_related_pages import PagePointer, PageReference
+        if turn.world_id != world_id:
+            return False
+        if authorize_world(world_id) is not None:
+            return False
+        if pages is None:
+            return True
+        if type(pages) not in (tuple, list) or any(type(page) not in (PagePointer, PageReference) for page in pages):
+            return False  # App authorization cannot serve as native source authority.
+        return all(page.world_id == world_id for page in pages)
+
+    return authorize
+
+
+def _pending_build_startup_eligible(request, *, principal, durable_turn, authorize_world):
+    """Pure request/owner-family selection; no metadata or content reads."""
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    retained = getattr(durable_turn, 'graph_context_receipt', None)
+    pending_retained = type(retained) is BuildPendingContextReceiptV1
+    if not _governed_build_turn(request):
+        return False
+    eligible = (callable(authorize_world) and principal is not None and principal.role == 'gm'
+        and (pending_retained or durable_turn is None and request.retry_of is None
+            and request.reviewed_step is None and request.build_authored_references is None
+            and request.selected_knowledge is None and request.graph_selection is None
+            and request.graph_request.focus.kind == 'none'
+            and getattr(request.build_write_capability, 'reference_image_id', None) is None))
+    if not eligible:
+        if pending_retained:
+            raise AgentTurnServiceError('The retained pending Build access owner is unavailable.',
+                code='turn_receipt_unverifiable', status_code=409, provider_dispatched=False)
+        return False
+    return True
+
+
+def _prepare_pending_build_startup(request, *, world_id, principal, durable_turn, authorize_world):
+    """Observe only after owning work resolution, without acquiring source content."""
+    if not _pending_build_startup_eligible(request, principal=principal,
+            durable_turn=durable_turn, authorize_world=authorize_world):
+        return None, None, None
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    retained = getattr(durable_turn, 'graph_context_receipt', None)
+    pending_retained = type(retained) is BuildPendingContextReceiptV1
+    if authorize_world(world_id) is not None:
+        raise AgentTurnServiceError('Current World access does not authorize pending Build.',
+            code='native_source_access_denied', status_code=403, provider_dispatched=False)
+    if pending_retained:
+        if retained.source_observation.managed_world_id != world_id:
+            raise AgentTurnServiceError('The retained Build belongs to another World.',
+                code='turn_receipt_unverifiable', status_code=409, provider_dispatched=False)
+        observed, conversation = retained.source_observation, retained.conversation_observation
+    else:
+        from ..integrations.dungeonmind.native_corpus_source import observe_build_source_pointer
+        observed = observe_build_source_pointer(managed_world_id=world_id, principal=principal,
+            revision_id=request.graph_request.revision_pin, defer_head=True)
+        conversation = None
+    if authorize_world(world_id) is not None:
+        raise AgentTurnServiceError('Current World access changed during Build observation.',
+            code='native_source_access_denied', status_code=403, provider_dispatched=False)
+    return observed, conversation, _pending_build_app_access(world_id, authorize_world)
+
+
 def execute_agent_turn(
     request: AgentTurnRequest,
     *,
@@ -7027,6 +7314,7 @@ def execute_agent_turn(
     operator_subject: str | None = None,
     native_principal=None,
     native_statement_transport=None,
+    authorize_build_world: Callable[[str], None] | None = None,
 ) -> AgentTurnResponse:
     """Resolve authority on each call, then execute one read-only conversation turn.
 
@@ -7123,8 +7411,20 @@ def execute_agent_turn(
                     recovered = recover_prepared_image(conversation_service, durable_turn,
                         request.build_write_capability.idempotency_key, operator_subject)
                     if recovered is None:
-                        recovered = recover_prepared_proposal(conversation_service, durable_turn,
-                            request.build_write_capability.idempotency_key)
+                        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+
+                        pending_access = None
+                        if type(durable_turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+                            if not _pending_build_startup_eligible(
+                                request, principal=native_principal, durable_turn=durable_turn,
+                                authorize_world=authorize_build_world,
+                            ):
+                                raise ApplicationStateConflictError('Pending proposal recovery lost its World owner')
+                            pending_access = _pending_build_app_access(canonical_world_id, authorize_build_world)
+                        recovered = recover_prepared_proposal(
+                            conversation_service, durable_turn, request.build_write_capability.idempotency_key,
+                            authorize_current_access=pending_access,
+                        )
                 except ApplicationStateError as exc:
                     raise AgentTurnServiceError(
                         'The retained Build object could not be verified. No request was replayed.',
@@ -7152,7 +7452,10 @@ def execute_agent_turn(
             status_code=410,
             provider_dispatched=False,
         )
-    native_surface_sources = ((request.surface.surface_id == "plan" and request.plan_context_policy is not None
+    pending_build = _pending_build_startup_eligible(request, principal=native_principal,
+        durable_turn=durable_turn, authorize_world=authorize_build_world)
+    pending_build_observation = pending_build_conversation = pending_build_access = None
+    native_surface_sources = pending_build or ((request.surface.surface_id == "plan" and request.plan_context_policy is not None
         or _governed_build_turn(request)
         or request.surface.surface_id=='play' and _governed_graph_turn(request))
         and (durable_turn is None or isinstance(durable_turn.graph_context_receipt,
@@ -7566,7 +7869,24 @@ def execute_agent_turn(
         None if request.graph_selection is None else request.graph_selection.node_id
     )
     policy_bootstrap: AgentPlanWorldGraphBootstrap | None = None
-    if native_surface_sources:
+    if pending_build:
+        pending_build_observation, pending_build_conversation, pending_build_access = _prepare_pending_build_startup(
+            request, world_id=canonical_world_id, principal=native_principal, durable_turn=durable_turn,
+            authorize_world=authorize_build_world)
+        from .build_pending_source import PendingBuildSourcePreparation
+        from .plan_source_turn import prepare as prepare_pending_source
+        def resolve_pending_query(turn, source_context):
+            if not callable(native_graph_query_resolver):
+                raise AgentTurnServiceError('The pending Graph query owner is unavailable.',
+                    code='native_graph_query_unavailable', status_code=503)
+            return native_graph_query_resolver(request, owner, work, turn.graph_context_receipt, source_context)
+        pending_build_source_preparation = PendingBuildSourcePreparation(
+            world_id=canonical_world_id, principal=native_principal, app_access=pending_build_access,
+            prepare_source=prepare_pending_source, resolve_query=resolve_pending_query)
+        # Only the App binding was observed. No Core head, native authority,
+        # Graph query or related-page catalog exists before the work decision.
+        graph_result = {"status": "not_requested", "selection_found": None}
+    elif native_surface_sources:
         from .plan_source_turn import prepare, prepare_selective_query
         if native_principal is None or native_principal.role != "gm":
             raise AgentTurnServiceError("Plan source inspection requires GM authority.",
@@ -8063,8 +8383,13 @@ def execute_agent_turn(
                 "The selected Agent Harness cannot authorize provider requests.",
                 code="plan_graph_execution_unavailable", status_code=503,
             )
-        budget = (selected_runtime.configured_budget(request) if isinstance(selected_runtime, (BuildJevHarness, PlanJevHarness))
+        budget = (selected_runtime.configured_budget(request, defer_related_pages=True)
+            if pending_build and isinstance(selected_runtime, BuildJevHarness)
+            else selected_runtime.configured_budget(request) if isinstance(selected_runtime, (BuildJevHarness, PlanJevHarness))
             else _policy_request_budget())
+        if pending_build and not isinstance(selected_runtime, BuildJevHarness):
+            raise AgentTurnServiceError('The selected runtime cannot own pending Build.',
+                code='build_jev_runtime_unavailable', status_code=503, provider_dispatched=False)
         admission_span_id = trace.start_phase("runtime_to_admission")
         adapter = _PolicyExecutionAdapter(
             service=conversation_service,
@@ -8095,6 +8420,10 @@ def execute_agent_turn(
             native_source_authority=native_source_authority,
             native_principal=native_principal,
             native_query_context=native_query_context, native_query=native_query,
+            **({'pending_build_source_observation': pending_build_observation,
+                'pending_build_conversation_observation': pending_build_conversation,
+                'pending_build_access': pending_build_access,
+                'pending_build_source_preparation': pending_build_source_preparation} if pending_build else {}),
         )
         if isinstance(selected_runtime, BuildJevHarness):
             adapter.prepare_deferred_build_query = prepare_deferred_build_query
