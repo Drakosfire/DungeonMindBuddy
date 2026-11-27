@@ -78,6 +78,14 @@ def _graph_groups(frame, passages, *, target_scoped):
             for (kind, handles), targets in sorted(groups.items())]
 
 
+def has_native_citable_evidence(frame):
+    """Inspect the supplied writer frame, not the earlier intent vote."""
+    assertions = frame['native_assertions']
+    return bool(frame['native_body_evidence']['excerpts']
+                or frame['native_statements']['statements']
+                or (assertions is not None and assertions['assertions']))
+
+
 def _native_variants(policy, prose, *, statement_rows=(), body_rows=(), assertion_rows=()):
     """One finite native selector grammar, independent of surface work syntax."""
     variants = []
