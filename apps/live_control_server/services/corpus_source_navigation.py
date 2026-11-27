@@ -530,14 +530,14 @@ class NativeBodyNavigation:
         permission to repeat Core reads or fall back to the old search action.
         """
         from application_state.agent_conversation.native_corpus import (
-            NativeCorpusAuthorityV1, NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled,
+            NativeCorpusAuthorityV1, NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_required,
             NativePlanRequestSearchAuthorizedV1, request_source_discovery_enabled,
         )
         from ..integrations.dungeonmind.native_corpus_source import capture_native_sources
         a = self.adapter
         turn = a.fence.turn
         request_owned = request_source_discovery_enabled(turn.graph_context_receipt, turn.graph_context_execution)
-        if (not (request_owned or initial_source_discovery_enabled(turn.graph_context_execution))
+        if (not (request_owned or initial_source_discovery_required(turn.graph_context_execution))
                 or not isinstance(_navigation_source_authority(self.adapter), NativeCorpusAuthorityV1)):
             return
         grant_type = NativePlanRequestSearchAuthorizedV1 if request_owned else NativeInitialSourceSearchAuthorizedV1
@@ -583,12 +583,12 @@ class NativeBodyNavigation:
             return ()
         grant, search, auths, reads = self._events()
         from application_state.agent_conversation.native_corpus import (
-            NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled,
+            NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_required,
             NativePlanRequestSearchAuthorizedV1, request_source_discovery_enabled,
         )
         request_owned = request_source_discovery_enabled(turn.graph_context_receipt, turn.graph_context_execution)
         expected_grant = NativePlanRequestSearchAuthorizedV1 if request_owned else NativeInitialSourceSearchAuthorizedV1
-        if ((request_owned or initial_source_discovery_enabled(turn.graph_context_execution))
+        if ((request_owned or initial_source_discovery_required(turn.graph_context_execution))
                 and type(grant) is not expected_grant):
             raise ValueError("Readonly Plan requires initial source discovery before retrieval preparation")
         if any(auth.event_id not in reads for auth in auths):

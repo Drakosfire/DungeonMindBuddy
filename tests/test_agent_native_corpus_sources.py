@@ -20,25 +20,33 @@ from tests.test_native_corpus_source_access import lane, admit, GM, BODY  # noqa
 def source_adapter(application_state_dsn, monkeypatch, lane, request):
     monkeypatch.setattr('apps.live_control_server.services.agent_graph_policy.resolve_agent_graph_openai_inference',
         lambda **_: ('openai-api', 'gpt-6-luna', 'https://api.openai.com/v1'))
-    lane.bound.managed_world_id = 'world:one'
-    for name, body in (getattr(request, 'param', None) or [('first', BODY)]):
+    supplied = getattr(request, 'param', None)
+    unique = isinstance(supplied, dict) and supplied.get('unique_world') is True
+    world_id = f'world:plan-reader-{uuid4()}' if unique else 'world:one'
+    sources = supplied['sources'] if unique else supplied or [('first', BODY)]
+    lane.bound.managed_world_id = world_id
+    for name, body in sources:
         admit(lane, name, body=body)
-    context, authority = prepare('world:one', GM, repository=lane.repo,
+    context, authority = prepare(world_id, GM, repository=lane.repo,
         resolve_identity=lambda _: lane.bound)
     request = _pinned_plan_request()
+    if unique:
+        request = request.model_copy(update={'owner_scope': request.owner_scope.model_copy(update={'world_id': world_id})})
     request = type(request).model_validate(request.model_dump(mode='json', by_alias=True) | {
         'turn_id': str(uuid4()), 'plan_context_policy': {'policy': 'auto_plan_world'},
         'graph_request': {'mode': 'none'}})
     work = _pinned_plan_work('# Synthetic park Plan\nA proposed visit, not a played fact.\n')
-    work = replace(work, content_basis=work.content_basis.model_copy(update={
-        'content_sha256': sha256(work.plan_markdown.encode()).hexdigest(), 'work_revision_id': str(uuid4())}))
+    work = replace(work, world_id=world_id, owner_id=world_id, content_basis=work.content_basis.model_copy(update={
+        'world_id': world_id, 'content_sha256': sha256(work.plan_markdown.encode()).hexdigest(), 'work_revision_id': str(uuid4())}))
     request = request.model_copy(update={'primary_work': request.primary_work.model_copy(update={
         'expected_content_sha256': work.content_basis.content_sha256})})
     adapter = owner._PolicyExecutionAdapter(service=AgentConversationService(), request=request,
-        world_id='world:one', work=work, bootstrap=None, playable_target=None,
-        submitted_intent=owner._submitted_turn_intent(request, world_id='world:one'), existing_turn=None,
+        world_id=world_id, work=work, bootstrap=None, playable_target=None,
+        submitted_intent=owner._submitted_turn_intent(request, world_id=world_id), existing_turn=None,
         budget=request_budget(), context_read_enabled=True,
         native_corpus_context=context, native_source_authority=authority)
+    adapter._test_creative = bool(unique and supplied.get('no_source'))
+    adapter._test_legacy = bool(unique and supplied.get('legacy'))
     yield adapter
     if adapter.fence is not None:
         adapter.fence.renewer.stop_and_join()
@@ -218,7 +226,9 @@ def test_source_only_actual_rules_selection_reads_once_under_its_own_authority(s
 
 
 class SourceChoices(httpx2.AsyncBaseTransport):
-    def __init__(self, *, sections=False, direct=False, writer_passages=False):
+    def __init__(self, *, sections=False, direct=False, writer_passages=False, controller_source=False, no_source=False):
+        self.controller_source = controller_source
+        self.no_source = no_source
         self.calls = []
         self.direct = direct
         self.writer_passages = writer_passages
@@ -228,6 +238,8 @@ class SourceChoices(httpx2.AsyncBaseTransport):
     async def handle_async_request(self, request):
         body = json.loads(request.content)
         self.calls.append(body)
+        assert b'source_discovery_mode' not in request.content
+        assert b'controller_selection_v1' not in request.content
         assert len(self.calls) <= (5 if self.writer_passages else 4), body['state']
         answers = {}
         selected_kinds = []
@@ -251,6 +263,11 @@ class SourceChoices(httpx2.AsyncBaseTransport):
                         or candidate['kind'] == passage_kind and ' · Witness · ' in candidate['label'])
                 else:
                     selected = candidate['kind'] in kinds
+                if (self.controller_source and not self.direct
+                        and candidate['kind'] == 'Source lexical navigation; not evidence or semantic completeness'):
+                    selected = True
+                if self.no_source:
+                    selected = False
                 if selected:
                     choice = 'include'
                     selected_kinds.append(candidate['kind'])
@@ -258,7 +275,8 @@ class SourceChoices(httpx2.AsyncBaseTransport):
             answers[name] = {'type': 'choice', 'choice': choice, 'confidence': 1.0,
                 'probabilities': {key: float(key == choice) for key in entry['criteria']}}
         self.selected_kinds.append(tuple(selected_kinds))
-        return httpx2.Response(200, request=request, json={'model': 'jev-1.14.0', 'answers': answers,
+        from application_state.agent_conversation.jev_retrieval_contract import MODEL
+        return httpx2.Response(200, request=request, json={'model': MODEL, 'answers': answers,
             'usage': {'input_tokens': 37, 'output_tokens': 9}})
 
 
@@ -544,7 +562,11 @@ HTTP_PASSAGE = '# Witness\n\nÉphanna heard the guard.\n\n'
 HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private context.\n'
 
 
-@pytest.mark.parametrize('source_adapter', [[('first', HTTP_BODY)]], indirect=True, ids=['current-plan-source'])
+@pytest.mark.parametrize('source_adapter', [[('first', HTTP_BODY)],
+    {'unique_world': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'legacy': True, 'sources': [('first', HTTP_BODY)]}],
+    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'unique-legacy'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
 def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
@@ -557,7 +579,16 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     from apps.live_control_server.integrations.dungeonmind import native_registry_source
     from tests.test_plan_jev_writer import WriterWire
     a = source_adapter
-    request = a.request.model_copy(update={'message': 'Whom did Éphanna hear?',
+    controller_source = a.world_id != 'world:one' and not a._test_legacy
+    creative = a._test_creative
+    if controller_source:
+        from apps.live_control_server.services import plan_source_turn
+        original_parts = plan_source_turn._native_plan_parts
+        def reader_mode(*args, **kwargs):
+            work, action = original_parts(*args, **kwargs)
+            return work, action.model_copy(update={'source_discovery_mode': 'controller_selection_v1'})
+        monkeypatch.setattr(plan_source_turn, '_native_plan_parts', reader_mode)
+    request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor.' if creative else 'Whom did Éphanna hear?'),
         'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
@@ -589,9 +620,20 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert verification_cache is None or verification_cache is _turn_revision_proof
         return lane.repo
     monkeypatch.setattr(native_registry_source, 'repository', read_repository)
-    choices = SourceChoices(direct=direct, writer_passages=True)
+    choices = SourceChoices(direct=direct, writer_passages=True, controller_source=controller_source, no_source=creative)
+    if creative:
+        from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+        monkeypatch.setattr(native_corpus_source, 'capture_native_sources',
+            lambda **_kw: pytest.fail('Creative turn performed a native source scan'))
     class SourceWriter(WriterWire):
         async def handle_async_request(self, request):
+            assert b'source_discovery_mode' not in request.content
+            assert b'controller_selection_v1' not in request.content
+            if creative:
+                self.text = json.dumps({'schema': 'dmb_surface_evidence_answer_v8', 'limitations': [],
+                    'answer_segments': [
+                        {'kind': 'proposal', 'label': 'invented_idea', 'text': 'Lantern Quay.'}]})
+                return await super().handle_async_request(request)
             import re
             from application_state.agent_conversation.native_evidence_view import PLAN_EVIDENCE_HEADING
             messages = json.loads(request.content)['input']
@@ -644,10 +686,28 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert receipt['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
     assert len(wire.calls) == len(constructions) == 1
+    if creative:
+        from application_state.agent_conversation.native_corpus import (
+            NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+            NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1,
+        )
+        turn = wire.adapter.turn
+        assert not any(isinstance(e, (NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+                                      NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1))
+                       for e in turn.graph_context_execution.events)
+        assert 'Lantern Quay' in turn.assistant_text
+        replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
+        assert len(wire.calls) == len(constructions) == 1
+        return
     selection_count = len(choices.calls)
-    assert selection_count == (4 if direct else 2)
+    if not controller_source:
+        assert selection_count == (4 if direct else 2)
     groups = [group for group in choices.selected_kinds if group]
-    if direct:
+    if controller_source and not direct:
+        assert groups[0] == ('Source lexical navigation; not evidence or semantic completeness',)
+        assert groups[-1] == ('Exact source section',)
+    elif direct:
         assert len(groups) == 3 and len(groups[0]) == 1
         assert groups[0][0].startswith('Expand to all other admitted native sources')
         assert groups[1:] == [
@@ -664,9 +724,12 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodySearchObservedV1,
     )
     events = turn.graph_context_execution.events
-    # Request-owned discovery replaced the extra model search/finish rounds.
-    assert sum(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events) == 1
-    assert not any(type(e) is NativeBodySearchAuthorizedV1 for e in events)
+    if controller_source:
+        assert not any(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events)
+        assert sum(type(e) is NativeBodySearchAuthorizedV1 for e in events) == (0 if direct else 1)
+    else:
+        assert sum(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events) == 1
+        assert not any(type(e) is NativeBodySearchAuthorizedV1 for e in events)
     read_type = NativeDirectSourceObservedV1 if direct else NativeBodyReadObservedV1
     grant_type = NativeDirectSourceAuthorizedV1 if direct else NativeBodyReadAuthorizedV1
     reads = [e for e in events if type(e) is read_type]

@@ -138,6 +138,9 @@ class NativePlanActionV2(NativePlanActionV1):
     """Current Plan freezes the same saved-page capability used by Build."""
     action_version: Literal['plan_saved_authored_pages_v2'] = 'plan_saved_authored_pages_v2'
     related_page_catalog: tuple[PagePointer, ...]
+    # Absent for every historical action; omitted from its canonical commitment.
+    source_discovery_mode: Literal['controller_selection_v1'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
     @field_validator("related_page_catalog", mode="before")
     @classmethod
@@ -1105,6 +1108,10 @@ def _join_context_binding(context, execution):
         from .play_graph_context import validate_work_intent
         validate_work_intent(work.play_basis, action.intent)
     assembled = context.assembled_input
+    if (type(action) in (NativePlanActionV2, NativePlanActionV3)
+            and action.source_discovery_mode is not None
+            and type(assembled) is not NativePlanRequestAdmissionV1):
+        raise ValueError('Controller-selected discovery requires current Plan request admission')
     if type(action) is NativePlanActionV3 and type(assembled) is not NativePlanRequestAdmissionV1:
         raise ValueError('Contextual Plan requires current request-owned admission')
     if (not isinstance(assembled, NativePlanRequestAdmissionV1)
