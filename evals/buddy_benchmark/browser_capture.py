@@ -60,8 +60,14 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
     if "play_choice" in spec:
         from .play_choice import validate_play_choice
         validate_play_choice(play_choice)
-    wire = [] if build_fixture or live_plan or play_choice else json.loads(workflow.read_pin(spec["jev_wire"], base))
-    if not (build_fixture or live_plan or play_choice) and (not wire or any(
+    ingest_review = spec.get("ingest_name_review")
+    if "ingest_name_review" in spec:
+        from .ingest_name_review import validate_pin
+        validate_pin(ingest_review)
+        if play_choice:
+            raise ValueError("Ingest name review and Play Choice are separate capture boundaries")
+    wire = [] if build_fixture or live_plan or play_choice or ingest_review else json.loads(workflow.read_pin(spec["jev_wire"], base))
+    if not (build_fixture or live_plan or play_choice or ingest_review) and (not wire or any(
         row["method"] != "POST" or row["response_status"] != 200
         or not bytes.fromhex(row["request_hex"]) or not bytes.fromhex(row["response_hex"])
         for row in wire
@@ -210,6 +216,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     if reviewed_plan is not None and not live_build:
         raise ValueError("Reviewed continuation requires live Build capture")
     play_choice = manifest["browser_capture"].get("play_choice")
+    ingest_review = manifest["browser_capture"].get("ingest_name_review")
+    rejected_ingest_writes = []
+    ingest_reads = []
     play_rejected_writes = []
     wire_name = "plan-wire-response" if live_plan else "build-wire-response"
     confirm_save = manifest["browser_capture"].get("confirm_save", False)
@@ -237,9 +246,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     scratch = browser_scratch_directory(output)
     bundle, wire, settled, pinned_history = inputs
     at_document_start = manifest["browser_capture"].get("at_document_start", False)
-    template = manifest["request_template"]
+    template = manifest.get("request_template")
     world = manifest["world"]
-    work = template["primary_work"]
+    work = {} if ingest_review else template["primary_work"]
     directory = output / case["id"]
     directory.mkdir(mode=0o700)
     if reviewed_plan is not None:
@@ -267,7 +276,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     browser_request = None
     plan_gets = []
     active_plan_get = ContextVar("benchmark_active_plan_get", default=None)
-    plan_get_path = "/api/live/workspace-documents/" + work["object_id"] + "/committed-revision"
+    plan_get_path = f"/api/live/workspace-documents/{work['object_id']}/committed-revision" if detail else None
     if detail:
         routes = [route for route in application.routes
                   if getattr(route, "path", None) == "/api/live/workspace-documents/{document_id}/committed-revision"
@@ -295,6 +304,35 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         if scope["type"] != "http":
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
+        if (ingest_review and method not in {"GET", "HEAD"} and path.startswith("/api/")
+                and (method, path) != ("POST", "/api/live/agent/local-session")):
+            from .ingest_name_review import allowed_request
+
+            if method == "POST" and path in {"/api/live/recap-name-review", "/api/live/recap-ingest",
+                                              "/api/live/native-graph-explorer/graph"}:
+                frames = []
+                while True:
+                    frame = await receive()
+                    if frame["type"] != "http.request":
+                        return
+                    frames.append(frame)
+                    if not frame.get("more_body"):
+                        break
+                try:
+                    payload = json.loads(b"".join(frame.get("body", b"") for frame in frames))
+                except (ValueError, UnicodeError):
+                    payload = None
+                if allowed_request(payload, path, world, ingest_review):
+                    if path == "/api/live/native-graph-explorer/graph":
+                        ingest_reads.append(path)
+                    saved_frames = iter(frames)
+
+                    async def replay_ingest_body():
+                        return next(saved_frames, None) or await receive()
+
+                    return await application(scope, replay_ingest_body, send)
+            rejected_ingest_writes.append({"method": method, "path": path})
+            return await JSONResponse({"code": "benchmark_unexpected_ingest_write"}, 409)(scope, receive, send)
         if play_choice and (method, path) in {
             ("PUT", "/api/live/world-play-runs/v2/active"),
             ("POST", "/api/live/native-graph-explorer/graph"),
@@ -534,8 +572,11 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     image_storage_calls = []
     storage_guard = (isolated_image_storage(image_parent["asset_id"], image_storage_calls)
                      if image_lose_save_ack else nullcontext())
+    from .ingest_name_review import capture_extraction_handoff, record_result
+    ingest_guard = capture_extraction_handoff(directory) if ingest_review else nullcontext()
     try:
-        with patch.dict(os.environ, local_env), jev_guard, writer_guard, failure_guard, storage_guard:
+        with (patch.dict(os.environ, local_env), jev_guard, writer_guard, failure_guard,
+              storage_guard, ingest_guard as ingest_handoff):
             thread = Thread(target=copy_context().run, args=(server.run,),
                             kwargs={"sockets": [sock]}, daemon=True)
             thread.start()
@@ -552,8 +593,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     workflow.verify_capture_environment(local_env)
                     if plan_jev_dispatch.request_budget() != manifest["provider_policy"]:
                         raise ValueError("Effective ordinary provider policy differs")
-                    fresh = client.get(route).raise_for_status().json()
-                    if reviewed_plan is not None:
+                    fresh = None if ingest_review else client.get(route).raise_for_status().json()
+                    if ingest_review:
+                        pass
+                    elif reviewed_plan is not None:
                         if fresh["active_conversation_id"] != reviewed_plan["conversation_id"]:
                             command = {"world_id": world, "command_id": str(uuid4()),
                                 "expected_pointer_revision": fresh["pointer_revision"],
@@ -565,7 +608,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         if fresh["active_conversation_id"] != reviewed_plan["conversation_id"]:
                             raise ValueError("Reviewed Work Plan conversation did not reopen")
                         artifacts.immutable_save(directory, "history-before", fresh)
-                    elif image_preview or play_choice:
+                    elif image_preview or play_choice or ingest_review:
                         artifacts.immutable_save(directory, "history-before", fresh)
                     elif pinned_history is None:
                         command = {"schema": "dmb_agent_new_conversation_v1", "command_id": str(uuid4()),
@@ -582,7 +625,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     env = {
                         "PATH": os.defpath, "HOME": str(runtime), "TMPDIR": str(scratch),
                         "DMB_BENCHMARK_BROWSER_ORIGIN": origin, "DMB_BENCHMARK_BROWSER_TOKEN": token,
-                        "DMB_BENCHMARK_DOCUMENT_ID": work["object_id"], "DMB_BENCHMARK_WORLD": world,
+                        "DMB_BENCHMARK_DOCUMENT_ID": work.get("object_id", ""), "DMB_BENCHMARK_WORLD": world,
                         "DMB_BENCHMARK_QUESTION": case["question"], "DMB_BENCHMARK_PANE_SETTLED": "1" if settled else "0",
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
                         "DMB_BENCHMARK_LIVE_BROWSER": "1" if live else "0",
@@ -598,6 +641,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_PLAYWRIGHT": os.environ["DMB_BENCHMARK_PLAYWRIGHT"],
                         "DMB_BENCHMARK_CHROMIUM": os.environ["DMB_BENCHMARK_CHROMIUM"],
                     }
+                    if ingest_review:
+                        env["DMB_BENCHMARK_INGEST_NAME_REVIEW"] = json.dumps({
+                            key: value for key, value in ingest_review.items() if key != "expected_effective"
+                        })
                     if play_choice:
                         from .play_choice import read_choice_state, record_choice_result
                         choice_before = read_choice_state(client, directory, "play-choice-before", world, play_choice, template)
@@ -667,6 +714,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     driver_failed = driver_status != {"return_code": 0}
                     if driver_failed:
                         artifacts.immutable_save(directory, "browser-driver-failure", driver_status)
+                    if ingest_review:
+                        record_result(directory, output, ingest_review, ingest_handoff, driver_failed,
+                                      rejected_ingest_writes, ingest_reads)
+                        return
                     if play_choice:
                         choice_after = read_choice_state(client, directory, "play-choice-after", world, play_choice, template)
                         record_choice_result(directory, output, choice_before, choice_after, play_choice, driver_failed, turn_posts,

@@ -12,6 +12,65 @@ async function pollBrowserRead(read, timeout, interval, description) {
   throw new Error("Timed out waiting for " + description);
 }
 
+async function captureIngestNameReview(page, origin, pin) {
+  const result = { review_posts: 0, extraction_posts: 0 };
+  const reviewPath = "/api/live/recap-name-review";
+  const extractionPath = "/api/live/recap-ingest";
+  const matches = (request, path) => request.method() === "POST" && new URL(request.url()).pathname === path;
+  page.on("request", request => {
+    if (matches(request, reviewPath)) result.review_posts++;
+    if (matches(request, extractionPath)) result.extraction_posts++;
+  });
+  const draft = page.getByRole("textbox", { name: "Write or paste a recap", exact: true });
+  const processRecap = page.getByRole("button", { name: "Process recap", exact: true });
+  const apply = page.getByRole("button", { name: "Apply decisions and extract", exact: true });
+  async function review() {
+    const response = page.waitForResponse(res => matches(res.request(), reviewPath), { timeout: 15000 });
+    response.catch(() => {});
+    await processRecap.click({ timeout: 15000 });
+    const received = await response;
+    if (!received.ok()) throw new Error("Name review returned HTTP " + received.status());
+    await apply.waitFor({ timeout: 15000 });
+    return (await received.json()).review_id;
+  }
+  try {
+    await page.goto(origin + "/ingest?" + new URLSearchParams({
+      world: process.env.DMB_BENCHMARK_WORLD, campaign: pin.campaign_id, session: "session-" + pin.session,
+    }));
+    await draft.fill(pin.original, { timeout: 15000 });
+    const started = performance.now();
+    result.initial_review_id = await review();
+    if (pin.edited_original !== undefined) {
+      await draft.fill(pin.edited_original);
+      await apply.waitFor({ state: "hidden", timeout: 15000 });
+      result.stale_controls_hidden = true;
+      result.extractions_before_fresh_review = result.extraction_posts;
+      result.fresh_review_id = await review();
+    }
+    const reviewPanel = page.getByRole("region", { name: "Review character names" });
+    for (const select of await reviewPanel.getByRole("combobox").all()) {
+      await select.selectOption("keep");
+    }
+    result.displayed_context = [];
+    for (const correction of pin.corrections) {
+      const choice = reviewPanel.getByRole("combobox", { name: correction.correction_label, exact: true });
+      const source = reviewPanel.getByLabel(correction.context_label, { exact: true });
+      result.displayed_context.push(await source.textContent({ timeout: 15000 }));
+      await choice.selectOption({ value: "apply:" + correction.replacement }, { timeout: 15000 });
+    }
+    const extraction = page.waitForResponse(res => matches(res.request(), extractionPath), { timeout: 15000 });
+    extraction.catch(() => {});
+    await apply.click();
+    const received = await extraction;
+    result.extraction_status = received.status();
+    result.extraction_detail = (await received.json()).detail;
+    result.elapsed_ms = performance.now() - started;
+  } catch (error) {
+    result.error = String(error);
+  }
+  return result;
+}
+
 async function run() {
   const origin = process.env.DMB_BENCHMARK_BROWSER_ORIGIN;
   const browser = await chromium.launch({
@@ -47,6 +106,13 @@ async function run() {
     const documentId = process.env.DMB_BENCHMARK_DOCUMENT_ID;
     const build = process.env.DMB_BENCHMARK_SURFACE === "build";
     const imagePreview = process.env.DMB_BENCHMARK_IMAGE_PREVIEW === "1";
+    if (process.env.DMB_BENCHMARK_INGEST_NAME_REVIEW) {
+      const pin = JSON.parse(process.env.DMB_BENCHMARK_INGEST_NAME_REVIEW);
+      const result = await captureIngestNameReview(page, origin, pin);
+      writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT,
+        JSON.stringify({ ingest_name_review: { ...result, turn_posts: turnPosts, api_failures: apiFailures } }, null, 2));
+      return;
+    }
     if (process.env.DMB_BENCHMARK_PLAY_CHOICE) {
       const pin = JSON.parse(process.env.DMB_BENCHMARK_PLAY_CHOICE);
       const world = process.env.DMB_BENCHMARK_WORLD;

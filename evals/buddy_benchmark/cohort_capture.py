@@ -82,7 +82,7 @@ def _endpoint(dsn, expected):
 
 def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
                     browser_case=None, detailed_trace=False, shared_app=None, context_only=True):
-    from .workflow import capture
+    from .workflow import capture, load_manifest
 
     scratch = output.parent / "scratch" / output.name
     scratch.mkdir(parents=True, exist_ok=False)
@@ -91,8 +91,10 @@ def _capture_member(manifest, output, app_dsn, manifest_sha256, *,
         directory.mkdir()
         os.environ[key] = str(directory)
     os.environ[APP_DSN] = app_dsn
-    capture(manifest, output, context_only=context_only, cohort_manifest_sha256=manifest_sha256,
-            browser_case=browser_case, writer_transport=browser_case is not None,
+    member, _ = load_manifest(manifest, expected_sha256=manifest_sha256)
+    ingest_review = "ingest_name_review" in member.get("browser_capture", {})
+    capture(manifest, output, context_only=context_only and not ingest_review, cohort_manifest_sha256=manifest_sha256,
+            browser_case=browser_case, writer_transport=browser_case is not None and not ingest_review,
             detailed_trace=detailed_trace, cohort_app=shared_app)
 
 
@@ -226,8 +228,12 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                 try:
                     rows = json.loads((member / "report.json").read_text())["cases"]
                     if context_only:
-                        statuses = {row["case_id"]: row.get("context", {}).get("status", "missing")
-                                    for row in rows}
+                        statuses = {
+                            row["case_id"]: (
+                                row["delivery"]["status"] if row.get("capture_boundary") == "ingest_name_review"
+                                else row.get("context", {}).get("status", "missing")
+                            ) for row in rows
+                        }
                     else:
                         statuses = {row["case_id"]: row["delivery"]["status"]
                                     if row["capture_status"] == "complete" else row["capture_status"]
@@ -239,7 +245,10 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                     continue
                 observed_statuses = {"captured"} if context_only else {"pass", "fail"}
                 captured = len(rows) == len(statuses) and statuses.keys() == ids and all(
-                    value in observed_statuses for value in statuses.values())
+                    statuses[row["case_id"]] in (
+                        {"pass", "fail"} if row.get("capture_boundary") == "ingest_name_review" else observed_statuses
+                    ) for row in rows)
+
                 if (not context_only and isinstance(error, BuildSequenceStopped)
                         and len(rows) == len(statuses) and statuses.keys() == ids):
                     deliveries = list(statuses.values())

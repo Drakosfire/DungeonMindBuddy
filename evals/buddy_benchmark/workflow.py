@@ -135,7 +135,7 @@ def report_case(case, base):
     directory = Path(case["capture_dir"])
     directory = directory if directory.is_absolute() else base / directory
     boundary = case.get("capture_boundary", "response")
-    if boundary in {"image_preview", "play_choice"}:
+    if boundary in {"image_preview", "play_choice", "ingest_name_review"}:
         result = directory / "fixture-result.json"
         if not result.is_file():
             return {"case_id": case["id"], "capture_boundary": boundary,
@@ -843,12 +843,16 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
     if "reviewed_work_plan" in manifest.get("browser_capture", {}) and (
             not live_build or browser_case is None or (not clone_app and cohort_app is None)):
         raise ValueError("Reviewed Work Plan requires a selected live Build case and an owned App clone")
-    if manifest["request_template"].get("surface", {}).get("surface_id") == "play" and (
+    if manifest.get("request_template", {}).get("surface", {}).get("surface_id") == "play" and (
             browser_case is not None or (not clone_app and cohort_app is None)):
         raise ValueError("Play turn requires an owned App clone")
     if "play_choice" in manifest.get("browser_capture", {}) and (
             browser_case is None or (not clone_app and cohort_app is None)):
         raise ValueError("Play Choice requires a selected browser case and an owned App clone")
+    if "ingest_name_review" in manifest.get("browser_capture", {}) and (
+            browser_case is None or (not clone_app and cohort_app is None)
+            or any((context_only, writer_transport, detailed_trace, build_fixture, live_build, live_plan))):
+        raise ValueError("Ingest name review requires a provider-free browser case on an owned App clone")
     options = dict(context_only=context_only, writer_transport=writer_transport,
                    detailed_trace=detailed_trace, browser_case=browser_case,
                    cohort_member=cohort_manifest_sha256 is not None, build_fixture=build_fixture, live_build=live_build, live_plan=live_plan)
@@ -887,7 +891,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
     if not manifest.get("pins"):
         raise ValueError("Capture requires pinned runtime/source evidence")
     verify_runtime(manifest["runtime"], base)
-    template = manifest["request_template"]
+    ingest_review = "ingest_name_review" in manifest.get("browser_capture", {})
+    template = manifest.get("request_template")
     mode = manifest.get("conversation_mode", "fresh_per_case")
     if mode not in {"fresh_per_case", "build_sequence"}:
         raise ValueError("Unknown benchmark conversation mode")
@@ -905,7 +910,11 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
         if not build_sequence or browser_case is not None or context_only or writer_transport or detailed_trace:
             raise ValueError("Pinned Build history requires an ordinary Build response sequence")
         build_history = json.loads(read_pin(manifest["build_history"], base))
-    validate_template(template, manifest["world"], context_only=context_only, build_sequence=build_sequence)
+    if ingest_review:
+        if template is not None or build_sequence:
+            raise ValueError("Mounted Ingest does not accept an agent turn template")
+    else:
+        validate_template(template, manifest["world"], context_only=context_only, build_sequence=build_sequence)
     browser = None
     if browser_case is not None:
         plan_replay = (context_only and writer_transport and not build_sequence
@@ -918,7 +927,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
             (build_fixture, live_build, live_plan, context_only, writer_transport, detailed_trace, build_sequence)))
         if "play_choice" in manifest.get("browser_capture", {}) and not play_choice:
             raise ValueError("Play Choice is a provider-free browser control")
-        if not (plan_replay or build_preflight or plan_placement or play_choice):
+        if not (plan_replay or build_preflight or plan_placement or play_choice
+                or ingest_review):
             raise ValueError("Browser capture requires Plan replay or Build selection preflight")
         selected = next((case for case in manifest["cases"] if case["id"] == browser_case), None)
         if selected is None:
@@ -987,6 +997,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
         current = {key: value for key, value in case.items() if key not in {"assessment", "assessments", "detailed_trace"}}
         if "play_choice" in manifest.get("browser_capture", {}):
             current["capture_boundary"] = "play_choice"
+        elif "ingest_name_review" in manifest.get("browser_capture", {}):
+            current["capture_boundary"] = "ingest_name_review"
         elif manifest.get("browser_capture", {}).get("image_preview") is True:
             current["capture_boundary"] = "image_preview"
         elif context_only:
