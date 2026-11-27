@@ -29,6 +29,65 @@ def navigation(case):
     return NativeBodyNavigation(adapter), catalog
 
 
+@pytest.mark.parametrize('unavailable,expected', [
+    (0, 'Navigation scan: search attempted; semantic/global completeness not established'),
+    (7, 'Navigation scan: some sources were unavailable; semantic/global completeness not established'),
+    (None, 'Unresolved source search'),
+])
+def test_navigation_search_outcome_excludes_host_counts_from_final_decision_wire(monkeypatch, unavailable, expected):
+    import json
+    from uuid import uuid4
+    from application_state.agent_conversation import jev_retrieval_contract as decision
+    from tests.test_surface_native_execution import component
+
+    context, execution = component('build')
+    turn = SimpleNamespace(graph_context_receipt=SimpleNamespace(source_authority=context.source_authority),
+                           graph_context_execution=execution)
+    nav = object.__new__(NativeBodyNavigation)
+    nav.adapter = SimpleNamespace(fence=SimpleNamespace(turn=turn))
+    grant = SimpleNamespace(query_sha256='a' * 64)
+    search = None if unavailable is None else SimpleNamespace(catalogs=[object()] * 137,
+                                                               unavailable_source_count=unavailable)
+    monkeypatch.setattr(nav, '_events', lambda: (grant, search, (), {}))
+    monkeypatch.setattr(nav, '_acquired_extents', lambda: ())
+    rows = nav.examined()
+    assert len(rows) == 1 and rows[0].kind == expected
+    parent = decision.NativeBuildRetrievalDecisionInputV5(request_id=uuid4(), parent_attempt_id=uuid4(),
+        scope_sha256='b' * 64, question='Find another source.', candidates=(), examined_candidates=rows,
+        allowed_operations=('select_candidates', 'finish_retrieval'), source_authority_status='available',
+        source_revision='private-source', graph_revision='private-graph')
+    prepared = decision.prepare_decision(parent)
+    wire = json.dumps({'model': prepared.model, 'state': prepared.state, 'questions': {
+        q.name: {'type': 'choice', 'instructions': q.question, 'criteria': dict.fromkeys(q.options)}
+        for q in prepared.questions}}).encode()
+    decision.validate_wire_body(parent, wire)
+    assert expected in wire.decode()
+    for host_value in ('137', 'private-source', 'private-graph', 'a' * 64, 'b' * 64):
+        assert host_value not in wire.decode()
+    if search is not None:
+        assert len(search.catalogs) == 137 and search.unavailable_source_count == unavailable
+
+
+def test_previously_captured_navigation_description_remains_reconstructible():
+    import json
+    from uuid import uuid4
+    from application_state.agent_conversation import jev_retrieval_contract as decision
+
+    old = decision.RetrievalCandidate(handle='host-only', label='Admitted native source search',
+        kind='Navigation scan: 137 accessible revisions, 7 unavailable; semantic/global completeness not established')
+    parent = decision.NativeBuildRetrievalDecisionInputV3(request_id=uuid4(), parent_attempt_id=uuid4(),
+        scope_sha256='b' * 64, question='Find another source.', candidates=(), examined_candidates=(old,),
+        allowed_operations=('select_candidates', 'finish_retrieval'), source_authority_status='available',
+        source_revision='private-source', graph_revision='private-graph')
+    reloaded = decision.parse_native_retrieval_input(parent.model_dump(by_alias=True), surface_id='build')
+    prepared = decision.prepare_decision(reloaded)
+    wire = json.dumps({'model': prepared.model, 'state': prepared.state, 'questions': {
+        q.name: {'type': 'choice', 'instructions': q.question, 'criteria': dict.fromkeys(q.options)}
+        for q in prepared.questions}}).encode()
+    decision.validate_wire_body(reloaded, wire)
+    assert reloaded == parent
+
+
 def test_exact_recap_display_join_is_shared_and_cached_only_within_navigation(inspection, monkeypatch):
     registered(inspection)
     nav, catalog = navigation(inspection)

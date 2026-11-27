@@ -681,7 +681,9 @@ class NativeBodyNavigation:
         if grant is not None:
             rows.append(RetrievalCandidate(handle=native_corpus_search_handle(grant.query_sha256),
                 label="Admitted native source search", kind=(
-                    f"Navigation scan: {len(search.catalogs)} accessible revisions, {search.unavailable_source_count} unavailable; semantic/global completeness not established"
+                    "Navigation scan: some sources were unavailable; semantic/global completeness not established"
+                    if search is not None and search.unavailable_source_count else
+                    "Navigation scan: search attempted; semantic/global completeness not established"
                     if search is not None else "Unresolved source search")))
         from application_state.agent_conversation.native_corpus import (
             NativeAuthoredSourceReadV1, native_body_handle, native_full_document_handle,
