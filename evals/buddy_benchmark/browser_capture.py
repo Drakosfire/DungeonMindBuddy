@@ -795,10 +795,6 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     if not live:
                         trace = client.get(route + "/turns/" + turn_id + "/context-trace").raise_for_status()
                         artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
-                        if live_build:
-                            readback = build_proposal_readback(browser_request, world, turns[0])
-                            if readback is not None:
-                                artifacts.immutable_save(directory, "build-proposal-readback", readback)
             finally:
                 server.should_exit = True
                 # Keep the exact-wire and writer guards until the application
