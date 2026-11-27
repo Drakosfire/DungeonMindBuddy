@@ -576,8 +576,9 @@ HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private contex
     {'unique_world': True, 'no_source': True, 'long_context': True, 'sources': [('first', HTTP_BODY)]},
     {'unique_world': True, 'missing_source': True, 'sources': [('first', HTTP_BODY)]},
     {'unique_world': True, 'graph_required': True, 'sources': [('first', HTTP_BODY)]},
-    {'unique_world': True, 'no_source': True, 'graph_recovery': True, 'sources': [('first', HTTP_BODY)]}],
-    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context', 'controller-missing-source', 'controller-graph-required', 'controller-graph-recovery'])
+    {'unique_world': True, 'no_source': True, 'graph_recovery': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'no_source': True, 'graph_recovery': True, 'graph_required': True, 'sources': [('first', HTTP_BODY)]}],
+    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context', 'controller-missing-source', 'controller-graph-required', 'controller-graph-recovery', 'controller-graph-settled-recovery'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
 def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct, application_state_dsn):
@@ -723,7 +724,8 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         first = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
         assert first.status_code == 503 and interrupted == [True]
         turn = wire.adapter.turn
-        assert turn.graph_context_execution.events[-1].kind == 'native_plan_graph_query_closed_without_graph_v1'
+        assert turn.graph_context_execution.events[-1].kind == ('native_plan_graph_query_settled_v1' if graph_required
+            else 'native_plan_graph_query_closed_without_graph_v1')
         with psycopg.connect(application_state_dsn) as conn:
             conn.execute("UPDATE agent.turn SET claim_expires_at = clock_timestamp() - interval '1 second' WHERE world_id=%s AND turn_id=%s", (turn.world_id, turn.turn_id))
     response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
