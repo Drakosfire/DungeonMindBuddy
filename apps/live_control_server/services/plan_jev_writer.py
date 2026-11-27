@@ -348,7 +348,9 @@ class PlanJevWriter:
         if self.shared:
             from application_state.agent_conversation.native_writer import model_frame, model_work_frame
             from application_state.agent_conversation.native_evidence_view import semantic_frame,output_frame
-            from application_state.agent_conversation.plan_writer_output_schema import native_output_format
+            from application_state.agent_conversation.plan_writer_output_schema import (
+                has_native_citable_evidence, native_output_format,
+            )
             turn=adapter.fence.turn
             from application_state.agent_conversation.native_execution import NativeBuildActionV1, NativePlanActionV2, NativePlanActionV3
             plan_prose = (type(turn.graph_context_execution.policy.action) in (NativePlanActionV2, NativePlanActionV3)
@@ -382,7 +384,7 @@ class PlanJevWriter:
                 variant_format = bool(not rule_frame.lookups and variant_sources(self.work_frame))
                 if variant_format:
                     format_version = variant_output_version(self.work_frame)
-                elif not rule_frame.lookups and any(
+                elif not rule_frame.lookups and not has_native_citable_evidence(self.frame) and any(
                     is_anchored_discussion(event) for event in turn.graph_context_execution.events
                 ):
                     format_version = 7

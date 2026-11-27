@@ -301,7 +301,7 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
     from .rules_authority_events import validate_native_packet_writer
     from .rules_authority_policy import rules_capability, rules_submission_authorization_id
     from .rules_authority_events import ref_map
-    from .plan_writer_output_schema import native_output_format
+    from .plan_writer_output_schema import has_native_citable_evidence, native_output_format
     execution = RulesExecutionV1.model_validate_json(execution.model_dump_json(by_alias=True))
     writers = [e for e in graph_execution.events if type(e) in NATIVE_WRITER_TYPES
         and e.provider_attempt_id == provider_attempt_id]
@@ -374,7 +374,8 @@ def verify_native_rules_packet_input(execution, receipt, graph_execution, prepar
         elif evidence.build_local and not frame.lookups:
             from .build_intentional_response import is_anchored_discussion
 
-            if (not allow_retained_format or actual_format == "surface_native_evidence_selectors_v7") and any(
+            if ((allow_retained_format and actual_format == "surface_native_evidence_selectors_v7")
+                    or (not allow_retained_format and not has_native_citable_evidence(evidence.frame))) and any(
                 is_anchored_discussion(event) for event in graph_execution.events
             ):
                 version = 7
