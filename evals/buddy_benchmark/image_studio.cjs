@@ -33,7 +33,7 @@ async function generatePrivatePreview(page, origin, description) {
   return { asset: portrait, model: result.model, elapsedMs: performance.now() - started };
 }
 
-async function regeneratePrivatePreview(page, origin, parent, instructions) {
+async function selectLibraryImage(page, origin, parent) {
   const studio = page.getByRole("region", { name: "Create an image", exact: true });
   const library = studio.getByRole("region", { name: "Image library", exact: true });
   const cards = library.locator(".media-image-wizard__card");
@@ -61,6 +61,11 @@ async function regeneratePrivatePreview(page, origin, parent, instructions) {
     await cards.nth(seen.size - 1).waitFor();
     button = more;
   }
+  return studio;
+}
+
+async function regeneratePrivatePreview(page, origin, parent, instructions) {
+  const studio = await selectLibraryImage(page, origin, parent);
   await studio.getByRole("button", { name: "Edit image", exact: true }).click();
   const edit = page.getByRole("dialog", { name: "Edit image", exact: true });
   await edit.getByLabel("Action").selectOption("image_to_image");
@@ -109,4 +114,4 @@ async function regeneratePrivatePreview(page, origin, parent, instructions) {
   }
 }
 
-module.exports = { generatePrivatePreview, regeneratePrivatePreview };
+module.exports = { generatePrivatePreview, regeneratePrivatePreview, selectLibraryImage };
