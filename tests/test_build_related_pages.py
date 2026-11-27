@@ -1244,3 +1244,18 @@ def test_coverage_reader_refuses_recommitted_unregistered_payload(monkeypatch, d
         case = pending_app_coverage_proof_case()
     with pytest.raises(ValueError, match='coverage input differs'):
         coverage.validate_coverage_result(*case)
+
+
+def test_coverage_producer_emits_registered_capability_aware_input():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.build_pending_app_coverage import PendingAppCoverageDriver
+    from application_state.agent_conversation.build_pending_app_coverage import pending_app_coverage_input
+    from tests.test_build_source_free_protocol import pending_app_coverage_case
+
+    receipt, execution, initial, _, _ = pending_app_coverage_case()
+    adapter = SimpleNamespace(_broker_receipt=lambda: receipt, _broker_execution=lambda: execution)
+    driver = PendingAppCoverageDriver(adapter, initial)
+    expected = pending_app_coverage_input(receipt, execution, initial, capability_aware=True)
+    assert driver.wire == expected
+    assert driver.wire != pending_app_coverage_input(receipt, execution, initial)
+    assert 'capability limitation alone is not missing source evidence' in driver.step.questions[0].question
