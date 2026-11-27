@@ -344,6 +344,20 @@ verifies removal. If execution is interrupted, check the recorded clone
 identity and teardown before allocating another. The coordinator does
 not modify the shared App template or Core snapshot.
 
+For an ordinary response cohort, use `capture-cohort --clone-app --workers 1`.
+Each pinned member can specify a `driver` alongside its path and hash in
+the cohort manifest. The default is `request`. Mounted single-case members
+use `live_build`, `live_plan`, `build_fixture` for a provider-free Build
+fixture, or `browser_control` for Ingest name review or Play Choice. The
+usual per-surface rules and evidence pins still apply. Provider-free workers
+drop the Jev and writer credentials inherited from the parent.
+
+Use `protected_work_objects` for stable fixtures that later members depend
+on. Give intentional page changes their own isolated targets and verify them
+with the existing browser owner's readback. Cases that need the same mutable
+target belong in one supported member sequence. The cohort stops on invalid
+capture or changed protected state and retains the outcomes already observed.
+
 ### Parallel retrieval captures
 
 Use `python -m evals.buddy_benchmark.workflow capture-context-cohort --manifest

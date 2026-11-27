@@ -135,15 +135,28 @@ def report_case(case, base):
     directory = Path(case["capture_dir"])
     directory = directory if directory.is_absolute() else base / directory
     boundary = case.get("capture_boundary", "response")
-    if boundary in {"image_preview", "play_choice", "ingest_name_review"}:
+    if boundary in {"image_preview", "play_choice", "ingest_name_review", "build_fixture"}:
         result = directory / "fixture-result.json"
         if not result.is_file():
             return {"case_id": case["id"], "capture_boundary": boundary,
                     "delivery": {"status": "unknown"}}
         raw = result.read_bytes()
         observation = json.loads(raw)
+        status = "pass" if observation["status"] == "observed" else "fail"
+        if boundary == "build_fixture":
+            if observation["status"] == "captured":
+                status = "pass"
+            elif observation["status"] == "observed":
+                status = "pass" if (
+                    all(observation.get(key) is True for key in (
+                        "draft_restored", "conversation_unchanged", "committed_page_unchanged"))
+                    and all(type(observation.get(key)) is int and observation[key] == 0 for key in (
+                        "browser_turn_posts", "server_turn_posts", "provider_calls"))
+                ) else "fail"
+            else:
+                status = "unknown"
         return {"case_id": case["id"], "capture_boundary": boundary,
-                "delivery": {"status": "pass" if observation["status"] == "observed" else "fail"},
+                "delivery": {"status": status},
                 "owner_observation": observation,
                 "evidence": {"path": str(result), "sha256": sha256(raw).hexdigest()}}
     if boundary not in {"response", "context_ready", "writer_transport"}:
@@ -824,9 +837,9 @@ class BuildSequenceStopped(ValueError):
 def capture(manifest_path, output, *, context_only=False, writer_transport=False, detailed_trace=False,
             browser_case=None, cohort_manifest_sha256=None, clone_app=False, cohort_app=None, build_fixture=False, live_build=False, live_plan=False):
     """Explicit live entry point; never invoked by offline reporting."""
-    if live_plan and (not clone_app or browser_case is None or build_fixture or live_build
+    if live_plan and ((not clone_app and cohort_app is None) or browser_case is None or build_fixture or live_build
                       or context_only or writer_transport or detailed_trace):
-        raise ValueError("Live Plan browser capture requires its own App clone and selected case in response mode")
+        raise ValueError("Live Plan browser capture requires an owned App clone and selected case in response mode")
     manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
     if any("lore_confirmation" in case for case in manifest["cases"]) and (
             manifest.get("conversation_mode") != "build_sequence" or browser_case is not None
@@ -1001,6 +1014,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
             current["capture_boundary"] = "ingest_name_review"
         elif manifest.get("browser_capture", {}).get("image_preview") is True:
             current["capture_boundary"] = "image_preview"
+        elif cohort_member and build_fixture and not live_build:
+            current["capture_boundary"] = "build_fixture"
         elif context_only:
             current["capture_boundary"] = "writer_transport" if writer_transport else "context_ready"
             current["detailed_trace"] = detailed_trace
@@ -1057,7 +1072,7 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
         if not cohort_member:
             native_after = row_inventory(native_dsn, readonly=readonly)
             immutable_save(output, "native-after", native_after)
-        if not build_fixture or live_build:
+        if cohort_member or not build_fixture or live_build:
             immutable_save(output, "report", report(output / "capture-manifest.json"))
         if not cohort_member and native_before != native_after:
             raise ValueError("Native authority changed during ordinary capture")
