@@ -344,7 +344,9 @@ repository's required Node 22 exact-source qualification.
 counts from captured *unvalidated* provider decisions, alongside provider/model
 names. These are observations of model output, not proof of accepted decisions
 or materialized reads; the latter are reported separately. Arbitrary model text
-is not copied into the projection or sent to another model. In the supplied
+is not copied into the projection or sent to another model. The fixed source
+choices include `current_saved_page`; observing it does not prove that the
+current page was read or that other acquisition did not occur. In the supplied
 failure, the one captured unvalidated opening selected `anchored`, with six
 read and thirteen skip votes; the trace separately recorded six related-page
 reads. Those observations do not establish why the later acquisition failed.

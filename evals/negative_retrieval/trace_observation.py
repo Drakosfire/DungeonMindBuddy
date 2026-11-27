@@ -94,7 +94,7 @@ def controller_observations(trace):
     # Reuse structural checks; this does not assert the trace is exhaustive.
     observed_acquisitions(trace)
     allowed = {
-        "source_need": {"anchored", "source_lookup", "uncertain"},
+        "source_need": {"anchored", "source_lookup", "uncertain", "current_saved_page"},
         "paragraph_work": {"discuss", "explicit_page_body", "explicit_page_end", "place_paragraph", "unsupported_or_unclear"},
         "paragraph_relation": {"after", "before", "unresolved"},
         "paragraph_scope": {"named", "unresolved", "unscoped"},
