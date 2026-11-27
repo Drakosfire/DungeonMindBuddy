@@ -45,6 +45,15 @@ COVERAGE_QUESTION = (
     'have not been searched. Preserve explicit limits on the requested source scope.'
 )
 
+# Registered for reading before any producer emits it. The historical question
+# remains the default until the compatible reader is serving.
+CAPABILITY_AWARE_COVERAGE_QUESTION = COVERAGE_QUESTION + (
+    ' Evaluate the factual or source-dependent parts of a mixed request on their '
+    'own. If an action cannot be performed, that capability limitation alone is '
+    'not missing source evidence. Still choose native_sources_required for any '
+    'factual detail or qualification that needs additional source material.'
+)
+
 
 def pending_app_coverage_reads(receipt, execution):
     """Require the complete exact App read phase, never a title-only shortcut."""
@@ -63,7 +72,7 @@ def pending_app_coverage_reads(receipt, execution):
     return tuple(sorted(reads, key=lambda row: str(row.page.document_id)))
 
 
-def pending_app_coverage_input(receipt, execution, initial_request_json):
+def pending_app_coverage_input(receipt, execution, initial_request_json, *, capability_aware=False):
     """Full captured semantics plus exact saved content, using only local aliases."""
     reads = pending_app_coverage_reads(receipt, execution)
     # The existing compiler verifies the original captured bytes and projects
@@ -76,7 +85,8 @@ def pending_app_coverage_input(receipt, execution, initial_request_json):
          'role': read.role, 'markdown': project_retained_source_markdown(read.markdown)}
         for index, read in enumerate(reads)]
     return {'model': original['model'], 'state': state, 'questions': {
-        'source_requirement': {'type': 'choice', 'instructions': COVERAGE_QUESTION,
+        'source_requirement': {'type': 'choice', 'instructions': (
+            CAPABILITY_AWARE_COVERAGE_QUESTION if capability_aware else COVERAGE_QUESTION),
             'criteria': {'saved_pages_sufficient': None, 'native_sources_required': None}}}}
 
 
@@ -120,7 +130,10 @@ def validate_coverage_request(receipt, execution, authorization, raw, initial):
     validate_coverage_authorization(execution, authorization)
     prefix = execution.model_copy(update={'events': execution.events[:authorization.sequence]})
     expected = pending_app_coverage_input(receipt, prefix, initial)
-    if strict_json(raw) != expected:
+    candidate = strict_json(raw)
+    if candidate != expected:
+        expected = pending_app_coverage_input(receipt, prefix, initial, capability_aware=True)
+    if candidate != expected:
         raise ValueError('App coverage input differs from its captured dialogue and exact saved reads')
     validate_prepared(authorization, prefix, raw, host_phase='navigate')
     return expected
