@@ -283,6 +283,38 @@ async function run() {
         }));
       return { click, request, preflight };
     });
+    let terminalBuildFailure;
+    if (process.env.DMB_BENCHMARK_TERMINAL_BUILD_FAILURE === "1") {
+      const checkpoint = buildCheckpoint;
+      const world = process.env.DMB_BENCHMARK_WORLD;
+      const failed = await pollBrowserRead(() => page.evaluate(async ({ world, checkpoint }) => {
+        const path = "/api/live/agent/worlds/" + encodeURIComponent(world)
+          + "/conversation?include_turn_correlation=true";
+        const response = await fetch(path, { cache: "no-store" });
+        if (!response.ok) return false;
+        const history = await response.json();
+        if (history.active_conversation_id !== checkpoint.conversation_id) return false;
+        return history.turns.find(turn => turn.idempotency_key === checkpoint.idempotency_key
+          && ["failed", "interrupted"].includes(turn.lifecycle_status)) || false;
+      }, { world, checkpoint }), 10000, 250, "bound terminal Build turn");
+      await page.reload();
+      await openComposer();
+      const turn = page.locator(`article[data-turn-id="${failed.turn_id}"]`);
+      await turn.waitFor({timeout: 12000});
+      const trace = turn.locator("summary").filter({hasText: /^Trace$/});
+      if (await trace.count() === 1 && !await trace.evaluate(summary => summary.parentElement.open)) {
+        await trace.click();
+      }
+      const retry = turn.getByRole("button", { name: "Retry question", exact: true });
+      const retryVisible = await retry.first().isVisible();
+      terminalBuildFailure = {
+        turn_id: failed.turn_id,
+        retry_visible: retryVisible,
+        retry_enabled: retryVisible && await retry.first().isEnabled(),
+        check_insertion_visible: await page.getByRole("button", { name: "Check insertion", exact: true }).first().isVisible(),
+        turn_posts: turnPosts,
+      };
+    }
     let confirmation;
     if (process.env.DMB_BENCHMARK_CONFIRM_SAVE === "1") {
       confirmation = { attempted: false };
@@ -519,7 +551,7 @@ async function run() {
       }
     }
     writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
-      before, after, browserMarks, confirmation, status: delivered.status(), chromiumVersion: browser.version(),
+      before, after, browserMarks, confirmation, terminal_build_failure: terminalBuildFailure, status: delivered.status(), chromiumVersion: browser.version(),
       playwrightVersion: require(require("node:path").join(process.env.DMB_BENCHMARK_PLAYWRIGHT, "package.json")).version,
       request: delivered.request().postDataJSON(), turnNetworkFailures,
     }, null, 2));

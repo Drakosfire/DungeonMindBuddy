@@ -360,11 +360,12 @@ def report_case(case, base):
             "failures": failures, "verified_prompt_witnesses": prompt_count,
             "artifacts": {name: {"path": str(path), "sha256": sha256(path.read_bytes()).hexdigest()}
                 for name, path in paths.items()}}
-    owner_path = directory / "lore-confirmation-result.json"
     owner_observation = None
-    if owner_path.is_file():
-        paths["lore-confirmation-result"] = owner_path
-        owner_observation = json.loads(owner_path.read_bytes())
+    for name in ("lore-confirmation-result", "terminal-build-failure"):
+        owner_path = directory / (name + ".json")
+        if owner_path.is_file():
+            paths[name] = owner_path
+            owner_observation = json.loads(owner_path.read_bytes())
     elapsed = answer.get("elapsed_ms")
     if elapsed is None and (directory / "terminal.json").exists():
         elapsed = json.loads((directory / "terminal.json").read_text())["elapsed_seconds"] * 1000
