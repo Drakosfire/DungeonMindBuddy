@@ -83,3 +83,11 @@ Plan and Play. A successful live run must also match the server's provider
 trace to the browser turns. It applies the same exact-revision and explicit
 combat-start checks as the pinned-assets replay. Keep incomplete attempts
 as diagnostics. They do not enter the live baseline.
+
+To qualify only the mounted statblock save, set
+`live.variantConfirmationOnly` to true in the pinned live fixture. The same
+ordinary conversation runs first. The browser then opens the approval on the
+final turn, checks that it resolves to the preceding producing turn and the
+current unsaved review revision, confirms it, and reads the exact saved locator
+back from the owner. This track ends before portrait generation or encounter
+setup. A failed review lookup or a changed revision stops before confirmation.

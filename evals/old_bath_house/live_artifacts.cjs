@@ -5,8 +5,38 @@ const { performance } = require('node:perf_hooks');
 const { generatePrivatePreview } = require('../buddy_benchmark/image_studio.cjs');
 
 async function confirmVariant(page, fixture, evidence) {
-  const find = page.getByRole('button', { name: 'Find reviewed statblock', exact: true });
-  await find.click();
+  const turns = evidence.evidence.turns;
+  const producer = turns.at(-2).turnId;
+  const approval = turns.at(-1).turnId;
+  const find = page.locator(`article[data-turn-id="${approval}"]`)
+    .getByRole('button', { name: 'Find reviewed statblock', exact: true });
+  const worldPath = '/api/live/agent/worlds/' + encodeURIComponent(fixture.worldId) + '/conversations/';
+  const [decision] = await Promise.all([
+    page.waitForResponse(result => {
+      const url = new URL(result.url());
+      return url.origin === fixture.origin && url.pathname.startsWith(worldPath)
+        && url.pathname.endsWith('/turns/' + encodeURIComponent(approval) + '/variant-approval')
+        && result.request().method() === 'GET';
+    }),
+    find.click(),
+  ]);
+  assert.ok(decision.ok(), `Variant approval failed with HTTP ${decision.status()}`);
+  const target = await decision.json();
+  assert.equal(target.status, 'ready');
+  assert.equal(target.turn_id, producer, 'Variant approval resolved to a different producing turn');
+  assert.match(target.review_id, /^[0-9a-f-]{36}$/i);
+  assert.ok(Number.isSafeInteger(target.revision) && target.revision > 0);
+  const conversationPath = new URL(decision.url()).pathname.split('/turns/')[0];
+  const reviewPath = conversationPath + '/drafts/' + encodeURIComponent(producer)
+    + '/variant-reviews/' + encodeURIComponent(target.review_id);
+  const checked = await page.evaluate(async path => {
+    const response = await fetch(path, { cache: 'no-store' });
+    return { status: response.status, body: await response.json() };
+  }, reviewPath);
+  assert.equal(checked.status, 200);
+  assert.equal(checked.body.revision, target.revision, 'Review revision changed before confirmation');
+  assert.equal(checked.body.saved, false, 'The review already has a saved variant');
+  evidence.evidence.variant_review = target;
   const review = page.getByRole('region', { name: 'Statblock variant review', exact: true });
   const reviewError = page.getByRole('region', { name: 'Variant approval', exact: true }).getByRole('alert');
   await review.or(reviewError).waitFor();
@@ -21,8 +51,7 @@ async function confirmVariant(page, fixture, evidence) {
   const [response] = await Promise.all([
     page.waitForResponse(result => {
       const url = new URL(result.url());
-      return url.origin === fixture.origin && url.pathname.endsWith('/confirm')
-        && url.pathname.includes('/variant-reviews/') && result.request().method() === 'POST';
+      return url.origin === fixture.origin && url.pathname === reviewPath + '/confirm' && result.request().method() === 'POST';
     }),
     confirm.click(),
   ]);
@@ -38,9 +67,16 @@ async function confirmVariant(page, fixture, evidence) {
   assert.equal(url.origin, fixture.origin);
   assert.equal(url.pathname, '/statblock');
   assert.equal(url.searchParams.get('world'), fixture.worldId);
-  for (const key of ['conversation', 'turn', 'variantReview']) {
-    assert.ok(url.searchParams.get(key), `Saved variant link is missing ${key}`);
-  }
+  assert.equal(url.searchParams.get('conversation'), decodeURIComponent(conversationPath.split('/').at(-1)));
+  assert.equal(url.searchParams.get('turn'), producer);
+  assert.equal(url.searchParams.get('variantReview'), target.review_id);
+  const reopened = await page.evaluate(async path => {
+    const response = await fetch(path, { cache: 'no-store' });
+    return { status: response.status, body: await response.json() };
+  }, reviewPath + '/saved');
+  assert.equal(reopened.status, 200);
+  assert.deepEqual(reopened.body.locator, locator);
+  evidence.checks.exact_variant_reopened = true;
   return { url: url.href, locator, name };
 }
 
