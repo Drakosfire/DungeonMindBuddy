@@ -129,6 +129,24 @@ def pending_receipt():
     return SurfaceNativeContextReceiptV1.model_validate(seal(data))
 
 
+
+def test_plan_pending_pin_keeps_source_authority_without_graph_acquisition(monkeypatch):
+    from types import SimpleNamespace
+    from apps.live_control_server.services import native_graph_reads as reads
+    receipt = pending_receipt()
+    authority = receipt.native_query.authority
+    source = SimpleNamespace(authority=authority)
+    binding = SimpleNamespace(managed_world_id=authority.managed_world_id,
+        native_world_id=authority.native_world_id, binding_version=authority.binding_version)
+    monkeypatch.setattr(reads, 'resolve_managed_world_binding', lambda _: binding)
+    monkeypatch.setattr(reads, 'prepare_query', lambda *a, **kw: pytest.fail('Unexpected Graph discovery'))
+    query = reads.pending_plan_query(authority.managed_world_id, 'A new question?', source)
+    assert type(query) is type(receipt.native_query)
+    assert query.authority == authority and query.question == 'A new question?'
+    with pytest.raises(ValueError, match='authority differ'):
+        reads.pending_plan_query('other-world', 'A new question?', source)
+
+
 def test_pending_receipt_roundtrips_and_requires_plan_admission_and_same_authority():
     from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
     from tests.test_surface_native_context import seal, wire
