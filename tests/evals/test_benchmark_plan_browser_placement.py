@@ -188,6 +188,13 @@ def test_image_parent_readback_requires_original_byte_digest():
         return httpx.Response(200, content=original)
 
     with httpx.Client(base_url="http://localhost", transport=httpx.MockTransport(handle)) as client:
-        assert read_image_parent(client, metadata) == metadata
-        with pytest.raises(ValueError, match="pinned original"):
-            read_image_parent(client, {**metadata, "content_sha256": "0" * 64})
+        matching = read_image_parent(client, metadata)
+        assert matching["matches_pin"] and matching["metadata"]["body"] == metadata
+        changed = read_image_parent(client, {**metadata, "content_sha256": "0" * 64})
+        assert changed["matches_pin"] is False
+        assert changed["original_sha256"] == sha256(original).hexdigest()
+    with httpx.Client(base_url="http://localhost", transport=httpx.MockTransport(
+            lambda request: httpx.Response(404, json={"detail": "Image missing"}))) as client:
+        missing = read_image_parent(client, metadata)
+        assert not missing["matches_pin"]
+        assert missing["original_http_status"] == missing["metadata"]["http_status"] == 404

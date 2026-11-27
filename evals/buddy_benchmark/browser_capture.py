@@ -94,15 +94,22 @@ def require_image_preview_page(snapshot, world, work):
 
 
 def read_image_parent(client, parent):
-    """Bind original image bytes and metadata to the selected parent."""
+    """Retain parent metadata and original-byte digest even for negative readbacks."""
     route = "/api/live/media/images/" + parent["asset_id"]
-    metadata = client.get(route + "/metadata").raise_for_status().json()
-    original = client.get(route + "/original").raise_for_status()
+    metadata = workflow.response_envelope(client.get(route + "/metadata"))
+    original = client.get(route + "/original")
     digest = sha256(original.content).hexdigest()
-    if (metadata["asset_id"] != parent["asset_id"] or metadata["state"] not in {"ready", "staged"}
-            or metadata["content_sha256"] != digest or digest != parent["content_sha256"]):
-        raise ValueError("Selected image parent differs from the pinned original")
-    return metadata
+    body = metadata["body"] if isinstance(metadata["body"], dict) else {}
+    return {
+        "metadata": metadata,
+        "original_http_status": original.status_code,
+        "original_sha256": digest,
+        "matches_pin": (
+            metadata["http_status"] == 200 and original.status_code == 200
+            and body.get("asset_id") == parent["asset_id"]
+            and body.get("state") in {"ready", "staged"}
+            and body.get("content_sha256") == digest == parent["content_sha256"]),
+    }
 
 
 def saved_image_library(client, world):
@@ -446,11 +453,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         if image_parent is not None:
                             parent_before = read_image_parent(client, image_parent)
                             artifacts.immutable_save(directory, "image-parent-before", parent_before)
-                            provenance = parent_before["provenance"]
-                            label = provenance.get("authored_prompt") or provenance.get("prompt") or "Image"
-                            availability = "Saved" if parent_before["state"] == "ready" else "Not yet on CDN"
-                            env["DMB_BENCHMARK_IMAGE_PARENT"] = json.dumps(
-                                {**image_parent, "caption": f"{label} · {availability}"})
+                            if not parent_before["matches_pin"]:
+                                raise ValueError("Selected image parent differs from the pinned original")
+                            env["DMB_BENCHMARK_IMAGE_PARENT"] = json.dumps(image_parent)
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     try:
@@ -501,7 +506,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             artifacts.immutable_save(directory, "image-parent-after", parent_after)
                             child = (owner_asset or {}).get("body") or {}
                             provenance = child.get("provenance", {})
-                            checks["parent_unchanged"] = parent_before == parent_after
+                            checks["parent_unchanged"] = (
+                                parent_after["matches_pin"]
+                                and parent_before["metadata"]["body"] == parent_after["metadata"]["body"])
                             checks["distinct_child_bound_to_parent"] = (
                                 child.get("asset_id") not in (None, image_parent["asset_id"])
                                 and provenance.get("parent_asset_id") == image_parent["asset_id"]

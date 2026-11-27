@@ -35,21 +35,32 @@ async function generatePrivatePreview(page, origin, description) {
 
 async function regeneratePrivatePreview(page, origin, parent, instructions) {
   const studio = page.getByRole("region", { name: "Create an image", exact: true });
-  await studio.getByRole("button", { name: "Image library", exact: true }).click();
   const library = studio.getByRole("region", { name: "Image library", exact: true });
-  const card = library.getByRole("button").filter({ hasText: parent.caption });
-  while (!(await card.count())) {
-    const more = library.getByRole("button", { name: "More images", exact: true });
-    await more.waitFor();
-    const previousCount = await library.locator(".media-image-wizard__card").count();
-    const nextPage = page.waitForResponse(response =>
-      new URL(response.url()).pathname === "/api/live/media/images/library" && response.ok());
-    const [response] = await Promise.all([nextPage, more.click()]);
-    const rows = (await response.json()).items;
-    if (!rows.length) throw new Error("Pinned parent is absent from the mounted library");
-    await library.locator(".media-image-wizard__card").nth(previousCount).waitFor();
+  const cards = library.locator(".media-image-wizard__card");
+  const openLibrary = studio.getByRole("button", { name: "Image library", exact: true });
+  const more = library.getByRole("button", { name: "More images", exact: true });
+  const seen = new Set();
+  let button = openLibrary;
+  while (true) {
+    const response = page.waitForResponse(result => {
+      const url = new URL(result.url());
+      return url.origin === origin && url.pathname === "/api/live/media/images/library" && result.ok();
+    });
+    const [pageResponse] = await Promise.all([response, button.click()]);
+    const rows = (await pageResponse.json()).items;
+    const next = rows.filter(row => !seen.has(row.asset_id));
+    if (!next.length) throw new Error("Pinned parent is absent from the mounted library");
+    const index = next.findIndex(row => row.asset_id === parent.asset_id);
+    if (index >= 0) {
+      const row = next[index];
+      assert.equal(row.content_sha256, parent.content_sha256);
+      await cards.nth(seen.size + index).click();
+      break;
+    }
+    next.forEach(row => seen.add(row.asset_id));
+    await cards.nth(seen.size - 1).waitFor();
+    button = more;
   }
-  await card.click();
   await studio.getByRole("button", { name: "Edit image", exact: true }).click();
   const edit = page.getByRole("dialog", { name: "Edit image", exact: true });
   await edit.getByLabel("Action").selectOption("image_to_image");
