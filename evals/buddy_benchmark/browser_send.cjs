@@ -336,15 +336,17 @@ async function run() {
         if (process.env.DMB_BENCHMARK_LOSE_CONFIRM_ACK === "1") {
           const exactPath = url => url.origin === origin && url.pathname === reviewPath && !url.search;
           const confirmPosts = [];
-          const confirmRequests = [];
+          let checkingInsertion = false;
+          let confirmRequest;
           confirmation.confirm_posts = confirmPosts;
           confirmation.retry_exercised = false;
           page.on("request", request => {
             if (request.method() !== "POST" || !exactPath(new URL(request.url()))) return;
             const command = request.postDataJSON();
             if (command?.operation === "confirm") {
-              confirmRequests.push(request);
-              confirmPosts.push({apply_id: command.apply_id, expected_revision: command.expected_revision});
+              confirmRequest = request;
+              confirmPosts.push({apply_id: command.apply_id, expected_revision: command.expected_revision,
+                observed_after_check_dispatch: checkingInsertion});
             }
           });
           let held;
@@ -409,6 +411,7 @@ async function run() {
                 performance.mark("benchmark-check-insertion");
               }, { capture: true, once: true }));
               if (confirmPosts.length !== 0) throw new Error("Confirmation arrived before Check insertion");
+              checkingInsertion = true;
               await check.click();
               confirmation.check_clicked_at_ms = await page.evaluate(() => {
                 const click = performance.getEntriesByName("benchmark-check-insertion").at(-1);
@@ -420,14 +423,14 @@ async function run() {
                   || held.request.expected_revision !== pending.revision) {
                 throw new Error("Check insertion confirmed a different review");
               }
-              await pollBrowserRead(() => {
-                if (confirmRequests.length !== 1) return false;
-                const startedAt = confirmRequests[0].timing().startTime;
-                if (!Number.isFinite(startedAt) || startedAt <= 0) return false;
-                confirmPosts[0].started_at_ms = startedAt;
-                return true;
-              }, 3000, 100, "recovered confirmation timing");
-              if (!confirmation.retry_exercised || confirmPosts[0].started_at_ms < confirmation.check_clicked_at_ms) {
+              const startedAt = confirmRequest?.timing().startTime;
+              if (confirmPosts.length === 1) {
+                confirmPosts[0].started_at_ms = Number.isFinite(startedAt) && startedAt > 0 ? startedAt : null;
+              }
+              if (!confirmation.retry_exercised || confirmPosts.length !== 1
+                  || !confirmPosts[0].observed_after_check_dispatch
+                  || (confirmPosts[0].started_at_ms !== null
+                    && confirmPosts[0].started_at_ms < confirmation.check_clicked_at_ms)) {
                 throw new Error("Confirmation did not follow the explicit Check insertion");
               }
             }
