@@ -1564,9 +1564,18 @@ def test_response_member_uses_pinned_driver(tmp_path, monkeypatch, driver, optio
                          cohort_app=None, **options)]
 
 
-@pytest.mark.parametrize(("outcome", "delivery"), [("captured", "pass"), ("observed", "pass"), ("incomplete", "unknown")])
-def test_response_cohort_build_fixture_report(tmp_path, outcome, delivery):
-    put(tmp_path / "fixture-result.json", {"status": outcome, "provider_calls": 0})
+@pytest.mark.parametrize(("outcome", "overrides", "delivery"), [
+    ("captured", {}, "pass"), ("observed", {}, "pass"), ("incomplete", {}, "unknown"),
+    ("observed", {"draft_restored": False}, "fail"),
+    ("observed", {"conversation_unchanged": False}, "fail"),
+    ("observed", {"committed_page_unchanged": False}, "fail"),
+    ("observed", {"browser_turn_posts": 1}, "fail"),
+    ("observed", {"server_turn_posts": 1}, "fail"),
+])
+def test_response_cohort_build_fixture_report(tmp_path, outcome, overrides, delivery):
+    observation = dict(status=outcome, provider_calls=0, draft_restored=True, conversation_unchanged=True,
+                       committed_page_unchanged=True, browser_turn_posts=0, server_turn_posts=0)
+    put(tmp_path / "fixture-result.json", {**observation, **overrides})
     row = w.report_case({"id": "mounted", "capture_boundary": "build_fixture", "capture_dir": str(tmp_path)}, tmp_path)
     assert row["delivery"] == {"status": delivery}
     assert row["owner_observation"]["provider_calls"] == 0

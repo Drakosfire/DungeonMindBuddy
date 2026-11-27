@@ -144,7 +144,17 @@ def report_case(case, base):
         observation = json.loads(raw)
         status = "pass" if observation["status"] == "observed" else "fail"
         if boundary == "build_fixture":
-            status = {"captured": "pass", "observed": "pass"}.get(observation["status"], "unknown")
+            if observation["status"] == "captured":
+                status = "pass"
+            elif observation["status"] == "observed":
+                status = "pass" if (
+                    all(observation.get(key) is True for key in (
+                        "draft_restored", "conversation_unchanged", "committed_page_unchanged"))
+                    and all(type(observation.get(key)) is int and observation[key] == 0 for key in (
+                        "browser_turn_posts", "server_turn_posts", "provider_calls"))
+                ) else "fail"
+            else:
+                status = "unknown"
         return {"case_id": case["id"], "capture_boundary": boundary,
                 "delivery": {"status": status},
                 "owner_observation": observation,
