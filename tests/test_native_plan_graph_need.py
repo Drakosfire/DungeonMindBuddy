@@ -891,3 +891,65 @@ def test_sdk_observation_construction_requires_acknowledged_exact_result():
     complete = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle, observed])
     with pytest.raises(ValueError, match='unresolved authorization'):
         observed_from_sdk_result(context, complete, event_id=uuid4(), result=typed)
+
+
+@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
+def test_sdk_result_owner_fences_and_reopens_actual_app_turn(source_adapter, monkeypatch, application_state_dsn):
+    from uuid import uuid4
+    import psycopg
+    from application_state.agent_conversation import repository as repo, types as t
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphNeedInputV1, canonical_wire
+    from application_state.agent_conversation.native_retrieval import NativePlanGraphNeedAuthorizedV1
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateValidationError
+    from tests.test_surface_native_execution import controller, execution, outcomes
+    service, created = _admitted_pending_turn(source_adapter, monkeypatch)
+    turn = service.claim_turn(created.world_id, created.conversation_id, created.turn_id,
+        expected_revision=created.revision).turn
+    context, policy = turn.graph_context_receipt, turn.graph_context_execution.policy
+    parent = NativePlanGraphNeedInputV1(pending_query_sha256=t.canonical_sha256(context.native_query),
+        admission_sha256=t.canonical_sha256(context.assembled_input), question=policy.action.intent.message,
+        dialogue=(), current_work=source_adapter.work.plan_markdown)
+    base = controller('plan', policy, semantic=True)
+    auth = NativePlanGraphNeedAuthorizedV1.model_validate(base.model_dump(mode='json') | {
+        'kind': 'native_plan_graph_need_authorized_v1', 'parent_request_sha256': parent.digest,
+        'parent_json': parent.model_dump_json(by_alias=True),
+        'envelope_sha256': sha256(canonical_wire(parent, expected_model=base.model)).hexdigest(),
+        'input_estimator': context.assembled_input.tokenizer_name,
+        'output_token_reserve': context.assembled_input.output_token_reserve})
+    lifecycle = outcomes(auth, 1)
+    prefix = execution(context.context_receipt_sha256, policy, [auth, lifecycle[0]])
+    # Fixture-only setup of the authorization and lifecycle. This does not
+    # stand in for the real SDK callback or the eventual authorization producer.
+    with psycopg.connect(application_state_dsn) as conn:
+        updated = repo.update_graph_execution(conn, world_id=turn.world_id, turn_id=turn.turn_id,
+            expected_revision=turn.revision, execution=prefix)
+        assert updated is not None
+    turn = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    typed = result(answers={'graph_need': ChoiceDecisionAnswer(selected='no_graph')})
+    typed = typed.model_copy(update={'observation': typed.observation.model_copy(update={
+        'resolved_model': auth.model, 'response_model': auth.model})})
+    with pytest.raises(ApplicationStateValidationError, match='unique settled SDK response'):
+        service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, event_id=uuid4(), sdk_result=typed)
+    assert service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id).revision == turn.revision
+    # Fixture-only response acknowledgement for the succeeding positive case.
+    prefix = execution(context.context_receipt_sha256, policy, [auth, *lifecycle])
+    with psycopg.connect(application_state_dsn) as conn:
+        updated = repo.update_graph_execution(conn, world_id=turn.world_id, turn_id=turn.turn_id,
+            expected_revision=turn.revision, execution=prefix)
+        assert updated is not None
+    turn = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    with pytest.raises(ApplicationStateConflictError, match='stale claim'):
+        service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision - 1, expected_attempt=turn.attempt, event_id=uuid4(), sdk_result=typed)
+    with pytest.raises(ApplicationStateValidationError, match='typed SDK result'):
+        service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, event_id=uuid4(), sdk_result=typed.model_dump())
+    updated = service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
+        expected_revision=turn.revision, expected_attempt=turn.attempt, event_id=uuid4(), sdk_result=typed)
+    reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.graph_context_execution == updated.graph_context_execution
+    assert reopened.graph_context_execution.events[-1].choice == 'no_graph'
+    with pytest.raises(ApplicationStateValidationError, match='unresolved authorization'):
+        service._record_plan_graph_need_result(turn.world_id, turn.conversation_id, turn.turn_id,
+            expected_revision=reopened.revision, expected_attempt=reopened.attempt, event_id=uuid4(), sdk_result=typed)

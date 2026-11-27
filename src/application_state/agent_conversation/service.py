@@ -1785,6 +1785,41 @@ class AgentConversationService:
             return validate_pending_execution_binding(context, execution)
         return validate_context_binding(context, execution)
 
+    def _record_plan_graph_need_result(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, sdk_result):
+        """Persist the callback's typed result under the existing live claim.
+
+        This private owner accepts no caller-selected choice or serialized result.
+        Its only production caller must be the actual decision SDK callback.
+        """
+        from .native_plan_graph_producer import observed_from_sdk_result
+        world_id = _world_id(world_id)
+        with _execution_append_transaction(lambda _name: nullcontext(),
+                validate_transaction=self._validate_transaction) as conn:
+            if self._authorize_transaction is not None:
+                self._authorize_transaction(conn, read_only=False)
+            turn = _ordinary_mutation_turn(self._lock_execution_append_turn(conn, world_id, turn_id), conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError('turn not found in verified World conversation')
+            if turn.status != 'running' or turn.revision != expected_revision or turn.attempt != expected_attempt:
+                raise ApplicationStateConflictError('Graph-need result is fenced by a stale claim')
+            now = repo.database_clock(conn)
+            if turn.claim_expires_at is None or turn.claim_expires_at <= now:
+                raise ApplicationStateConflictError('Graph-need claim has expired')
+            try:
+                execution = turn.graph_context_execution
+                observed = observed_from_sdk_result(turn.graph_context_receipt, execution,
+                    event_id=event_id, result=sdk_result)
+                prospective = self._bind_execution_append(turn.graph_context_receipt, execution.model_copy(
+                    update={'events': [*execution.events, observed]}))
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=prospective)
+            if updated is None:
+                raise ApplicationStateConflictError('Graph-need claim expired during result admission')
+        return updated
+
     def _append_graph_execution_event(
         self,
         world_id: str,
