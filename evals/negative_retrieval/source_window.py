@@ -28,6 +28,14 @@ KNOWN_APP_OWNERS = {
 }
 KNOWN_APP_BATCH_CODE = "0006033ffc1ea9f4669d26925cfc8df0cf522b3588f6cc99853cfac178905e06"
 KNOWN_APP_BATCH_LINE = 145
+# The actual Core PDF repository owner, bound to its registered code and file.
+KNOWN_PDF_OWNER = {
+    "normalizer": "marshal-code-v1", "implementation": "cpython", "version": [3, 13, 12],
+    "cache_tag": "cpython-313", "optimize": 0,
+    "source_sha256": "1c1016f0d32d43cf4326906383f1ecd2c09b58961623e035914d875d381cb777",
+    "code_sha256": "075fc74e2c1b3c059ae4f43bb96d1836930c3ff055b38a23818d8de7d3e94aaf",
+}
+
 # Exact pinned Core 6beb506 and CPython 3.13.12 source/code pair. Unknown
 # implementations remain diagnostic; this is not process attestation.
 KNOWN_TEXT_OWNERS = {
@@ -48,12 +56,12 @@ KNOWN_BATCH_LINE = 1360
 
 def known_scoped_text_attempt(value):
     """Recognize one lower-bound attempt, never a completed source read."""
-    if (value is None or value.get("schema") not in {"dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}
+    if (value is None or value.get("schema") not in {"dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}
             or value.get("owner_provenance") != KNOWN_TEXT_OWNERS
             or value.get("status") != "observed" or value.get("dispatch_uncertain") is not False):
         return False
     single = value["scoped"]["text"] > 0
-    batch = (value["schema"] in {"dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}
+    batch = (value["schema"] in {"dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}
              and value["batch_read"]["code_sha256"] == KNOWN_BATCH_CODE
              and value["batch_read"]["scoped"] > 0)
     return single or batch
@@ -61,13 +69,21 @@ def known_scoped_text_attempt(value):
 
 def known_scoped_app_attempt(value):
     """Recognize pinned App reader entries, never source identity or completed reads."""
-    return bool(value and value.get("schema") in {"dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}
+    return bool(value and value.get("schema") in {"dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}
         and value.get("status") == "observed" and value.get("dispatch_uncertain") is False
         and value["app_source"]["owner_provenance"] == KNOWN_APP_OWNERS
         and (any(value["app_source"]["scoped"].values())
-             or (value["schema"] == "dmb_negative_retrieval_source_window_v5"
+             or (value["schema"] in {"dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}
                  and value["app_batch_read"]["code_sha256"] == KNOWN_APP_BATCH_CODE
                  and value["app_batch_read"]["scoped"] > 0)))
+
+
+def known_scoped_pdf_attempt(value):
+    """Recognize an exact scoped PDF repository entry, never a returned body."""
+    return bool(value and value.get("schema") == "dmb_negative_retrieval_source_window_v6"
+        and value.get("status") == "observed" and value.get("dispatch_uncertain") is False
+        and value["pdf_source"]["owner_provenance"] == KNOWN_PDF_OWNER
+        and value["pdf_source"]["scoped"] > 0)
 
 
 class SourceWindowCleanupError(RuntimeError):
@@ -78,16 +94,18 @@ def validate_artifact(value, case_id):
     """Validate a partial diagnostic without converting attempts into grades."""
     expected = {"schema", "case_id", "window", "dispatch_uncertain", "coverage", "status",
                 "scoped", "unscoped", "pending_at_close", "late", "monitor_error"}
-    if isinstance(value, dict) and value.get("schema") in {"dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}:
+    if isinstance(value, dict) and value.get("schema") in {"dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}:
         expected.add("owner_provenance")
-    if isinstance(value, dict) and value.get("schema") in {"dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}:
+    if isinstance(value, dict) and value.get("schema") in {"dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}:
         expected.add("batch_read")
-    if isinstance(value, dict) and value.get("schema") in {"dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}:
+    if isinstance(value, dict) and value.get("schema") in {"dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}:
         expected.add("app_source")
-    if isinstance(value, dict) and value.get("schema") == "dmb_negative_retrieval_source_window_v5":
+    if isinstance(value, dict) and value.get("schema") in {"dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}:
         expected.add("app_batch_read")
+    if isinstance(value, dict) and value.get("schema") == "dmb_negative_retrieval_source_window_v6":
+        expected.add("pdf_source")
     if (not isinstance(value, dict) or set(value) != expected
-            or value["schema"] not in {"dmb_negative_retrieval_source_window_v1", "dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}
+            or value["schema"] not in {"dmb_negative_retrieval_source_window_v1", "dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}
             or value["case_id"] != case_id or value["window"] != "turn_post_v1"
             or value["coverage"] != "partial"
             or value["status"] not in {"observed", "uncertain", "not_started", "unavailable", "setup_failed"}
@@ -99,7 +117,7 @@ def validate_artifact(value, case_id):
         if (not isinstance(row, dict) or set(row) != set(_KINDS)
                 or any(type(n) is not int or n < 0 for n in row.values())):
             raise ValueError("Invalid source window counts")
-    if value["schema"] in {"dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}:
+    if value["schema"] in {"dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}:
         batch = value["batch_read"]
         if (not isinstance(batch, dict) or set(batch) != {"scoped", "unscoped", "code_sha256"}
                 or any(type(batch[k]) is not int or batch[k] < 0 for k in ("scoped", "unscoped"))
@@ -109,7 +127,7 @@ def validate_artifact(value, case_id):
                     or any(c not in "0123456789abcdef" for c in batch["code_sha256"])))
                 or (batch["code_sha256"] is None and (batch["scoped"] or batch["unscoped"]))):
             raise ValueError("Invalid source window batch read")
-    if value["schema"] in {"dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}:
+    if value["schema"] in {"dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}:
         app = value["app_source"]
         if not isinstance(app, dict) or set(app) != {"scoped", "unscoped", "owner_provenance"}:
             raise ValueError("Invalid App source window")
@@ -130,7 +148,7 @@ def validate_artifact(value, case_id):
                            or any(c not in "0123456789abcdef" for c in proof[k])
                            for k in ("source_sha256", *_APP_KINDS))):
                 raise ValueError("Invalid App source provenance")
-    if value["schema"] == "dmb_negative_retrieval_source_window_v5":
+    if value["schema"] in {"dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}:
         batch = value["app_batch_read"]
         if (not isinstance(batch, dict) or set(batch) != {"scoped", "unscoped", "scoped_starts", "unscoped_starts", "code_sha256"}
                 or any(type(batch[k]) is not int or batch[k] < 0 for k in ("scoped", "unscoped", "scoped_starts", "unscoped_starts"))
@@ -139,24 +157,45 @@ def validate_artifact(value, case_id):
                     or len(batch["code_sha256"]) != 64 or any(c not in "0123456789abcdef" for c in batch["code_sha256"])))
                 or (batch["code_sha256"] is None and (batch["scoped"] or batch["unscoped"]))):
             raise ValueError("Invalid App batch window")
+    if value["schema"] == "dmb_negative_retrieval_source_window_v6":
+        pdf = value["pdf_source"]
+        if (not isinstance(pdf, dict) or set(pdf) != {"scoped", "unscoped", "owner_provenance"}
+                or any(type(pdf[k]) is not int or pdf[k] < 0 for k in ("scoped", "unscoped"))):
+            raise ValueError("Invalid PDF source window")
+        proof = pdf["owner_provenance"]
+        if proof is not None:
+            keys = {"normalizer", "implementation", "version", "cache_tag", "optimize", "source_sha256", "code_sha256"}
+            if (not isinstance(proof, dict) or set(proof) != keys
+                    or proof["normalizer"] != "marshal-code-v1"
+                    or not isinstance(proof["implementation"], str) or not isinstance(proof["cache_tag"], str)
+                    or not isinstance(proof["version"], list) or len(proof["version"]) != 3
+                    or any(type(n) is not int or n < 0 for n in proof["version"])
+                    or type(proof["optimize"]) is not int or proof["optimize"] < 0
+                    or any(not isinstance(proof[k], str) or len(proof[k]) != 64
+                           or any(c not in "0123456789abcdef" for c in proof[k])
+                           for k in ("source_sha256", "code_sha256"))):
+                raise ValueError("Invalid PDF owner provenance")
     troubled = (value["pending_at_close"] or value["late"] or value["monitor_error"]
                  or any(value["unscoped"].values())
-                 or (value["schema"] in {"dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"} and value["batch_read"]["unscoped"])
-                 or (value["schema"] in {"dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"} and any(value["app_source"]["unscoped"].values()))
-                 or (value["schema"] == "dmb_negative_retrieval_source_window_v5" and value["app_batch_read"]["unscoped_starts"]))
+                 or (value["schema"] in {"dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"} and value["batch_read"]["unscoped"])
+                 or (value["schema"] in {"dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"} and any(value["app_source"]["unscoped"].values()))
+                 or (value["schema"] in {"dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"} and value["app_batch_read"]["unscoped_starts"])
+                 or (value["schema"] == "dmb_negative_retrieval_source_window_v6" and value["pdf_source"]["unscoped"]))
     if value["status"] == "observed" and troubled:
         raise ValueError("Observed source window has unresolved work")
     if value["status"] in {"not_started", "unavailable", "setup_failed"} and (
             any(value["scoped"].values()) or any(value["unscoped"].values())
             or value["pending_at_close"] or value["late"]
-            or (value["schema"] in {"dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}
+            or (value["schema"] in {"dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}
                 and any(value["app_source"][group][kind] for group in ("scoped", "unscoped") for kind in _APP_KINDS))
-            or (value["schema"] == "dmb_negative_retrieval_source_window_v5" and
-                (value["app_batch_read"]["scoped_starts"] or value["app_batch_read"]["unscoped_starts"]))):
+            or (value["schema"] in {"dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"} and
+                (value["app_batch_read"]["scoped_starts"] or value["app_batch_read"]["unscoped_starts"]))
+            or (value["schema"] == "dmb_negative_retrieval_source_window_v6" and
+                (value["pdf_source"]["scoped"] or value["pdf_source"]["unscoped"]))):
         raise ValueError("Unstarted source window has activity")
     if value["status"] == "setup_failed" and not value["monitor_error"]:
         raise ValueError("Source window setup failure is missing its error flag")
-    if value["schema"] in {"dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5"}:
+    if value["schema"] in {"dmb_negative_retrieval_source_window_v2", "dmb_negative_retrieval_source_window_v3", "dmb_negative_retrieval_source_window_v4", "dmb_negative_retrieval_source_window_v5", "dmb_negative_retrieval_source_window_v6"}:
         provenance = value["owner_provenance"]
         if provenance is not None:
             if (not isinstance(provenance, dict)
@@ -253,6 +292,27 @@ def _app_source_owners():
         return owners, None
 
 
+def _pdf_source_owner():
+    """Register the actual imported Core PDF repository code, not its name."""
+    import dungeonmind
+    from dungeonmind.infrastructure.postgres import vnext_sources
+    function = inspect.unwrap(vnext_sources.PostgresNativeSourceEvidenceRepository.get_native_pdf_source)
+    code = function.__code__
+    try:
+        expected = (Path(dungeonmind.__file__).resolve(strict=True).parent / "infrastructure" / "postgres" / "vnext_sources.py").resolve(strict=True)
+        if (Path(vnext_sources.__spec__.origin).resolve(strict=True) != expected
+                or Path(vnext_sources.__file__).resolve(strict=True) != expected
+                or Path(code.co_filename).resolve(strict=True) != expected):
+            return {code: "pdf"}, None
+        proof = {"normalizer": "marshal-code-v1", "implementation": sys.implementation.name,
+                 "version": list(sys.version_info[:3]), "cache_tag": sys.implementation.cache_tag,
+                 "optimize": sys.flags.optimize, "source_sha256": hashlib.sha256(expected.read_bytes()).hexdigest(),
+                 "code_sha256": hashlib.sha256(marshal.dumps(_normalize_code(code))).hexdigest()}
+        return {code: "pdf"}, proof
+    except (OSError, AttributeError, TypeError, ValueError):
+        return {code: "pdf"}, None
+
+
 @contextmanager
 def observe_source_window(*, owners=None, executor=None):
     """Record scoped entries during one synchronous test-client turn.
@@ -278,7 +338,8 @@ def observe_source_window(*, owners=None, executor=None):
              "app_source": {"scoped": {key: 0 for key in _APP_KINDS},
                             "unscoped": {key: 0 for key in _APP_KINDS}, "owner_provenance": None},
              "app_batch_read": {"scoped": 0, "unscoped": 0, "scoped_starts": 0,
-                                "unscoped_starts": 0, "code_sha256": None}}
+                                "unscoped_starts": 0, "code_sha256": None},
+             "pdf_source": {"scoped": 0, "unscoped": 0, "owner_provenance": None}}
     guard = Lock()
     token = object()
     claimed = None
@@ -304,11 +365,19 @@ def observe_source_window(*, owners=None, executor=None):
                     raise ValueError("App source owners overlap Core owners")
                 owners = {**owners, **app_owners}
                 state["app_source"]["owner_provenance"] = app_provenance
+                try:
+                    pdf_owners, pdf_provenance = _pdf_source_owner()
+                except (ImportError, AttributeError, TypeError, ValueError):
+                    pdf_owners, pdf_provenance = {}, None
+                if set(owners) & set(pdf_owners):
+                    raise ValueError("PDF source owner overlaps existing owners")
+                owners = {**owners, **pdf_owners}
+                state["pdf_source"]["owner_provenance"] = pdf_provenance
             except (ImportError, AttributeError):
                 state["status"] = "unavailable"
                 yield state
                 return
-        if not isinstance(owners, dict) or not owners or any(v not in (*_KINDS, *_APP_KINDS, "app_batch") for v in owners.values()):
+        if not isinstance(owners, dict) or not owners or any(v not in (*_KINDS, *_APP_KINDS, "app_batch", "pdf") for v in owners.values()):
             raise ValueError("Invalid monitored owner map")
         if executor is None:
             raise ValueError("A known executor is required")
@@ -332,7 +401,9 @@ def observe_source_window(*, owners=None, executor=None):
                 group = "scoped" if _scope.get() is token else "unscoped"
                 with guard:
                     if active:
-                        if kind == "app_batch":
+                        if kind == "pdf":
+                            state["pdf_source"][group] += 1
+                        elif kind == "app_batch":
                             state["app_batch_read"][group + "_starts"] += 1
                         elif kind in _APP_KINDS:
                             state["app_source"][group][kind] += 1
@@ -453,7 +524,7 @@ def observe_source_window(*, owners=None, executor=None):
                 if state["status"] == "observed" and (state["pending_at_close"] or state["late"]
                         or state["monitor_error"] or any(state["unscoped"].values())
                         or state["batch_read"]["unscoped"] or any(state["app_source"]["unscoped"].values())
-                        or state["app_batch_read"]["unscoped_starts"]):
+                        or state["app_batch_read"]["unscoped_starts"] or state["pdf_source"]["unscoped"]):
                     state["status"] = "uncertain"
             _serial.release()
         if failures:

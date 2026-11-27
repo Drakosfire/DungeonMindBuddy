@@ -272,11 +272,12 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     # A recognized single-text entry or nonempty batch path proves an attempted read,
     # never a returned body. Require a bound, completed POST; old/unknown
     # implementations and all uncertain windows remain diagnostic only.
-    from .source_window import known_scoped_text_attempt, known_scoped_app_attempt
+    from .source_window import known_scoped_text_attempt, known_scoped_app_attempt, known_scoped_pdf_attempt
     if (fixture_bound is True and observed["completed_turn"] is True
             and turn_window and native_probe["status"] == "observed"
             and terminal is not None and terminal["status"] == "observed" and terminal["error_type"] is None
-            and (known_scoped_text_attempt(source_window) or known_scoped_app_attempt(source_window))
+            and (known_scoped_text_attempt(source_window) or known_scoped_app_attempt(source_window)
+                 or known_scoped_pdf_attempt(source_window))
             and UNKNOWN not in observed["reads"]):
         observed["reads"].append(UNKNOWN)
     reviewed = None
