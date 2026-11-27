@@ -1437,6 +1437,12 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
         events.append("scan")
         return {} if changed and events.count("scan") == 2 else before
 
+    interrupted_member = None
+
+    class InterruptedFuture(Future):
+        def exception(self, timeout=None):
+            raise KeyboardInterrupt
+
     class Executor:
         def __init__(self, **options):
             assert options["max_workers"] == (1 if clone_app else 2)
@@ -1472,7 +1478,7 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
                     row["capture_boundary"] = "image_preview"
             else:
                 row["capture_status"] = "incomplete"
-            f = Future()
+            f = InterruptedFuture() if output.name == interrupted_member else Future()
             if sequence_stopped and output.name == "case1" and not missing_capture:
                 row["delivery"]["status"] = "fail"
                 immutable_save(output, "report", {"cases": [
@@ -1514,6 +1520,21 @@ def test_cohort_inventory_brackets_members(tmp_path, monkeypatch, changed, missi
         assert json.loads((out / "owned-app.json").read_text())["database"] == owned_app
     else:
         assert events == ["scan", "case1", "case2", "scan"]
+
+    if mixed and not changed and not missing_capture:
+        for interrupted_member, started in (("case1", ["case1"]), ("case2", ["case1", "case2"])):
+            events.clear()
+            interrupted_out = tmp_path / f"interrupted-{interrupted_member}"
+            with pytest.raises(KeyboardInterrupt):
+                cohort.capture_cohort(manifest["path"], interrupted_out, workers=1, clone_app=True,
+                                      context_only=False)
+            summary = json.loads((interrupted_out / "members.json").read_text())
+            assert summary[interrupted_member] == {"status": "interrupted"}
+            if interrupted_member == "case1":
+                assert summary["case2"] == {"status": "not_started"}
+            else:
+                assert summary["case1"]["status"] == "completed"
+            assert events == ["scan", "clone", "upgrade", *started, "workers closed", "drop", "scan"]
 
 
 def test_cohort_core_rejects_a_writable_login(monkeypatch):

@@ -244,7 +244,15 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
             futures = list(submissions) if context_only else submissions
             outcomes = {}
             for member, ids, future in futures:
-                error = future.exception()
+                try:
+                    error = future.exception()
+                except KeyboardInterrupt:
+                    if not context_only:
+                        outcomes[member.name] = {"status": "interrupted"}
+                        for job, _, _ in jobs:
+                            outcomes.setdefault(job[1].name, {"status": "not_started"})
+                        immutable_save(output, "members", outcomes)
+                    raise
                 if error is not None and (context_only or not isinstance(error, BuildSequenceStopped)):
                     outcomes[member.name] = {"status": "failed", "error_type": type(error).__name__}
                     if not context_only:
