@@ -7,7 +7,7 @@ from typing import Literal
 import re
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from . import types as t
 from .native_statement_input import Strict
@@ -32,6 +32,14 @@ from .jev_retrieval_contract import Digest, NativePlanBatchDecisionInputV3, Retr
 class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecisionInputV3):
     schema_: Literal['dmb_native_plan_opening_input_v1'] = Field(
         default='dmb_native_plan_opening_input_v1', alias='schema')
+    work_choice_guidance_version: Literal['v1'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode='after')
+    def guidance_version_matches_opening(self):
+        if self.work_choice_guidance_version is not None and type(self) is not NativePlanOpeningInputV1:
+            raise ValueError('Work-choice guidance version belongs only to the V1 opening')
+        return self
 
 
 PageEditIntent = Literal['page_edit', 'discussion', 'unresolved']
@@ -611,6 +619,10 @@ def prepare_opening_decision(request):
     from .plan_authoring import _prepare_requested_work_only
     from .jev_retrieval_contract import prepare_decision
     from generationengine.types import DecisionRequest
+    # model_copy can bypass model validation; reject before constructing a wire.
+    if request.work_choice_guidance_version is not None and (
+            type(request) is not NativePlanOpeningInputV1 or request.work_choice_guidance_version != 'v1'):
+        raise ValueError('Unsupported work-choice guidance version')
     work = _composed_work_request(request) if type(request) is NativePlanOpeningInputV3 else _prepare_requested_work_only(request)
     navigation = prepare_decision(request)
     state = dict(navigation.state)
@@ -636,6 +648,26 @@ def prepare_opening_decision(request):
         'all independent candidate relevance votes exclude', 'all applicable candidate relevance votes exclude')})
         if q.name == 'operation' else q for q in navigation.questions)
     work_questions = work.questions
+    if request.work_choice_guidance_version is not None:
+        descriptions = {
+            'discuss': 'Answer, explain, or brainstorm in the conversation; a fictional subject alone does not request a page change.',
+            'clarify': 'Ask the author when the intended work or placement needs a necessary author decision.',
+            'different_destination': 'The requested work belongs on a different existing page or unsupported object, including a destination resolved from dialogue.',
+            'write_unavailable': 'The author requests writing on this Plan but an appropriate current-page placement is unavailable.',
+            'review_connected_page': 'The requested work is to create a new connected location page for review, including when resolved from dialogue.',
+        }
+        work_question = work_questions[0]
+        if work_question.name != 'requested_work':
+            raise ValueError('Work-choice guidance requires the requested-work question')
+        offered = {}
+        for option in work_question.options:
+            if option.startswith('write:'):
+                offered[option] = 'Write to the exact offered location on this Plan.'
+            elif option in descriptions:
+                offered[option] = descriptions[option]
+            else:
+                raise ValueError('Work-choice guidance encountered an unsupported option')
+        work_questions = (work_question.model_copy(update={'option_descriptions': offered}), *work_questions[1:])
     if type(request) is NativePlanOpeningInputV2 and request.evidence_relevance_version == 'v1':
         guidance = (
             " A factual question about a place, person, event, object, or source belongs in discussion, "
