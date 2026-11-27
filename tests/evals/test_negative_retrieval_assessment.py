@@ -5097,3 +5097,25 @@ def test_gateway_rejects_prepared_or_in_transaction_deallocation():
     active.frontend(b'Q', b'BEGIN\0'); active.backend(b'C', b'BEGIN\0'); active.backend(b'Z', b'T')
     with pytest.raises(ProtocolDenied, match='idle session'):
         active.frontend(b'Q', b'DEALLOCATE ALL\0')
+
+
+def test_different_saved_source_case_requires_correct_support_and_complete_capture():
+    import json
+    from pathlib import Path
+
+    fixtures = Path(__file__).resolve().parents[2] / "evals/negative_retrieval/fixtures"
+    public = json.loads((fixtures / "development.json").read_text())
+    private = json.loads((fixtures / "development-private.json").read_text())
+    case = next(row for row in public["cases"] if row["id"] == "dev-different-saved-source")
+    rubric = private["cases"][case["id"]]
+    assert {row["label"] for row in case["related_pages"]} >= {"first-record", "second-record"}
+    assert rubric["required_reads"] == ["second-record"]
+    good = observation(outcome="answer", reads=["second-record"], catalog_discoveries=1,
+                       graph_query_attempts=0, graph_query_journal_complete=True, required_support=True)
+    assert assess(rubric, good)["status"] == "pass"
+    wrong = dict(good, semantic_quality=False, journal_complete=False)
+    assert assess(rubric, wrong)["status"] == "fail"
+    unknown = dict(good, semantic_quality=None, journal_complete=False)
+    assert assess(rubric, unknown)["status"] == "unproven"
+    missing = dict(good, reads=["first-record"], journal_complete=True)
+    assert assess(rubric, missing)["checks"]["required_evidence"] is False
