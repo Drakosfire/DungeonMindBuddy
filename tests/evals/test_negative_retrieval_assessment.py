@@ -1190,6 +1190,13 @@ def test_related_page_fixture_preflight_rejects_extra_changed_and_duplicate_sour
     changed["related_pages"].append(copy.deepcopy(changed["related_pages"][0]))
     with pytest.raises(ValueError):
         inspect_related_pages(request, changed)
+    changed = copy.deepcopy(fixture)
+    changed["related_pages"][0]["label"] = "current-page"
+    calls = []
+    monkeypatch.setattr(build_related_pages, "discover", lambda _: calls.append(True) or [pointer])
+    with pytest.raises(ValueError, match="nonreserved"):
+        inspect_related_pages(request, changed)
+    assert calls == []
     monkeypatch.setattr(build_related_pages, "discover", lambda _: [pointer, {**pointer, "title": "Extra"}])
     with pytest.raises(ValueError):
         inspect_related_pages(request, fixture)
@@ -1432,6 +1439,13 @@ def test_fixture_source_record_rejects_world_and_content_mismatches():
     record = {"schema": "dmb_negative_retrieval_fixture_sources_v1", "case_id": "case1",
               "status": "stable", "before": [row], "after": [copy.deepcopy(row)]}
     assert verify_related_record(request, fixture, record)
+    reserved_fixture = copy.deepcopy(fixture)
+    reserved_fixture["related_pages"][0]["label"] = "current-page"
+    reserved_record = copy.deepcopy(record)
+    reserved_record["before"][0]["label"] = "current-page"
+    reserved_record["after"][0]["label"] = "current-page"
+    with pytest.raises(ValueError, match="reserved"):
+        verify_related_record(request, reserved_fixture, reserved_record)
     for change in (lambda x: x["after"][0].update(content_sha256="0" * 64),
                    lambda x: x.update(case_id="other"),
                    lambda x: x["before"][0].update(world_id="other")):

@@ -1,6 +1,9 @@
 """Read-only preflight of the synthetic related-page fixture in an isolated World."""
 from hashlib import sha256
 
+# Host-side label for the exact primary work, not a related fixture source.
+CURRENT_PAGE_LABEL = "current-page"
+
 
 def inspect_related_pages(request, fixture):
     """Require exact catalog membership, title, body and snapshot hashes.
@@ -11,7 +14,6 @@ def inspect_related_pages(request, fixture):
     """
     from apps.live_control_server.services import build_related_pages
 
-    offered = build_related_pages.discover(request)
     expected = fixture["related_pages"]
     if not isinstance(expected, list) or any(not isinstance(x, dict) for x in expected):
         raise ValueError("Invalid expected related-page fixture")
@@ -20,10 +22,11 @@ def inspect_related_pages(request, fixture):
     for row in expected:
         label, title, body = row["label"], row["title"], row["body"]
         if (not all(isinstance(x, str) and x.strip() for x in (label, title, body))
-                or title in by_title or label in labels):
-            raise ValueError("Related-page fixtures need unique nonblank titles and labels")
+                or title in by_title or label in labels or label == CURRENT_PAGE_LABEL):
+            raise ValueError("Related-page fixtures need unique nonblank titles and nonreserved labels")
         labels.add(label)
         by_title[title] = row
+    offered = build_related_pages.discover(request)
     if (not isinstance(offered, list) or len(offered) != len(expected)
             or {p.get("title") for p in offered} != set(by_title)):
         raise ValueError("Related-page catalog differs from the frozen fixture")
@@ -62,8 +65,8 @@ def verify_related_record(request, fixture, record):
     if not isinstance(expected, list) or len(expected) != len(record["before"]):
         raise ValueError("Fixture source inventory size differs")
     by_label = {row["label"]: row for row in expected}
-    if len(by_label) != len(expected):
-        raise ValueError("Duplicate fixture labels")
+    if len(by_label) != len(expected) or CURRENT_PAGE_LABEL in by_label:
+        raise ValueError("Duplicate or reserved related fixture label")
     found, documents = set(), set()
     for row in record["before"]:
         label = row["label"]
