@@ -735,13 +735,24 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     data = response.json()
     assert data['plan_context']['schema'] == 'dmb_agent_surface_native_context_response_v1'
     receipt = data['plan_context']['receipt']
-    assert receipt['work_context']['surface_id'] == 'plan' and graph_calls == ([True] if not graph_available or graph_required else [])
+    assert receipt['work_context']['surface_id'] == 'plan'
     assert 'graph_capability' not in receipt
     if graph_available:
+        decisions = [event for event in wire.adapter.turn.graph_context_execution.events
+            if event.kind == 'native_plan_graph_need_observed_v1']
+        assert len(decisions) == 1
+        if creative:
+            assert decisions[0].choice == 'no_graph'
+        if graph_required:
+            assert decisions[0].choice == 'require_graph'
+        expected_graph_calls = [True] if decisions[0].choice == 'require_graph' else []
+        assert graph_calls == expected_graph_calls
         assert receipt['native_query']['schema'] == 'dmb_native_plan_graph_query_pending_v1'
         assert receipt['native_query']['authority']['revision_id'] == receipt['source_authority']['revision_id']
         assert receipt['native_query']['question'] == request.message
     else:
+        expected_graph_calls = [True]
+        assert graph_calls == expected_graph_calls
         assert receipt['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
     assert len(wire.calls) == 1 and len(constructions) == (2 if graph_recovery else 1)
@@ -884,7 +895,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     assert replay.json()['plan_context']['completion'] == data['plan_context']['completion']
     assert replay.json()['plan_context']['delivery_replay']
     assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == selection_count
-    assert graph_calls == ([True] if not graph_available or graph_required else [])  # Replay does not reacquire Graph.
+    assert graph_calls == expected_graph_calls  # Replay does not reacquire Graph.
     history = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation?include_turn_correlation=true')
     assert history.status_code == 200, history.text
     assert history.json()['turns'][0]['plan_context']['completion'] == data['plan_context']['completion']
