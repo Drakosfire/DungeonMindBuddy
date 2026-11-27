@@ -375,13 +375,14 @@ def test_partial_reader_rejects_present_bound_native_scope():
         validate_pending_execution_binding(bound, decoded)
 
 
-def test_partial_candidate_cannot_activate_existing_producer():
+def test_partial_producer_uses_unobserved_scope_without_claiming_sufficiency():
     from application_state.agent_conversation.build_pending_app_coverage import pending_app_writer_terminal
     receipt, execution, _ = _unobserved_partial_case()
     assert pending_app_writer_terminal(execution) is None
     from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
-    assert native_work_terminal(SimpleNamespace(graph_context_receipt=receipt,
-                                               graph_context_execution=execution)) is None
+    terminal = native_work_terminal(SimpleNamespace(graph_context_receipt=receipt,
+                                                  graph_context_execution=execution))
+    assert terminal == {'status': 'ready', 'reason': 'pending_saved_app_pages_native_scope_unobserved'}
 
 
 def test_partial_candidate_refuses_native_settlement():
@@ -472,3 +473,31 @@ def test_partial_reader_roundtrips_a_full_running_turn():
     turn = retained(sub, turn_id=turn_id, status='running', attempt=1,
         claim_expires_at=datetime.now(timezone.utc) + timedelta(minutes=10), graph_context_execution=prefix)
     assert t.Turn.model_validate_json(turn.model_dump_json(by_alias=True)) == turn
+
+
+def test_partial_producer_does_not_stop_a_captured_native_source(monkeypatch):
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
+    from tests.test_build_source_free_routing import seal_pending_receipt
+    receipt, execution, _ = _unobserved_partial_case()
+    data = receipt.model_dump(mode='json', by_alias=True)
+    data.pop('context_receipt_sha256')
+    world = data['source_observation']['managed_world_id']
+    data['source_observation']['binding'] = {'managed_world_id': world, 'native_world_id': 'native-observed',
+        'binding_version': 1, 'provisioning_id': None}
+    data['source_observation']['observed_head_revision_id'] = 'observed-revision'
+    bound = seal_pending_receipt(data)
+    policy = execution.policy.model_copy(update={'source_observation_sha256': t.canonical_sha256(bound.source_observation)})
+    events = [row.model_copy(update={'pending_context_receipt_sha256': bound.context_receipt_sha256})
+              if type(row).__name__ == 'BuildAppPageCatalogObservedV1' else row for row in execution.events]
+    decoded = pending_execution(bound, policy, events)
+    assert native_work_terminal(SimpleNamespace(graph_context_receipt=bound, graph_context_execution=decoded)) is None
+    from apps.live_control_server.services.build_pending_source import (
+        PendingBuildSourcePreparation, prepare_pending_native_source)
+    calls = []
+    monkeypatch.setattr(PendingBuildSourcePreparation, 'prepare', lambda self, adapter: calls.append('prepare') or True)
+    owner = object.__new__(PendingBuildSourcePreparation)
+    adapter = SimpleNamespace(_broker_receipt=lambda: bound, _broker_execution=lambda: decoded,
+                              pending_build_source_preparation=owner)
+    assert prepare_pending_native_source(adapter) is True
+    assert calls == ['prepare']
