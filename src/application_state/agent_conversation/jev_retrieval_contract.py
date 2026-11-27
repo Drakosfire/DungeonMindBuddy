@@ -129,6 +129,12 @@ class NativeBuildRetrievalDecisionInputV4(NativeBuildRetrievalDecisionInputV3):
         default="dmb_native_build_retrieval_decision_input_v4", alias="schema")
 
 
+class NativeBuildRetrievalDecisionInputV5(NativeBuildRetrievalDecisionInputV4):
+    """Reader-first targeted Build navigation; old decisions stay reconstructible."""
+    schema_: Literal["dmb_native_build_retrieval_decision_input_v5"] = Field(
+        default="dmb_native_build_retrieval_decision_input_v5", alias="schema")
+
+
 class NativePlayRetrievalDecisionInputV1(NativeRetrievalDecisionInputV2):
     """Host reconstruction accompanies its semantic projection; no new store."""
     schema_: Literal['dmb_native_play_retrieval_decision_input_v1'] = Field(
@@ -148,7 +154,7 @@ _SHARED_RELEVANCE = (
     "include if this option is a relevant next step toward locating or obtaining "
     "a requested detail or necessary relationship; otherwise exclude. "
     "Discovery may return navigation rather than evidence.")
-_SHARED_RELEVANCE_TYPES = {NativeRetrievalDecisionInputV2, NativePlanBatchDecisionInputV3, NativeBuildRetrievalDecisionInputV4, NativePlayRetrievalDecisionInputV1}
+_SHARED_RELEVANCE_TYPES = {NativeRetrievalDecisionInputV2, NativePlanBatchDecisionInputV3, NativeBuildRetrievalDecisionInputV4, NativeBuildRetrievalDecisionInputV5, NativePlayRetrievalDecisionInputV1}
 _NATIVE_TYPES = {NativeRetrievalDecisionInputV1, NativeBuildRetrievalDecisionInputV2,
     NativeBuildRetrievalDecisionInputV3, *_SHARED_RELEVANCE_TYPES}
 
@@ -169,6 +175,8 @@ def parse_native_retrieval_input(raw, *, surface_id):
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_plan_batch_decision_input_v3"
         else NativePlayRetrievalDecisionInputV1
         if isinstance(raw,dict) and raw.get("schema")=="dmb_native_play_retrieval_decision_input_v1"
+        else NativeBuildRetrievalDecisionInputV5
+        if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v5"
         else NativeBuildRetrievalDecisionInputV4
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_build_retrieval_decision_input_v4"
         else NativeRetrievalDecisionInputV2
@@ -317,6 +325,15 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
         state["keyword_selection_guidance"] = KEYWORD_GUIDANCE
     if isinstance(request, NativeBuildRetrievalDecisionInputV2):
         state["relevance_guidance"] += " " + BUILD_AUTHORING_RELEVANCE
+    if type(request) is NativeBuildRetrievalDecisionInputV5:
+        state["relevance_guidance"] += (
+            " Choose the most targeted next evidence for the details the author actually requests."
+            " For a request for one source or example, prefer the strongest specific candidate"
+            " rather than opening every broadly related source; further candidates remain available"
+            " if the selected evidence is insufficient. Include distinct candidates when the request"
+            " needs different facts, comparisons, conflicting accounts, or a broad survey. Do not"
+            " infer that an unread source has been checked or that the available evidence is complete."
+        )
     if any(c.kind == 'Exact source section' for c in request.candidates):
         state['section_selection_guidance'] = (
             'Compare offered and examined sections: prioritize discriminating matches to the requested details. '

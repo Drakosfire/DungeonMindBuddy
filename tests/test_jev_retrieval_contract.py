@@ -437,6 +437,75 @@ def test_current_build_navigation_keeps_accounting_and_identity_out_of_wire():
         parse_native_retrieval_input(current.model_dump(by_alias=True), surface_id="plan")
 
 
+def test_targeted_build_navigation_reader_preserves_history_and_multi_source_choices():
+    from application_state.agent_conversation import jev_retrieval_contract as c
+    from apps.live_control_server.services.build_jev_accounting import ExperimentalAccounting
+
+    fields = request().model_dump(exclude={'schema_', 'revision'}) | dict(
+        source_authority_status='available', source_revision='private-source', graph_revision='private-graph')
+    historical = c.NativeBuildRetrievalDecisionInputV4(**fields)
+    targeted = c.NativeBuildRetrievalDecisionInputV5(**fields)
+    accounting = ExperimentalAccounting('private-tokenizer', lambda _: 1).descriptor
+
+    def wire(parent):
+        prepared = c.prepare_decision(parent, controller_accounting=accounting)
+        return json.dumps(dict(model=MODEL, state=prepared.state, questions={
+            q.name: dict(type='choice', instructions=q.question, criteria=dict.fromkeys(q.options))
+            for q in prepared.questions})).encode()
+
+    old_wire, new_wire = wire(historical), wire(targeted)
+    assert b'prefer the strongest specific candidate' in new_wire
+    assert b'comparisons, conflicting accounts, or a broad survey' in new_wire
+    assert b'prefer the strongest specific candidate' not in old_wire
+    for parent, raw in ((historical, old_wire), (targeted, new_wire)):
+        c.validate_wire_body(parent, raw, controller_accounting=accounting)
+        assert c.parse_native_retrieval_input(parent.model_dump(by_alias=True), surface_id='build') == parent
+        for secret in (str(parent.request_id), str(parent.parent_attempt_id), parent.scope_sha256,
+                       parent.source_revision, parent.graph_revision, 'private-tokenizer', 'opaque:1'):
+            assert secret not in raw.decode()
+    with pytest.raises(ValueError, match='changed'):
+        c.validate_wire_body(targeted, old_wire, controller_accounting=accounting)
+    with pytest.raises(ValueError, match='actual Build owner'):
+        c.parse_native_retrieval_input(targeted.model_dump(by_alias=True), surface_id='plan')
+    selection = c.decode_selection(targeted, result())
+    assert selection.operation == 'select_candidates'
+    assert selection.selected_handles == ('opaque:1', 'opaque:2')
+
+
+def test_targeted_build_reader_accepts_exact_pending_owner_proof(monkeypatch):
+    from hashlib import sha256
+    from application_state.agent_conversation import jev_retrieval_contract as c
+    from application_state.agent_conversation.build_decision_context import identity
+    from tests.test_build_source_free_protocol import pending_native_dispatch_case
+    from tests.test_surface_native_execution import outcomes, choice
+
+    # Exercise the real pending owner with a V5 proof while leaving its
+    # production V3 producer unchanged. This older fixture's role uses the
+    # unqualified Jev model name, so bind the exact wire to that frozen role.
+    monkeypatch.setattr(c, 'NativeBuildRetrievalDecisionInputV3', c.NativeBuildRetrievalDecisionInputV5)
+    with pending_native_dispatch_case(monkeypatch) as (state, auth, proof, response, call):
+        assert json.loads(proof['parent_request_json'])['schema'] == 'dmb_native_build_retrieval_decision_input_v5'
+        body = json.loads(proof['request_json'])
+        body['model'] = auth.model
+        raw = json.dumps(body)
+        digest = sha256(raw.encode()).hexdigest()
+        auth = auth.model_copy(update={'envelope_sha256': digest, 'build_context': auth.build_context.model_copy(update={
+            'dispatch_identity_sha256': identity(envelope_sha256=digest, provider=auth.provider, model=auth.model,
+                api_mode=auth.api_mode, context_mode=auth.build_context.context_mode)})})
+        proof = proof | {'request_json': raw}
+        state.native_prompt.update(payload_sha256=digest, payload_utf8_bytes=len(raw.encode()))
+        assert call('authorize_pending_native_retrieval', authorization=auth, prepared_input_proof=proof)[1]
+        entry, outcome = outcomes(auth, len(state.turn.graph_context_execution.events))
+        outcome = outcome.model_copy(update={'response_sha256': sha256(response.encode()).hexdigest()})
+        assert call('enter_pending_app_page_sdk', outcome=entry, prepared_request_json=raw)[1]
+        assert call('record_pending_app_controller_outcome', outcome=outcome)[1]
+        selected = choice(state.turn.graph_context_receipt, state.turn.graph_context_execution, auth,
+            len(state.turn.graph_context_execution.events), 'finish_retrieval').model_copy(update={
+                'controller_response_sha256': sha256(response.encode()).hexdigest()})
+        assert call('record_pending_native_selection', selection=selected,
+                    producer_proof=proof | {'response_json': response})[1]
+
+
 @pytest.mark.parametrize('build', [False, True])
 @pytest.mark.parametrize('catalog', ['empty', 'single', 'mixed', 'keywords'])
 def test_current_shared_relevance_preserves_independent_choices_and_closed_wire(build,catalog):
