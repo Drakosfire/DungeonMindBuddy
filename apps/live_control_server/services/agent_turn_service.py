@@ -3359,10 +3359,10 @@ class _PolicyExecutionAdapter:
             max_question_input_tokens=view['maxQuestionInputTokens'],dispatch_identity_sha256=view['dispatchIdentitySha256'],
             graph_reference_inventory_sha256=(graph_reference_decision.host_inventory_sha256()
                                                if graph_reference_decision is not None else None))
-        from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+        from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1
         from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
         opening = view["contextPhase"] == "select" and (type(self.turn.graph_context_receipt) is BuildPendingContextReceiptV1
-            or isinstance(getattr(self.turn.graph_context_receipt, "native_query", None), NativeBuildQueryPendingV1))
+            or isinstance(getattr(self.turn.graph_context_receipt, "native_query", None), (NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1)))
         if opening:
             self.turn = _require_fresh_execution_append(self.context_capture.authorize_build_opening(view, event))
         else:
@@ -6925,17 +6925,17 @@ def project_plan_turn_context(
         from apps.live_control_server.models.agent_turn import (
             AgentSurfaceNativeContextResponseV1, DeferredBuildCitationMembership,
         )
-        from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+        from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1
         from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
         from application_state.agent_conversation.native_execution import effective_native_query
 
         citation_membership = None
         completion = turn.completion
-        if (type(receipt.native_query) is NativeBuildQueryPendingV1
+        if (type(receipt.native_query) in (NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1)
                 and type(completion) is SurfaceNativeCompletionV1
                 and (completion.native_clause_citations or completion.native_assertion_citations)):
             settled = effective_native_query(receipt, turn.graph_context_execution)
-            if type(settled) is NativeBuildQueryPendingV1:
+            if type(settled) in (NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1):
                 raise ValueError("Stored Build citations require their durable Graph settlement")
             statements = {(cite.statement_id, cite.campaign_id) for cite in completion.native_clause_citations}
             assertions = {(cite.assertion_id, cite.assertion_sha256) for cite in completion.native_assertion_citations}
@@ -7412,9 +7412,9 @@ def execute_agent_turn(
             (graph_types.PlanSourceContextReceiptV1, graph_types.SurfaceNativeContextReceiptV1))))
     native_corpus_context = native_source_authority = None
     native_query_context = native_query = prepare_deferred_build_query = None
-    from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
+    from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1
     retained_pending = getattr(getattr(durable_turn, "graph_context_receipt", None), "native_query", None)
-    resumes_deferred = isinstance(retained_pending, NativeBuildQueryPendingV1)
+    resumes_deferred = isinstance(retained_pending, (NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1))
     selected_knowledge_context = None
     if request.selected_knowledge is not None:
         if conversation_service is None or not operator_subject:
@@ -7873,9 +7873,11 @@ def execute_agent_turn(
         if (native_graph_query_resolver is not None and (
                 isinstance(frozen, (graph_types.PlanNativeContextReceiptV1,graph_types.SurfaceNativeContextReceiptV1))
                 or frozen is None and (_governed_build_turn(request) or request.surface.surface_id=='play' or isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)))):
+            selected_resume = type(retained_pending) is NativeBuildSelectedSourceQueryPendingV1
             can_defer = (_governed_build_turn(request) and request.retry_of is None
                 and isinstance(submitted_intent, BuildGraphIntentV1) and submitted_intent.reviewed_step is None
-                and request.build_authored_references is None and native_corpus_context is not None)
+                and (request.build_authored_references is None or selected_resume)
+                and native_corpus_context is not None)
             if resumes_deferred and not can_defer:
                 raise AgentTurnServiceError("The retained opening Graph authority is no longer available.",
                     code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
@@ -7883,6 +7885,16 @@ def execute_agent_turn(
                 from .native_graph_reads import pending_build_query
                 with trace.phase("build_graph_query_pin"):
                     native_query = pending_build_query(canonical_world_id, request.message, native_corpus_context)
+                if selected_resume and native_query is not None:
+                    from application_state.agent_conversation.authored_graph_references import AuthoredReferencesV2, AuthoredSourceReferenceV1
+                    refs = request.build_authored_references
+                    if (type(refs) is not AuthoredReferencesV2 or not refs.references
+                            or any(type(ref) is not AuthoredSourceReferenceV1 for ref in refs.references)):
+                        raise AgentTurnServiceError('The retained selected source is no longer available.',
+                            code='turn_receipt_unverifiable', status_code=409, provider_dispatched=False)
+                    native_query = NativeBuildSelectedSourceQueryPendingV1(
+                        authority=native_query.authority, question=native_query.question,
+                        selected_references_sha256=refs.sha256)
                 if resumes_deferred and native_query != retained_pending:
                     raise AgentTurnServiceError("The retained opening Graph authority changed.",
                         code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)

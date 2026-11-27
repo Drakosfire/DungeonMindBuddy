@@ -35,9 +35,11 @@ class NativeDiscoveryReplay(BaseModel):
 
 def _replay_query(receipt, execution, *, stop=None):
     query = receipt.get("native_query") if isinstance(receipt, dict) else None
-    if not isinstance(query, dict) or query.get("schema") != "dmb_native_build_query_pending_v1":
+    if not isinstance(query, dict) or query.get("schema") not in {
+        "dmb_native_build_query_pending_v1", "dmb_native_build_selected_source_query_pending_v1",
+    }:
         return query
-    from .native_context import NativeBuildQueryPendingV1, SurfaceNativeContextReceiptV1
+    from .native_context import NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1, SurfaceNativeContextReceiptV1
     from .native_execution import SurfaceNativeExecutionV1, _join_context_binding, effective_native_query
 
     context = SurfaceNativeContextReceiptV1.model_validate_json(json.dumps(receipt))
@@ -46,7 +48,7 @@ def _replay_query(receipt, execution, *, stop=None):
     ))
     _join_context_binding(context, ledger)
     query = effective_native_query(context, ledger)
-    return None if isinstance(query, NativeBuildQueryPendingV1) else query.model_dump(mode="json", by_alias=True)
+    return None if isinstance(query, (NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1)) else query.model_dump(mode="json", by_alias=True)
 
 
 def native_discovery_replay(receipt, execution=None, *, stop=None):

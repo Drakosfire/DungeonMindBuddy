@@ -414,3 +414,23 @@ it.each(['valid','missing','root','producer','assertion','extra','revision','nat
     expect(isBuildPendingContext(c,buildWork,()=>true)).toBe(mutation==='valid');
   },
 );
+
+it('recognizes the exact selected-source deferred Graph codec without accepting malformed pins',()=>{
+  const r=authoredContext().receipt;
+  const query={schema:'dmb_native_build_selected_source_query_pending_v1',
+    authority:structuredClone(r.native_query.authority),question:r.native_query.question,
+    selected_references_sha256:'a'.repeat(64)};
+  const pending={...r,native_query:query,
+    assembled_input:{...r.assembled_input,assembler_version:'native_build_semantic_initial_v2'}};
+  expect(isSurfaceNativeReceipt(pending,buildWork)).toBe(true);
+  expect(isSurfaceNativeReceipt({...pending,native_query:{...query,selected_references_sha256:'bad'}},buildWork)).toBe(false);
+  expect(isSurfaceNativeReceipt({...pending,native_query:{...query,authority:{...query.authority,revision_id:'foreign'}}},buildWork)).toBe(false);
+  expect(isSurfaceNativeReceipt({...pending,native_query:{...query,unexpected:true}},buildWork)).toBe(false);
+  const answer=authoredContext().completion;
+  const membership={context_receipt_sha256:r.context_receipt_sha256,
+    producing_provider_attempt_id:answer.producing_provider_attempt_id,
+    statements:answer.native_clause_citations.map(c=>[c.statement_id,c.campaign_id]),
+    assertions:answer.native_assertion_citations.map(c=>[c.assertion_id,c.assertion_sha256])};
+  expect(isSurfaceNativeCompletion(answer,pending as any,membership)).toBe(true);
+  expect(isSurfaceNativeCompletion(answer,pending as any,{...membership,assertions:[['wrong','f'.repeat(64)]]})).toBe(false);
+});

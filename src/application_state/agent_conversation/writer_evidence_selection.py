@@ -402,6 +402,10 @@ def native_work_terminal(turn):
     # a bounded partial answer, not a claim about unsearched sources.
     partial = pending_app_partial_candidate(execution, allow_current_page=True)
     receipt = turn.graph_context_receipt
+    from .native_execution import selected_source_terminal
+    selected_terminal = selected_source_terminal(receipt, execution)
+    if selected_terminal is not None:
+        return selected_terminal
     if (partial is not None and type(receipt) is BuildPendingContextReceiptV1
             and (partial['reason'] == 'pending_current_page_partial'
                  or receipt.source_observation.binding is None

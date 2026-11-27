@@ -137,6 +137,20 @@ class NativeBuildQueryPendingV1(Strict):
     question: str = Field(min_length=1)
 
 
+class NativeBuildSelectedSourceQueryPendingV1(Strict):
+    """A deferred Graph query bound to an exact, source-only author selection.
+
+    This is a commitment to the input, not permission to read it or a claim that
+    the Graph or selected source is available. The execution owner must join the
+    digest to the submitted selection before any evidence can be used.
+    """
+    schema_: Literal['dmb_native_build_selected_source_query_pending_v1'] = Field(
+        default='dmb_native_build_selected_source_query_pending_v1', alias='schema')
+    authority: NativePlanQueryAuthorityV1
+    question: str = Field(min_length=1)
+    selected_references_sha256: Digest
+
+
 class SurfaceNativeContextReceiptV1(Strict):
     schema_: Literal["dmb_surface_native_context_receipt_v1"] = Field(
         default="dmb_surface_native_context_receipt_v1", alias="schema")
@@ -145,7 +159,7 @@ class SurfaceNativeContextReceiptV1(Strict):
     provenance_sha256: Digest
     work_context: SurfaceWorkContext
     source_authority: NativeCorpusAuthorityV1 | NativeCorpusUnavailableV1
-    native_query: NativeGraphQueryV4 | NativeGraphQueryV3 | NativePlanQueryV2 | NativePlanQueryUnavailableV1 | NativeBuildQueryPendingV1
+    native_query: NativeGraphQueryV4 | NativeGraphQueryV3 | NativePlanQueryV2 | NativePlanQueryUnavailableV1 | NativeBuildQueryPendingV1 | NativeBuildSelectedSourceQueryPendingV1
     assembled_input: NativeInitialInput
 
     @model_validator(mode="after")
@@ -158,7 +172,7 @@ class SurfaceNativeContextReceiptV1(Strict):
         if isinstance(self.assembled_input, NativePlanRequestAdmissionV1) and not isinstance(self.work_context, PlanWorkContextV1):
             raise ValueError('Plan request admission requires actual Plan work')
         query = self.native_query
-        if isinstance(query, NativeBuildQueryPendingV1) and (
+        if isinstance(query, (NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1)) and (
             type(self.work_context) is not BuildWorkContextV1
             or type(self.assembled_input) is not NativeBuildProviderInputV2
             or type(self.source_authority) is not NativeCorpusAuthorityV1
@@ -167,7 +181,7 @@ class SurfaceNativeContextReceiptV1(Strict):
             or query.authority.session_id is not None
         ):
             raise ValueError("Pending Graph query requires pinned ordinary Build authority")
-        has_query_pin = isinstance(query, (NativePlanQueryV2, NativeBuildQueryPendingV1))
+        has_query_pin = isinstance(query, (NativePlanQueryV2, NativeBuildQueryPendingV1, NativeBuildSelectedSourceQueryPendingV1))
         authority = query.authority if has_query_pin else query
         if self.source_authority.managed_world_id != world or authority.managed_world_id != world:
             raise ValueError("Native capabilities differ from their actual work World")
