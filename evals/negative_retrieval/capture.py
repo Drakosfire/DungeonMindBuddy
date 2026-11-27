@@ -107,7 +107,8 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                     if primary_before != expected_primary_page(fixture, world, work):
                         raise ValueError("Actual primary page differs from the frozen fixture")
                     conversation = kwargs.get("expected_conversation_id")
-                    if conversation is not None or fixture["history"]:
+                    pinned_history = kwargs.get("pinned_history")
+                    if conversation is not None or pinned_history is not None or fixture["history"]:
                         response = client.get("/api/live/agent/worlds/" + world + "/conversation",
                                               params={"limit": 100})
                         if response.status_code != 200:
@@ -117,7 +118,13 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                             conversation = history.get("active_conversation_id")
                             if not isinstance(conversation, str) or not conversation:
                                 raise ValueError("A seeded fixture requires an active conversation")
-                            kwargs["expected_conversation_id"] = conversation
+                            if pinned_history is None:
+                                kwargs["expected_conversation_id"] = conversation
+                        if pinned_history is not None:
+                            if (kwargs.get("expected_conversation_id") is not None
+                                    or not isinstance(pinned_history, dict)
+                                    or pinned_history.get("conversation_id") != conversation):
+                                raise ValueError("Pinned history does not match the seeded conversation")
                         verify_preflight_history(fixture, history, world, conversation)
                         # Recheck the runner's own history read, not just this
                         # earlier preflight. The conversation ID can remain

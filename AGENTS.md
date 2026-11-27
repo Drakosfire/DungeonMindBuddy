@@ -275,6 +275,18 @@ and update its coverage in the same PR. Use its fixture and scoring rules for
 the selected cases and apply the local verification scope above. Apply the state-settlement rule
 above when new evidence arrives after merge.
 
+## Reporting during automatic goal continuation
+
+Resume from the latest verified state. Keep the goal text, previous replies,
+and answers to one-shot questions as working context. Share new evidence,
+completed changes, changed blockers, decisions that need user input, and final
+completion. An automatic continuation alone does not call for a status recap.
+
+When nothing material has changed, continue authorized work or poll the
+confirmed running task. Surface the same blocker again only when user action
+becomes necessary or the goal status changes. Keep required escalation and
+completion checks in force.
+
 ## Efficient investigation
 
 Use focused symbol/route search and small context packs when available; otherwise

@@ -189,7 +189,10 @@ requires it. This is separate from catalog discovery and materialization.
 
 `capture.capture(manifest, output)` wraps the existing ordinary
 Build sequence capture, preserving its runtime, source, provider, and database
-preflight. Probes are installed only around the actual turn POST, not the
+preflight. For seeded histories, an ordinary `build_history` pin must name the
+same active conversation; the adapter checks the fixture before and at the
+runner's read, and the ordinary runner verifies the pin before dispatch. Probes
+are installed only around the actual turn POST, not the
 runner's history, conversation setup or subsequent trace reads. They record
 `not_started` if that POST was never entered, and retain partial observations
 if it fails. On exit the records are detached snapshots, so retained wrappers or
