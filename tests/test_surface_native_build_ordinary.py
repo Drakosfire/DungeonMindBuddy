@@ -32,7 +32,8 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize('pending', [False, True])
+def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, pending):
     table = (
         "| NPC | Job | Detail |\n| --- | --- | --- |\n"
         "| Nia | Baker | Carries a copper bell |\n"
@@ -42,6 +43,36 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch):
         "| Mara | Courier | Knows the flood routes |\n"
         "| Sela | Gardener | Grows striped mint |"
     )
+    if pending:
+        from application_state.build_proposal.service import BuildProposalService
+        from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+        from apps.live_control_server.services import build_related_pages, plan_source_turn
+
+        def forbidden(*args, **kwargs):
+            pytest.fail('Anchored pending placement attempted new source acquisition')
+
+        monkeypatch.setattr(build_related_pages, 'discover', forbidden)
+        monkeypatch.setattr(native_corpus_source, 'prepare_native_source_context', forbidden)
+        monkeypatch.setattr(plan_source_turn, 'prepare_native_source_context', forbidden)
+        monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **kwargs: lane.repo)
+
+        def send(client, world, body):
+            body['build_authored_references'] = None
+            return client.post('/api/live/agent/turn', json=body)
+
+        case = _fresh_case(
+            lane, tmp_path, monkeypatch, None, True, False, True,
+            message="Create six NPCs for Edge, with jobs and a distinguishing detail, and add them as a table.",
+            proposal_markdown=table, requested_work='write_current_page',
+            source_need='anchored', dispatch=send, capture_pending=True,
+        )
+        assert case.response.status_code == 200, case.response.text
+        assert case.turn.graph_context_receipt.schema_ == 'dmb_build_pending_context_receipt_v1'
+        assert case.turn.status == 'completed'
+        proposed, = BuildProposalService().list(case.world, case.turn.conversation_id)
+        assert proposed.state == 'proposed' and proposed.proposal.replacement_markdown == table
+        return
+
     _fresh_case(
         lane, tmp_path, monkeypatch, None, True, False, True,
         message="Create six NPCs for Edge, with jobs and a distinguishing detail, and add them as a table.",

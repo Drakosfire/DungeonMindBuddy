@@ -286,9 +286,13 @@ def authoring_input(native_context, capability, instruction, operation):
     if not isinstance(native_context,tuple) or len(native_context)!=3:
         raise ValueError('Native authoring requires concrete context, execution and submission')
     receipt,execution,work=native_context
-    from .native_execution import NativeBuildActionV1
+    from .native_context import BuildPendingContextReceiptV1
+    from .native_execution import BuildPendingExecutionV1, NativeBuildActionV1
     from .build_intentional_response import selected_action
-    if type(execution) is not SurfaceNativeExecutionV1 or type(execution.policy.action) is not NativeBuildActionV1:
+    if ((type(receipt), type(execution)) not in {
+            (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1),
+            (BuildPendingContextReceiptV1, BuildPendingExecutionV1)}
+            or type(execution.policy.action) is not NativeBuildActionV1):
         raise ValueError('Native authoring requires the actual Build action')
     action=execution.policy.action
     selected=selected_action(execution)

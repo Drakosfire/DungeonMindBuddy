@@ -1256,7 +1256,7 @@ export interface BuildPendingContextReceiptV1 {
 }
 export interface AgentBuildPendingContextResponseV1 {
   schema:'dmb_agent_build_pending_context_response_v1';receipt:BuildPendingContextReceiptV1;
-  completion:SurfaceNativeCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
+  completion:SurfaceNativeCompletionV1|WorldBuildAuthoringCompletionV1|null;execution:WorldPlanGraphExecutionProjectionV1|null;delivery_replay:boolean;
   deferred_build_citations?:DeferredBuildCitationMembership;
 }
 export interface ConversationLorePageDraft {

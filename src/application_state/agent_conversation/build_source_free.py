@@ -241,9 +241,13 @@ def _join_pending_turn_fields(receipt, execution, provenance, intent_fingerprint
             raise ValueError("Pending prefix has no registered terminal output owner")
     else:
         from .native_completion import SurfaceNativeCompletionV1, validate_retained_completion
-        if type(completion) is not SurfaceNativeCompletionV1:
+        if type(completion) is SurfaceNativeCompletionV1:
+            validate_retained_completion(completion, receipt, execution, completion.producing_provider_attempt_id, {})
+        elif type(completion) is t.BuildAuthoringCompletionV1:
+            from .build_authoring import validate_native_authoring_binding
+            validate_native_authoring_binding(completion, receipt, execution, completion.provider_attempt_id, {})
+        else:
             raise ValueError('Pending terminal requires its exact native completion')
-        validate_retained_completion(completion, receipt, execution, completion.producing_provider_attempt_id, {})
         bindings = [event for event in execution.events if type(event) is t.CompletionBindingEventV1]
         if (len(bindings) != 1 or bindings[0].completion_sha256 != t.canonical_sha256(completion)
                 or assistant_text != '\n'.join(segment.text for segment in completion.answer_segments)):

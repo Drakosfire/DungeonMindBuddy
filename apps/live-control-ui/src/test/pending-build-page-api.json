@@ -56,7 +56,7 @@
     "collaboration": {
       "kind": "lore_page",
       "destination": {
-        "request": "current_author_request",
+        "instruction": "Create a new page titled Maelthor from the context we discussed.",
         "title": "Maelthor"
       },
       "open_questions": [

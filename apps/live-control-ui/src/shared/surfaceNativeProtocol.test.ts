@@ -378,3 +378,30 @@ it.each(['valid','missing','root','producer','assertion','extra','revision','nat
     expect(isBuildPendingContext(c,buildWork,()=>true)).toBe(mutation==='valid');
   },
 );
+
+it.each(['bound', 'foreign-receipt', 'unexpected-citations'])(
+  'checks pending page proposal membership: %s', mode => {
+    const context = {
+      ...structuredClone(pendingBuild),
+      completion: {
+        schema: 'dmb_build_authoring_completion_v1',
+        context_receipt_sha256: mode === 'foreign-receipt'
+          ? '0'.repeat(64) : pendingBuild.receipt.context_receipt_sha256,
+        answer_basis: 'prepared_page_proposal',
+        answer_context_status: 'proposal_ready',
+        answer_segments: [{
+          kind: 'connective',
+          text: 'A preview is ready. Review it before inserting it into the page. Nothing has been saved or published.',
+        }],
+        citation_map: null,
+        action_id: '11111111-1111-4111-8111-111111111111',
+        provider_attempt_id: '22222222-2222-4222-8222-222222222222',
+        reservation_sha256: 'a'.repeat(64),
+        proposal_result_sha256: 'b'.repeat(64),
+        envelope_sha256: 'c'.repeat(64),
+      },
+      ...(mode === 'unexpected-citations' ? {deferred_build_citations: {}} : {}),
+    };
+    expect(isBuildPendingContext(context, buildWork, () => true)).toBe(mode === 'bound');
+  },
+);
