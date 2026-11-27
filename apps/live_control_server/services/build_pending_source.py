@@ -142,9 +142,14 @@ def prepare_pending_native_source(adapter):
     work_rows = [event for event in execution.events if type(event) is ledger.BuildRequestedWorkResolutionV1]
     if any(event.resolution.get('source_scope') == 'current_saved_page' for event in work_rows):
         # An exclusive current-page request never permits native source lookup.
-        # Only an acknowledged sufficient App read can proceed to writing.
+        # Only an acknowledged complete read can proceed, with its real
+        # coverage verdict preserved even when the answer is partial.
         from application_state.agent_conversation.build_pending_app_coverage import pending_app_writer_terminal
         if pending_app_writer_terminal(execution) is not None:
+            return False
+        from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
+        terminal = native_work_terminal(adapter.turn)
+        if terminal == {'status': 'ready', 'reason': 'pending_current_page_partial'}:
             return False
         raise ValueError('The requested current saved page is unavailable or insufficient')
     stored = effective_pending_source(adapter._broker_receipt(), execution)
