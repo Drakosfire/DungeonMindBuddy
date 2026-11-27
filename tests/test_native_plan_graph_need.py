@@ -917,6 +917,10 @@ def test_uncertain_graph_clarification_is_exact_bound_terminal():
     with pytest.raises(ValueError):
         NativePlanGraphClarificationCompletionV1.model_validate_json(completion.model_dump_json().replace(
             GRAPH_NEED_CLARIFICATION_QUESTION, 'Please search my World?'))
+    for segments in ([], [completion.answer_segments[0].model_dump()] * 2):
+        malformed = completion.model_dump(mode='json', by_alias=True) | {'answer_segments': segments}
+        with pytest.raises(ValueError):
+            NativePlanGraphClarificationCompletionV1.model_validate(malformed)
     grant = NativePlanGraphQueryAuthorizedV1(event_id=uuid4(), sequence=5,
         need_event_id=observed.event_id, pending_query_sha256=observed.parent.pending_query_sha256)
     with pytest.raises(ValueError):
@@ -995,3 +999,8 @@ def test_reader_reopens_fixture_only_host_clarification_from_app(source_adapter,
     tampered['completion']['observation_event_id'] = str(uuid4())
     with pytest.raises(ValueError):
         t.Turn.model_validate(tampered)
+    for segments in ([], [completion.answer_segments[0].model_dump()] * 2):
+        tampered = reopened.model_dump(mode='json', by_alias=True)
+        tampered['completion']['answer_segments'] = segments
+        with pytest.raises(ValueError):
+            t.Turn.model_validate(tampered)
