@@ -298,6 +298,48 @@ its full conversation. Its zero-acquisition rubric remains separate from the
 model input. This development variant is not a held-out case, and its existence
 does not constitute a replay or proof of complete acquisition coverage.
 
+When the captured serving lineage is ahead of main, run offline reporting with
+that **exact product checkout and its pinned Core dependencies**, while loading
+`evals.negative_retrieval` from the reviewed evaluator checkout. A main-only
+Python environment can lack the serving response model and correctly leave the
+fixture unverified; it must not be interpreted as a failed product response or
+worked around by weakening the parser. For example, with `PRODUCT`, `EVALUATOR`
+and `CORE` set to independently verified checkout paths and `PYTHON` to the
+locked interpreter:
+
+```sh
+PYTHONPATH="$PRODUCT/src:$PRODUCT:$CORE/src" "$PYTHON" - <<'PY_REPORT'
+import os
+import evals
+evals.__path__.insert(0, os.path.join(os.environ["EVALUATOR"], "evals"))
+from evals.negative_retrieval.report import report_case
+# Call report_case with the frozen case, rubric, fixture-set digest, captured
+# directory and, when available, independently pinned semantic review.
+PY_REPORT
+```
+
+`EVALUATOR` must be exported for this example. This import arrangement selects
+code; it does not attest that runtime, fixture, or capture environment was
+correct. Verify the exact source and dependency pins and retain the original
+artifacts independently. Missing environment or journal proof stays unproven.
+
+On serving revision `95ee0e6102f77cec1806ccf83b6144e5f7305578`, the
+trace-derived `dev-shepherd-catalog-20` case answered with ten names in one
+3,759.9 ms local request; the 60-exchange `dev-long-context-reuse` case recalled
+the early toll and collector in one 4,492.0 ms local request. Independent
+semantic reviews bound to the exact artifacts passed. Their one-case fixture-set
+pins were `c8a6c4ece72566709bce5cc949806e81b014aca1c763e0a378bdb16a0d5e1fb0`
+and `d3824d95f0bb2e5c96bbefd1492e79939a9b34dbce35393fc06fccafdb29cb25`,
+respectively. Both reports remain **unproven**: no catalog discovery, related
+page materialization, native Graph event or PDF load was observed by the
+covered owners, but the acquisition journal and capture environment are not
+complete. These are individual development observations, not independent
+held-out qualification. The synthetic request bytes were identical to
+previously independently audited requests, so manual audit pauses were not in
+these request timings. The reports, reviews, manifests and failure evidence
+are retained in the local workstream owner `case-326` and `case-320` evidence
+directories; those local paths are not portable benchmark dependencies.
+
 `report.report_case` joins an existing ordinary capture to its per-case probe,
 checks the request against the fixture, hashes retained artifacts, and applies
 the private rubric without calling a model. Supply the frozen mapping as
