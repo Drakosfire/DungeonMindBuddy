@@ -74,7 +74,17 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
     caret = spec.get("at_document_start", False)
     if type(caret) is not bool or (caret and (not live_plan or "selection_text" in spec)):
         raise ValueError("Document-start caret requires live Plan without selected text")
-    if not image_preview and not unsent_draft and not caret and (build_fixture or live_plan) and (
+    work_plan = spec.get("reviewed_work_plan")
+    if work_plan is not None and (
+            not build_fixture or live_plan or not isinstance(work_plan, dict)
+            or set(work_plan) != {"conversation_id", "source_turn_id", "step_id", "revision", "objective"}
+            or any(str(UUID(work_plan[k])) != work_plan[k]
+                   for k in ("conversation_id", "source_turn_id", "step_id"))
+            or type(work_plan["revision"]) is not int or work_plan["revision"] < 1
+            or not isinstance(work_plan["objective"], str) or not work_plan["objective"].strip()
+            or any(key in spec for key in ("image_preview", "selection_text", "confirm_save", "unsent_draft"))):
+        raise ValueError("Reviewed continuation requires an exact standalone Build fixture")
+    if work_plan is None and not image_preview and not unsent_draft and not caret and (build_fixture or live_plan) and (
             not isinstance(spec.get("selection_text"), str) or not spec["selection_text"].strip()
     ):
         raise ValueError("Browser placement fixture requires exact selected text")
@@ -196,6 +206,9 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
     if image_preview and not live_build:
         raise ValueError("Image preview requires explicit live Build capture")
     live = live_build or live_plan
+    reviewed_plan = manifest["browser_capture"].get("reviewed_work_plan")
+    if reviewed_plan is not None and not live_build:
+        raise ValueError("Reviewed continuation requires live Build capture")
     play_choice = manifest["browser_capture"].get("play_choice")
     play_rejected_writes = []
     wire_name = "plan-wire-response" if live_plan else "build-wire-response"
@@ -390,9 +403,16 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 try:
                     if browser_request is not None:
                         raise ValueError("Only one Build fixture request is allowed")
-                    validate_build_browser_request(parsed, world=world, work=work, question=case["question"],
-                        selection_text=manifest["browser_capture"]["selection_text"],
-                        conversation_id=fresh["active_conversation_id"], pointer_revision=fresh["pointer_revision"])
+                    if reviewed_plan is not None:
+                        from application_state.agent_conversation import work_plan
+                        owner = work_plan.read(world, UUID(reviewed_plan["conversation_id"]),
+                                               UUID(reviewed_plan["source_turn_id"]))["plan"]
+                        validate_reviewed_work_plan_request(parsed, reviewed_plan, owner, work, fresh)
+                        artifacts.immutable_save(directory, "reviewed-work-plan-at-dispatch", owner)
+                    else:
+                        validate_build_browser_request(parsed, world=world, work=work, question=case["question"],
+                            selection_text=manifest["browser_capture"]["selection_text"],
+                            conversation_id=fresh["active_conversation_id"], pointer_revision=fresh["pointer_revision"])
                 except (ValueError, KeyError):
                     return await JSONResponse({"error": "Build fixture request did not match"}, 409)(scope, receive, send)
                 browser_request = parsed
@@ -527,7 +547,19 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     if plan_jev_dispatch.request_budget() != manifest["provider_policy"]:
                         raise ValueError("Effective ordinary provider policy differs")
                     fresh = client.get(route).raise_for_status().json()
-                    if image_preview or play_choice:
+                    if reviewed_plan is not None:
+                        if fresh["active_conversation_id"] != reviewed_plan["conversation_id"]:
+                            command = {"world_id": world, "command_id": str(uuid4()),
+                                "expected_pointer_revision": fresh["pointer_revision"],
+                                "expected_active_conversation_id": fresh["active_conversation_id"],
+                                "conversation_id": reviewed_plan["conversation_id"]}
+                            client.post(f"/api/live/agent/worlds/{world}/conversations/{reviewed_plan['conversation_id']}/resume",
+                                        json=command).raise_for_status()
+                            fresh = client.get(route).raise_for_status().json()
+                        if fresh["active_conversation_id"] != reviewed_plan["conversation_id"]:
+                            raise ValueError("Reviewed Work Plan conversation did not reopen")
+                        artifacts.immutable_save(directory, "history-before", fresh)
+                    elif image_preview or play_choice:
                         artifacts.immutable_save(directory, "history-before", fresh)
                     elif pinned_history is None:
                         command = {"schema": "dmb_agent_new_conversation_v1", "command_id": str(uuid4()),
@@ -549,6 +581,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_SURFACE": "build" if build_fixture else "plan",
                         "DMB_BENCHMARK_LIVE_BROWSER": "1" if live else "0",
                         "DMB_BENCHMARK_IMAGE_PREVIEW": "1" if image_preview else "0",
+                        "DMB_BENCHMARK_REVIEWED_WORK_PLAN": json.dumps(reviewed_plan),
                         "DMB_BENCHMARK_UNSENT_DRAFT": "1" if unsent_draft else "0",
                         "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
                         "DMB_BENCHMARK_LOSE_CONFIRM_ACK": "1" if lose_confirm_ack else "0",
@@ -776,6 +809,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             after = read_history()
                             turns = workflow._request_turns(after["body"], browser_request, world, browser_plan=live_plan)
                     artifacts.immutable_save(directory, "history-after", after)
+                    if reviewed_plan is not None:
+                        from application_state.agent_conversation import work_plan
+                        artifacts.immutable_save(directory, "reviewed-work-plan-after", work_plan.read(
+                            world, UUID(reviewed_plan["conversation_id"]), UUID(reviewed_plan["source_turn_id"])))
                     if live:
                         if confirm_save:
                             timing_path = output / "browser-timing.json"
@@ -938,6 +975,35 @@ def build_proposal_readback(request, world, turn):
     return dict(identity, status="observed", state=record.state, revision=record.revision,
                 inserted_in_draft=record.inserted_in_draft,
                 proposal=record.proposal.model_dump(mode="json") if record.proposal is not None else None)
+
+
+def validate_reviewed_work_plan_request(request, fixture, owner, work, history):
+    """Accept the exact owner-reserved discussion from the mounted editor."""
+    from apps.live_control_server.models.agent_turn import AgentTurnRequest
+
+    parsed = AgentTurnRequest.model_validate(request)
+    if (parsed.reviewed_step is None or parsed.build_draft_context is None
+            or parsed.build_write_capability is not None or parsed.primary_work is None
+            or parsed.primary_work.model_dump(mode="json", exclude_none=True) != work
+            or parsed.owner_scope is None or parsed.owner_scope.world_id != owner["world_id"]
+            or owner["document_id"] != work["object_id"]
+            or owner["revision"] != fixture["revision"] + 2
+            or owner["objective"] != fixture["objective"]):
+        raise ValueError("Reviewed discussion differs from the pinned work and review")
+    ref = parsed.reviewed_step.model_dump(mode="json")
+    context = parsed.build_draft_context
+    matches = [d for d in owner["dispatches"] if d["command_id"] == ref["command_id"]]
+    if (len(matches) != 1 or ref["conversation_id"] != fixture["conversation_id"]
+            or ref["source_turn_id"] != fixture["source_turn_id"]
+            or str(context.conversation_id) != fixture["conversation_id"]
+            or context.expected_pointer_revision != history["pointer_revision"]):
+        raise ValueError("Reviewed discussion has no matching reservation")
+    dispatch = matches[0]
+    if (dispatch["step_id"] != fixture["step_id"] or dispatch["message"] != parsed.message
+            or dispatch["client_turn_id"] != request["turn_id"]
+            or dispatch["client_thread_id"] != request["client_thread_id"]
+            or dispatch.get("scope", {}).get("task", {}).get("kind") != "discuss"):
+        raise ValueError("Reviewed discussion differs from the reserved step")
 
 
 def validate_build_browser_request(request, *, world, work, question, selection_text,

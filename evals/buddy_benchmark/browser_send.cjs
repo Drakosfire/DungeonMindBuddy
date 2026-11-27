@@ -232,10 +232,11 @@ async function run() {
       await composer.waitFor({ timeout: 20000 });
     }
     await openComposer();
+    const reviewedWork = JSON.parse(process.env.DMB_BENCHMARK_REVIEWED_WORK_PLAN || "null");
     const draft = process.env.DMB_BENCHMARK_QUESTION;
     const unsentDraft = process.env.DMB_BENCHMARK_UNSENT_DRAFT === "1";
     if (unsentDraft && await composer.inputValue() !== "") throw new Error("Unsent draft fixture composer is not empty");
-    await composer.fill(draft);
+    if (!reviewedWork) await composer.fill(draft);
     if (unsentDraft) {
       if (await composer.inputValue() !== draft) throw new Error("Draft entry did not match fixture");
       await page.reload();
@@ -247,7 +248,7 @@ async function run() {
       }, null, 2));
       return;
     }
-    if (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1") {
+    if (!reviewedWork && (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1")) {
       const selected = process.env.DMB_BENCHMARK_SELECTION;
       const documentStart = process.env.DMB_BENCHMARK_DOCUMENT_START === "1";
       const editor = page.locator((build ? ".build-surface-shell" : ".world-plan-visual-editor") + " .ProseMirror[contenteditable=true]:visible");
@@ -274,7 +275,35 @@ async function run() {
       }
     }
     const live = process.env.DMB_BENCHMARK_LIVE_BROWSER === "1";
-    const send = page.getByRole("button", { name: build || live ? /^(Send message|Propose edit)$/ : /^Send message$/ });
+    let send = page.getByRole("button", { name: build || live ? /^(Send message|Propose edit)$/ : /^Send message$/ });
+    if (reviewedWork) {
+      const path = "/api/live/agent/worlds/" + encodeURIComponent(process.env.DMB_BENCHMARK_WORLD)
+        + "/conversations/" + reviewedWork.conversation_id + "/work-plans/" + reviewedWork.source_turn_id;
+      const sourceTurn = page.locator(`article[data-turn-id="${reviewedWork.source_turn_id}"]`);
+      await sourceTurn.locator("summary").filter({ hasText: /^Trace$/ }).click();
+      await sourceTurn.getByRole("button", { name: "Review plan", exact: true }).click();
+      const card = sourceTurn.getByRole("region", { name: "Saved work plan", exact: true });
+      const objective = card.getByRole("textbox", { name: "Expected outcome", exact: true });
+      await objective.waitFor();
+      const response = await page.request.get(origin + path, {
+        headers: { authorization: "Bearer " + process.env.DMB_BENCHMARK_BROWSER_TOKEN },
+      });
+      if (!response.ok()) throw new Error("Pinned work plan could not be opened");
+      const { plan } = await response.json();
+      const index = plan.steps.findIndex(step => step.step_id === reviewedWork.step_id && step.selected);
+      if (plan.revision !== reviewedWork.revision || index < 0)
+        throw new Error("Mounted work plan differs from the pinned review");
+      await objective.fill(reviewedWork.objective);
+      const [saved] = await Promise.all([
+        page.waitForResponse(res => new URL(res.url()).pathname === path && res.request().method() === "PUT"),
+        card.getByRole("button", { name: "Save reviewed plan", exact: true }).click(),
+      ]);
+      if (!saved.ok() || (await saved.json()).revision !== reviewedWork.revision + 1)
+        throw new Error("Work plan outcome did not save once");
+      const step = card.getByRole("textbox", { name: "Saved step " + (index + 1), exact: true })
+        .locator("xpath=ancestor::*[contains(@class, 'surface-work-plan__step')][1]");
+      send = step.getByRole("button", { name: "Continue step", exact: true });
+    }
     await send.waitFor({ state: "visible" });
     if (process.env.DMB_BENCHMARK_PANE_SETTLED === "1") {
       await page.waitForLoadState("networkidle", { timeout: 30000 });
