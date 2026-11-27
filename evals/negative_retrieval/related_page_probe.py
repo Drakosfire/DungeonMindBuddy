@@ -5,6 +5,7 @@ corpus or every other source owner and is not a complete acquisition journal.
 """
 from contextlib import contextmanager, ExitStack
 from functools import wraps
+from hashlib import sha256
 from importlib import import_module
 from threading import Lock
 from unittest.mock import patch
@@ -49,6 +50,22 @@ def observe_related_page_owners():
                     raise
                 with record_lock:
                     row["state"] = "returned"
+                    # Store no body; record its digest only when the actual
+                    # returned text and declared digest agree. Malformed
+                    # results remain unproven without changing owner behavior.
+                    if name == "related_page_materialization" and isinstance(result, dict):
+                        body = result.get("markdown")
+                        try:
+                            body_hash = sha256(body.encode("utf-8")).hexdigest() if isinstance(body, str) else None
+                        except UnicodeError:
+                            body_hash = None
+                        if body_hash is not None and result.get("content_sha256") == body_hash:
+                            world, document, revision = (result.get("world_id"), result.get("document_id"),
+                                                         result.get("registry_revision"))
+                            if (isinstance(world, str) and world and isinstance(document, (str, UUID))
+                                    and str(document) and type(revision) is int and revision > 0):
+                                row.update(returned_world_id=world, returned_document_id=str(document),
+                                           returned_registry_revision=revision, returned_content_sha256=body_hash)
                 return result
             return wrapped
 
@@ -93,10 +110,35 @@ def acquisition_labels(records, *, label_by_document=None, completed_only=False,
         if (primary_pointer is not None and type(row.get("registry_revision")) is int
                 and all(row.get(key) == value for key, value in primary_pointer.items())):
             return "current-page"
-        return labels.get(row.get("document_id"), UNKNOWN)
+        document = row.get("document_id")
+        return labels.get(document, UNKNOWN) if isinstance(document, str) else UNKNOWN
     return [label(row) for row in records
             if row["owner"] == "related_page_materialization"
             and (not completed_only or row["state"] == "returned")]
+
+
+def fixture_related_labels(records, inventory, *, completed_only=False):
+    """Bind attempts and proven returned bytes to exact verified fixture pointers."""
+    from .trace_observation import UNKNOWN
+    acquisition_labels(records)  # Validate the complete records first.
+    pointers = {(row["world_id"], row["document_id"], row["registry_revision"]): row for row in inventory}
+    labels = []
+    for record in records:
+        if record["owner"] != "related_page_materialization":
+            continue
+        world, document, revision = record.get("world_id"), record.get("document_id"), record.get("registry_revision")
+        row = (pointers.get((world, document, revision)) if isinstance(world, str)
+               and isinstance(document, str) and type(revision) is int else None)
+        if completed_only:
+            if (record["state"] != "returned" or row is None
+                    or record.get("returned_world_id") != row["world_id"]
+                    or record.get("returned_document_id") != row["document_id"]
+                    or type(record.get("returned_registry_revision")) is not int
+                    or record.get("returned_registry_revision") != row["registry_revision"]
+                    or record.get("returned_content_sha256") != row["content_sha256"]):
+                continue
+        labels.append(row["label"] if row is not None else UNKNOWN)
+    return labels
 
 
 def catalog_discovery_count(records):

@@ -398,6 +398,26 @@ def test_page_probe_records_pointer_on_return_and_failure(monkeypatch):
     ]
 
 
+
+def test_page_probe_hashes_returned_body_without_retaining_text(monkeypatch):
+    import hashlib
+    from apps.live_control_server.services import build_related_pages
+    from evals.negative_retrieval.related_page_probe import observe_related_page_owners
+    pointer = {"world_id": "w", "document_id": "d", "registry_revision": 1}
+    body = "Synthetic private body."
+    digest = hashlib.sha256(body.encode()).hexdigest()
+    monkeypatch.setattr(build_related_pages, "materialize", lambda p: {**p, "markdown": body, "content_sha256": digest})
+    with observe_related_page_owners() as records:
+        assert build_related_pages.materialize(pointer)["markdown"] == body
+    assert records[0]["returned_content_sha256"] == digest
+    assert records[0]["returned_world_id"] == "w" and records[0]["returned_document_id"] == "d"
+    assert records[0]["returned_registry_revision"] == 1 and body not in repr(records)
+    monkeypatch.setattr(build_related_pages, "materialize", lambda p: {**p, "markdown": body, "content_sha256": "0" * 64})
+    with observe_related_page_owners() as records:
+        assert build_related_pages.materialize(pointer)["markdown"] == body
+    assert "returned_content_sha256" not in records[0]
+
+
 def test_page_probe_distinguishes_direct_metadata_from_catalog_and_body(monkeypatch):
     from types import SimpleNamespace
     from evals.negative_retrieval import related_page_probe as probe
@@ -2146,7 +2166,7 @@ def test_negative_rate_includes_graph_query_budget_and_missing_graph_proof():
     assert summarize(cases, {"one": report})["unnecessary_retrieval"]["unknown"] == 1
 
 
-def test_report_does_not_credit_failed_required_page_materialization(tmp_path):
+def test_report_does_not_credit_failed_required_page_materialization(tmp_path, monkeypatch):
     import hashlib
     import json
     from uuid import NAMESPACE_URL, uuid5
@@ -2185,7 +2205,7 @@ def test_report_does_not_credit_failed_required_page_materialization(tmp_path):
         (tmp_path / f"{name}.json").write_text(json.dumps(value))
     positive = {"max_catalog_discoveries": 1, "required_reads": ["ledger"],
                 "allowed_reads": ["ledger"], "outcomes": ["answer"]}
-    for state, expected in (("raised", None), ("entered", None), ("returned", True)):
+    for state, expected in (("raised", None), ("entered", None), ("returned", None)):
         related["records"] = [{"owner": "related_page_materialization", "state": state, "document_id": "doc"}]
         (tmp_path / "related-page-probe.json").write_text(json.dumps(related))
         result = report_case(tmp_path, fixture, positive)
@@ -2194,6 +2214,25 @@ def test_report_does_not_credit_failed_required_page_materialization(tmp_path):
         assert result["status"] == "unproven"
         negative = report_case(tmp_path, fixture, CASE)
         assert negative["checks"]["unexpected_retrieval"] is False
+    # Exact fixture binding and exact returned body are both necessary. A
+    # changed World, revision or digest must not credit the required source.
+    from evals.negative_retrieval import report, fixture_binding
+    monkeypatch.setattr(report, "verify_fixture_pin", lambda *args: True)
+    monkeypatch.setattr(fixture_binding, "verify_fixture", lambda *args: True)
+    (tmp_path / "fixture-pin.json").write_text("{}")
+    (tmp_path / "history-before.json").write_text(json.dumps(envelope(history)))
+    exact = {"owner": "related_page_materialization", "state": "returned", "world_id": "world",
+             "document_id": "doc", "registry_revision": 1, "returned_world_id": "world",
+             "returned_document_id": "doc", "returned_registry_revision": 1,
+             "returned_content_sha256": inventory[0]["content_sha256"]}
+    for change, expected in (({}, True), ({"world_id": "other"}, None),
+            ({"registry_revision": 2}, None), ({"world_id": []}, None),
+            ({"document_id": {}}, None), ({"returned_world_id": "other"}, None),
+            ({"returned_document_id": "other"}, None), ({"returned_registry_revision": 2}, None),
+            ({"returned_content_sha256": "0" * 64}, None), ({"state": "raised"}, None)):
+        related["records"] = [{**exact, **change}]
+        (tmp_path / "related-page-probe.json").write_text(json.dumps(related))
+        assert report_case(tmp_path, fixture, positive)["checks"]["required_evidence"] is expected
     related["records"] = []
     (tmp_path / "related-page-probe.json").write_text(json.dumps(related))
     for owner in ("app_source_body_read", "app_source_body_read_batch", "app_source_body_read_revision", "native_graph_body_open", "native_graph_body_open_batch"):
@@ -2247,7 +2286,8 @@ def test_report_primary_pointer_attempt_without_crediting_read(
         row['world_id'] = world
     if revision is not None:
         row['registry_revision'] = revision
-    inventory = [{'document_id': 'other', 'label': 'current-page'}] if collision else []
+    inventory = [{'document_id': 'other', 'label': 'current-page', 'world_id': 'world',
+                  'registry_revision': 1, 'content_sha256': '0' * 64}] if collision else []
     artifacts = {'request': request, 'history-before': envelope(history), 'history-after': envelope(history),
         'context-trace': envelope(trace), 'answer-http': envelope({'turn_id': 'turn', 'client_thread_id': 'thread',
             'knowledge_context': turn['knowledge_context']}), 'fixture-sources': {'before': inventory}, 'fixture-pin': {},

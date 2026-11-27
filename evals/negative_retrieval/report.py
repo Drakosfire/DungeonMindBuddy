@@ -6,7 +6,7 @@ from pathlib import Path
 
 from .assessment import REPORT_SCHEMA, assess, rubric_sha256
 from .capture_observation import _body, observe
-from .related_page_probe import acquisition_labels, catalog_discovery_count
+from .related_page_probe import acquisition_labels, catalog_discovery_count, fixture_related_labels
 from .native_graph_probe import summarize_records
 from .trace_observation import UNKNOWN
 
@@ -217,15 +217,20 @@ def report_case(directory, fixture, rubric, *, expected_fixture_sha256=None, fix
     if fixture_bound is True and related_turn and isinstance(primary_id, str) and primary_id:
         primary_id_matches = sum(row.get('owner') == 'related_page_materialization'
             and row.get('document_id') == primary_id for row in probe['records'])
-    # A read attempt can demonstrate unnecessary acquisition, but only a
-    # returned read or a completed trace observation can establish presence.
-    observed["completed_reads"] = [row["label"] for row in observed["observed_acquisitions"]
-        if row["kind"] in {"source_read", "related_page_read"}]
+    # A read attempt can demonstrate unnecessary acquisition. Display-only
+    # trace items and ID-only returns do not bind a body to the
+    # fixture. Only an exact pointer and observed matching returned bytes do.
+    observed["completed_reads"] = []
     if related_turn:
-        observed["reads"] += acquisition_labels(probe.get("records"), label_by_document=label_by_document,
-                                                primary_pointer=primary_pointer)
-        observed["completed_reads"] += acquisition_labels(probe.get("records"),
-            label_by_document=label_by_document, completed_only=True)
+        inventory = rows["fixture-sources"]["before"] if fixture_bound is True else []
+        for record in probe["records"]:
+            if record["owner"] != "related_page_materialization":
+                continue
+            primary = acquisition_labels([record], primary_pointer=primary_pointer)
+            observed["reads"] += (primary if primary == ["current-page"]
+                                  else fixture_related_labels([record], inventory))
+        if fixture_bound is True:
+            observed["completed_reads"] += fixture_related_labels(probe["records"], inventory, completed_only=True)
     if native_turn:
         for owner in ("native_graph_selected_read", "native_graph_authored_reference_read",
                       "native_corpus_authored_source_read", "native_corpus_member_read", "native_corpus_direct_read",

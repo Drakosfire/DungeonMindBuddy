@@ -150,14 +150,17 @@ the caller remains responsible for retaining and verifying evidence.
 `related_page_probe.observe_related_page_owners()` instruments the actual
 related-page discovery and materialization functions in a serial isolated
 process. It records entry even when an operation fails or a catalog is empty,
-restores the functions on exit, and records only host-side document identity
-for materialization (never the source body or model-facing metadata). `catalog_discovery_count` scores catalog attempts separately
-from `acquisition_labels`, which projects materialization attempts. Both are
-partial observations, including failed attempts; a count within budget does
-not establish absence of unobserved work. Required-read scoring separately
-uses completed observations: an entered or raised materialization is an attempt,
-not evidence that a required page was read. A returned call can establish the
-read occurred, but does not by itself prove the answer used or cited its contents.
+restores the functions on exit, and records host-side pointer identity and,
+when a returned Markdown body matches its declared digest, that digest and
+returned identity (never the body). Catalog attempts remain separate from
+materialization attempts. Both are partial observations, including failed
+attempts; a count within budget does not establish absence of unobserved work.
+Related-page attempts bind to fixture labels only at the exact World, document,
+and revision. Required-read scoring credits a return only when its pointer,
+returned identity, and body digest match the independently verified fixture.
+Legacy ID-only, failed, malformed or mismatched returns remain unproven.
+Display-only trace items do not prove a completed fixture read, and even an
+exact returned read does not by itself prove the answer used or cited its contents.
 Direct assessor inputs without `completed_reads` retain the original contract:
 the caller's `reads` are independently observed completed reads. The probe is process-global while installed: do not run
 it against a shared service, concurrent evaluator, or live World. A focused
