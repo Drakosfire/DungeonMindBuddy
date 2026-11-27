@@ -91,3 +91,5 @@ this new codec only, recovery may retain an earlier capture from the same turn,
 conversation and fingerprint. The existing claim owner forbids reclaim once
 any provider authorization exists; this is essential to that allowance. Verify
 both sides at the real App boundary before accepting the change.
+
+Reader predecessor: merged as `50e66dd286a673da5fcef8074600d82fc99275d4` and deployed in Actions run `46007729329`; existing signed-in conversation and citation reopened. The producer successor owns behavior activation and its full recovery and access gates.

@@ -179,7 +179,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,selected_source_graph=False,selected_source_old_revision=False,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True):
     if failure == 'retry_controller_bad_request':
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         observe = native_corpus_source.observe_build_source_pointer
@@ -434,6 +434,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     admit_unrelated(lane, 'after-human-pick-before-http')
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
+    if authored_source == 'source_only' and selected_source_graph and not selected_source_old_revision:
+        # This case represents a source chosen at the current head; the other
+        # source-only fixtures intentionally keep the earlier selection revision.
+        source_ref = source_ref.model_copy(update={'knowledge_revision':current_revision})
+        selected = selected.model_copy(update={'references':(source_ref,)})
     if graph_reference:
         from apps.live_control_server.services import build_graph_reference
 
@@ -462,7 +467,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
-    if authored_source=='source_only':
+    if authored_source=='source_only' and not selected_source_graph:
         from apps.live_control_server.services.world_graph_projection import WorldGraphProjectionServiceError
         def no_object_binding(_):
             raise WorldGraphProjectionServiceError('No active object Graph',code='native_graph_binding_missing',status_code=409)
@@ -531,7 +536,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 choices = question['criteria']
                 if name == "source_need" and failure == "discussion_source_tie":
                     answers[name] = dict(type="choice", choice="uncertain", confidence=.07,
-                                         probabilities={"anchored": .24, "source_lookup": .38, "uncertain": .38})
+                                         probabilities={key: {"anchored": .24, "source_lookup": .38,
+                                                               "uncertain": .38}.get(key, 0)
+                                                        for key in choices})
                     continue
                 if name.startswith("image_move_"):
                     assert image_move and "Harbour map" in str(body["state"]["interaction"]["image_move"])
@@ -632,7 +639,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
 
             using_prior_citations = native_conversation_terminal(self.adapter.turn) is not None
-            expected_effort = ('medium' if current_work == 'draft_in_conversation' and saved_statblock == 'associated'
+            expected_effort = ('medium' if (current_work == 'draft_in_conversation' and saved_statblock == 'associated'
+                    or authored_source and (current_work == 'discuss' or current_work is None))
                 else 'none' if using_prior_citations and current_work == 'review_lore_page_from_conversation' else 'low')
             if body.get('reasoning', {}).get('effort') != expected_effort:
                 return httpx.Response(400, request=req, json={'error': {
@@ -1797,7 +1805,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     context = payload['knowledge_context']
     assert context['schema'] == 'dmb_agent_surface_native_context_response_v1'
     assert context['receipt']['work_context']['surface_id'] == 'build'
-    if authored_source=='source_only':
+    if authored_source=='source_only' and selected_source_graph and selected_source_old_revision:
+        assert context['receipt']['native_query']['schema']=='dmb_native_graph_query_v4'
+    elif authored_source=='source_only' and selected_source_graph:
+        assert context['receipt']['native_query']['schema']=='dmb_native_build_selected_source_query_pending_v1'
+    elif authored_source=='source_only':
         assert context['receipt']['native_query']['reason']=='native_graph_binding_unavailable'
     else:
         assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
@@ -4331,3 +4343,167 @@ def test_frozen_lore_outcome_survives_successor_menu_and_family_metadata(lane, t
     else:
         assert second.response.status_code == 200, second.response.text
         assert json.loads(second.writer.calls[0].content)['text']['format']['name'] == 'lore_page_response'
+
+
+def test_selected_source_discussion_skips_graph_and_reopens_citation(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads
+    from application_state.agent_conversation.native_context import NativeBuildSelectedSourceQueryPendingV1
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+    from application_state.agent_conversation.native_corpus import NativeAuthoredSourceReadV1
+
+    monkeypatch.setattr(native_graph_reads,'prepare_query',lambda *_args,**_kwargs:pytest.fail('unexpected Graph query'))
+    def before(adapter, provider):
+        if provider == 'typesafe':
+            assert type(adapter.native_query) is NativeBuildSelectedSourceQueryPendingV1
+            assert callable(adapter.prepare_deferred_build_query)
+            from application_state.agent_conversation.build_intentional_response import SOURCE_NEED_OPTIONS
+            request = json.loads(adapter._prepared_build_decision.body)
+            assert set(request['questions']['source_need']['criteria']) == set(SOURCE_NEED_OPTIONS)
+    case = _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
+        authored_source='source_only',selected_source_graph=True,requested_work='discuss',source_need='anchored',
+        message='Using only my selected source, what does it say about the episode? Cite it and do not search other sources.',
+        before_provider=before)
+    assert case is not None
+    events=case.turn.graph_context_execution.events
+    assert len([event for event in events if type(event) is NativeAuthoredSourceReadV1]) == 1
+    assert not any(type(event) is NativeBuildQuerySettledV1 for event in events)
+    reopened=AgentConversationService().inspect_turn(world_id=case.world,turn_id=case.turn.turn_id)
+    assert reopened == case.turn
+
+
+def test_selected_source_with_additional_lookup_settles_graph(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+    case = _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
+        authored_source='source_only',selected_source_graph=True,requested_work='discuss',source_need='source_lookup',
+        message='Use my selected source and also search the World for other evidence about the episode.')
+    assert sum(type(event) is NativeBuildQuerySettledV1 for event in case.turn.graph_context_execution.events) == 1
+    assert AgentConversationService().inspect_turn(world_id=case.world,turn_id=case.turn.turn_id) == case.turn
+
+
+def test_selected_source_from_earlier_revision_keeps_existing_graph_route(lane, tmp_path, monkeypatch):
+    case = _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
+        authored_source='source_only',selected_source_graph=True,selected_source_old_revision=True,
+        requested_work='discuss',source_need='source_lookup',
+        message='Describe the selected source and search the World for further context.')
+    assert case.turn.graph_context_receipt.native_query.schema_ == 'dmb_native_graph_query_v4'
+
+
+def test_selected_source_changed_content_fails_before_writer(lane, tmp_path, monkeypatch):
+    from copy import deepcopy
+    case = _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
+        authored_source='source_only',selected_source_graph=True,requested_work='discuss',source_need='anchored',
+        message='Use only my selected source. Cite it without searching elsewhere.')
+    request=deepcopy(case.request)
+    request['turn_id']=str(uuid4())
+    request['client_thread_id']=str(uuid4())
+    request['build_authored_references']['references'][0]['content_sha256']='f'*64
+    before=len(case.writer.calls)
+    response=case.client.post('/api/live/agent/turn',json=request)
+    assert response.status_code==409,response.text
+    assert response.json()['detail']['code']=='authored_source_unavailable'
+    assert len(case.writer.calls)==before
+
+
+def test_selected_source_recovers_after_accept_before_claim(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+
+    def dispatch(client, _world, body):
+        with monkeypatch.context() as patch:
+            def interrupted(*_args, **_kwargs):
+                raise RuntimeError('interrupted after durable acceptance')
+            patch.setattr(AgentConversationService, 'claim_turn', interrupted)
+            first = client.post('/api/live/agent/turn', json=body)
+        assert first.status_code == 503, first.text
+        return client.post('/api/live/agent/turn', json=body)
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        source_need='anchored', dispatch=dispatch,
+        message='Use only my selected source and cite it.')
+    events = case.turn.graph_context_execution.events
+    assert not any(type(event) is NativeBuildQuerySettledV1 for event in events)
+    assert sum(isinstance(event, t.ProviderAttemptAuthorizedEventV5)
+               and event.context_phase == 'select' for event in events) == 1
+
+
+def test_selected_source_unknown_writer_outcome_is_not_retried(lane, tmp_path, monkeypatch):
+    _fresh_case(lane, tmp_path, monkeypatch, 'retry_unknown', False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        source_need='anchored', message='Use only my selected source and cite it.')
+
+
+def test_selected_source_uncertain_scope_asks_before_acquiring_graph(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads
+    monkeypatch.setattr(native_graph_reads, 'prepare_query',
+        lambda *_args, **_kwargs: pytest.fail('unexpected Graph query during clarification'))
+    _fresh_case(lane, tmp_path, monkeypatch, 'discussion_source_tie', False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        message='What does my selection say?')
+
+
+def test_selected_source_late_graph_failure_is_not_dispatched_twice(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
+    settlements = []
+    dispatches = []
+
+    def fail_settlement(*_args, **_kwargs):
+        settlements.append(True)
+        raise RuntimeError('synthetic failure during Graph settlement')
+
+    def witness(_adapter, provider):
+        dispatches.append(provider)
+
+    def send(client, _world, body):
+        first = client.post('/api/live/agent/turn', json=body)
+        again = client.post('/api/live/agent/turn', json=body)
+        assert again.status_code in {409, 503}, again.text
+        return first
+
+    monkeypatch.setattr(_PolicyExecutionAdapter, 'settle_deferred_build_query', fail_settlement)
+    _fresh_case(lane, tmp_path, monkeypatch, 'deferred_settlement_drift', False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        source_need='source_lookup', before_provider=witness, dispatch=send,
+        message='Use my selected source and search for other evidence.')
+    assert settlements == [True]
+    assert dispatches == ['typesafe']
+
+
+def test_selected_source_access_revoked_before_read_fails_closed(lane, tmp_path, monkeypatch):
+    from copy import deepcopy
+    from apps.live_control_server.services import native_authored_references
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        source_need='anchored', message='Use only my selected source and cite it.')
+    request = deepcopy(case.request)
+    request['turn_id'] = str(uuid4())
+    request['client_thread_id'] = str(uuid4())
+    before = len(case.writer.calls)
+    def revoked(*_args, **_kwargs):
+        raise ValueError('synthetic source access revoked')
+    monkeypatch.setattr(native_authored_references, 'read_authored_source', revoked)
+    response = case.client.post('/api/live/agent/turn', json=request)
+    assert response.status_code == 409, response.text
+    assert response.json()['detail']['code'] == 'authored_source_unavailable'
+    assert len(case.writer.calls) == before
+
+
+@pytest.mark.parametrize('field,value', [
+    ('managed_world_id', 'foreign-managed-world'),
+    ('native_world_id', 'foreign-native-world'),
+    ('source_revision_id', 'missing-source-revision'),
+])
+def test_selected_source_foreign_or_missing_identity_fails_closed(lane, tmp_path, monkeypatch, field, value):
+    from copy import deepcopy
+
+    case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        source_need='anchored', message='Use only my selected source and cite it.')
+    request = deepcopy(case.request)
+    request['turn_id'] = str(uuid4())
+    request['client_thread_id'] = str(uuid4())
+    request['build_authored_references']['references'][0][field] = value
+    before = len(case.writer.calls)
+    response = case.client.post('/api/live/agent/turn', json=request)
+    assert response.status_code in {403, 409, 422}, response.text
+    assert len(case.writer.calls) == before
