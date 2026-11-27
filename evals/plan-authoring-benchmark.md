@@ -7,6 +7,8 @@ assessment local.
 
 ## Action catalog
 
+The [anchored current-page edit control](right-action-decision-benchmarks.md#3-anchored-evidence-enforcement) separates optional page opens from catalog and Graph discovery. A resolved anchored edit skips optional saved-page opens. The complete zero-read workflow still needs evidence.
+
 This is Buddy’s canonical action inventory. Follow the
 [maintenance rule](../AGENTS.md#agent-action-catalog) when action availability,
 workflow behavior, or verification evidence changes.
