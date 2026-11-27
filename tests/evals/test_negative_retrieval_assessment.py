@@ -5119,3 +5119,58 @@ def test_different_saved_source_case_requires_correct_support_and_complete_captu
     assert assess(rubric, unknown)["status"] == "unproven"
     missing = dict(good, reads=["first-record"], journal_complete=True)
     assert assess(rubric, missing)["checks"]["required_evidence"] is False
+
+
+@pytest.mark.parametrize("mode", ["matching", "wrong_conversation", "stale_pin", "changed_after_preflight"])
+def test_negative_capture_composes_with_ordinary_history_pin(
+        tmp_path, monkeypatch, verified_capture_owner, mode):
+    """Exercise the adapter and actual ordinary case through the send boundary."""
+    import hashlib
+    import httpx
+    from evals.buddy_benchmark import workflow
+    from evals.negative_retrieval import capture as module
+
+    case = {"id": "seeded", "question": "Use that idea."}
+    fixture = {"request": case["question"], "history": [
+        {"role": "user", "content": "An idea?"},
+        {"role": "assistant", "content": "A star."}], "related_pages": []}
+    turn = {"turn_id": "t", "sequence": 1, "lifecycle_status": "completed",
+            "user_text": "An idea?", "assistant_text": "A star."}
+    history = {"world_id": "w", "conversation_id": "c", "active_conversation_id": "c",
+               "next_before_sequence": None, "turns": [turn]}
+    digest = lambda value: hashlib.sha256(value.encode()).hexdigest()
+    pin = {"conversation_id": "other" if mode == "wrong_conversation" else "c",
+           "prior_turns": [{"turn_id": "t", "sequence": 1,
+               "user_text_sha256": digest("An idea?"),
+               "assistant_text_sha256": digest("stale" if mode == "stale_pin" else "A star.")}]}
+    requests = []
+    history_reads = 0
+    def handle(request):
+        nonlocal history_reads
+        requests.append((request.method, request.url.path))
+        if request.method == "GET":
+            history_reads += 1
+            if mode == "changed_after_preflight" and history_reads == 2:
+                turn["assistant_text"] = "Changed."
+            return httpx.Response(200, json=history)
+        return httpx.Response(503, json={"code": "synthetic_stop"})
+
+    monkeypatch.setattr(workflow, "load_manifest", lambda *a, **k: (
+        {"conversation_mode": "build_sequence", "cases": [case]}, tmp_path))
+    monkeypatch.setattr(workflow, "validate_template", lambda *a, **k: None)
+    monkeypatch.setattr(module, "verify_preflight_snapshot", lambda *a: True)
+    monkeypatch.setattr(module, "inspect_related_pages", lambda *a: [])
+    def run_case(manifest, output, *, cohort_manifest_sha256, clone_app=False):
+        with httpx.Client(base_url="http://localhost", transport=httpx.MockTransport(handle)) as client:
+            return workflow.capture_case(client, "w", {"primary_work": {"object_id": "page"},
+                "surface": {"surface_id": "build"}}, case, output,
+                build_thread_id="test-thread", pinned_history=pin, expected_conversation_id=None)
+    monkeypatch.setattr(workflow, "capture", run_case)
+    fixtures = {"seeded": fixture}
+    with pytest.raises(ValueError):
+        module.capture(_test_manifest(tmp_path), tmp_path / "result", fixtures=fixtures,
+                       expected_manifest_sha256=MANIFEST_PIN,
+                       expected_fixture_sha256=module.fixture_sha256(fixtures))
+    posts = [path for method, path in requests if method == "POST"]
+    assert posts == (["/api/live/agent/turn"] if mode == "matching" else [])
+    assert "/api/live/agent/worlds/w/conversation/new" not in posts
