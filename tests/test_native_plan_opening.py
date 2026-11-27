@@ -384,3 +384,81 @@ def test_controller_selected_mode_rejects_legacy_automatic_work_grant():
     changed = legacy.model_copy(update={'policy': record.policy.model_copy(update={'action': action})})
     with pytest.raises(ValueError, match='original readonly work'):
         validate_initial_source_search(changed, grant)
+
+
+def _guidance_wire(parent):
+    from application_state.agent_conversation.jev_retrieval_contract import MODEL
+    decision = prepare_opening_decision(parent)
+    return {"model": MODEL, "state": decision.state, "questions": {
+        q.name: {"type": "choice", "instructions": q.question,
+                 "criteria": {option: (q.option_descriptions or {}).get(option) for option in q.options}}
+        for q in decision.questions}}
+
+
+def test_work_guidance_reader_preserves_historical_wire_and_marks_only_new_choice_descriptions():
+    from uuid import UUID
+    from application_state.agent_conversation.plan_authoring import validate_requested_work_wire
+    parent = opening_input().model_copy(update={"request_id": UUID(int=1), "parent_attempt_id": UUID(int=2)})
+    original = parent.model_dump(mode="json", by_alias=True)
+    assert "work_choice_guidance_version" not in original
+    assert NativePlanOpeningInputV1.model_validate(original) == parent
+    old = _guidance_wire(parent)
+    historic = {k: v for k, v in old.items() if k != "model"}
+    assert sha256(json.dumps(historic, sort_keys=True, separators=(",", ":")).encode()).hexdigest() == "88e91668123b365d58010da5e75d83b3457c5c1062b661adf3fc517e70a5c487"
+    marked = NativePlanOpeningInputV1.model_validate(original | {"work_choice_guidance_version": "v1"})
+    assert marked.digest != parent.digest
+    new = _guidance_wire(marked)
+    assert old["state"] == new["state"]
+    assert "work_choice_guidance_version" not in json.dumps(new)
+    assert {k: v for k, v in old["questions"].items() if k != "requested_work"} == {k: v for k, v in new["questions"].items() if k != "requested_work"}
+    old_q, new_q = old["questions"]["requested_work"], new["questions"]["requested_work"]
+    assert old_q["instructions"] == new_q["instructions"]
+    assert old_q["criteria"].keys() == new_q["criteria"].keys()
+    assert all(value is None for value in old_q["criteria"].values())
+    assert all(isinstance(value, str) and value for value in new_q["criteria"].values())
+    for owner, wire in ((parent, old), (marked, new)):
+        validate_requested_work_wire(owner, json.dumps(wire).encode())
+    for owner, wire in ((parent, new), (marked, old)):
+        with pytest.raises(ValueError, match="wire differs"):
+            validate_requested_work_wire(owner, json.dumps(wire).encode())
+
+
+def test_work_guidance_reader_rejects_unknown_and_other_opening_versions():
+    from pydantic import ValidationError
+    parent = opening_input()
+    original = parent.model_dump(mode="json", by_alias=True)
+    with pytest.raises(ValidationError):
+        NativePlanOpeningInputV1.model_validate(original | {"work_choice_guidance_version": "v2"})
+    newer = original | {"schema": "dmb_native_plan_opening_input_v2"}
+    unmarked = NativePlanOpeningInputV2.model_validate(newer)
+    with pytest.raises(ValidationError, match="only to the V1 opening"):
+        NativePlanOpeningInputV2.model_validate(newer | {"work_choice_guidance_version": "v1"})
+    with pytest.raises(ValueError, match="Unsupported work-choice guidance version"):
+        prepare_opening_decision(unmarked.model_copy(update={"work_choice_guidance_version": "v1"}))
+
+
+@pytest.mark.parametrize('operation', ['discuss', 'write_current_page'])
+def test_work_guidance_reader_keeps_explicit_operation_choice_set(operation):
+    parent = opening_input().model_copy(update={'plan_requested_operation': operation})
+    marked = parent.model_copy(update={'work_choice_guidance_version': 'v1'})
+    old = prepare_opening_decision(parent).questions[0]
+    new = prepare_opening_decision(marked).questions[0]
+    assert new.options == old.options
+    assert set(new.option_descriptions) == set(new.options)
+
+
+def test_work_guidance_reader_validates_exact_prepared_dispatch():
+    from uuid import uuid4
+    from generationengine.decision_dispatch import PreparedDecisionDispatch
+    from application_state.agent_conversation.jev_retrieval_contract import MODEL, PROVIDER
+    from application_state.agent_conversation.plan_authoring import validate_prepared_requested_work
+
+    parent = opening_input().model_copy(update={'work_choice_guidance_version': 'v1'})
+    body = json.dumps(_guidance_wire(parent), separators=(',', ':')).encode()
+    prepared = PreparedDecisionDispatch(attempt_id=str(uuid4()), provider=PROVIDER,
+        provider_transport='vercel_ai_gateway', model=MODEL, method='POST',
+        url='https://ai-gateway.vercel.sh/typesafe/v1/systemone', body=body,
+        body_sha256=sha256(body).hexdigest(), body_size=len(body))
+    validate_prepared_requested_work(parent, prepared)
+    with pytest.raises(ValueError, match='wire differs'):
+        validate_prepared_requested_work(parent.model_copy(update={'work_choice_guidance_version': None}), prepared)
