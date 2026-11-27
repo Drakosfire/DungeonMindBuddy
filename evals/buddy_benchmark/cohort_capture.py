@@ -184,8 +184,16 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                 path.parent, world=member["world"], history_pin=member["build_history"],
                 history_base=base,
             )
-            if page["object"]["work_object_id"] not in protected_objects:
+            obj = page["object"]
+            document_id = obj["work_object_id"]
+            if document_id not in protected_objects:
                 raise ValueError("The restored Build page must be a protected work object")
+            work = (member.get("request_template") or {}).get("primary_work") or {}
+            if (work.get("kind"), work.get("object_id"), work.get("expected_revision"),
+                work.get("expected_content_sha256")) != (
+                    "build", document_id, obj["object_revision"], page["revision"]["content_sha256"]
+                ):
+                raise ValueError("Build fixture page must match the first ordinary request")
             fixture = (bundle, page, seed)
         app = member["isolation"]["app"]
         current_native = member["isolation"]["native"]
