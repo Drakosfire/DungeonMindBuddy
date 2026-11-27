@@ -15,7 +15,7 @@ from application_state.agent_conversation.native_retrieval import (
     owner, scope_digest, source_pins, controller_accounting,
 )
 from application_state.agent_conversation.jev_retrieval_contract import (
-    NativeBuildRetrievalDecisionInputV3, prepare_decision, decode_selection,
+    NativeBuildRetrievalDecisionInputV5, prepare_decision, decode_selection,
 )
 from .build_pending_app_pages import PendingAppPageDriver, _commit
 from .build_jev_driver import canonical, sdk_answers
@@ -31,7 +31,7 @@ class PendingNativeRetrievalDriver(PendingAppPageDriver):
         self.receipt, self.before = owner(adapter.fence.turn)
         if getattr(adapter, 'prepare_deferred_build_query', None) is not None:
             raise ValueError('Pending retrieval cannot race deferred source preparation')
-        self.parent = NativeBuildRetrievalDecisionInputV3(
+        self.parent = NativeBuildRetrievalDecisionInputV5(
             request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256=scope_digest(adapter.fence.turn),
             question=self.before.policy.action.intent.message, dialogue=tuple(dialogue),
             candidates=tuple(candidates), examined_candidates=tuple(examined_candidates),

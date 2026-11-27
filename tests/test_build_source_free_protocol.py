@@ -4529,6 +4529,26 @@ def test_pending_native_selection_refuses_unbound_output_and_lost_fence(monkeypa
         assert not any(e.event_id == selected.event_id for e in state.turn.graph_context_execution.events)
 
 
+def test_pending_native_driver_emits_deployed_targeted_decision(monkeypatch):
+    from application_state.agent_conversation.jev_retrieval_contract import (
+        NativeBuildRetrievalDecisionInputV5, RetrievalCandidate, validate_wire_body,
+    )
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    from apps.live_control_server.services.build_pending_native_retrieval import PendingNativeRetrievalDriver
+
+    with pending_source_runtime_case(monkeypatch) as (state, source_adapter, _):
+        assert prepare_pending_native_source(source_adapter)
+        with pending_app_runtime_case(monkeypatch, seed=state) as (_, adapter):
+            candidates = (RetrievalCandidate(handle='host-only', label='Source A', kind='source'),)
+            driver = PendingNativeRetrievalDriver(adapter, candidates,
+                allowed_operations=('select_candidates', 'finish_retrieval'))
+            assert type(driver.parent) is NativeBuildRetrievalDecisionInputV5
+            assert 'prefer the strongest specific candidate' in driver.wire['state']['relevance_guidance']
+            raw = json.dumps(driver.wire).encode()
+            validate_wire_body(driver.parent, raw, controller_accounting=adapter._build_jev_accounting.descriptor)
+            assert 'host-only' not in raw.decode()
+
+
 @pytest.mark.parametrize('operation', ['select_candidates', 'finish_retrieval'])
 @pytest.mark.parametrize('failure', [None, 'unknown_choice', 'access'])
 def test_pending_native_runtime_actual_sdk_preserves_full_dialogue_and_prepared_scope(monkeypatch, operation, failure):
