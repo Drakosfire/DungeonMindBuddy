@@ -10,6 +10,7 @@ from application_state.agent_conversation.native_plan_graph_need import (
 )
 from application_state.agent_conversation.native_plan_opening import opening_dialogue_sha256
 from tests.test_jev_retrieval_contract import result
+from tests.test_native_assertion_source_locators import core_read
 
 
 def parent():
@@ -509,7 +510,7 @@ def test_no_graph_writer_authorization_roundtrips_and_rejects_late_graph_events(
         validate_context_binding(context, bad)
 
 
-def test_pending_graph_allows_exact_authored_reference_after_query_settlement(monkeypatch):
+def _pending_graph_allows_exact_authored_reference_after_query_settlement(monkeypatch, support=None):
     from uuid import uuid4
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredReferencesV2
@@ -528,7 +529,7 @@ def test_pending_graph_allows_exact_authored_reference_after_query_settlement(mo
     authority = context.native_query.authority
     ref = AuthoredGraphReferenceV1(managed_world_id=authority.managed_world_id,
         native_world_id=authority.native_world_id, binding_version=authority.binding_version,
-        graph_revision=authority.revision_id, node_id='ent:synthetic', label='Synthetic selected object')
+        graph_revision=authority.revision_id, node_id=support.assertion.subject_entity_id if support else 'ent:synthetic', label='Synthetic selected object')
     refs = AuthoredReferencesV2(references=(ref,))
     data = record.policy.action.intent.model_dump(mode='json', by_alias=True)
     data.update(schema='dmb_agent_submitted_turn_intent_v3', authored_references=refs.model_dump(mode='json', by_alias=True))
@@ -569,8 +570,11 @@ def test_pending_graph_allows_exact_authored_reference_after_query_settlement(mo
     start = NativePlanGraphQueryStartedV1(event_id=uuid4(), sequence=6, authorization_event_id=grant.event_id)
     query_data = wire('plan')['native_query']; query_data['schema'] = 'dmb_native_graph_query_v3'
     query_data['authority']['scope_mode'] = 'world'; query_data['authority']['campaign_id'] = None
+    matches = [] if support is None else [{'assertion_id': support.assertion.assertion_id,
+        'subject_entity_id': ref.node_id, 'discovered_entity_ids': [ref.node_id],
+        'assertion_sha256': t.canonical_sha256(support.assertion), 'label': 'Synthetic supported assertion'}]
     query_data['authored_targets'] = [{'node_id': ref.node_id, 'selection_revision_id': ref.graph_revision,
-        'matches': [], 'assertion_matches': [], 'status': 'complete', 'gap_codes': []}]
+        'matches': [], 'assertion_matches': matches, 'status': 'complete', 'gap_codes': []}]
     query = NativeGraphQueryV3.model_validate(query_data)
     settlement = NativePlanGraphQuerySettledV1(event_id=uuid4(), sequence=7, started_event_id=start.event_id, query=query)
     retained = execution(context.context_receipt_sha256, policy, [capture, auth, *outcomes(auth, 2), observed, grant, start, settlement])
@@ -582,10 +586,16 @@ def test_pending_graph_allows_exact_authored_reference_after_query_settlement(mo
         execution_policy_sha256=retained.execution_policy_sha256, query_sha256=query.sha256)
     authored_read = BuildAuthoredReferenceReadV2(event_id=uuid4(), sequence=9, capture_event_id=capture.event_id,
         authorization_event_id=authored_grant.event_id, node_id=ref.node_id,
-        statement_reads=(), assertion_reads=(), unavailable_statement_ids=(), unavailable_assertion_ids=(), status='complete')
+        statement_reads=(), assertion_reads=(support,) if support else (), unavailable_statement_ids=(), unavailable_assertion_ids=(), status='complete')
     with_read = execution(context.context_receipt_sha256, policy, [*retained.events, authored_grant, authored_read])
     assert validate_context_binding(context, with_read) == with_read
     assert validate_context_binding(context, type(with_read).model_validate_json(with_read.model_dump_json(by_alias=True))) == with_read
+    if support is not None:
+        altered = authored_read.model_copy(update={'assertion_reads': ()})
+        bad_support = execution(context.context_receipt_sha256, policy, [*retained.events, authored_grant, altered])
+        with pytest.raises(ValueError, match='support inventory'):
+            validate_context_binding(context, bad_support)
+        return
     from types import SimpleNamespace
     from apps.live_control_server.services import native_graph_reads
     from tests.test_native_corpus_source_access import GM
@@ -601,6 +611,16 @@ def test_pending_graph_allows_exact_authored_reference_after_query_settlement(mo
     bad = execution(context.context_receipt_sha256, policy, [*retained.events, bad_grant, authored_read])
     with pytest.raises(ValueError, match='exact settled query digest'):
         validate_context_binding(context, bad)
+
+
+def test_pending_graph_allows_exact_authored_reference_after_query_settlement(monkeypatch):
+    _pending_graph_allows_exact_authored_reference_after_query_settlement(monkeypatch)
+
+
+def test_pending_graph_roundtrip_preserves_nonempty_core_support(monkeypatch, core_read):
+    # The Core fixture supplies real supported assertion bytes. The synthetic
+    # target catalog then exercises the complete pending receipt and event join.
+    _pending_graph_allows_exact_authored_reference_after_query_settlement(monkeypatch, core_read)
 
 
 def test_no_graph_writer_reconstructs_actual_sdk_request_without_false_graph_evidence():
