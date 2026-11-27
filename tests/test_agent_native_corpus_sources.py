@@ -48,6 +48,7 @@ def source_adapter(application_state_dsn, monkeypatch, lane, request):
     adapter._test_creative = bool(unique and supplied.get('no_source'))
     adapter._test_multi = bool(unique and supplied.get('multi_source'))
     adapter._test_long = bool(unique and supplied.get('long_context'))
+    adapter._test_missing = bool(unique and supplied.get('missing_source'))
     yield adapter
     if adapter.fence is not None:
         adapter.fence.renewer.stop_and_join()
@@ -567,8 +568,9 @@ HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private contex
     {'unique_world': True, 'sources': [('first', HTTP_BODY)]},
     {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]},
     {'unique_world': True, 'multi_source': True, 'sources': [('first', HTTP_BODY), ('second', HTTP_BODY.replace('Éphanna heard the guard.', 'Éphanna heard the bell.'))]},
-    {'unique_world': True, 'no_source': True, 'long_context': True, 'sources': [('first', HTTP_BODY)]}],
-    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context'])
+    {'unique_world': True, 'no_source': True, 'long_context': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'missing_source': True, 'sources': [('first', HTTP_BODY)]}],
+    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context', 'controller-missing-source'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
 def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
@@ -584,11 +586,14 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     creative = a._test_creative
     multi = a._test_multi
     long_context = a._test_long
+    missing = a._test_missing
+    if missing and direct:
+        pytest.skip('Missing-source control covers lexical search')
     if long_context and direct:
         pytest.skip('Long-context control covers creative lexical-free route once')
     if multi and direct:
         pytest.skip('Multi-source control covers lexical selection; direct selection has separate single-source controls')
-    request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor. The keeper accepts a blue bead at dawn.' if creative else 'Whom did Éphanna hear?'),
+    request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor. The keeper accepts a blue bead at dawn.' if creative else 'What was the secret password?' if missing else 'Whom did Éphanna hear?'),
         'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
@@ -637,6 +642,10 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
                     'answer_segments': [
                         {'kind': 'proposal', 'label': 'invented_idea',
                          'text': 'A blue bead.' if final_context_question else 'Lantern Quay.'}]})
+                return await super().handle_async_request(request)
+            if missing:
+                from application_state.agent_conversation.native_plan_assertions import POLICY
+                self.text = json.dumps({'schema': POLICY, 'limitations': ['missing_requested_details', 'partial_retrieval'], 'answer_segments': []})
                 return await super().handle_async_request(request)
             import re
             from application_state.agent_conversation.native_evidence_view import PLAN_EVIDENCE_HEADING
@@ -719,6 +728,19 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             assert 'blue bead' in turn.assistant_text
         return
     selection_count = len(choices.calls)
+    if missing:
+        from application_state.agent_conversation.native_corpus import (
+            NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1, NativeBodyReadObservedV1,
+        )
+        turn = wire.adapter.turn
+        events = turn.graph_context_execution.events
+        assert not any(type(event) is NativePlanRequestSearchAuthorizedV1 for event in events)
+        assert sum(type(event) is NativeBodySearchAuthorizedV1 for event in events) == 1
+        assert not any(type(event) is NativeBodyReadObservedV1 for event in events)
+        completed = wire.adapter.service.inspect_turn(world_id=a.world_id, turn_id=turn.turn_id)
+        assert not completed.completion.native_body_citations
+        assert any(item.code in ('missing_requested_details', 'partial_retrieval') for item in completed.completion.limitations)
+        return
     if multi:
         from application_state.agent_conversation.native_corpus import (
             NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
