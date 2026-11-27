@@ -1192,3 +1192,75 @@ def test_erase_conversation_preserves_its_committed_lore_page(world, application
         assert conn.execute(
             "SELECT 1 FROM agent.lore_page_confirmation WHERE turn_id=%s", (turn.turn_id,),
         ).fetchone() is None
+
+
+def test_working_copy_revision_projection_excludes_draft_text():
+    """The committed read retrieves the CAS number without draft contents."""
+
+    class Cursor:
+        def __init__(self, row):
+            self.row, self.query, self.params = row, None, None
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def execute(self, query, params):
+            self.query, self.params = query, params
+
+        def fetchone(self):
+            return self.row
+
+    class Connection:
+        def __init__(self, row):
+            self.cursor_value = Cursor(row)
+
+        def cursor(self, **kwargs):
+            return self.cursor_value
+
+    page_id = uuid4()
+    for row, expected in ((None, None), ({"working_copy_revision": 7}, 7)):
+        connection = Connection(row)
+        assert repository.get_working_copy_revision(connection, page_id) == expected
+        query = " ".join(connection.cursor_value.query.lower().split())
+        assert query == "select working_copy_revision from content.working_copy where work_object_id = %s"
+        assert connection.cursor_value.params == (page_id,)
+
+
+def test_committed_snapshot_projects_revision_and_preserves_stale_draft(world, monkeypatch):
+    page = pages.create_page(world_id=world, title="Synthetic committed page")
+    with monkeypatch.context() as patch:
+        patch.setattr(repository, "get_working_copy", lambda *_: pytest.fail("committed snapshot read full draft"))
+        initial = pages.committed_page(ident(page), world_id=world)
+    assert initial.revision is None and initial.working_copy_revision is None
+    committed, revision = pages.commit_page(
+        ident(page), "saved text", world_id=world,
+        expected_revision=page.page.object_revision, expected_working_copy_revision=None,
+    )
+    editor = pages.snapshot_page(ident(committed), world_id=world)
+    with monkeypatch.context() as patch:
+        patch.setattr(repository, "get_working_copy", lambda *_: pytest.fail("committed snapshot read full draft"))
+        clean = pages.committed_page(ident(committed), world_id=world)
+    assert clean.revision == revision and clean.working_copy_revision == editor.working_copy_revision
+    drafted = pages.save_draft(
+        ident(committed), "first draft", world_id=world,
+        expected_revision=committed.page.object_revision, expected_working_copy_revision=clean.working_copy_revision,
+    )
+    with monkeypatch.context() as patch:
+        patch.setattr(repository, "get_working_copy", lambda *_: pytest.fail("committed snapshot read full draft"))
+        basis = pages.committed_page(ident(drafted), world_id=world)
+    assert basis.revision == revision and basis.working_copy_revision == (clean.working_copy_revision or 0) + 1
+    pages.save_draft(
+        ident(drafted), "newer draft", world_id=world,
+        expected_revision=basis.page.object_revision, expected_working_copy_revision=basis.working_copy_revision,
+    )
+    with pytest.raises(ApplicationStateConflictError):
+        pages.commit_page(
+            ident(drafted), "stale overwrite", world_id=world,
+            expected_revision=basis.page.object_revision, expected_working_copy_revision=basis.working_copy_revision,
+        )
+    current = pages.snapshot_page(ident(drafted), world_id=world)
+    assert current.markdown == "newer draft" and current.from_working_copy
+    assert pages.committed_page(ident(drafted), world_id=world).revision == revision
