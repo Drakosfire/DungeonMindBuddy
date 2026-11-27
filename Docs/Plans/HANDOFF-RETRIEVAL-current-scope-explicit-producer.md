@@ -24,4 +24,6 @@ require the compatible reader as rollback floor. Current-page optional-skip and
 unavailable-source 503 are separate remaining failures.
 
 Write lease: this handoff, `apps/live_control_server/services/build_jev_driver.py`,
-and focused cases in `tests/test_native_build_work_view.py`. No schema changes.
+and focused cases in `tests/test_native_build_work_view.py` and
+`tests/test_build_current_page_direct.py`. The latter owns the existing opening
+assertion and must move with the emitted question. No schema changes.

@@ -575,9 +575,9 @@ class BuildJevDriver:
             from application_state.agent_conversation.build_intentional_response import SOURCE_NEED_GUIDANCE, SOURCE_NEED_OPTIONS
             if getattr(a, 'pending_build_source_observation', None) is not None:
                 from application_state.agent_conversation.build_intentional_response import (
-                    FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE, FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS)
+                    EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE, FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS)
                 SOURCE_NEED_GUIDANCE, SOURCE_NEED_OPTIONS = (
-                    FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE, FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS)
+                    EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE, FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS)
 
             questions += (DecisionQuestion(name="source_need", kind="choice",
                                            question=SOURCE_NEED_GUIDANCE, options=SOURCE_NEED_OPTIONS),)
