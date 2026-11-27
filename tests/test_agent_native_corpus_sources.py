@@ -982,3 +982,61 @@ def test_shared_legacy_plan_action_builder_keeps_historical_mode(monkeypatch):
         request, plan_source_turn._plan_basis(work), None, intent)
     assert action.source_discovery_mode is None
     assert 'source_discovery_mode' not in action.model_dump(mode='json', by_alias=True)
+
+
+@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', HTTP_BODY)]}], indirect=True)
+def test_ordinary_http_uncertain_graph_need_delivers_replayable_clarification(
+        source_adapter, lane, monkeypatch, tmp_path, application_state_dsn):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import plan_jev_harness
+    from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
+    from apps.live_control_server.services import managed_world_graph_projection as managed, native_graph_reads
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+    from application_state.agent_conversation.native_plan_graph_need import GRAPH_NEED_CLARIFICATION_QUESTION
+
+    a = source_adapter
+    request = a.request.model_copy(update={'message': 'Should this use the World or our conversation?',
+        'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
+    token = 'synthetic-native-test-token-1234567890'
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN', token)
+    monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
+    monkeypatch.setattr(agent, '_owner_resolver', lambda _: {'kind': 'world', 'id': a.world_id, 'name': 'Synthetic World'})
+    monkeypatch.setattr(agent, '_verified_world_id', lambda world: world)
+    monkeypatch.setattr(agent, '_work_resolver', lambda *_: a.work)
+    monkeypatch.setattr(agent, '_historical_work_resolver', lambda *_args, **_kwargs: a.work)
+    monkeypatch.setattr(agent, '_graph_resolver', lambda *_: pytest.fail('Unexpected Graph fallback'))
+    monkeypatch.setattr(agent, '_plan_context_resolver', lambda *_args, **_kwargs: pytest.fail('Graph was acquired'))
+    monkeypatch.setattr(native_graph_reads, 'resolve_managed_world_binding', lambda _: lane.bound)
+    monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: lane.bound)
+    monkeypatch.setattr(native_registry_source, 'repository', lambda **_kwargs: lane.repo)
+    calls = []
+    class UncertainWire(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, wire):
+            body = json.loads(wire.content); calls.append(body)
+            assert set(body['questions']) == {'graph_need'}
+            return httpx2.Response(200, request=wire, json={'model': 'typesafe-ai/jev-1.14.0',
+                'answers': {'graph_need': {'type': 'choice', 'choice': 'uncertain', 'confidence': 1,
+                    'probabilities': {'require_graph': 0, 'no_graph': 0, 'uncertain': 1}}},
+                'usage': {'input_tokens': 10, 'output_tokens': 1}})
+    class NoWriter(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, wire):
+            pytest.fail('Uncertain Graph decision dispatched a writer')
+    monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', lambda: PlanJevHarness(
+        decision_transport=UncertainWire(), writer_transport=NoWriter(),
+        decision_api_key='synthetic-not-secret', writer_api_key='synthetic-not-secret'))
+    app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
+    with TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token}) as client:
+        first = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert first.status_code == 200, first.text
+        data = first.json()
+        assert data['answer']['text'] == GRAPH_NEED_CLARIFICATION_QUESTION
+        assert data['plan_context']['completion']['schema'] == 'dmb_plan_graph_need_clarification_v1'
+        replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
+        assert replay.json()['answer']['text'] == GRAPH_NEED_CLARIFICATION_QUESTION
+    assert len(calls) == 1
