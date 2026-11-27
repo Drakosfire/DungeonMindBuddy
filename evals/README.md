@@ -194,8 +194,8 @@ confirmation returns. After withholding the response, the capture reopens
 the receipt and committed page and verifies that no second confirmation or
 page change occurred. The browser request start timestamp can be unavailable
 for the aborted request. The capture retains it as null and independently
-records whether the confirmation POST was observed after dispatching Check
-insertion. A run without a withheld receipt leaves recovery
+records the trusted Check insertion click and the matching fetch in the
+same browser clock. A fetch observed before the click fails the control. A run without a withheld receipt leaves recovery
 unverified.
 
 For an unsent draft recovery control, use `capture --build-fixture --case

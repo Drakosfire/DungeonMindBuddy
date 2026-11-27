@@ -336,7 +336,6 @@ async function run() {
         if (process.env.DMB_BENCHMARK_LOSE_CONFIRM_ACK === "1") {
           const exactPath = url => url.origin === origin && url.pathname === reviewPath && !url.search;
           const confirmPosts = [];
-          let checkingInsertion = false;
           let confirmRequest;
           confirmation.confirm_posts = confirmPosts;
           confirmation.retry_exercised = false;
@@ -345,8 +344,7 @@ async function run() {
             const command = request.postDataJSON();
             if (command?.operation === "confirm") {
               confirmRequest = request;
-              confirmPosts.push({apply_id: command.apply_id, expected_revision: command.expected_revision,
-                observed_after_check_dispatch: checkingInsertion});
+              confirmPosts.push({apply_id: command.apply_id, expected_revision: command.expected_revision});
             }
           });
           let held;
@@ -407,18 +405,44 @@ async function run() {
               const check = page.getByRole("region", { name: "Check suggestion insertion", exact: true })
                 .getByRole("button", { name: "Check insertion", exact: true });
               await check.waitFor({ timeout: 10000 });
-              await check.evaluate(button => button.addEventListener("click", () => {
-                performance.mark("benchmark-check-insertion");
-              }, { capture: true, once: true }));
-              if (confirmPosts.length !== 0) throw new Error("Confirmation arrived before Check insertion");
-              checkingInsertion = true;
-              await check.click();
-              confirmation.check_clicked_at_ms = await page.evaluate(() => {
-                const click = performance.getEntriesByName("benchmark-check-insertion").at(-1);
-                return click ? performance.timeOrigin + click.startTime : null;
-              });
-              confirmation.retry_exercised = confirmation.check_clicked_at_ms !== null;
-              await pollBrowserRead(() => held || false, 12000, 200, "confirmation response to withhold after Check insertion");
+              await check.evaluate((button, binding) => {
+                const originalFetch = window.fetch;
+                let click = null;
+                const requests = [];
+                const observeClick = event => {
+                  if (event.isTrusted) click = performance.now();
+                };
+                button.addEventListener("click", observeClick, { capture: true, once: true });
+                window.fetch = function(input, init) {
+                  if (typeof input === "string" && init?.method === "POST" && typeof init.body === "string") {
+                    const url = new URL(input, location.href);
+                    if (url.origin === location.origin && url.pathname === binding.path && !url.search) {
+                      let command;
+                      try { command = JSON.parse(init.body); } catch { /* Preserve the original fetch. */ }
+                      if (command?.operation === "confirm" && command.apply_id === binding.applyId
+                          && command.expected_revision === binding.revision) {
+                        requests.push({ at_ms: performance.now(), after_click: click !== null });
+                      }
+                    }
+                  }
+                  return Reflect.apply(originalFetch, this, arguments);
+                };
+                window.finishBenchmarkCheckInsertion = () => {
+                  window.fetch = originalFetch;
+                  button.removeEventListener("click", observeClick, true);
+                  delete window.finishBenchmarkCheckInsertion;
+                  return { click_ms: click, requests };
+                };
+              }, {path: reviewPath, applyId: pending.apply.apply_id, revision: pending.revision});
+              try {
+                if (confirmPosts.length !== 0) throw new Error("Confirmation arrived before Check insertion");
+                await check.click();
+                await pollBrowserRead(() => held || false, 12000, 200, "confirmation response to withhold after Check insertion");
+              } finally {
+                confirmation.browser_check = await page.evaluate(() => window.finishBenchmarkCheckInsertion());
+              }
+              const observed = confirmation.browser_check;
+              confirmation.retry_exercised = observed.click_ms !== null;
               if (held.request.apply_id !== pending.apply.apply_id
                   || held.request.expected_revision !== pending.revision) {
                 throw new Error("Check insertion confirmed a different review");
@@ -428,9 +452,8 @@ async function run() {
                 confirmPosts[0].started_at_ms = Number.isFinite(startedAt) && startedAt > 0 ? startedAt : null;
               }
               if (!confirmation.retry_exercised || confirmPosts.length !== 1
-                  || !confirmPosts[0].observed_after_check_dispatch
-                  || (confirmPosts[0].started_at_ms !== null
-                    && confirmPosts[0].started_at_ms < confirmation.check_clicked_at_ms)) {
+                  || observed.requests.length !== 1 || !observed.requests[0].after_click
+                  || observed.requests[0].at_ms < observed.click_ms) {
                 throw new Error("Confirmation did not follow the explicit Check insertion");
               }
             }
