@@ -437,3 +437,26 @@ def test_typed_execution_settles_exact_graph_query_and_rejects_late_failure():
     with pytest.raises(ValueError):
         invalid = execution(context.context_receipt_sha256, record.policy, [*events, failure])
         validate_context_binding(context, invalid)
+
+
+def test_no_graph_closure_cannot_discard_explicit_authored_graph_reference(monkeypatch):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation import authored_graph_references as refs
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQueryClosedV1, validate_pending_graph
+    context, execution, observed = pending_execution('no_graph')
+    authored = refs.AuthoredGraphReferenceV1.model_construct()
+    monkeypatch.setattr(refs, 'native_references', lambda _execution: SimpleNamespace(references=(authored,)))
+    execution.events.append(NativePlanGraphQueryClosedV1(event_id=uuid4(), sequence=4,
+        need_event_id=observed.event_id, pending_query_sha256=observed.parent.pending_query_sha256))
+    with pytest.raises(ValueError, match='authored Graph references'):
+        validate_pending_graph(context, execution)
+
+
+def test_graph_need_first_provider_is_still_bounded_by_frozen_allowance():
+    from application_state.agent_conversation import types as t
+    context, record, auth, _, _ = actual_need_execution()
+    t.validate_provider_envelope_accounting(context.assembled_input, record, auth)
+    with pytest.raises(ValueError, match='context window'):
+        t.validate_provider_envelope_accounting(context.assembled_input, record,
+            auth.model_copy(update={'input_tokens': context.assembled_input.context_window_limit + 1}))
