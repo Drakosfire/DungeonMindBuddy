@@ -1107,3 +1107,54 @@ def test_actual_sdk_failure_never_replays_graph_need(source_adapter, monkeypatch
     with pytest.raises(Exception):
         asyncio.run(retry.run(transport=Wire(), api_key='synthetic-not-secret'))
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
+@pytest.mark.parametrize('graph_fails', [False, True])
+def test_sdk_selected_graph_settles_once_or_retains_uncertainty(source_adapter, monkeypatch, graph_fails):
+    import asyncio
+    import httpx2
+    from types import SimpleNamespace
+    from apps.live_control_server.services.agent_turn_service import _ClaimFence
+    from apps.live_control_server.services.plan_graph_need_dispatch import PlanGraphNeedDispatch, settle_graph_need
+    from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2
+    from tests.test_surface_native_context import wire
+    a = source_adapter
+    service, created = _admitted_pending_turn(a, monkeypatch)
+    turn = service.claim_turn(created.world_id, created.conversation_id, created.turn_id,
+        expected_revision=created.revision).turn
+    a.turn = turn; a.fence = _ClaimFence(service, turn); a.context_capture = None
+    monkeypatch.setattr(a, '_capture_prepared_prompt', lambda *_args, **_kwargs: None)
+    class Wire(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            return httpx2.Response(200, request=request, json={'model': 'typesafe-ai/jev-1.14.0',
+                'answers': {'graph_need': {'type': 'choice', 'choice': 'require_graph', 'confidence': 1,
+                    'probabilities': {'require_graph': 1, 'no_graph': 0, 'uncertain': 0}}},
+                'usage': {'input_tokens': 10, 'output_tokens': 1}})
+    observed = asyncio.run(PlanGraphNeedDispatch(a, dialogue=()).run(transport=Wire(), api_key='synthetic-not-secret'))
+    pending = a.fence.turn.graph_context_receipt.native_query
+    data = wire('plan')['native_query']; data['authority'] = pending.authority.model_dump(mode='json')
+    data['question'] = pending.question
+    query = NativePlanQueryV2.model_validate(data)
+    calls = []
+    def acquire():
+        calls.append('entered')
+        assert a.fence.turn.graph_context_execution.events[-1].kind == 'native_plan_graph_query_started_v1'
+        if graph_fails:
+            raise RuntimeError('synthetic Core failure after entry')
+        return SimpleNamespace(query=query), query
+    if graph_fails:
+        with pytest.raises(RuntimeError, match='Core failure'):
+            settle_graph_need(a, observed, prepare_graph=acquire)
+        assert a.fence.turn.graph_context_execution.events[-1].kind == 'native_plan_graph_query_failed_v1'
+        with pytest.raises(Exception):
+            settle_graph_need(a, observed, prepare_graph=acquire)
+    else:
+        settle_graph_need(a, observed, prepare_graph=acquire)
+        assert a.native_query == query and a.native_query_context.query == query
+        assert a.fence.turn.graph_context_execution.events[-1].kind == 'native_plan_graph_query_settled_v1'
+        with pytest.raises(Exception):
+            settle_graph_need(a, observed, prepare_graph=acquire)
+    assert calls == ['entered']
+    reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.graph_context_execution == a.fence.turn.graph_context_execution

@@ -88,3 +88,37 @@ class PlanGraphNeedDispatch:
             return self.acknowledge(result)
         finally:
             await client.aclose()
+
+
+def settle_graph_need(adapter, observed, *, prepare_graph):
+    """Close or run one pinned query after its actual decision has settled.
+
+    The supplied Graph owner must refresh current access before acquisition.
+    Once a start is durable, an uncertain result is never silently repeated.
+    """
+    from .agent_turn_service import AgentTurnServiceError, _require_fresh_execution_append
+    if observed.choice == 'uncertain':
+        raise AgentTurnServiceError('The Graph requirement could not be determined safely.',
+            code='plan_graph_need_uncertain', status_code=503, provider_dispatched=True)
+    if observed.choice == 'no_graph':
+        adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
+            action='close', event_id=uuid4()))
+        adapter.native_query_context = adapter.native_query = None
+        return
+    if observed.choice != 'require_graph' or not callable(prepare_graph):
+        raise ValueError('Graph acquisition requires the exact authorized decision and owner')
+    adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
+        action='authorize', event_id=uuid4()))
+    adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
+        action='start', event_id=uuid4()))
+    try:
+        context, query = prepare_graph()
+    except Exception:
+        # The owner may have entered Core before it failed. Retain uncertainty;
+        # never silently repeat a potentially completed acquisition.
+        adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
+            action='fail', event_id=uuid4(), reason='uncertain_owner_result'))
+        raise
+    adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
+        action='settle', event_id=uuid4(), query=query))
+    adapter.native_query_context, adapter.native_query = context, query
