@@ -1,11 +1,13 @@
 """Fail-closed PostgreSQL frontend policy for the benchmark gateway.
 
-The initial policy deliberately permits only parameter-free constants and
-transaction controls. It is not an allowlist for Buddy application SQL.
+The default permits only parameter-free constants and transaction controls.
+An experimental host-only policy also accepts one exact fixture revision read.
+Neither policy is an allowlist for a full Buddy turn.
 """
 from collections import deque
 import hashlib
 import struct
+from uuid import UUID
 
 
 # Exact bytes, not normalized SQL. These operations cannot access source data.
@@ -16,6 +18,12 @@ _SAFE = {
     b'COMMIT': 'transaction',
     b'ROLLBACK': 'transaction',
 }
+# Exact production query bytes observed in a synthetic owned-clone replay.
+_REVISION_SQL = (b"\n            SELECT work_revision_id, work_object_id, world_id, revision_n,"
+                 b"\n                   markdown, content_sha256, created_at"
+                 b"\n            FROM content.work_revision"
+                 b"\n            WHERE work_revision_id = $1"
+                 b"\n            ")
 _MAX_NAMES = 128
 
 
@@ -23,9 +31,9 @@ class ProtocolDenied(ValueError):
     """An operation cannot be forwarded under this deliberately narrow policy."""
 
 
-def _cstring(body, offset):
+def _cstring(body, offset, limit=128):
     end = body.find(b'\0', offset)
-    if end < 0 or end - offset > 128:
+    if end < 0 or end - offset > limit:
         raise ProtocolDenied('Malformed protocol name')
     return body[offset:end], end + 1
 
@@ -47,7 +55,10 @@ def _formats(body, offset):
 class FrontendPolicy:
     """Track one backend session. A denied or ambiguous session cannot seal."""
 
-    def __init__(self, *, max_messages=2000, max_attempts=500):
+    def __init__(self, *, fixture_revision=None, max_messages=2000, max_attempts=500):
+        if fixture_revision is not None and not isinstance(fixture_revision, UUID):
+            raise TypeError("fixture_revision must be a host-validated UUID")
+        self._fixture_revision = fixture_revision
         self.statements = {}
         self.portals = {}
         self.pending = deque()
@@ -70,7 +81,7 @@ class FrontendPolicy:
             self.deny('Attempt limit exceeded')
         event = {'sequence': len(self.events), 'kind': kind,
                  'query_sha256': hashlib.sha256(query).hexdigest(),
-                 'category': _SAFE[query], 'outcome': 'pending'}
+                 'category': (_SAFE[query] if query in _SAFE else 'saved_revision_body'), 'outcome': 'pending'}
         self.events.append(event)
         self.pending.append(event)
 
@@ -95,11 +106,19 @@ class FrontendPolicy:
                 self.sync_pending = True
             elif tag == b'P':
                 name, at = _cstring(body, 0)
-                query, at = _cstring(body, at)
-                if at + 2 != len(body) or struct.unpack_from('!H', body, at)[0] != 0:
-                    self.deny('Parameterized or malformed Parse is unsupported')
-                if query not in _SAFE:
-                    self.deny('Unapproved SQL')
+                query, at = _cstring(body, at, limit=1024)
+                revision_query = query == _REVISION_SQL and self._fixture_revision is not None
+                if at + 2 > len(body):
+                    self.deny('Malformed Parse')
+                count = struct.unpack_from('!H', body, at)[0]
+                at += 2
+                if revision_query:
+                    if count not in (0, 1) or at + 4 * count != len(body):
+                        self.deny('Malformed revision parameter types')
+                    if count and struct.unpack_from('!I', body, at)[0] not in (0, 2950):
+                        self.deny('Unexpected revision parameter type')
+                elif query not in _SAFE or count != 0 or at != len(body):
+                    self.deny('Unapproved SQL or parameter types')
                 if name and name in self.statements:
                     self.deny('Duplicate prepared statement')
                 if len(self.statements) >= _MAX_NAMES and name not in self.statements:
@@ -113,10 +132,27 @@ class FrontendPolicy:
                 statement, at = _cstring(body, at)
                 if statement not in self.statements:
                     self.deny('Unknown prepared statement')
+                format_start = at
                 at = _formats(body, at)
-                if at + 2 > len(body) or struct.unpack_from('!H', body, at)[0] != 0:
+                format_count = struct.unpack_from('!H', body, format_start)[0]
+                binary = format_count == 1 and struct.unpack_from('!H', body, format_start + 2)[0] == 1
+                if at + 2 > len(body):
+                    self.deny('Malformed parameter count')
+                count = struct.unpack_from('!H', body, at)[0]
+                at += 2
+                if self.statements[statement] == _REVISION_SQL:
+                    if count != 1 or at + 4 > len(body):
+                        self.deny('Revision requires one parameter')
+                    length = struct.unpack_from('!i', body, at)[0]
+                    at += 4
+                    expected = (self._fixture_revision.bytes if binary
+                                else str(self._fixture_revision).encode('ascii'))
+                    if length != len(expected) or body[at:at + length] != expected:
+                        self.deny('Revision parameter does not match fixture')
+                    at += length
+                elif count != 0:
                     self.deny('Bound parameters are unsupported')
-                at = _formats(body, at + 2)
+                at = _formats(body, at)
                 if at != len(body) or (portal and portal in self.portals):
                     self.deny('Malformed or duplicate portal')
                 if len(self.portals) >= _MAX_NAMES and portal not in self.portals:

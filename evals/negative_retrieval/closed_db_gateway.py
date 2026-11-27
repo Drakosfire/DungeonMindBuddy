@@ -1,7 +1,8 @@
 """Restricted PostgreSQL wire gateway for owned, synthetic benchmark fixtures.
 
-This first policy permits only parameter-free constants and transaction control;
-it cannot run Buddy turns or qualify an acquisition journal. The trusted host
+The public policy permits only parameter-free constants and transaction control;
+an internal fixture-bound policy is experimental. Neither can run Buddy turns
+or qualify an acquisition journal. The trusted host
 retains the owned-clone credential. The untrusted worker receives only a Unix
 socket and must be network-isolated separately.
 """
@@ -90,11 +91,17 @@ def _startup(sock, database):
 class _ClosedDatabaseGateway:
     """Single-use, bounded gateway. Its seal describes transport only."""
 
-    def __init__(self, directory, dsn, identity):
+    def __init__(self, directory, dsn, identity, *, fixture_revision=None):
         self.directory = Path(directory)
         self.path = self.directory / '.s.PGSQL.15432'
         self._dsn, self._identity = dsn, dict(identity)
         self._database = identity['database']
+        # Only trusted host code may construct the experimental fixture policy.
+        # The public owner context remains constant-only until provenance is bound.
+        from uuid import UUID
+        if fixture_revision is not None and not isinstance(fixture_revision, UUID):
+            raise TypeError('fixture_revision must be a host-validated UUID')
+        self._fixture_revision = fixture_revision
         self._lock = Lock()
         self._stop = Event()
         self._listener = None
@@ -165,7 +172,7 @@ class _ClosedDatabaseGateway:
                     self._errors.append('session_limit')
                     self._stop.set()
                     break
-                policy = FrontendPolicy()
+                policy = FrontendPolicy(fixture_revision=self._fixture_revision)
                 self._policies.append(policy)
                 self._sockets.add(client)
                 thread = Thread(target=self._serve, args=(client, policy), name='negative-db-session')
@@ -341,7 +348,9 @@ class _ClosedDatabaseGateway:
         return {'schema': 'dmb_negative_retrieval_closed_db_gateway_v1',
                 'status': 'transport_sealed' if clean else 'unsealed',
                 'sessions': sessions, 'errors': errors, 'bytes': total_bytes,
-                'limitations': ['constant and transaction-control SQL only',
+                'limitations': [('constant, transaction-control and one fixture-bound revision SQL only'
+                                 if self._fixture_revision is not None
+                                 else 'constant and transaction-control SQL only'),
                                 'worker and container isolation are not attested',
                                 'not a complete acquisition journal or qualified benchmark']}
 
