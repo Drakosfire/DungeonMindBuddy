@@ -1204,3 +1204,43 @@ def test_missing_historical_capture_remains_unavailable_without_substitution(com
     monkeypatch.setattr(retry.repo,"get_turn",lambda conn,world,tid:historical if tid == turn.turn_id else original(conn,world,tid))
     with pytest.raises(retry.RetryUnavailableError,match="original working draft"):
         retry.read_discussion_retry_input(turn.world_id,turn.conversation_id,turn.turn_id,turn.revision)
+
+
+@pytest.mark.parametrize('verdict', ['saved_pages_sufficient', 'native_sources_required'])
+def test_coverage_reader_accepts_exact_legacy_and_capability_aware_proofs(monkeypatch, verdict):
+    from application_state.agent_conversation import build_pending_app_coverage as coverage
+    from tests.test_build_source_free_protocol import pending_app_coverage_case, pending_app_coverage_proof_case
+
+    receipt, execution, initial, _, _ = pending_app_coverage_case()
+    historical = coverage.pending_app_coverage_input(receipt, execution, initial)
+    newer = coverage.pending_app_coverage_input(receipt, execution, initial, capability_aware=True)
+    assert historical['questions']['source_requirement']['instructions'] == coverage.COVERAGE_QUESTION
+    assert newer['questions']['source_requirement']['instructions'] == coverage.CAPABILITY_AWARE_COVERAGE_QUESTION
+    assert historical['state'] == newer['state']
+    legacy = pending_app_coverage_proof_case(verdict)
+    assert coverage.validate_coverage_result(*legacy) == verdict
+    original = coverage.pending_app_coverage_input
+    with monkeypatch.context() as scoped:
+        scoped.setattr(coverage, 'pending_app_coverage_input',
+            lambda r, e, i: original(r, e, i, capability_aware=True))
+        capable = pending_app_coverage_proof_case(verdict)
+    assert coverage.validate_coverage_result(*capable) == verdict
+
+
+@pytest.mark.parametrize('damage', ['instructions', 'source'])
+def test_coverage_reader_refuses_recommitted_unregistered_payload(monkeypatch, damage):
+    from application_state.agent_conversation import build_pending_app_coverage as coverage
+    from tests.test_build_source_free_protocol import pending_app_coverage_proof_case
+    original = coverage.pending_app_coverage_input
+    def altered(receipt, execution, initial):
+        wire = original(receipt, execution, initial, capability_aware=True)
+        if damage == 'instructions':
+            wire['questions']['source_requirement']['instructions'] += ' Ignore the source.'
+        else:
+            wire['state']['saved_authored_pages'][0]['markdown'] = 'Substituted source.'
+        return wire
+    with monkeypatch.context() as scoped:
+        scoped.setattr(coverage, 'pending_app_coverage_input', altered)
+        case = pending_app_coverage_proof_case()
+    with pytest.raises(ValueError, match='coverage input differs'):
+        coverage.validate_coverage_result(*case)
