@@ -552,3 +552,13 @@ with no PDF observations remain unknown, and the journal is still partial.
 The independently authored H4 run, its frozen pins, observed acquisition stages,
 latency limitations and remaining native-Core gap are recorded in the
 [H4 observation](../../Docs/Benchmarks/OBSERVATION-negative-retrieval-h4.md).
+
+A v6 source-window artifact also monitors the registered Core PostgreSQL PDF
+repository method by its code object, including bound aliases captured before
+wrappers were installed. A recognized source/code/interpreter fingerprint and
+a scoped entry in a completed fixture-bound turn can demonstrate an unmapped
+attempt, including a failed transaction or missing row. It does not show that
+PDF bytes returned, grant required-source credit, or count distinct reads. The
+callback and source-window observations may overlap and are not additive.
+Unknown or changed owners, old artifacts, unscoped/late work, other processes
+and zero observations remain unproven. No source content is recorded.

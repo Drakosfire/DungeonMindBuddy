@@ -2882,7 +2882,7 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     from concurrent.futures import ThreadPoolExecutor
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
-    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView
+    from dungeonmind.infrastructure.postgres.vnext_sources import _PostgresNativeTextSourceView, PostgresNativeSourceEvidenceRepository
     from evals.buddy_benchmark import workflow
     from evals.negative_retrieval import source_window
     from evals.negative_retrieval.capture import capture
@@ -2892,7 +2892,10 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
         def __exit__(self, *args): return False
         def execute(self, *args, **kwargs): raise RuntimeError('synthetic sentinel')
     view = _PostgresNativeTextSourceView(NoDatabase(), 'synthetic', 1)
+    pdf_alias = PostgresNativeSourceEvidenceRepository(NoDatabase()).get_native_pdf_source
     def acquire():
+        with pytest.raises(RuntimeError, match='synthetic sentinel'):
+            pdf_alias('synthetic', 'synthetic-revision')
         with pytest.raises(RuntimeError, match='synthetic sentinel'):
             view.get_native_text_source(source_artifact_id='synthetic', source_revision_id='synthetic', span_id='synthetic')
         assert view.get_native_text_sources([])==()
@@ -2918,7 +2921,9 @@ def test_capture_source_window_observes_real_view_through_testclient_executor(tm
     row = json.loads((tmp_path/'case1'/'source-window-probe.json').read_text())
     assert row['status'] == 'observed' and row['scoped']['text'] == 1
     assert row['pending_at_close'] == 0 and row['coverage'] == 'partial'
-    assert row['schema'] == 'dmb_negative_retrieval_source_window_v5' and row['owner_provenance'] == provenance
+    assert row['schema'] == 'dmb_negative_retrieval_source_window_v6' and row['owner_provenance'] == provenance
+    assert row['pdf_source']['scoped'] == 1
+    assert row['pdf_source']['owner_provenance'] == source_window.KNOWN_PDF_OWNER
     assert row['scoped']['text_batch']==2 and row['batch_read']['scoped']==1
 
 
@@ -3095,6 +3100,30 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
                                 'code_sha256':KNOWN_APP_BATCH_CODE}
     assert assess_row(app_batch)['checks']['unexpected_retrieval'] is False
     assert assess_row(app_batch,positive)['checks']['required_evidence'] is None
+    from evals.negative_retrieval.source_window import KNOWN_PDF_OWNER
+    pdf=copy.deepcopy(app_batch);pdf['schema']='dmb_negative_retrieval_source_window_v6'
+    pdf['app_batch_read']['scoped']=0
+    pdf['pdf_source']={'scoped':1,'unscoped':0,'owner_provenance':copy.deepcopy(KNOWN_PDF_OWNER)}
+    assert assess_row(pdf)['checks']['unexpected_retrieval'] is False
+    assert assess_row(pdf,positive)['checks']['required_evidence'] is None
+    # New records retain all prior v5 attribution paths.
+    text_v6=copy.deepcopy(pdf);text_v6['pdf_source']['scoped']=0;text_v6['scoped']['text']=1
+    assert assess_row(text_v6)['checks']['unexpected_retrieval'] is False
+    app_v6=copy.deepcopy(pdf);app_v6['pdf_source']['scoped']=0;app_v6['app_batch_read']['scoped']=1
+    assert assess_row(app_v6)['checks']['unexpected_retrieval'] is False
+    pdf_unknown=copy.deepcopy(pdf);pdf_unknown['pdf_source']['owner_provenance']['code_sha256']='0'*64
+    assert assess_row(pdf_unknown)['checks']['unexpected_retrieval'] is None
+    pdf_inactive=copy.deepcopy(pdf);pdf_inactive['pdf_source']['scoped']=0
+    assert assess_row(pdf_inactive)['checks']['unexpected_retrieval'] is None
+    pdf_foreign=copy.deepcopy(pdf);pdf_foreign['pdf_source']['unscoped']=1
+    with pytest.raises(ValueError,match='unresolved work'):
+        assess_row(pdf_foreign)
+    pdf_unstarted=copy.deepcopy(pdf);pdf_unstarted['status']='not_started'
+    with pytest.raises(ValueError,match='Unstarted source window'):
+        assess_row(pdf_unstarted)
+    pdf_malformed=copy.deepcopy(pdf);pdf_malformed['pdf_source']['payload']='private'
+    with pytest.raises(ValueError,match='PDF source window'):
+        assess_row(pdf_malformed)
     empty=copy.deepcopy(app_batch);empty['app_batch_read']['scoped']=0
     assert assess_row(empty)['checks']['unexpected_retrieval'] is None
     changed=copy.deepcopy(app_batch);changed['app_batch_read']['code_sha256']='0'*64
@@ -3180,6 +3209,10 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     assert assess_row(app)['checks']['unexpected_retrieval'] is False
     assert seen[-1].count(UNKNOWN)==1
     assert assess_row(app_batch)['checks']['unexpected_retrieval'] is False
+    assert seen[-1].count(UNKNOWN)==1
+    artifacts['native-graph-probe']['records']=[{'owner':'native_pdf_source_load','state':'returned'}]
+    (tmp_path/'native-graph-probe.json').write_text(json.dumps(artifacts['native-graph-probe']))
+    assert assess_row(pdf)['checks']['unexpected_retrieval'] is False
     assert seen[-1].count(UNKNOWN)==1
     trace['attempts'][0]['turn_id']='foreign'
     (tmp_path/'context-trace.json').write_text(json.dumps(envelope(trace)))
@@ -3541,3 +3574,70 @@ def test_pdf_probe_observes_real_core_loader_on_missing_source():
         with pytest.raises(ValueError, match='Retained PDF unavailable'):
             native_graph_reads.open_admitted_pdf_evidence(evidence, space_id='synthetic', load=lambda *_: None)
     assert records == [{'owner': 'native_pdf_source_load', 'state': 'returned'}]
+
+
+def test_pdf_source_window_tracks_prebound_repository_code_and_unscoped_thread():
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Thread
+    from dungeonmind.infrastructure.postgres.vnext_sources import PostgresNativeSourceEvidenceRepository
+    from evals.negative_retrieval.source_window import _pdf_source_owner, observe_source_window, KNOWN_PDF_OWNER
+    class MissingDatabase:
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args): raise RuntimeError('synthetic transaction failure')
+    repo = PostgresNativeSourceEvidenceRepository(MissingDatabase())
+    alias = repo.get_native_pdf_source  # Bound before any monitoring.
+    owners, proof = _pdf_source_owner()
+    assert proof == KNOWN_PDF_OWNER
+    def attempt():
+        with pytest.raises(RuntimeError, match='synthetic transaction failure'):
+            alias('synthetic world', 'synthetic revision')
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pool.submit(lambda: None).result()
+        with observe_source_window(owners=owners, executor=pool) as state:
+            pool.submit(attempt).result()
+            other = Thread(target=attempt); other.start(); other.join()
+    assert state['pdf_source']['scoped'] == 1
+    assert state['pdf_source']['unscoped'] == 1
+    assert state['status'] == 'uncertain'
+    assert 'synthetic world' not in str(state) and 'synthetic revision' not in str(state)
+
+
+def test_pdf_source_window_records_missing_and_returned_repository_results(monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+    from dungeonmind.infrastructure.postgres import vnext_sources
+    from evals.negative_retrieval.source_window import _pdf_source_owner, observe_source_window
+    class Database:
+        row = None
+        def transaction(self): return self
+        def __enter__(self): return self
+        def __exit__(self, *args): return False
+        def execute(self, *args): return self
+        def fetchone(self): return self.row
+    db = Database()
+    repo = vnext_sources.PostgresNativeSourceEvidenceRepository(db)
+    alias = repo.get_native_pdf_source
+    artifact = SimpleNamespace(source_artifact_id='synthetic-artifact', current_revision_id='synthetic-revision')
+    revision = SimpleNamespace(source_artifact_id='synthetic-artifact', source_revision_id='synthetic-revision')
+    monkeypatch.setattr(vnext_sources.SourceArtifactV3, 'model_validate', lambda _: artifact)
+    monkeypatch.setattr(vnext_sources.SourceRevisionV2, 'model_validate', lambda _: revision)
+    owners, _ = _pdf_source_owner()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with observe_source_window(owners=owners, executor=pool) as state:
+            assert alias('synthetic', 'synthetic-revision') is None
+            db.row = {'source_artifact': {}, 'source_revision': {}, 'page_count': 1, 'body_bytes': b'private pdf'}
+            assert alias('synthetic', 'synthetic-revision')[-1] == b'private pdf'
+    assert state['pdf_source']['scoped'] == 2 and state['status'] == 'observed'
+    assert 'private pdf' not in str(state)
+
+
+def test_pdf_source_owner_refuses_foreign_code_provenance(monkeypatch):
+    from dungeonmind.infrastructure.postgres import vnext_sources
+    from evals.negative_retrieval.source_window import _pdf_source_owner, KNOWN_PDF_OWNER
+    owners, proof = _pdf_source_owner()
+    assert proof == KNOWN_PDF_OWNER and len(owners) == 1
+    monkeypatch.setattr(vnext_sources.PostgresNativeSourceEvidenceRepository, 'get_native_pdf_source', lambda *_: None)
+    changed, proof = _pdf_source_owner()
+    assert len(changed) == 1 and proof is None
