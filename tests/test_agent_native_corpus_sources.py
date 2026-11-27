@@ -46,7 +46,6 @@ def source_adapter(application_state_dsn, monkeypatch, lane, request):
         budget=request_budget(), context_read_enabled=True,
         native_corpus_context=context, native_source_authority=authority)
     adapter._test_creative = bool(unique and supplied.get('no_source'))
-    adapter._test_legacy = bool(unique and supplied.get('legacy'))
     yield adapter
     if adapter.fence is not None:
         adapter.fence.renewer.stop_and_join()
@@ -564,9 +563,8 @@ HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private contex
 
 @pytest.mark.parametrize('source_adapter', [[('first', HTTP_BODY)],
     {'unique_world': True, 'sources': [('first', HTTP_BODY)]},
-    {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]},
-    {'unique_world': True, 'legacy': True, 'sources': [('first', HTTP_BODY)]}],
-    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'unique-legacy'])
+    {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]}],
+    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
 def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
@@ -579,15 +577,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     from apps.live_control_server.integrations.dungeonmind import native_registry_source
     from tests.test_plan_jev_writer import WriterWire
     a = source_adapter
-    controller_source = a.world_id != 'world:one' and not a._test_legacy
     creative = a._test_creative
-    if controller_source:
-        from apps.live_control_server.services import plan_source_turn
-        original_parts = plan_source_turn._native_plan_parts
-        def reader_mode(*args, **kwargs):
-            work, action = original_parts(*args, **kwargs)
-            return work, action.model_copy(update={'source_discovery_mode': 'controller_selection_v1'})
-        monkeypatch.setattr(plan_source_turn, '_native_plan_parts', reader_mode)
     request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor.' if creative else 'Whom did Éphanna hear?'),
         'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
@@ -620,7 +610,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert verification_cache is None or verification_cache is _turn_revision_proof
         return lane.repo
     monkeypatch.setattr(native_registry_source, 'repository', read_repository)
-    choices = SourceChoices(direct=direct, writer_passages=True, controller_source=controller_source, no_source=creative)
+    choices = SourceChoices(direct=direct, writer_passages=True, controller_source=True, no_source=creative)
     if creative:
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         monkeypatch.setattr(native_corpus_source, 'capture_native_sources',
@@ -692,6 +682,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1,
         )
         turn = wire.adapter.turn
+        assert turn.graph_context_execution.policy.action.source_discovery_mode == 'controller_selection_v1'
         assert not any(isinstance(e, (NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
                                       NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1))
                        for e in turn.graph_context_execution.events)
@@ -701,10 +692,8 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert len(wire.calls) == len(constructions) == 1
         return
     selection_count = len(choices.calls)
-    if not controller_source:
-        assert selection_count == (4 if direct else 2)
     groups = [group for group in choices.selected_kinds if group]
-    if controller_source and not direct:
+    if not direct:
         assert groups[0] == ('Source lexical navigation; not evidence or semantic completeness',)
         assert groups[-1] == ('Exact source section',)
     elif direct:
@@ -724,12 +713,9 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         NativeBodyReadAuthorizedV1, NativeBodyReadObservedV1, NativeBodySearchObservedV1,
     )
     events = turn.graph_context_execution.events
-    if controller_source:
-        assert not any(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events)
-        assert sum(type(e) is NativeBodySearchAuthorizedV1 for e in events) == (0 if direct else 1)
-    else:
-        assert sum(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events) == 1
-        assert not any(type(e) is NativeBodySearchAuthorizedV1 for e in events)
+    assert turn.graph_context_execution.policy.action.source_discovery_mode == 'controller_selection_v1'
+    assert not any(type(e) is NativePlanRequestSearchAuthorizedV1 for e in events)
+    assert sum(type(e) is NativeBodySearchAuthorizedV1 for e in events) == (0 if direct else 1)
     read_type = NativeDirectSourceObservedV1 if direct else NativeBodyReadObservedV1
     grant_type = NativeDirectSourceAuthorizedV1 if direct else NativeBodyReadAuthorizedV1
     reads = [e for e in events if type(e) is read_type]
@@ -854,3 +840,20 @@ def test_batch_coverage_preserves_exact_native_plan_passage_requirement(monkeypa
     navigator.adapter = SimpleNamespace(fence=SimpleNamespace(turn=turn))
     assert navigator._fulfilled_in_current_selection("native-body:exact") is covered
     assert calls == [family == "plan-v2"]
+
+
+def test_shared_legacy_plan_action_builder_keeps_historical_mode(monkeypatch):
+    from apps.live_control_server.services import build_related_pages, plan_source_turn
+    from tests.test_agent_turn_service import _pinned_plan_request, _pinned_plan_work
+
+    request = _pinned_plan_request().model_copy(update={
+        'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph'),
+    })
+    work = _pinned_plan_work('# Synthetic legacy Plan\n')
+    work = replace(work, content_basis=work.content_basis.model_copy(update={'work_revision_id': str(uuid4())}))
+    intent = owner._submitted_turn_intent(request, world_id='world:one')
+    monkeypatch.setattr(build_related_pages, 'discover', lambda _request: ())
+    _, action = plan_source_turn._native_plan_parts(
+        request, plan_source_turn._plan_basis(work), None, intent)
+    assert action.source_discovery_mode is None
+    assert 'source_discovery_mode' not in action.model_dump(mode='json', by_alias=True)
