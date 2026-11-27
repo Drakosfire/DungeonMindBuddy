@@ -1,5 +1,9 @@
 # Negative retrieval assessment
 
+The [H5 and release observation](../../Docs/Benchmarks/OBSERVATION-negative-retrieval-h5.md)
+records the latest independently authored cases, deployed discussion change,
+and remaining qualification limits.
+
 This is an assessment core, not an ordinary-turn runner. A pass from synthetic
 observations validates only the assessor. It does not prove model behavior,
 complete trace capture, question quality, browser delivery, or deployment.
