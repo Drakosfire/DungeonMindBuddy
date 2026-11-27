@@ -1,7 +1,7 @@
 """Owner-private exact prepared request capture; never normal history or telemetry."""
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from hashlib import sha256
 import json
 import os
@@ -51,11 +51,16 @@ def _validated_bytes(payload_json: str, digest: str, size: int) -> bytes:
     return payload
 
 
-def store_prompt(payload_json: str, *, digest: str, size: int) -> UUID:
+def store_prompt(
+    payload_json: str, *, digest: str, size: int, owner: tuple[str, UUID] | None = None,
+) -> UUID:
+    from .conversation_erasure import register_private_evidence
+
     payload = _validated_bytes(payload_json, digest, size)
     evidence_id = uuid4()
     name = str(evidence_id) + ".json"
-    with _directory() as directory:
+    registration = register_private_evidence(owner, kind="prompt", evidence_id=evidence_id) if owner else nullcontext()
+    with registration, _directory() as directory:
         descriptor = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=directory)
         try:
             with os.fdopen(descriptor, "wb") as stream:

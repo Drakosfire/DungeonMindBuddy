@@ -1,0 +1,3 @@
+# CI: wait for recap campaign load control
+
+ACTIVE under the user's release-repair instruction. Parallel-independent of #4825, #4834 and #4823: this slice owns only `apps/live-control-ui/src/planSurface/graphPreview/RecapGraphModule.test.tsx` and this brief. The campaign-switch regression observed the new session before its Load button finished loading, then synchronously queried a control still labelled Loading. Wait for the enabled Load control without changing the campaign, visibility, or no-legacy-work assertions. Verify the owning suite, exact-head hosted gate, independent review and integrated discovery.
