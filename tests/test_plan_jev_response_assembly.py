@@ -282,6 +282,23 @@ def test_build_status_guidance_reaches_the_actual_sdk_without_changing_plan_or_p
     assert sent[0]['input'] == build.messages
 
 
+def test_different_source_guidance_reaches_actual_build_writer():
+    writer, _ = staged('build')
+    assert 'cite a source established as different' in writer.instructions
+    assert 'does not establish a different source, say so' in writer.instructions
+    assert 'comparison is requested' in writer.instructions
+    evidence = next(c for c in writer.prompt_components['components'] if c['name'] == 'evidence')
+    assert evidence['version'] == '2'
+    assert evidence['text'] in writer.instructions
+    from apps.live_control_server.services.plan_jev_writer import PlanWriterProvider
+    call = N(model=writer.model, user_prompt=json.dumps(writer.messages),
+             system_prompt=writer.instructions, temperature=None, max_output_tokens=None,
+             reasoning_effort=None, json_object=False, json_schema=writer.output_format['schema'],
+             schema_name=writer.output_format['name'])
+    request = object.__new__(PlanWriterProvider)._request_kwargs(call)
+    assert evidence['text'] in request['instructions']
+
+
 @pytest.mark.parametrize(('surface', 'requested', 'expected'), [
     ('build', 'discuss', 'medium'),
     ('build', 'clarify_request', 'low'),

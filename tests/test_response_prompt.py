@@ -23,12 +23,22 @@ def test_component_manifest_is_host_only_and_binds_actual_instructions():
     prompt = compose_response_prompt()
     manifest = prompt.manifest()
     assert manifest["instructions_sha256"] == sha256(prompt.instructions.encode()).hexdigest()
-    assert all(c["version"] == "1" for c in manifest["components"])
+    assert {c["name"]: c["version"] for c in manifest["components"]} == {
+        "voice": "1", "evidence": "2", "citations": "1", "response_output": "1"}
     assert "\n\n".join(c["text"] for c in manifest["components"]) == prompt.instructions
     assert all(c["sha256"] == sha256(c["text"].encode()).hexdigest() for c in manifest["components"])
     assert "sha256" not in prompt.instructions and "buddy_response_v1" not in prompt.instructions
     with pytest.raises(FrozenInstanceError):
         prompt.components[0].text = "changed"
+
+
+def test_source_choice_guidance_preserves_difference_and_comparisons():
+    for task in ('answer', 'build_discussion', 'scoped_discussion'):
+        prompt = compose_response_prompt(task=task)
+        assert 'cite a source established as different' in prompt.instructions
+        assert 'does not establish a different source, say so' in prompt.instructions
+        assert 'comparison is requested' in prompt.instructions
+        assert next(c for c in prompt.components if c.name == 'evidence').version == '2'
 
 
 def test_rules_response_guidance_is_present_only_when_active():
