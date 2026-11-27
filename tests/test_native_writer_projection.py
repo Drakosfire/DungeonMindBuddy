@@ -127,6 +127,44 @@ def test_authorized_campaign_alias_projection_reconstructs_original_support(publ
         verify_input_records(context, forged_stored, forged_grant, forged_raw, **work)
 
 
+@pytest.mark.parametrize('compact', [False, True])
+def test_campaign_alias_plan_prose_reconstructs_exact_authorized_evidence(published_lane, compact):
+    from application_state.agent_conversation.native_evidence_view import render_plan_evidence
+    from application_state.agent_conversation.native_execution import NativePlanActionV2
+    from application_state.agent_conversation.native_plan_work_view import semantic_frame as plan_work
+    from tests.test_surface_native_execution import execution
+    context, record = published_case('plan', published_lane)
+    action_data = record.policy.action.model_dump(mode='python', by_alias=True)
+    action_data.pop('action_version', None)
+    action = NativePlanActionV2(**action_data, related_page_catalog=())
+    root = execution(context.context_receipt_sha256, record.policy.model_copy(update={'action': action}))
+    events = [event.model_copy(update={'execution_policy_sha256': root.execution_policy_sha256})
+              if hasattr(event, 'execution_policy_sha256') else event for event in record.events]
+    record = execution(context.context_receipt_sha256, root.policy, events)
+    frame = semantic_frame(model_frame(context, record, passages_only=True), alias_campaign_scope=True)
+    work = work_submission(context, record)
+    work_frame = model_work_frame(context, record, **work)
+    view = plan_work(work_frame, record)
+    raw = asyncio.run(actual_sdk_request(frame))
+    request = json.loads(raw)
+    request['input'] = [{'role': 'user', 'content': render_plan_evidence(
+        frame, view, compact_graph_qualifications=compact)}]
+    raw = json.dumps(request)
+    stored, grant = authorize(context, record, raw, frame)
+    grant = grant.model_copy(update={'alias_campaign_scope': True,
+                                    'compact_plan_graph_qualifications': True if compact else None})
+    stored = execution(stored.context_receipt_sha256, stored.policy, [*stored.events[:-1], grant])
+    assert verify_input_records(context, stored, grant, raw, **work).native_assertions
+    request['input'][0]['content'] += '\nforged'
+    forged = json.dumps(request)
+    altered, altered_grant = authorize(context, record, forged, frame)
+    altered_grant = altered_grant.model_copy(update={'alias_campaign_scope': True,
+        'compact_plan_graph_qualifications': True if compact else None})
+    altered = execution(altered.context_receipt_sha256, altered.policy, [*altered.events[:-1], altered_grant])
+    with pytest.raises(ValueError, match='prose differs'):
+        verify_input_records(context, altered, altered_grant, forged, **work)
+
+
 @pytest.mark.parametrize('schema',[LEGACY_SCHEMA,SCHEMA])
 @pytest.mark.parametrize('surface',['build','plan'])
 def test_actual_sdk_versions_keep_exact_read_and_qualification_joins(published_lane,surface,schema):
@@ -712,3 +750,61 @@ def test_generic_reply_schema_classifier_requires_a_known_unambiguous_positive_s
     invalid.append(changed)
     for candidate in invalid:
         assert not offered_generic_limits(candidate)
+
+
+from application_state.agent_conversation.native_evidence_view import expected_semantic_frame, semantic_frame
+
+def campaign_host_frame():
+    metadata = dict(scope=[], visibility='gm', epistemic_basis='observed',
+                    claim_mode='fact', standing='current', evidence_ref_ids=[],
+                    temporal_scope=None, domain_metadata=[])
+    def assertion(campaign):
+        value = deepcopy(metadata)
+        value['scope'] = [{'axis': 'dungeonbuddy.scope:campaign', 'value': campaign}]
+        return {'assertion': {'subject_entity_id': 'host-entity', 'predicate': 'knows',
+                              'value': {'kind': 'literal', 'value': 'a meaningful name'},
+                              'metadata': value}}
+    payload = dict(schema='statement', clause={'campaign': 'host-campaign-a'},
+                   quote='a meaningful name', meaning='literal evidence', mode='fact',
+                   reporter=None, referents=[], uncertainty=[], qualifications={},
+                   episode=None, source_order=[], embedded_content_factive=True,
+                   assertion_target=None, visibility='gm', proof={})
+    return dict(schema='dmb_surface_native_writer_evidence_v2', input_status='complete',
+                user_question='Explain', native_body_evidence={'source_authority_status': 'available', 'excerpts': []},
+                native_statements={'status': 'available', 'statements': [{'payload': payload}]},
+                native_assertions={'status': 'available', 'assertions': [
+                    assertion('host-campaign-a'), assertion('host-campaign-b'), assertion('host-campaign-a')]})
+
+
+def test_campaign_aliases_preserve_join_and_historical_reconstruction():
+    host = campaign_host_frame()
+    before = deepcopy(host)
+    current = semantic_frame(host, alias_campaign_scope=True)
+    rows = current['native_assertions']['assertions']
+    qualifications = current['native_assertions']['qualifications']
+    scope = lambda row: qualifications[row['assertion']['qualification']]['scope'][0]['value']
+    assert scope(rows[0]) == scope(rows[2]) == current['native_statements']['statements'][0]['payload']['campaign']
+    assert scope(rows[0]) != scope(rows[1])
+    wire = json.dumps(current)
+    assert 'host-campaign-a' not in wire and 'host-campaign-b' not in wire
+    assert 'a meaningful name' in wire
+    assert expected_semantic_frame(host, current, alias_campaign_scope=True) == current
+    historical = semantic_frame(host)
+    assert expected_semantic_frame(host, historical) == historical
+    assert host == before
+
+
+def test_campaign_alias_does_not_accept_unclassified_binding():
+    host = campaign_host_frame()
+    host['native_assertions']['assertions'][0]['assertion']['metadata']['scope'][0]['extra'] = 'unknown'
+    with pytest.raises(ValueError, match='Unclassified campaign scope identity'):
+        semantic_frame(host, alias_campaign_scope=True)
+
+
+def test_campaign_alias_never_repeats_an_admitted_host_identity():
+    host = campaign_host_frame()
+    host['native_assertions']['assertions'][0]['assertion']['metadata']['scope'][0]['value'] = 'campaign0'
+    view = semantic_frame(host, alias_campaign_scope=True)
+    collection = view['native_assertions']
+    values = [q['scope'][0]['value'] for q in collection['qualifications'].values()]
+    assert 'campaign0' not in values

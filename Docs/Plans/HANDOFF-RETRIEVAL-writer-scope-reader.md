@@ -16,18 +16,21 @@ not subject to recursive scrubbing.
 Expected write lease: this handoff; `native_evidence_view.py`,
 `native_execution.py`, `native_writer.py` under
 `src/application_state/agent_conversation/`; and focused tests in
-`tests/test_native_writer_projection.py` and
-`tests/test_native_campaign_scope_projection.py`. Verify at actual serialized writer
+`tests/test_native_writer_projection.py`. Verify at actual serialized writer
 admission, including historical reconstruction, scope relationships, tampering,
 and original citation support. The follow-up producer is serial, after review,
 merge and deployment of this reader. Production release must re-anchor on the
 then-current serving parent; no database clone is created by this slice.
 
-Working-tree evidence: two provider-free projection tests passed. Five focused
-serialized-request checks passed in owner case 568 with fresh synthetic World
-IDs, an in-memory Graph and the retained App clone. The ordinary CI fixture was
+Working-tree evidence: ten focused projection and serialized-request checks
+passed in owner case 569 with fresh synthetic World IDs, an in-memory Graph and
+the retained App clone, including both compact and non-compact Plan prose and
+forged alias rejection. The ordinary CI fixture was
 not used because it clears the whole App schema; the narrow fixture override
 does not reset retained benchmark state. Case 566 stopped at the owner-directory
-check; case 567 passed before the tampering check was added. The run emitted
+check; cases 567 and 568 preceded the final focused cases. The run emitted
 pytest import-rewrite and existing Pydantic serialization warnings. Exact-head
-independent review and a deployed-reader recovery check remain required.
+independent review and a deployed-reader recovery check remain required. Before
+producer activation, additionally prove multiple campaign scopes across both
+statements and assertions at the serialized owner boundary and audit the entire
+actual provider request; this projection covers typed campaign fields only.

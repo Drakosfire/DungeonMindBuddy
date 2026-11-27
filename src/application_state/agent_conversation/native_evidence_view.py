@@ -122,7 +122,13 @@ def semantic_frame(host, *, project_managed_images=False, alias_campaign_scope=F
                     if set(binding) != {"axis", "value"} or not isinstance(binding["value"], str) or not binding["value"]:
                         raise ValueError("Unclassified campaign scope identity")
                     campaigns.add(binding["value"])
-    campaign_aliases = {campaign: f"campaign{i}" for i, campaign in enumerate(sorted(campaigns))}
+    campaign_aliases = {}
+    alias_number = 0
+    for campaign in sorted(campaigns):
+        while f"campaign{alias_number}" in campaigns:
+            alias_number += 1
+        campaign_aliases[campaign] = f"campaign{alias_number}"
+        alias_number += 1
     identities = set()
     for row in statement_rows:
         payload = row["payload"]
