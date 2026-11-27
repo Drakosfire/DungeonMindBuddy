@@ -93,7 +93,7 @@ def _domain_meaning(entries):
     return result
 
 
-def semantic_frame(host, *, project_managed_images=False):
+def semantic_frame(host, *, project_managed_images=False, alias_campaign_scope=False):
     """Explicit projection of an owner-reconstructed current native host frame.
 
     Literal/domain payloads are context and never recursively scrubbed. Only typed
@@ -108,6 +108,21 @@ def semantic_frame(host, *, project_managed_images=False):
         if host["native_assertions"] is not None
         else []
     )
+    campaigns = set()
+    if alias_campaign_scope:
+        for row in statement_rows:
+            campaign = row["payload"]["clause"]["campaign"]
+            if campaign is not None:
+                if not isinstance(campaign, str) or not campaign:
+                    raise ValueError("Unclassified statement campaign identity")
+                campaigns.add(campaign)
+        for row in assertion_rows:
+            for binding in row["assertion"]["metadata"]["scope"]:
+                if binding.get("axis") == "dungeonbuddy.scope:campaign":
+                    if set(binding) != {"axis", "value"} or not isinstance(binding["value"], str) or not binding["value"]:
+                        raise ValueError("Unclassified campaign scope identity")
+                    campaigns.add(binding["value"])
+    campaign_aliases = {campaign: f"campaign{i}" for i, campaign in enumerate(sorted(campaigns))}
     identities = set()
     for row in statement_rows:
         payload = row["payload"]
@@ -140,6 +155,11 @@ def semantic_frame(host, *, project_managed_images=False):
             raise ValueError(
                 "Unclassified assertion qualification in semantic projection"
             )
+        scope = deepcopy(metadata["scope"])
+        if alias_campaign_scope:
+            for binding in scope:
+                if binding.get("axis") == "dungeonbuddy.scope:campaign":
+                    binding["value"] = campaign_aliases[binding["value"]]
         if value["kind"] == "entity_ref":
             value = {"kind": "entity_ref", "entity": entities[value["entity_id"]]}
         assertions.append(
@@ -153,13 +173,13 @@ def semantic_frame(host, *, project_managed_images=False):
                         **{
                             key: deepcopy(metadata[key])
                             for key in (
-                                "scope",
                                 "epistemic_basis",
                                 "claim_mode",
                                 "standing",
                                 "temporal_scope",
                             )
                         },
+                        "scope": scope,
                         "domain_metadata": _domain_meaning(metadata["domain_metadata"]),
                     },
                 ),
@@ -220,7 +240,9 @@ def semantic_frame(host, *, project_managed_images=False):
                             "assertion_target",
                         )
                     },
-                    "campaign": payload["clause"]["campaign"],
+                    "campaign": (campaign_aliases[payload["clause"]["campaign"]]
+                        if alias_campaign_scope and payload["clause"]["campaign"] is not None
+                        else payload["clause"]["campaign"]),
                     "reporter": entities[payload["reporter"]]
                     if payload["reporter"] is not None
                     else None,
@@ -381,13 +403,14 @@ def world_context_representation(frame):
     return next(iter(forms), "current")
 
 
-def expected_semantic_frame(host, actual, *, project_managed_images=False):
+def expected_semantic_frame(host, actual, *, project_managed_images=False, alias_campaign_scope=False):
     """Reconstruct retained producing bytes by their closed actual slot shape.
 
     Current producers always use semantic_frame. This reader does not try hashes
     or emit alternate prompts; original request and frame bindings remain exact.
     """
-    expected = semantic_frame(host, project_managed_images=project_managed_images)
+    expected = semantic_frame(host, project_managed_images=project_managed_images,
+                              alias_campaign_scope=alias_campaign_scope)
     actual_collection = actual.get('native_assertions')
     if actual_collection is not None and 'qualifications' not in actual_collection:
         expected = _inline_qualifications(expected)

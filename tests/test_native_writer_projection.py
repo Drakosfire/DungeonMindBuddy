@@ -1,5 +1,6 @@
 """Shared semantic writer input; full native proofs remain in acquired records."""
 import asyncio
+import json
 from copy import deepcopy
 
 import pytest
@@ -68,6 +69,62 @@ def test_qualification_dedup_preserves_boolean_and_integer_literals(published_la
     a, b = collection['assertions'][:2]
     assert a['assertion']['qualification'] != b['assertion']['qualification']
     assert host == before
+
+
+def test_campaign_scope_projection_preserves_relations_and_literals(published_lane):
+    from application_state.agent_conversation.native_evidence_view import semantic_frame
+    context, record = published_case('plan', published_lane)
+    host = model_frame(context, record)
+    rows = host['native_assertions']['assertions']
+    assert len(rows) >= 2
+    axis = 'dungeonbuddy.scope:campaign'
+    rows[0]['assertion']['metadata']['scope'] = [{'axis': axis, 'value': 'private-one'}]
+    rows[1]['assertion']['metadata']['scope'] = [{'axis': axis, 'value': 'private-two'}]
+    host['native_statements']['statements'][0]['payload']['clause']['campaign'] = 'private-one'
+    before = deepcopy(host)
+    projected = semantic_frame(host, alias_campaign_scope=True)
+    collection = projected['native_assertions']
+    def scope(row):
+        return collection['qualifications'][row['assertion']['qualification']]['scope'][0]['value']
+    a, b = map(scope, collection['assertions'][:2])
+    assert a != b and a == projected['native_statements']['statements'][0]['payload']['campaign']
+    assert 'private-one' not in json.dumps(projected) and 'private-two' not in json.dumps(projected)
+    assert host == before
+    assert 'private-one' in json.dumps(semantic_frame(host))
+
+
+@pytest.mark.parametrize('surface', ['build', 'plan'])
+def test_authorized_campaign_alias_projection_reconstructs_original_support(published_lane, surface):
+    from application_state.agent_conversation.native_evidence_view import semantic_frame
+    from tests.test_surface_native_execution import execution
+    context, record = published_case(surface, published_lane)
+    host = model_frame(context, record)
+    frame = semantic_frame(host, alias_campaign_scope=True)
+    work = work_submission(context, record)
+    raw = asyncio.run(actual_sdk_request(frame, work_frame=model_work_frame(context, record, **work)))
+    stored, grant = authorize(context, record, raw, frame)
+    grant = grant.model_copy(update={'alias_campaign_scope': True})
+    stored = execution(stored.context_receipt_sha256, stored.policy, [*stored.events[:-1], grant])
+    evidence = verify_input_records(context, stored, grant, raw, **work)
+    assert evidence.native_assertions and evidence.native_statements
+    assert all(read.evidence and read.spans for _, _, read in evidence.native_assertions)
+    legacy = grant.model_copy(update={'alias_campaign_scope': None})
+    if frame != semantic_frame(host):
+        with pytest.raises(ValueError):
+            verify_input_records(context, stored, legacy, raw, **work)
+    forged = deepcopy(frame)
+    collection = forged['native_assertions']
+    binding = next(binding for qualification in collection['qualifications'].values()
+                   for binding in qualification['scope']
+                   if binding['axis'] == 'dungeonbuddy.scope:campaign')
+    binding['value'] = 'campaign-forged'
+    forged_raw = asyncio.run(actual_sdk_request(forged, work_frame=model_work_frame(context, record, **work)))
+    forged_stored, forged_grant = authorize(context, record, forged_raw, forged)
+    forged_grant = forged_grant.model_copy(update={'alias_campaign_scope': True})
+    forged_stored = execution(forged_stored.context_receipt_sha256, forged_stored.policy,
+                              [*forged_stored.events[:-1], forged_grant])
+    with pytest.raises(ValueError):
+        verify_input_records(context, forged_stored, forged_grant, forged_raw, **work)
 
 
 @pytest.mark.parametrize('schema',[LEGACY_SCHEMA,SCHEMA])

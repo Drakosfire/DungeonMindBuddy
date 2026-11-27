@@ -318,6 +318,8 @@ class NativeWriterAuthorizedV1(t.ProviderAttemptAuthorizedEventV3):
 
     deduplicate_plan_recap_prose: Literal[True] | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    alias_campaign_scope: Literal[True] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def exact_read_ids(self):
