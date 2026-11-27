@@ -483,22 +483,26 @@ def reopen_native_body_citations(client, turn_route, world, turn_id, completion)
     return {"scope": "native_body_excerpts", "citations": results}
 
 
-def require_pinned_history(history, expected):
-    """Reject stale or extra turns before dispatch into a restored conversation."""
-    def digest(value):
-        return sha256(value.encode("utf-8")).hexdigest()
-
-    observed = [
-        {"turn_id": turn["turn_id"], "sequence": turn["sequence"],
-         "user_text_sha256": digest(turn["user_text"]),
-         "assistant_text_sha256": digest(turn["assistant_text"])}
-        for turn in history["turns"] if turn["lifecycle_status"] == "completed"
-    ]
+def require_pinned_history(history, expected, *, allow_interrupted=False):
+    """Reject nonterminal, stale, or extra turns in a restored conversation."""
+    observed = []
+    for turn in history["turns"]:
+        status = turn["lifecycle_status"]
+        if status != "completed" and not (allow_interrupted and status == "interrupted"):
+            raise ValueError("Active conversation differs from the pinned conversation history")
+        answer = turn["assistant_text"]
+        row = {
+            "turn_id": turn["turn_id"], "sequence": turn["sequence"],
+            "user_text_sha256": sha256(turn["user_text"].encode("utf-8")).hexdigest(),
+            "assistant_text_sha256": sha256(answer.encode("utf-8")).hexdigest() if answer is not None else None,
+        }
+        if status != "completed":
+            row["lifecycle_status"] = status
+        observed.append(row)
     observed.sort(key=lambda turn: turn["sequence"])
     if (history["active_conversation_id"] != expected["conversation_id"]
             or history.get("next_before_sequence") is not None
-            or not observed or len(observed) != len(history["turns"])
-            or observed != expected["prior_turns"]):
+            or not observed or observed != expected["prior_turns"]):
         raise ValueError("Active conversation differs from the pinned conversation history")
 
 
@@ -532,7 +536,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
     if pinned_history is not None:
         if not build_sequence or expected_conversation_id is not None:
             raise ValueError("Pinned Build history must start the ordinary sequence")
-        require_pinned_history(before, pinned_history)
+        require_pinned_history(before, pinned_history, allow_interrupted=True)
         expected_conversation_id = before["active_conversation_id"]
     if expected_conversation_id is None:
         command = {"schema": "dmb_agent_new_conversation_v1", "command_id": str(uuid4()),

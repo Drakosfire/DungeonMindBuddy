@@ -259,3 +259,21 @@ def test_first_resumed_build_turn_retains_explicit_authored_references(tmp_path,
     assert len(observed) == 1
     assert observed[0][0] == "/api/live/agent/turn"
     assert observed[0][1]["build_authored_references"] == references
+
+
+def test_pinned_build_history_can_preserve_exact_interrupted_turn():
+    from evals.buddy_benchmark.workflow import require_pinned_history
+
+    turn = {"turn_id": "turn-1", "sequence": 1, "lifecycle_status": "interrupted",
+            "user_text": "Earlier question", "assistant_text": None}
+    history = {"active_conversation_id": "conversation-1", "turns": [turn]}
+    expected = {"conversation_id": "conversation-1", "prior_turns": [{
+        "turn_id": turn["turn_id"], "sequence": 1, "lifecycle_status": "interrupted",
+        "user_text_sha256": text_digest(turn["user_text"]), "assistant_text_sha256": None,
+    }]}
+    require_pinned_history(history, expected, allow_interrupted=True)
+    with pytest.raises(ValueError, match="pinned conversation history"):
+        require_pinned_history(history, expected)
+    turn["lifecycle_status"] = "running"
+    with pytest.raises(ValueError, match="pinned conversation history"):
+        require_pinned_history(history, expected, allow_interrupted=True)

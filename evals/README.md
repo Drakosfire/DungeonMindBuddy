@@ -249,7 +249,9 @@ An ordinary Build sequence can reuse a restored active conversation by
 pinning the same history shape in the top-level `build_history` field. Use
 response capture on an owned App clone. The harness records and verifies the
 complete active prefix before dispatch, then retains each newer turn and its
-ordinary citation readbacks.
+ordinary citation readbacks. For an interrupted Build turn, pin
+`lifecycle_status: interrupted` and use a null assistant digest when the saved
+turn has no reply. In-progress turns cannot be admitted.
 
 For an ordinary Plan browser replay, select a case in the context capture
 command as well as choosing the writer sink.
