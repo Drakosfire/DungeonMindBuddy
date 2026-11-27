@@ -1136,7 +1136,7 @@ def test_actual_sdk_failure_never_replays_graph_need(source_adapter, monkeypatch
 
 @pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
 @pytest.mark.parametrize('graph_fails', [False, True, 'started'])
-def test_sdk_selected_graph_settles_once_or_retains_uncertainty(source_adapter, monkeypatch, graph_fails):
+def test_sdk_selected_graph_settles_once_or_retains_uncertainty(source_adapter, monkeypatch, graph_fails, application_state_dsn):
     import asyncio
     import httpx2
     from types import SimpleNamespace
@@ -1197,6 +1197,15 @@ def test_sdk_selected_graph_settles_once_or_retains_uncertainty(source_adapter, 
     assert calls == ([] if graph_fails == 'started' else ['entered'])
     reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
     assert reopened.graph_context_execution == a.fence.turn.graph_context_execution
+    if graph_fails == 'started':
+        import psycopg
+        from application_state.errors import ApplicationStateConflictError
+        a.fence.renewer.stop_and_join()
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE agent.turn SET claim_expires_at = clock_timestamp() - interval '1 second' WHERE world_id=%s AND turn_id=%s", (turn.world_id, turn.turn_id))
+        with pytest.raises(ApplicationStateConflictError, match='cannot be reclaimed'):
+            service.claim_turn(turn.world_id, turn.conversation_id, turn.turn_id, expected_revision=reopened.revision)
+        assert service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id).status == 'interrupted'
 
 
 def test_expired_reclaim_refuses_uncertain_or_later_provider_work():
