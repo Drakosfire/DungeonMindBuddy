@@ -26,11 +26,18 @@ in a later serial reader/producer change, never by labeling it empty.
 
 Write lease: `apps/live_control_server/services/agent_turn_service.py` and
 `build_jev_driver.py` and `build_jev_harness.py` for producer routing, the
-already reader-registered source question and the discussion-only deferral; `tests/test_surface_native_build_ordinary.py` and targeted
+existing three-choice source question and the discussion-only deferral; `tests/test_surface_native_build_ordinary.py` and targeted
 existing unit/fixture tests; this handoff and the reader handoff for truthful
 predecessor status. Do not change provider models, persistent schema or source
 access owners. Reuse the existing exclusively owned benchmark App clone and
 shared Core; no full contents scans or additional clones.
+
+The selected-source surface policy cannot accept the pending-Build-only
+`current_saved_page` choice. It must therefore keep the existing three-choice
+question; emitting the four-choice retained-citation variant here could make a
+valid model choice fail execution. Its older wording is imperfect for citations,
+so measure its actual routing with a new live replay. A better question needs
+its own reader-first contract; do not silently change persisted prompt shapes.
 
 Validation: focused actual HTTP and App boundary tests must cover exact
 source-only answer and reopened citation, Graph query not prepared, one selected

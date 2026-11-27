@@ -536,7 +536,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 choices = question['criteria']
                 if name == "source_need" and failure == "discussion_source_tie":
                     answers[name] = dict(type="choice", choice="uncertain", confidence=.07,
-                                         probabilities={"anchored": .24, "source_lookup": .38, "uncertain": .38})
+                                         probabilities={key: {"anchored": .24, "source_lookup": .38,
+                                                               "uncertain": .38}.get(key, 0)
+                                                        for key in choices})
                     continue
                 if name.startswith("image_move_"):
                     assert image_move and "Harbour map" in str(body["state"]["interaction"]["image_move"])
@@ -4354,6 +4356,9 @@ def test_selected_source_discussion_skips_graph_and_reopens_citation(lane, tmp_p
         if provider == 'typesafe':
             assert type(adapter.native_query) is NativeBuildSelectedSourceQueryPendingV1
             assert callable(adapter.prepare_deferred_build_query)
+            from application_state.agent_conversation.build_intentional_response import SOURCE_NEED_OPTIONS
+            request = json.loads(adapter._prepared_build_decision.body)
+            assert set(request['questions']['source_need']['criteria']) == set(SOURCE_NEED_OPTIONS)
     case = _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,
         authored_source='source_only',selected_source_graph=True,requested_work='discuss',source_need='anchored',
         message='Using only my selected source, what does it say about the episode? Cite it and do not search other sources.',
@@ -4425,3 +4430,12 @@ def test_selected_source_unknown_writer_outcome_is_not_retried(lane, tmp_path, m
     _fresh_case(lane, tmp_path, monkeypatch, 'retry_unknown', False, False, False,
         authored_source='source_only', selected_source_graph=True, requested_work='discuss',
         source_need='anchored', message='Use only my selected source and cite it.')
+
+
+def test_selected_source_uncertain_scope_asks_before_acquiring_graph(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads
+    monkeypatch.setattr(native_graph_reads, 'prepare_query',
+        lambda *_args, **_kwargs: pytest.fail('unexpected Graph query during clarification'))
+    _fresh_case(lane, tmp_path, monkeypatch, 'discussion_source_tie', False, False, False,
+        authored_source='source_only', selected_source_graph=True, requested_work='discuss',
+        message='What does my selection say?')
