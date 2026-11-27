@@ -373,7 +373,7 @@ or fulfillment grade.
 The first `live_build` member can pin a `composed_page_fixture` with the
 World, title, Markdown, typed presentation and existing staged asset identity.
 Use a fresh Page ID, revision 2 and the exact Markdown digest in the member's
-ordinary Build work pin. The harness checks the saved asset bytes and prepares
+ordinary Build work pin. The harness checks the saved asset bytes and storage state and prepares
 the Page through its owner in the disposable clone. The Page under test is
 mutable, so pin unrelated pages in `protected_work_objects`.
 

@@ -191,13 +191,13 @@ def prepare_composed_page_fixture(dsn, owned_app, fixture, document_id):
             raise ValueError("Composed Page App database differs from owned clone")
         from_fixture = fixture["asset"]
         row = conn.execute("""
-            SELECT a.content_sha256, s.staged_bytes
+            SELECT a.content_sha256, s.staged_bytes, s.state
             FROM media.asset a JOIN media.storage s USING (asset_id)
             WHERE a.asset_id = %s
         """, (from_fixture["asset_id"],)).fetchone()
         if (row is None or row[1] is None or row[0] != from_fixture["asset_sha256"]
-                or sha256(row[1]).hexdigest() != row[0]):
-            raise ValueError("Composed Page fixture image bytes differ from the pinned asset")
+                or row[2] != from_fixture["state"] or sha256(row[1]).hexdigest() != row[0]):
+            raise ValueError("Composed Page fixture image bytes or storage state differ from the pinned asset")
 
     world = fixture["world_id"]
     with patch.dict("os.environ", {APP_DSN: dsn}):
