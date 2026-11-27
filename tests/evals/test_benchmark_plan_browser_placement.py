@@ -378,3 +378,16 @@ def test_play_response_admits_only_exact_current_owner_state(stale):
         state["active"]["run_id"] = str(uuid4())
     with pytest.raises(ValueError, match="differs from the active Run"):
         validate_play_turn_state(state, template)
+
+
+def test_play_response_correlation_excludes_same_text_with_a_different_key():
+    from uuid import NAMESPACE_URL, uuid5
+
+    from evals.buddy_benchmark.workflow import _request_turns
+
+    world, client_turn = "elderwyld", str(uuid4())
+    request = {"turn_id": client_turn, "message": "Choose the alternate path.", "surface": {"surface_id": "play"}}
+    expected = {"user_text": request["message"],
+                "idempotency_key": str(uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world}:{client_turn}"))}
+    other = {**expected, "idempotency_key": str(uuid4())}
+    assert _request_turns({"turns": [other, expected]}, request, world) == [expected]

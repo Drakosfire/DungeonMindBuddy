@@ -124,7 +124,7 @@ def validate_template(template, world, *, context_only=False, build_sequence=Fal
 
 def _request_turns(history, request, world, *, browser_plan=False):
     turns = [turn for turn in history["turns"] if turn["user_text"] == request["message"]]
-    if browser_plan or request["surface"].get("surface_id") == "build":
+    if browser_plan or request["surface"].get("surface_id") in {"build", "play"}:
         key = str(uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world}:{request['turn_id']}"))
         turns = [turn for turn in turns if turn.get("idempotency_key") == key]
     return turns
@@ -720,8 +720,8 @@ def capture_case(client, world, template, case, directory, *, context_only=False
     finally:
         try:
             history = save("history-after", client.get(route, params={"include_turn_correlation": "true"}))
-            if build_sequence and history["active_conversation_id"] != fresh["active_conversation_id"]:
-                raise ValueError("Build conversation changed after dispatch")
+            if (build_sequence or play) and history["active_conversation_id"] != fresh["active_conversation_id"]:
+                raise ValueError("Conversation changed after dispatch")
             prior_ids = {turn["turn_id"] for turn in fresh["turns"]}
             turns = [t for t in _request_turns(history, request, world) if t["turn_id"] not in prior_ids]
             if len(turns) != 1:
@@ -729,7 +729,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
             durable = turns[0]
             trace_response = client.get(route + "/turns/" + durable["turn_id"] + "/context-trace")
             trace = save("context-trace", trace_response)
-            if build_sequence and known_response and response.status_code == 200:
+            if (build_sequence or play) and known_response and response.status_code == 200:
                 delivered = response.json()
                 if (durable.get("lifecycle_status") != "completed"
                         or delivered.get("turn_id") != request["turn_id"]
@@ -737,7 +737,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
                         or delivered.get("answer", {}).get("text") != durable.get("assistant_text")
                         or trace_response.status_code != 200 or not isinstance(trace, dict)
                         or trace.get("world_id") != world or trace.get("turn_id") != durable["turn_id"]):
-                    raise ValueError("Build turn delivery or trace could not be verified")
+                    raise ValueError("Ordinary turn delivery or trace could not be verified")
             if not context_only and known_response and response.status_code == 200:
                 retain_citation_readbacks(client, directory, route, world, durable["turn_id"], response.json())
                 if case.get("lore_confirmation") is not None:
