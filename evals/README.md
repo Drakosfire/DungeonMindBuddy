@@ -370,6 +370,13 @@ steps. The provider-free control ends the held attempt deliberately. Its
 `work_plan_disconnect` result measures recovery and carries no ordinary answer
 or fulfillment grade.
 
+The first `live_build` member can pin a `composed_page_fixture` with the
+World, title, Markdown, typed presentation and existing staged asset identity.
+Use a fresh Page ID, revision 2 and the exact Markdown digest in the member's
+ordinary Build work pin. The harness checks the saved asset bytes and prepares
+the Page through its owner in the disposable clone. The Page under test is
+mutable, so pin unrelated pages in `protected_work_objects`.
+
 Use `protected_work_objects` for stable fixtures that later members depend
 on. Give intentional page changes their own isolated targets and verify them
 with the existing browser owner's readback. Cases that need the same mutable

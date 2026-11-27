@@ -162,6 +162,7 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
     app_template = None
     jobs = []
     fixture = None
+    composed = None
     output = Path(output).resolve()
     for entry in config["members"]:
         member_path = (path.parent / entry["path"]).resolve()
@@ -195,6 +196,17 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                 ):
                 raise ValueError("Build fixture page must match the first ordinary request")
             fixture = (bundle, page, seed)
+        if "composed_page_fixture" in entry:
+            from .cohort_fixture import load_composed_page_fixture
+
+            if jobs or fixture is not None or context_only or entry.get("driver") != "live_build":
+                raise ValueError("Composed Page fixture requires the first serial live Build member")
+            work = (member.get("request_template") or {}).get("primary_work") or {}
+            composed = load_composed_page_fixture(
+                entry["composed_page_fixture"], path.parent, world=member["world"], work=work,
+            )
+            if composed[1] in protected_objects:
+                raise ValueError("The composed Page under test cannot be a protected work object")
         app = member["isolation"]["app"]
         current_native = member["isolation"]["native"]
         locator = {k: v for k, v in current_native.items() if k != "inventory"}
@@ -261,6 +273,12 @@ def capture_cohort(manifest_path, output, *, workers, browser=False, detailed_tr
                     bundle, page, seed = fixture
                     receipt = restore_build_fixture(shared_dsn, shared_app, bundle, page, seed=seed)
                     immutable_save(output, "build-fixture-restored", receipt)
+                if composed is not None:
+                    from .cohort_fixture import prepare_composed_page_fixture
+
+                    page_fixture, document_id = composed
+                    receipt = prepare_composed_page_fixture(shared_dsn, shared_app, page_fixture, document_id)
+                    immutable_save(output, "composed-page-fixture-prepared", receipt)
                 jobs = [((manifest, member, shared_dsn, digest), ids, driver)
                         for (manifest, member, _, digest), ids, driver in jobs]
             if not context_only:
