@@ -84,9 +84,16 @@ async function run() {
           loaded_revision: snapshot.loaded_revision,
           committed_content_sha256: snapshot.committed_content_sha256,
         };
-        await page.getByRole("button", { name: "Open Image Studio", exact: true }).click();
         const editor = page.locator(".build-surface-shell .ProseMirror[contenteditable=true]:visible");
-        const editorBefore = await editor.innerHTML();
+        const readDocument = () => editor.evaluate(element => {
+          const doc = element.pmViewDesc?.node;
+          if (!doc?.type?.isBlock || typeof doc.toJSON !== "function") {
+            throw new Error("Mounted Build editor has no readable document model");
+          }
+          return JSON.stringify(doc.toJSON());
+        });
+        const editorBefore = await readDocument();
+        await page.getByRole("button", { name: "Open Image Studio", exact: true }).click();
         const { asset, model, elapsedMs } = await generatePrivatePreview(
           page, origin, process.env.DMB_BENCHMARK_QUESTION
         );
@@ -97,7 +104,7 @@ async function run() {
           sha256: createHash("sha256").update(Buffer.from(encoded[1], "base64")).digest("hex"),
           model, elapsedMs,
         };
-        result.editor_unchanged = editorBefore === await editor.innerHTML();
+        result.editor_unchanged = editorBefore === await readDocument();
       } finally {
         writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
           ...result, generation_posts: generationPosts, write_requests: writeRequests, turn_posts: turnPosts,
