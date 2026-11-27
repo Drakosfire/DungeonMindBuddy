@@ -348,3 +348,46 @@ def test_lore_confirmation_reads_back_one_saved_revision(tmp_path, monkeypatch, 
         assert result["status"] == ("incomplete" if failure else "observed")
         assert result["checks"]["reopened_exact_revision"] is (failure is None)
         assert all(value for key, value in result["checks"].items() if key != "reopened_exact_revision")
+
+
+@pytest.mark.parametrize("stale", [None, "run_revision", "content_sha256", "scene_id", "active_run"])
+def test_play_response_admits_only_exact_current_owner_state(stale):
+    from evals.buddy_benchmark.play_choice import validate_play_turn_state
+
+    world, run_id = "elderwyld", str(uuid4())
+    edition = {"edition_revision": 0, "edition_revision_id": None, "content_sha256": "a" * 64}
+    target = {"scene_id": "scene:one", "beat_id": "beat:one"}
+    template = {"primary_work": {"object_id": run_id, "expected_revision": 6, "play_content_basis": edition},
+                "owner_scope": {"world_id": world}, "play_target": target}
+    state = {
+        "run": {"run_id": run_id, "world_id": world, "run_revision": 6, "lifecycle_status": "active",
+                "progress": {"current_scene_id": target["scene_id"], "current_beat_id": target["beat_id"]}},
+        "content": {**edition, "run_id": run_id, "world_id": world, "observed_run_revision": 6},
+        "active": {"run_id": run_id, "world_id": world},
+    }
+    if stale is None:
+        validate_play_turn_state(state, template)
+        return
+    if stale == "run_revision":
+        state["run"]["run_revision"] = 7
+    elif stale == "content_sha256":
+        state["content"]["content_sha256"] = "b" * 64
+    elif stale == "scene_id":
+        state["run"]["progress"]["current_scene_id"] = "scene:two"
+    else:
+        state["active"]["run_id"] = str(uuid4())
+    with pytest.raises(ValueError, match="differs from the active Run"):
+        validate_play_turn_state(state, template)
+
+
+def test_play_response_correlation_excludes_same_text_with_a_different_key():
+    from uuid import NAMESPACE_URL, uuid5
+
+    from evals.buddy_benchmark.workflow import _request_turns
+
+    world, client_turn = "elderwyld", str(uuid4())
+    request = {"turn_id": client_turn, "message": "Choose the alternate path.", "surface": {"surface_id": "play"}}
+    expected = {"user_text": request["message"],
+                "idempotency_key": str(uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world}:{client_turn}"))}
+    other = {**expected, "idempotency_key": str(uuid4())}
+    assert _request_turns({"turns": [other, expected]}, request, world) == [expected]

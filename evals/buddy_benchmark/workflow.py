@@ -75,6 +75,24 @@ def _pointer(value, pointer):
 def validate_template(template, world, *, context_only=False, build_sequence=False):
     allowed = {"schema", "client_thread_id", "turn_id", "surface", "owner_scope",
         "primary_work", "client_work_state", "graph_request", "graph_selection", "plan_context_policy"}
+    if template.get("surface", {}).get("surface_id") == "play":
+        work = template.get("primary_work", {})
+        run = work.get("object_id")
+        graph = template.get("graph_request", {})
+        if (context_only or build_sequence or set(template) - (allowed | {"play_target"})
+                or template.get("schema") != "dmb_agent_turn_request_v1"
+                or template.get("owner_scope") != {"kind": "world", "world_id": world}
+                or template.get("client_work_state") != "saved_clean" or template.get("graph_selection") is not None
+                or work.get("kind") != "run" or not run or str(UUID(run)) != run
+                or template["surface"]["instance_id"] != json.dumps(["play", run], separators=(",", ":"))
+                or graph != {"mode": "world", "world_id": world, "campaign_id": None, "revision_pin": None,
+                             "focus": {"kind": "none", "session_id": None, "campaign_id": None}}
+                or "plan_context_policy" in template):
+            raise ValueError("Play capture requires an exact saved Run and ordinary World scope")
+        from apps.live_control_server.models.agent_turn import AgentTurnRequest
+        AgentTurnRequest.model_validate({**template, "client_thread_id": str(uuid4()),
+                                         "turn_id": str(uuid4()), "message": "Validate the Play fixture."})
+        return
     if build_sequence:
         allowed = (allowed - {"plan_context_policy"}) | {"build_authored_references"}
         surface = template.get("surface", {})
@@ -106,7 +124,7 @@ def validate_template(template, world, *, context_only=False, build_sequence=Fal
 
 def _request_turns(history, request, world, *, browser_plan=False):
     turns = [turn for turn in history["turns"] if turn["user_text"] == request["message"]]
-    if browser_plan or request["surface"].get("surface_id") == "build":
+    if browser_plan or request["surface"].get("surface_id") in {"build", "play"}:
         key = str(uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world}:{request['turn_id']}"))
         turns = [turn for turn in turns if turn.get("idempotency_key") == key]
     return turns
@@ -361,7 +379,7 @@ def report_case(case, base):
             "artifacts": {name: {"path": str(path), "sha256": sha256(path.read_bytes()).hexdigest()}
                 for name, path in paths.items()}}
     owner_observation = None
-    for name in ("lore-confirmation-result", "terminal-build-failure"):
+    for name in ("lore-confirmation-result", "terminal-build-failure", "play-turn-result"):
         owner_path = directory / (name + ".json")
         if owner_path.is_file():
             paths[name] = owner_path
@@ -639,6 +657,11 @@ def capture_case(client, world, template, case, directory, *, context_only=False
         immutable_save(directory, name, envelope)
         body = envelope["body"]
         return body
+    play = template.get("surface", {}).get("surface_id") == "play"
+    if play:
+        from .play_choice import read_play_turn_state, validate_play_turn_state
+        play_before = read_play_turn_state(client, directory, "play-before", world, template)
+        validate_play_turn_state(play_before, template)
     before = save("history-before", client.get(route))
     if pinned_history is not None:
         if not build_sequence or expected_conversation_id is not None:
@@ -670,7 +693,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
     request.update(client_thread_id=build_thread_id or str(uuid4()), turn_id=str(uuid4()), message=case["question"])
     if build_sequence and expected_conversation_id is not None and pinned_history is None:
         request.pop("build_authored_references", None)
-    if not build_sequence:
+    if not build_sequence and not play:
         request["surface"]["instance_id"] = request["client_thread_id"]
     if build_editor_snapshot is not None:
         request["build_draft_context"] = BuildDraftContextRequestV1(
@@ -697,8 +720,8 @@ def capture_case(client, world, template, case, directory, *, context_only=False
     finally:
         try:
             history = save("history-after", client.get(route, params={"include_turn_correlation": "true"}))
-            if build_sequence and history["active_conversation_id"] != fresh["active_conversation_id"]:
-                raise ValueError("Build conversation changed after dispatch")
+            if (build_sequence or play) and history["active_conversation_id"] != fresh["active_conversation_id"]:
+                raise ValueError("Conversation changed after dispatch")
             prior_ids = {turn["turn_id"] for turn in fresh["turns"]}
             turns = [t for t in _request_turns(history, request, world) if t["turn_id"] not in prior_ids]
             if len(turns) != 1:
@@ -706,7 +729,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
             durable = turns[0]
             trace_response = client.get(route + "/turns/" + durable["turn_id"] + "/context-trace")
             trace = save("context-trace", trace_response)
-            if build_sequence and known_response and response.status_code == 200:
+            if (build_sequence or play) and known_response and response.status_code == 200:
                 delivered = response.json()
                 if (durable.get("lifecycle_status") != "completed"
                         or delivered.get("turn_id") != request["turn_id"]
@@ -714,7 +737,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
                         or delivered.get("answer", {}).get("text") != durable.get("assistant_text")
                         or trace_response.status_code != 200 or not isinstance(trace, dict)
                         or trace.get("world_id") != world or trace.get("turn_id") != durable["turn_id"]):
-                    raise ValueError("Build turn delivery or trace could not be verified")
+                    raise ValueError("Ordinary turn delivery or trace could not be verified")
             if not context_only and known_response and response.status_code == 200:
                 retain_citation_readbacks(client, directory, route, world, durable["turn_id"], response.json())
                 if case.get("lore_confirmation") is not None:
@@ -728,6 +751,15 @@ def capture_case(client, world, template, case, directory, *, context_only=False
                 context_stop.finalize(observed)
         except Exception as exc:
             error = error or exc
+        if play:
+            try:
+                play_after = read_play_turn_state(client, directory, "play-after", world, template)
+                immutable_save(directory, "play-turn-result", {
+                    "status": "observed",
+                    "unchanged": {key: value == play_after[key] for key, value in play_before.items()},
+                })
+            except Exception as exc:
+                error = error or exc
         immutable_save(directory, "terminal", {"status": "observed" if known_response else "outcome_unknown",
             "error_type": type(error).__name__ if error else None,
             "elapsed_seconds": time.monotonic() - started, "automatic_restart": False})
@@ -795,6 +827,9 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
     if manifest.get("browser_capture", {}).get("image_preview") is True and (
             not live_build or browser_case is None or (not clone_app and cohort_app is None)):
         raise ValueError("Image preview requires a selected live Build case and an owned App clone")
+    if manifest["request_template"].get("surface", {}).get("surface_id") == "play" and (
+            browser_case is not None or (not clone_app and cohort_app is None)):
+        raise ValueError("Play turn requires an owned App clone")
     if "play_choice" in manifest.get("browser_capture", {}) and (
             browser_case is None or (not clone_app and cohort_app is None)):
         raise ValueError("Play Choice requires a selected browser case and an owned App clone")

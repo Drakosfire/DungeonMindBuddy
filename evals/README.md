@@ -217,6 +217,13 @@ independently checks the Run, unchanged active pointer, saved Plan and zero
 assistant sends. This
 measures an operator action and produces no assistant action-choice score.
 
+To measure Buddy's action choice separately, use the shared response capture
+with an ordinary `play` request template in an owned App clone. Pin the
+active Run, edition and exact current scene and beat. The harness records
+the assistant response and owner readbacks of Run progress, edition, active
+pointer, Plan and Play proposal inventory. It does not click an operator
+control or treat the response as proof of a mutation.
+
 For an unsent draft recovery control, use `capture --build-fixture --case
 RECOVERY-1 --clone-app` and set `browser_capture.unsent_draft` to `true`.
 The browser fills the composer and reloads it without clicking Send. The
