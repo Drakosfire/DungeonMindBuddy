@@ -548,3 +548,7 @@ A locator rejected before the loader is not counted. These are attempts, not
 proof of a returned PDF or source-specific support; prebound aliases outside
 these paths, other workers and late work remain uncovered. Legacy artifacts
 with no PDF observations remain unknown, and the journal is still partial.
+
+The independently authored H4 run, its frozen pins, observed acquisition stages,
+latency limitations and remaining native-Core gap are recorded in the
+[H4 observation](../../Docs/Benchmarks/OBSERVATION-negative-retrieval-h4.md).
