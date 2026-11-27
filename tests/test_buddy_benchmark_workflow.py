@@ -1998,3 +1998,23 @@ def test_cohort_restore_rejects_different_request_page_before_database(tmp_path,
             workers=1, clone_app=True, context_only=False,
         )
     assert not (tmp_path / "output").exists()
+
+
+def test_first_requested_work_requires_matching_provider_receipt():
+    from evals.buddy_benchmark.workflow import first_requested_work
+
+    def response(sequence, provider, action):
+        return {"kind": "context_snapshot", "sequence": sequence, "snapshot_kind": "provider_response",
+                "materials": [{"item_id": f"unvalidated-controller-decision:{provider}:context",
+                    "text": json.dumps({"answers": {"requested_work": {"kind": "choice", "selected": action}}})}]}
+
+    receipt = {"kind": "provider_call", "sequence": 1, "provider": "typesafe",
+               "outcome": "response_received", "provider_attempt_id": "choice-attempt"}
+    unmatched = {"attempt": 1, "observations": [receipt, response(2, "wrong-attempt", "discuss")]}
+    assert first_requested_work([unmatched]) == {"status": "unknown"}
+    ordered = {**unmatched, "observations": [response(4, "choice-attempt", "discuss"), receipt,
+                                           response(3, "choice-attempt", "clarify_request")]}
+    assert first_requested_work([ordered]) == {
+        "status": "observed", "requested_work": "clarify_request", "attempt": 1,
+        "trace_sequence": 3, "provider_attempt_id": "choice-attempt",
+    }

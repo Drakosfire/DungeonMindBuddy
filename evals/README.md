@@ -386,6 +386,11 @@ review remains editable and the saved Page does not change. The report retains
 ordinary delivery separately from the owner observation. Keep a missing review
 as an observed product outcome.
 
+Ordinary reports include `first_action` when a retained controller response
+records a requested-work vote bound to its provider attempt. This is an observed
+vote. Fulfillment still requires its own assessment. Missing votes stay unknown,
+including turns for which only a provider response receipt survives.
+
 Use `protected_work_objects` for stable fixtures that later members depend
 on. Give intentional page changes their own isolated targets and verify them
 with the existing browser owner's readback. Cases that need the same mutable

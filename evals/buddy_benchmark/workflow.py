@@ -130,6 +130,37 @@ def _request_turns(history, request, world, *, browser_plan=False):
     return turns
 
 
+def first_requested_work(attempts):
+    """Return the earliest retained requested-work vote with its provider witness."""
+    ordered = (attempt for attempt in attempts if type(attempt.get("attempt")) is int)
+    for attempt in sorted(ordered, key=lambda row: row["attempt"]):
+        sequenced = (event for event in attempt["observations"] if type(event.get("sequence")) is int)
+        observations = sorted(sequenced, key=lambda row: row["sequence"])
+        responses = set()
+        for event in observations:
+            if (event["kind"] == "provider_call" and event.get("outcome") == "response_received"
+                    and event.get("provider") == "typesafe"):
+                responses.add(event["provider_attempt_id"])
+            if event["kind"] != "context_snapshot" or event.get("snapshot_kind") != "provider_response":
+                continue
+            for material in event["materials"]:
+                prefix, _, identity = (material.get("item_id") or "").partition(":")
+                provider_attempt, separator, _ = identity.partition(":")
+                if prefix != "unvalidated-controller-decision" or not separator or provider_attempt not in responses:
+                    continue
+                try:
+                    vote = json.loads(material["text"])["answers"]["requested_work"]
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if isinstance(vote, dict) and vote.get("kind") == "choice" and isinstance(vote.get("selected"), str):
+                    return {
+                        "status": "observed", "requested_work": vote["selected"],
+                        "attempt": attempt["attempt"], "trace_sequence": event["sequence"],
+                        "provider_attempt_id": provider_attempt,
+                    }
+    return {"status": "unknown"}
+
+
 def report_case(case, base):
     """Facts from retained receipts; semantic grades only from pinned reviews."""
     directory = Path(case["capture_dir"])
@@ -418,6 +449,7 @@ def report_case(case, base):
         return sum(c[key] for c in calls.values()) if calls and all(c[key] is not None for c in calls.values()) else None
     return {"case_id": case["id"], "question": case["question"], "capture_status": "complete",
         "durable_turn_id": turn["turn_id"], "boundaries": boundaries,
+        **({"first_action": first_requested_work(attempts)} if not context_only else {}),
         **({"owner_observation": owner_observation} if owner_observation is not None else {}),
         "delivery": {"status": delivery_status, "http_status": answer["http_status"],
             "lifecycle_status": turn["lifecycle_status"]},
