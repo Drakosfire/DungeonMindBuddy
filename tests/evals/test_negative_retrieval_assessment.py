@@ -4445,6 +4445,26 @@ def test_interrupted_hook_restoration_poisoned_and_restores_other_hooks(owners, 
         builtins.setattr(scoped, 'transaction', original_scoped)
 
 
+def test_silent_hook_restoration_failure_poisoned(owners, monkeypatch):
+    import builtins
+    database, scoped, _, _, _ = owners
+    original_connect, original_scoped = database.connect, scoped.transaction
+    monkeypatch.setattr(probe, '_poisoned', False)
+    def ignored_setattr(owner, name, value):
+        if owner is scoped and name == 'transaction' and value is original_scoped:
+            return
+        return builtins.setattr(owner, name, value)
+    monkeypatch.setattr(probe, 'setattr', ignored_setattr, raising=False)
+    try:
+        with pytest.raises(RuntimeError, match='could not be restored'):
+            with probe.observe_core_connections('unused', EXPECTED, scope_ref=[None]) as state:
+                pass
+        assert state['status'] == 'uncertain' and state['errors'] == 1
+        assert database.connect is original_connect
+    finally:
+        builtins.setattr(scoped, 'transaction', original_scoped)
+
+
 def test_retained_transaction_alias_is_inert_after_observer_closes(owners):
     from copy import deepcopy
     _, scoped, connection, _, _ = owners

@@ -30,5 +30,9 @@ Provider-free initial owner check on the existing clone reached the real
 read-only Core transaction; case 413 failed because the check script expected
 a tuple from the Core owner's dictionary row factory. Case 414 corrected that
 assertion and observed one connection and one verified transaction using only
-`SELECT 1`. Both workers closed. These checks used the earlier witness head;
-the lifecycle fixes require a fresh exact-head check and review.
+`SELECT 1`. Case 417 repeated that check at head `1155b918d43c32a1e58b9c37359fcaf3e5e41d5c`.
+At that head, ordinary synthetic long-chat case 419 completed with an
+independently reviewed answer, retained the optional partial witness and
+remained unproven for capture environment and acquisition completeness. Its
+zero Core observations do not prove absence. All workers closed. The subsequent
+cleanup hardening still needs an exact-head owner check and review.

@@ -205,6 +205,8 @@ def observe_core_connections(dsn, expected, *, scope_ref):
                         _poisoned = True
                     else:
                         setattr(owner, name, original)
+                        if getattr(owner, name) is not original:
+                            _poisoned = True
                 except BaseException:
                     _poisoned = True
         finally:
