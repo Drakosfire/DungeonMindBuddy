@@ -53,6 +53,10 @@ def mode_context(event):
     from . import types as t
     if type(event) is t.ProviderAttemptAuthorizedEventV5:
         return event
+    from .native_execution import BuildAppPageSelectionAuthorizedV1
+    from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1
+    if type(event) in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1):
+        return event
     from .native_retrieval import NativeRetrievalAuthorizedV1
     if type(event) is NativeRetrievalAuthorizedV1 and event.build_context is not None:
         return event.build_context
@@ -83,6 +87,9 @@ def uses_role_accounting(policy):
     from . import types as t
     if isinstance(policy, t.BuildEstimatedActionControllerWriterPolicyV1):
         return True
+    if getattr(policy, "policy_version", None) == "build_pending_execution_v1":
+        from .native_execution import BuildPendingExecutionPolicyV1
+        return type(policy) is BuildPendingExecutionPolicyV1
     if getattr(policy, "policy_version", None) != "surface_native_execution_v1":
         return False
     from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1

@@ -426,13 +426,19 @@ NativeAssertionCitation = NativeAssertionCitationV1 | NativeAssertionPdfCitation
 
 
 def citation(receipt, authorization, event, read, span, *, index):
-    authority = receipt.native_query.authority
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import pending_citation_identity
+        managed_world_id, native_world_id, read_revision_id = pending_citation_identity(receipt)
+    else:
+        authority = receipt.native_query.authority
+        managed_world_id, native_world_id, read_revision_id = authority.managed_world_id, authority.native_world_id, authority.revision_id
     citation_type = NativeAssertionPdfCitationV1 if isinstance(span, NativeAssertionPdfRegionV1) else NativeAssertionCitationV1
     return citation_type(**span.model_dump(exclude={'text'}), segment_index=index,
         assertion_id=read.assertion.assertion_id, read_event_id=event.event_id,
         provider_attempt_id=authorization.provider_attempt_id, envelope_sha256=authorization.envelope_sha256,
-        context_receipt_sha256=receipt.context_receipt_sha256, managed_world_id=authority.managed_world_id,
-        native_world_id=authority.native_world_id, read_revision_id=authority.revision_id,
+        context_receipt_sha256=receipt.context_receipt_sha256, managed_world_id=managed_world_id,
+        native_world_id=native_world_id, read_revision_id=read_revision_id,
         assertion_sha256=digest(read.assertion))
 
 

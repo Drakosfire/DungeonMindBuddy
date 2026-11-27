@@ -112,6 +112,11 @@ def validate_record_identity(record, *, world_id, conversation_id, turn_id, atte
 
 def native_build_action(execution):
     """Select the concrete shared Build owner without a legacy policy view."""
+    if getattr(execution.policy, 'policy_version', None) == 'build_pending_execution_v1':
+        from .native_execution import BuildPendingExecutionV1, BuildPendingExecutionPolicyV1, NativeBuildActionV1
+        return (execution.policy.action if type(execution) is BuildPendingExecutionV1
+            and type(execution.policy) is BuildPendingExecutionPolicyV1
+            and type(execution.policy.action) is NativeBuildActionV1 else None)
     if getattr(execution.policy,'policy_version',None) != 'surface_native_execution_v1':
         return None
     from .native_execution import SurfaceNativeExecutionV1, NativeBuildActionV1
@@ -122,13 +127,19 @@ def validate_native_record(record, receipt, execution, *, world_id, conversation
                            submitted_intent_fingerprint):
     """Join the actual consumer identity; this grants no dispatch or edit authority."""
     from . import types as t
-    from .native_context import SurfaceNativeContextReceiptV1, BuildWorkContextV1
+    from .native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1, BuildWorkContextV1
+    from .native_execution import BuildPendingExecutionV1
     action=native_build_action(execution)
-    if (action is None or type(receipt) is not SurfaceNativeContextReceiptV1
+    expected_receipt = BuildPendingContextReceiptV1 if type(execution) is BuildPendingExecutionV1 else SurfaceNativeContextReceiptV1
+    if (action is None or type(receipt) is not expected_receipt
             or type(receipt.work_context) is not BuildWorkContextV1 or world_id != action.intent.world_id
             or t.submitted_turn_intent_fingerprint_v2(action.intent) != submitted_intent_fingerprint
             or captured_context_sha256(record) != action.intent.build_draft_context_sha256):
         raise ValueError('Working draft differs from the actual native Build submission')
+    if type(receipt) is BuildPendingContextReceiptV1 and (
+            record.conversation_id != receipt.conversation_observation.conversation_id
+            or record.expected_pointer_revision != receipt.conversation_observation.pointer_revision):
+        raise ValueError('Working draft differs from its captured pending conversation')
     validate_record_identity(record,world_id=world_id,conversation_id=conversation_id,turn_id=turn_id,
         attempt=attempt,submitted_intent_fingerprint=submitted_intent_fingerprint,
         saved_basis=receipt.work_context.source_basis)

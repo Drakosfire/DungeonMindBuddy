@@ -1,4 +1,4 @@
-import type {SurfaceNativeContextReceiptV1,SurfaceNativeCompletionV1,SurfaceNativeWorkContextV1,PlanSourceContextReceiptV1,NativePlanRequestAdmissionV1} from '../api/types';
+import type {BuildPendingContextReceiptV1,SurfaceNativeContextReceiptV1,SurfaceNativeCompletionV1,SurfaceNativeWorkContextV1,PlanSourceContextReceiptV1,NativePlanRequestAdmissionV1} from '../api/types';
 import {exact,canonical,isCollaboration,isDraftReferenceClaim,isRelatedPageClaim,isSavedSourceClaim} from './sourcePassageProtocol';
 import {isNativeGraphQuery,isNativeBuildQueryPending,isNativeClauseCitation} from './nativeStatementAnswerProtocol';
 import {isNativeAssertionClaim,isNativeAssertionCitation} from './nativeAssertionProtocol';
@@ -17,7 +17,7 @@ export function isNativeSourceAuthority(a:unknown,worldId:string):a is PlanSourc
     &&a.schema_version==='dmb_native_corpus_authority_v1'&&a.managed_world_id===worldId&&text(a.native_world_id)&&text(a.revision_id)&&integer(a.binding_version,1)
     &&(a.provisioning_id===null||text(a.provisioning_id))&&integer(a.acquisition_epoch)&&ref(a.domain_ref)&&ref(a.profile_ref)&&a.scope==='gm_world_cross_campaign_source_inspection'&&a.role==='gm';
 }
-export function isNativeProviderInput(input:unknown,assembler:'surface_native_initial_v1'|'plan_source_jev_initial_v1'|'native_build_semantic_initial_v2'):boolean {
+export function isNativeProviderInput(input:unknown,assembler:'surface_native_initial_v1'|'plan_source_jev_initial_v1'|'native_build_semantic_initial_v2'|'native_build_pending_initial_v3'):boolean {
   return exact(input,['assembler_version','provider_model_name','provider_model_version','tokenizer_name','tokenizer_version','provider_envelope_input_tokens','output_token_reserve','context_window_limit','included_history','assembled_input_sha256'])
     &&input.assembler_version===assembler&&[input.provider_model_name,input.provider_model_version,input.tokenizer_name,input.tokenizer_version].every(text)
     &&integer(input.provider_envelope_input_tokens)&&integer(input.output_token_reserve)
@@ -69,12 +69,12 @@ function isLorePageDraft(value: unknown): boolean {
 }
 
 export function isSurfaceNativeCompletion(
-  v:unknown,r:SurfaceNativeContextReceiptV1,membership?:unknown,
+  v:unknown,r:SurfaceNativeContextReceiptV1|BuildPendingContextReceiptV1,membership?:unknown,
 ):v is SurfaceNativeCompletionV1 {
   if(!exact(v,['schema','surface_id','context_receipt_sha256','producing_provider_attempt_id','answer_basis','answer_context_status','answer_segments','collaboration','saved_source_citations','native_body_citations','native_clause_citations','native_assertion_citations'])
     ||v.schema!=='dmb_surface_native_completion_v1'||v.surface_id!==r.work_context.surface_id||v.context_receipt_sha256!==r.context_receipt_sha256||!uuid(v.producing_provider_attempt_id)||v.answer_basis!=='mixed_evidence'
     ||!Array.isArray(v.answer_segments)||v.answer_segments.length>128||!(isCollaboration(v.collaboration,true,true,true,true) || v.surface_id === 'build' && isLorePageDraft(v.collaboration))||v.collaboration!==null&&v.surface_id!=='build'&&!(v.surface_id==='plan'&&typeof v.collaboration==='object'&&v.collaboration!==null&&'kind' in v.collaboration&&v.collaboration.kind==='connected_page')||!v.answer_segments.length&&v.collaboration===null)return false;
-  const pending=r.native_query.schema==='dmb_native_build_query_pending_v1';
+  const pending='source_observation' in r||r.native_query.schema==='dmb_native_build_query_pending_v1';
   const projected={statements:new Set<string>(),assertions:new Set<string>()};
   if(membership!==undefined) {
     if(!pending||!exact(membership,['context_receipt_sha256','producing_provider_attempt_id','statements','assertions'])
@@ -138,17 +138,22 @@ export function isSurfaceNativeCompletion(
       if(seen.has(key))return false;seen.add(key);
       if(family==='native_body_citations'){if(!sources.has(index)||c.line_end<c.line_start
         ||('prior_reference' in c && (work.surface_id!=='build'||!isLorePageDraft(v.collaboration))))return false;cited.add(index);continue;}
-      const q=r.native_query;
-      if(q.schema==='dmb_native_plan_query_unavailable_v1'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
+      const q='native_query' in r?r.native_query:null;
+      if(q===null) {
+        const observed='source_observation' in r?r.source_observation:null;
+        if(!observed?.binding||c.managed_world_id!==observed.managed_world_id
+          ||c.native_world_id!==observed.binding.native_world_id
+          ||c.read_revision_id!==(observed.requested_revision_id??observed.observed_head_revision_id))return false;
+      } else if(q.schema==='dmb_native_plan_query_unavailable_v1'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
       if(family==='native_clause_citations') {
         const key=canonical([c.statement_id,c.campaign_id]);
-        const matches=q.schema==='dmb_native_build_query_pending_v1'?projected.statements.has(key)
+        const matches=q===null||q.schema==='dmb_native_build_query_pending_v1'?projected.statements.has(key)
           :[...q.matches,...((q.schema==='dmb_native_graph_query_v3'||q.schema==='dmb_native_graph_query_v4')?q.authored_targets.flatMap(t=>t.matches):[])].some(m=>m.statement_id===c.statement_id&&m.campaign_id===c.campaign_id);
         if(!sources.has(index)||!matches)return false;
         witnessed.statements.add(key);cited.add(index);
       } else {
         const key=canonical([c.assertion_id,c.assertion_sha256]);
-        const matches=q.schema==='dmb_native_build_query_pending_v1'?projected.assertions.has(key)
+        const matches=q===null||q.schema==='dmb_native_build_query_pending_v1'?projected.assertions.has(key)
           :[...q.assertion_matches,...((q.schema==='dmb_native_graph_query_v3'||q.schema==='dmb_native_graph_query_v4')?q.authored_targets.flatMap(t=>t.assertion_matches):[])].some(m=>m.assertion_id===c.assertion_id&&m.assertion_sha256===c.assertion_sha256);
         if(!graphs.get(index)?.includes(c.assertion_id)||!matches)return false;
         witnessed.assertions.add(key);
@@ -264,4 +269,34 @@ export function isSurfaceNativeContext(
   const execution=v.execution as import('../api/types').WorldPlanGraphExecutionProjectionV1|null;
   return v.completion===null?history&&(execution===null||execution.claimability!=='completed')
     :execution!==null&&execution.claimability==='completed'&&execution.authorization_state==='response_received';
+}
+
+/** Observed pointers are not a source grant or a verified native query. */
+export function isBuildPendingReceipt(v:unknown,validateWork:(work:unknown)=>work is SurfaceNativeWorkContextV1):v is BuildPendingContextReceiptV1 {
+  if(!exact(v,['schema','receipt_serializer_version','context_receipt_sha256','provenance_sha256',
+      'work_context','source_observation','conversation_observation','assembled_input'])
+    ||v.schema!=='dmb_build_pending_context_receipt_v1'||v.receipt_serializer_version!=='canonical-json-utf8-v1'
+    ||!hash(v.context_receipt_sha256)||!hash(v.provenance_sha256)||!validateWork(v.work_context)
+    ||v.work_context.surface_id!=='build'||!isNativeProviderInput(v.assembled_input,'native_build_pending_initial_v3'))return false;
+  const world=v.work_context.source_basis.world_id,o=v.source_observation,c=v.conversation_observation;
+  if(!exact(c,['conversation_id','pointer_revision'])||!uuid(c.conversation_id)||!integer(c.pointer_revision)
+    ||!exact(o,['schema','managed_world_id','binding','requested_revision_id','observed_head_revision_id'])
+    ||o.schema!=='dmb_build_source_observation_v1'||o.managed_world_id!==world
+    ||!(o.requested_revision_id===null||text(o.requested_revision_id))
+    ||!(o.observed_head_revision_id===null||text(o.observed_head_revision_id)))return false;
+  return o.binding===null?o.observed_head_revision_id===null
+    :exact(o.binding,['managed_world_id','native_world_id','binding_version','provisioning_id'])
+      &&o.binding.managed_world_id===world&&text(o.binding.native_world_id)&&integer(o.binding.binding_version,1)
+      &&(o.binding.provisioning_id===null||text(o.binding.provisioning_id));
+}
+export function isBuildPendingContext(v:unknown,validateWork:(work:unknown)=>work is SurfaceNativeWorkContextV1,
+  validateExecution:(execution:unknown)=>boolean,history=false):v is import('../api/types').AgentBuildPendingContextResponseV1 {
+  const membership=typeof v==='object'&&v!==null&&'deferred_build_citations' in v;
+  if(!exact(v,['schema','receipt','completion','execution','delivery_replay',...(membership?['deferred_build_citations']:[])])
+    ||v.schema!=='dmb_agent_build_pending_context_response_v1'||!isBuildPendingReceipt(v.receipt,validateWork)
+    ||typeof v.delivery_replay!=='boolean'||v.execution!==null&&!validateExecution(v.execution))return false;
+  const execution=v.execution as import('../api/types').WorldPlanGraphExecutionProjectionV1|null;
+  return v.completion===null?!membership&&history&&(execution===null||execution.claimability!=='completed')
+    :isSurfaceNativeCompletion(v.completion,v.receipt,v.deferred_build_citations)&&execution!==null
+      &&execution.claimability==='completed'&&execution.authorization_state==='response_received';
 }

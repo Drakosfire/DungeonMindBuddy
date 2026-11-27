@@ -19,6 +19,9 @@ def enabled(policy):
 
     if isinstance(policy, (BuildPrimaryWorkPolicyV1, BuildPrimaryWorkImagePolicyV1)):
         return True
+    from .native_execution import BuildPendingExecutionPolicyV1, NativeBuildActionV1
+    if type(policy) is BuildPendingExecutionPolicyV1:
+        return type(policy.action) is NativeBuildActionV1
     if getattr(policy,'policy_version',None) != 'surface_native_execution_v1':
         return False
     from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
@@ -27,8 +30,8 @@ def enabled(policy):
 
 
 def context_policy(policy):
-    from .native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
-    if type(policy) is SurfaceNativeExecutionPolicyV1 and type(policy.action) is NativeBuildActionV1:
+    from .native_execution import SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1, NativeBuildActionV1
+    if type(policy) in (SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1) and type(policy.action) is NativeBuildActionV1:
         return DRAFT_POLICY if policy.action.intent.build_draft_context_sha256 is not None else POLICY
     return policy.primary_work_context_policy
 

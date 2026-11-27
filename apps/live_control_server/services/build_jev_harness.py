@@ -22,7 +22,7 @@ from generationengine.types import (
 from generationengine.providers.openai_text import OpenAITextProvider
 from generationengine.text_dispatch import TextDispatchGate
 from application_state.agent_conversation import types as ledger
-from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1
+from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1
 from application_state.agent_conversation.build_authoring import completion_for_proposal
 from application_state.build_proposal.types import BuildProposalOrigin, explicit_build_page_target
 from apps.live_control_server.models.build_document_proposal import (
@@ -144,13 +144,13 @@ class BuildJevHarness:
                 working_draft_context_sha256=digest(draft.model_dump(mode="json", by_alias=True)))
         return budget
 
-    def configured_budget(self, request):
+    def configured_budget(self, request, *, defer_related_pages=False):
         result=self.budget(request, accounting=self.accounting, world_context=self.world_context, named_citations=self.named_citations)
         if self.related_pages and request.build_draft_context is not None:
             from .build_related_pages import discover,POLICY
             from application_state.agent_conversation.collaboration import POLICY as COLLABORATION_POLICY, CONNECTED_POLICY
             from application_state.agent_conversation.source_quote_binding import CURRENT_POLICY as QUOTE_POLICY
-            result["buildJevActions"].update(related_page_context_policy=POLICY,related_page_catalog=discover(request), collaboration_output_policy=COLLABORATION_POLICY, connected_page_review_policy=CONNECTED_POLICY, source_quote_binding_policy=QUOTE_POLICY, relationship_review_policy="typed_saved_relationship_review_v1")
+            result["buildJevActions"].update(related_page_context_policy=POLICY, **({} if defer_related_pages else {"related_page_catalog": discover(request)}), collaboration_output_policy=COLLABORATION_POLICY, connected_page_review_policy=CONNECTED_POLICY, source_quote_binding_policy=QUOTE_POLICY, relationship_review_policy="typed_saved_relationship_review_v1")
         if self.related_pages and request.reviewed_step is None:
             from application_state.agent_conversation.build_intentional_response import budget_fields
             result['buildJevActions'].update(budget_fields(result['buildJevActions']))
@@ -229,7 +229,8 @@ class BuildJevHarness:
         self.output_limit_exceeded = False
         self.adapter = adapter
         adapter._build_jev_accounting = self.accounting
-        if self.rules_capability is not None and adapter.native_source_authority is None:
+        if (self.rules_capability is not None and adapter.native_source_authority is None
+                and getattr(adapter, 'pending_build_source_observation', None) is None):
             adapter.enable_rules_lookup(self.rules_capability)
         self.failure_stage = "controller_prepare"
         primary_error = False
@@ -292,6 +293,9 @@ class BuildJevHarness:
                 driver.operation != "propose_build_insertion" or adapter.native_source_authority is None
             ):
                 raise ValueError("The image reference requires an edit to the selected passage.")
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            if type(adapter._broker_receipt()) is BuildPendingContextReceiptV1:
+                return self._native_completion(adapter, driver)
             from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
             if (adapter.native_source_authority is not None
                     and conversation_route_can_admit(adapter._broker_receipt(), adapter._broker_execution())
@@ -547,6 +551,14 @@ class BuildJevHarness:
                 guidance.get(placement.disposition, "Which existing paragraph should I use, and should I insert before or after it?"),
                 code="build_contextual_placement_unresolved", status_code=409,
             )
+        from .build_pending_retained import admit_pending_conversation
+        admit_pending_conversation(adapter)
+        from .build_pending_app_pages import acquire_pending_app_pages
+        asyncio.run(acquire_pending_app_pages(adapter, self))
+        from .build_pending_app_coverage import assess_pending_app_coverage
+        asyncio.run(assess_pending_app_coverage(adapter, self))
+        from .build_pending_source import prepare_pending_native_source
+        prepare_pending_native_source(adapter)
         from application_state.agent_conversation.rules_authority_reads import MixedCompletedTurnV1
         from .plan_jev_rules_runtime import PlanRulesRuntime
         from .plan_jev_driver import PlanJevDriver
@@ -556,16 +568,24 @@ class BuildJevHarness:
         # dialogue resolves follow-up references; it is never source evidence.
         dialogue = tuple({'role': role, 'content': pair[role]}
             for pair in adapter.build_frozen_history for role in ('user', 'assistant'))
-        from application_state.agent_conversation.writer_evidence_selection import native_approval_terminal, native_conversation_terminal
+        from application_state.agent_conversation.writer_evidence_selection import native_work_terminal
 
-        terminal = native_approval_terminal(adapter.turn) or native_conversation_terminal(adapter.turn)
+        terminal = native_work_terminal(adapter.turn)
         retrieval = None
         writer = None
         try:
             proof = {}
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            pending = type(adapter._broker_receipt()) is BuildPendingContextReceiptV1
+            if pending:
+                rules.restore_pending()
             if terminal is None:
-                retrieval = PlanJevDriver(adapter,dialogue=dialogue,rules=rules)
-                proof = asyncio.run(retrieval.run(transport=self.decision_transport))
+                if pending:
+                    from .build_pending_native_retrieval import run_pending_native_retrieval
+                    proof = asyncio.run(run_pending_native_retrieval(adapter, self, dialogue=dialogue, rules=rules))
+                else:
+                    retrieval = PlanJevDriver(adapter,dialogue=dialogue,rules=rules)
+                    proof = asyncio.run(retrieval.run(transport=self.decision_transport))
                 terminal = {'status':'ready','reason':'native_retrieval_finished'}
             from .build_jev_writer_selection import WriterSelectionDriver
             selector = WriterSelectionDriver(adapter,work_driver,terminal)
@@ -698,7 +718,7 @@ class BuildJevHarness:
             self._observe(result, started, "controller")
             # Retain actual received bytes before a host gate can reject them.
             # This protected, unvalidated Debug channel grants no answer authority.
-            if isinstance(adapter._broker_execution().policy, (ledger.BuildSelectedSourceActionControllerWriterPolicyV1, SurfaceNativeExecutionPolicyV1)):
+            if isinstance(adapter._broker_execution().policy, (ledger.BuildSelectedSourceActionControllerWriterPolicyV1, SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1)):
                 adapter.context_capture.controller_decision_response(
                     canonical(result.model_dump(mode="json")),
                     producing_provider_attempt_id=adapter.last_provider_attempt_id,

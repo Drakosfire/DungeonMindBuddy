@@ -21,8 +21,8 @@ def rules_candidate():
 
 def _selected_offer(turn, parent_request_json):
     from .types import PlanJevRetrievalSelectionV1, PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV1
-    from .native_context import SurfaceNativeContextReceiptV1
-    if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
+    from .native_context import SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1
+    if type(turn.graph_context_receipt) in (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1):
         from .native_retrieval import owner, scope_digest
         receipt, graph = owner(turn)
     else:
@@ -33,7 +33,7 @@ def _selected_offer(turn, parent_request_json):
     from .types import PlanSourceContextReceiptV1
     from .plan_jev_decision import _source_pins
     from .native_context import SurfaceNativeContextReceiptV1
-    source_owned = isinstance(receipt, (PlanSourceContextReceiptV1, SurfaceNativeContextReceiptV1))
+    source_owned = isinstance(receipt, (PlanSourceContextReceiptV1, SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1))
     from .native_retrieval import native_selection_types
     from .jev_retrieval_contract import parse_native_retrieval_input
     choices = [e for e in graph.events if isinstance(e, PlanJevRetrievalSelectionV1)]
@@ -47,7 +47,12 @@ def _selected_offer(turn, parent_request_json):
     else:
         parent_type = PlanSourceRetrievalDecisionInputV1 if source_owned else RetrievalDecisionInput
         parent = parent_type.model_validate(raw_parent)
-    pins_match = (all(getattr(parent, key) == value for key, value in _source_pins(receipt).items())
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .native_retrieval import source_pins
+        pins = source_pins(receipt, graph)
+    else:
+        pins = _source_pins(receipt) if source_owned else None
+    pins_match = (all(getattr(parent, key) == value for key, value in pins.items())
         if source_owned else parent.revision == receipt.graph_authority.graph_revision)
     if (not isinstance(provider, PlanJevProviderAuthorizedV1)
             or choice.operation != "select_candidates" or RULES_HANDLE not in choice.selected_handles

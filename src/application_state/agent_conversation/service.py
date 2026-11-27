@@ -330,8 +330,8 @@ def _validated_base_execution_locked(
     mixed_output_context=None, native_output_verified=False,
 ):
     """Validate the unchanged base-domain completion without committing a Turn."""
-    from .native_execution import SurfaceNativeExecutionV1
-    if isinstance(turn.graph_context_execution, SurfaceNativeExecutionV1):
+    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
+    if type(turn.graph_context_execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1):
         from .native_rules_output import NativeRulesNormalizedOutputV1
         from .rules_authority_types import canonical_sha256
         if not native_output_verified and not isinstance(mixed_output_context,NativeRulesNormalizedOutputV1):
@@ -342,7 +342,7 @@ def _validated_base_execution_locked(
             sequence=len(turn.graph_context_execution.events),provider_attempt_id=result.producing_provider_attempt_id,
             completion_sha256=canonical_sha256(result.completion),claim_graph_event_ids={})
         try:
-            execution=SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+            execution=type(turn.graph_context_execution).model_validate_json(json.dumps(
                 turn.graph_context_execution.model_dump(mode='json',by_alias=True)
                 | {'events':[e.model_dump(mode='json',by_alias=True) for e in [*turn.graph_context_execution.events,binding]]}))
             validate_execution_completion(result.completion,turn.graph_context_receipt,execution,
@@ -1235,6 +1235,13 @@ class AgentConversationService:
                 raise ApplicationStateConflictError("conversation is no longer active in this World")
             if self._authorize_new_turn is not None:
                 self._authorize_new_turn(conn, world_id, submission)
+            from .native_context import BuildPendingContextReceiptV1
+            if type(submission.graph_context_receipt) is BuildPendingContextReceiptV1:
+                from .build_source_free import validate_pending_conversation_pointer
+                try:
+                    validate_pending_conversation_pointer(submission.graph_context_receipt, pointer)
+                except ValueError as exc:
+                    raise ApplicationStateConflictError(str(exc)) from exc
             conversation = repo.lock_conversation(conn, world_id, submission.conversation_id)
             if conversation is None:
                 raise ApplicationStateNotFoundError("conversation not found in verified World")
@@ -1353,6 +1360,33 @@ class AgentConversationService:
         with self._transaction(_ready_dsn()) as conn:
             record = open_execution_locked(conn, scope, expected_turn_revision=expected_turn_revision)
         return record
+
+    def begin_pending_rules_execution(self, scope: RulesScopeV1, *, expected_turn_revision: int,
+                                      authorize_current_access) -> RulesLedgerRecordV1:
+        """Adopt only this pending attempt's frozen Rules scope under its live owner."""
+        from .rules_authority_store import _read_record_locked, open_execution_locked
+        from .build_pending_app_coverage import pending_writer_access_pages
+        if (not callable(authorize_current_access) or type(expected_turn_revision) is not int
+                or expected_turn_revision < 1 or type(scope.product_attempt) is not int or scope.product_attempt < 1):
+            raise ApplicationStateValidationError('Pending Rules requires exact revision/attempt and current App access')
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, scope.world_id, scope.conversation_id, scope.turn_id,
+                expected_revision=expected_turn_revision, expected_attempt=scope.product_attempt)
+            pages = pending_writer_access_pages(turn)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending Rules')
+            stored = _read_record_locked(conn, turn.turn_id, turn.attempt)
+            if stored is not None:
+                actual = stored.execution.scope
+                if scope.model_copy(update={'execution_id': actual.execution_id}) != actual:
+                    raise ApplicationStateConflictError('Pending Rules recovery differs from its frozen scope')
+                scope = actual
+            record = open_execution_locked(conn, scope, expected_turn_revision=expected_turn_revision)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during pending Rules recovery')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending Rules claim expired during recovery')
+            return record
 
     def authorize_rules_lookup(self, scope: RulesScopeV1, *, expected_turn_revision: int,
                                expected_ledger_revision: int, event: RulesToolAuthorizedV1) -> RulesLedgerRecordV1:
@@ -1821,7 +1855,11 @@ class AgentConversationService:
         return materialize(conn, turn)
 
     def _bind_execution_append(self, context, execution):
-        from .native_execution import validate_context_binding
+        from .native_context import BuildPendingContextReceiptV1
+        from .native_execution import BuildPendingExecutionV1, validate_context_binding
+        if type(context) is BuildPendingContextReceiptV1 or type(execution) is BuildPendingExecutionV1:
+            from .build_source_free import validate_pending_execution_binding
+            return validate_pending_execution_binding(context, execution)
         return validate_context_binding(context, execution)
 
     def _append_graph_execution_event(
@@ -1878,6 +1916,16 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, conversation_id)
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            from .native_execution import BuildPendingExecutionV1
+            from .build_related_pages import RelatedPagesSelection, RelatedPageRead
+            from .types import BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1
+            from .build_pending_app_coverage import BuildAppCoverageDecidedV1
+            from .types import PlanJevRetrievalSelectionV1
+            if type(turn.graph_context_execution) is BuildPendingExecutionV1 and (native_source_materializer is not None or isinstance(event, (
+                    ProviderAttemptAuthorizedEventV1, ProviderOutcomeEventV1, RelatedPagesSelection, RelatedPageRead,
+                    BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1, BuildAppCoverageDecidedV1,
+                    PlanJevRetrievalSelectionV1))):
+                raise ApplicationStateValidationError('Pending Build dispatch/acquisition requires its exact prepared-input admission owner')
             from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
             native_plan_decision = (
@@ -2431,7 +2479,7 @@ class AgentConversationService:
                 *([section_inclusion] if section_inclusion is not None else []),
                 *([play_body_inclusion] if play_body_inclusion is not None else [])]
             try:
-                if isinstance(execution, SurfaceNativeExecutionV1):
+                if type(execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1):
                     with measure("first_jev_send_prospective_validation"):
                         updated_execution = self._bind_execution_append(turn.graph_context_receipt,
                             execution.model_copy(update={"events": events}))
@@ -2691,6 +2739,209 @@ class AgentConversationService:
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             producer=observe_read, event_id=event_id, authorization_event_id=authorization_event_id,
             reads=reads, unavailable_ids=unavailable_ids)
+
+    def authorize_pending_build_writer(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, expected_rules_revision, authorization,
+            prepared_request_json, work_proof, authorize_current_access):
+        """Atomically admit pending writer input and its existing Rules proof."""
+        from .native_execution import NativeBuildWriterAuthorizedV2, BuildPendingExecutionV1
+        from .build_source_free import validate_pending_execution_binding
+        from .rules_authority_store import admit_native_writer_input_locked
+        if (type(authorization) is not NativeBuildWriterAuthorizedV2
+                or any(type(value) is not int or value < 1 for value in (
+                    expected_revision, expected_attempt, expected_rules_revision))
+                or not isinstance(prepared_request_json, str) or type(work_proof) is not dict
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending writer requires its exact input, claim and Rules owner')
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        try:
+            authorization = NativeBuildWriterAuthorizedV2.model_validate_json(authorization.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending writing')
+            captured = conn.execute("SELECT payload->>'capture_status' FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s",
+                (turn.turn_id, turn.attempt)).fetchone()
+            if captured is None or captured[0] != 'recording':
+                raise ApplicationStateValidationError('Pending writer requires its active protected capture')
+            execution = turn.graph_context_execution
+            if authorization.sequence != len(execution.events):
+                raise ApplicationStateConflictError('Pending writer authorization has a stale sequence')
+            try:
+                prospective = BuildPendingExecutionV1.model_validate_json(execution.model_copy(
+                    update={'events': [*execution.events, authorization]}).model_dump_json(by_alias=True))
+                prospective = validate_pending_execution_binding(turn.graph_context_receipt, prospective)
+                _rules, fresh = admit_native_writer_input_locked(conn, turn, prospective, authorization,
+                    expected_revision=expected_rules_revision, prepared_request_json=prepared_request_json,
+                    work_proof=work_proof)
+            except (ValueError, KeyError, TypeError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if fresh is not True:
+                raise ApplicationStateConflictError('Pending writer requires a fresh one-shot Rules admission')
+            if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
+                raise ApplicationStateConflictError('Current App access changed during pending writer admission')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending writer claim expired during input verification')
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=prospective)
+            if updated is None:
+                raise ApplicationStateConflictError('Pending writer lost its claim before atomic admission')
+            return updated, True
+
+    def record_pending_build_writer_lifecycle(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, outcome, prepared_request_json=None,
+            authorize_current_access):
+        """Only a fresh acknowledged SDK entry permits the pending writer send."""
+        from . import types as t
+        from .native_execution import NativeBuildWriterAuthorizedV2
+        if (type(outcome) is not t.ProviderOutcomeEventV1
+                or any(type(value) is not int or value < 1 for value in (expected_revision, expected_attempt))
+                or not callable(authorize_current_access)
+                or (outcome.outcome == 'sdk_entered') != isinstance(prepared_request_json, str)):
+            raise ApplicationStateValidationError('Pending writer lifecycle requires its actual SDK/request owner')
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending writer lifecycle')
+            writers = [event for event in turn.graph_context_execution.events if type(event) is NativeBuildWriterAuthorizedV2]
+            if len(writers) != 1 or outcome.provider_attempt_id != writers[0].provider_attempt_id:
+                raise ApplicationStateValidationError('Pending writer lifecycle differs from its unique authorization')
+            previous = [event for event in turn.graph_context_execution.events
+                if type(event) is t.ProviderOutcomeEventV1 and event.provider_attempt_id == outcome.provider_attempt_id]
+            if any(event.event_id == outcome.event_id for event in turn.graph_context_execution.events):
+                raise ApplicationStateConflictError('Pending writer lifecycle event is already admitted')
+            if outcome.outcome == 'sdk_entered':
+                if previous:
+                    raise ApplicationStateConflictError('Pending writer cannot re-enter transport')
+                self._validate_pending_prompt(conn, turn, writers[0], prepared_request_json)
+            elif outcome.outcome == 'response_received' and (not outcome.request_id or not outcome.response_sha256):
+                raise ApplicationStateValidationError('Pending writer response requires its exact selected text acknowledgement')
+            return self._append_pending_checked(conn, turn, outcome, expected_revision)
+
+    def authorize_pending_writer_selection(self, world_id, conversation_id, turn_id, *,
+                                           expected_revision, expected_attempt, authorization,
+                                           prepared_request_json, initial_request_json,
+                                           authorize_current_access):
+        """Admit exact nonempty selection bytes and original captured dialogue."""
+        from . import types as t
+        from .writer_evidence_selection import validate_prepared_selection, native_terminal
+        from .build_decision_context import validate_prepared
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        if (type(authorization) is not t.ProviderAttemptAuthorizedEventV5
+                or authorization.context_phase != 'writer_selection'
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending writer selection requires its exact controller and access owner')
+        try:
+            authorization = t.ProviderAttemptAuthorizedEventV5.model_validate_json(authorization.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            pages = pending_writer_access_pages(turn)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending writer selection')
+            self._validate_pending_initial_prompt(conn, turn, initial_request_json)
+            try:
+                trace = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                    (turn.turn_id, turn.attempt)).fetchone()
+                validate_prepared(authorization, turn.graph_context_execution, prepared_request_json, host_phase='writer_selection')
+                validate_prepared_selection(turn, authorization, prepared_request_json, trace[0] if trace else {},
+                    native_terminal(turn), pending_initial_request_json=initial_request_json)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during pending selection proof')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending writer selection claim expired during proof')
+            prior = [e for e in turn.graph_context_execution.events if e.event_id == authorization.event_id]
+            if prior:
+                if len(prior) == 1 and prior[0] == authorization:
+                    return turn, False
+                raise ApplicationStateConflictError('Pending writer selection reused a changed authorization')
+            return self._append_pending_checked(conn, turn, authorization, expected_revision)
+
+    def record_pending_build_writer_selection(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, selection, producer_proof, authorize_current_access):
+        """Close actual pending evidence against its prepared producer and trace."""
+        from . import types as t
+        from .writer_evidence_selection import validate_selection_proof, native_work_terminal
+        if (type(selection) is not t.BuildWriterEvidenceSelectionV2
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or (selection.mode == 'empty_catalog' and producer_proof is not None)
+                or (selection.mode == 'jev' and not isinstance(producer_proof, dict))
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending selection requires its exact prepared-input owner')
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize retained writer selection')
+            if (selection.terminal_disposition != native_work_terminal(turn)
+                    or selection.terminal_disposition is None):
+                raise ApplicationStateValidationError('Pending writer selection has no admitted work terminal')
+            captured = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                (turn.turn_id, turn.attempt)).fetchone()
+            try:
+                if selection.mode == 'jev':
+                    self._validate_pending_initial_prompt(conn, turn, producer_proof.get('initial_request_json'))
+                validate_selection_proof(turn, selection, captured[0] if captured else {}, producer_proof)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
+                raise ApplicationStateConflictError('Current App access changed during retained selection')
+            return self._append_pending_checked(conn, turn, selection, expected_revision)
+
+    def admit_pending_build_prior_body_evidence(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, authorize_current_access):
+        """Freeze existing App conversation under its current pointer and claim."""
+        from . import types as t
+        from .native_corpus import prior_conversation_work
+        from .build_source_free import pending_conversation_route_can_admit
+        from .retained_conversation import capture
+        world_id = _world_id(world_id)
+        if (type(event_id) is not UUID or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending retained context requires its exact host and App access owner')
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize retained conversation')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending claim expired before retained capture')
+            execution, receipt = turn.graph_context_execution, turn.graph_context_receipt
+            work = prior_conversation_work(execution.events, allow_discussion=True)
+            if work is None or not pending_conversation_route_can_admit(receipt, execution):
+                raise ApplicationStateValidationError('Pending retained context requires source-free conversation work')
+            prior = [event for event in execution.events if type(event) is t.BuildPriorBodyEvidenceAdmittedV3]
+            if prior:
+                if len(prior) != 1 or prior[0].event_id != event_id or prior[0].work_event_id != work.event_id:
+                    raise ApplicationStateConflictError('Pending conversation already has its retained closure')
+                return turn, False
+            try:
+                turns, seed = repo.list_retained_build_turns(conn, turn)
+                event = capture(turn, turns, seed=seed, event_id=event_id, work_event_id=work.event_id,
+                    pointer_revision=receipt.conversation_observation.pointer_revision, discussion=True)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access changed during retained capture')
+            return self._append_pending_checked(conn, turn, event, expected_revision)
 
     def admit_build_prior_body_evidence(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, event_id):
@@ -2974,6 +3225,980 @@ class AgentConversationService:
             world_id, conversation_id, turn_id, expected_revision=expected_revision,
             expected_attempt=expected_attempt, event=settlement, duplicate_key="event_id",
         )
+
+    def _pending_source_turn_locked(self, conn, world_id, conversation_id, turn_id, *,
+                                    expected_revision, expected_attempt, replay_event_id=None, replay_event_type=None):
+        """Use reset's lock order and the actual moving claim, not a source grant."""
+        from .native_context import BuildPendingContextReceiptV1
+        from .native_execution import BuildPendingExecutionV1
+        from .build_source_free import validate_pending_conversation_pointer
+        pointer = repo.lock_world_state(conn, world_id)
+        conversation = repo.lock_conversation(conn, world_id, conversation_id)
+        turn = _ordinary_mutation_turn(self._lock_execution_append_turn(conn, world_id, turn_id), conversation_id)
+        if (turn is None or turn.conversation_id != conversation_id
+                or conversation is None or conversation.status != 'active'):
+            raise ApplicationStateConflictError('Pending source lost its active conversation')
+        if (type(turn.graph_context_receipt) is not BuildPendingContextReceiptV1
+                or type(turn.graph_context_execution) is not BuildPendingExecutionV1):
+            raise ApplicationStateValidationError('Source settlement requires its actual pending Build Turn')
+        try:
+            validate_pending_conversation_pointer(turn.graph_context_receipt, pointer)
+        except ValueError as exc:
+            raise ApplicationStateConflictError(str(exc)) from exc
+        from .native_execution import NativeBuildSourceSettledV1
+        replay_event_type = replay_event_type or NativeBuildSourceSettledV1
+        replay = (replay_event_id is not None and any(
+            type(event) is replay_event_type
+            and event.event_id == replay_event_id
+            and event.admitted_from_revision == expected_revision
+            for event in turn.graph_context_execution.events))
+        if (turn.status != 'running' or (turn.revision != expected_revision and not replay)
+                or turn.attempt != expected_attempt or turn.claim_expires_at is None
+                or turn.claim_expires_at <= repo.database_clock(conn)):
+            raise ApplicationStateConflictError('Pending source settlement has a stale or expired claim')
+        from .retry import require_leaf
+        require_leaf(conn, turn)
+        return turn
+
+    def settle_pending_build_source(self, world_id, conversation_id, turn_id, *,
+                                    expected_revision, expected_attempt, event_id,
+                                    materialize_source, authorize_current_access):
+        """Admit one public-owner preparation after current request/access checks.
+
+        Callbacks are host-owned, never model/client values. Materialization runs
+        outside App locks and returns owner models, not another receipt. The
+        access owner must affirm current App/principal/binding access both before
+        preparation and immediately before admission. Later selected reads still
+        perform their own current-access checks.
+        """
+        from . import types as t
+        from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
+        from .build_source_free import pending_source_work, effective_pending_source, validate_pending_source_settlement
+        from .native_plan_assertions import NativeGraphQueryV4
+        from .native_plan_statements import NativePlanQueryUnavailableV1
+        world_id = _world_id(world_id)
+        if (type(event_id) is not UUID or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(materialize_source) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending source requires its host materialization and current-access owners')
+        with unit_of_work(_ready_dsn()) as conn:
+            before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt, replay_event_id=event_id)
+            if authorize_current_access(conn, before, None) is not True:
+                raise ApplicationStateConflictError('Current access does not authorize pending source preparation')
+            if before.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending source claim expired before preparation')
+            prior = [event for event in before.graph_context_execution.events if type(event) is NativeBuildSourceSettledV1]
+            if prior:
+                if (len(prior) == 1 and prior[0].event_id == event_id
+                        and prior[0].admitted_from_revision == expected_revision):
+                    return before, False
+                raise ApplicationStateConflictError('Pending source was already settled')
+            try:
+                work = pending_source_work(before.graph_context_execution)
+            except ValueError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            observed = before.graph_context_receipt.source_observation
+            if observed.binding is None or observed.requested_or_observed_revision is None:
+                raise ApplicationStateConflictError('Pending native source has no captured scope to prepare')
+            captured_receipt = before.graph_context_receipt
+            captured_message, work_event_id = before.user_text, work.event_id
+            event_sequence = len(before.graph_context_execution.events)
+            frozen = (before.graph_context_receipt.context_receipt_sha256,
+                      before.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(before.graph_context_execution),
+                      before.submitted_intent_fingerprint_v2)
+        # No App transaction/row lock remains held during external source IO.
+        prepared = materialize_source(before)
+        if (type(prepared) is not tuple or len(prepared) != 2
+                or type(prepared[0]) is not t.NativeCorpusAuthorityV1
+                or type(prepared[1]) not in (NativeGraphQueryV4, NativePlanQueryUnavailableV1)):
+            raise ApplicationStateValidationError('Source preparation must return its actual authority and query owner models')
+        try:
+            settlement = NativeBuildSourceSettledV1.model_validate_json(json.dumps({
+                'event_id': str(event_id), 'sequence': event_sequence,
+                'pending_context_receipt_sha256': frozen[0], 'work_event_id': str(work_event_id),
+                'admitted_from_revision': expected_revision,
+                'source_authority': prepared[0].model_dump(mode='json', by_alias=True),
+                'native_query': prepared[1].model_dump(mode='json', by_alias=True)}))
+            validate_pending_source_settlement(captured_receipt, settlement)
+            if getattr(settlement.native_query, 'question', captured_message) != captured_message:
+                raise ValueError('Prepared source query changed the submitted request')
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        prepared = (settlement.source_authority, settlement.native_query)
+        with unit_of_work(_ready_dsn()) as conn:
+            current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            actual = (current.graph_context_receipt.context_receipt_sha256,
+                      current.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(current.graph_context_execution),
+                      current.submitted_intent_fingerprint_v2)
+            if actual != frozen:
+                raise ApplicationStateConflictError('Pending request or execution changed during source preparation')
+            if authorize_current_access(conn, current, prepared) is not True:
+                raise ApplicationStateConflictError('Current access changed during pending source preparation')
+            # The public access check can itself take time; retain the live claim fence.
+            if current.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending source claim expired before admission')
+            try:
+                execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                    current.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                        'events': [event.model_dump(mode='json', by_alias=True)
+                                   for event in [*current.graph_context_execution.events, settlement]]}))
+                effective_pending_source(current.graph_context_receipt, execution)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError('Pending source claim changed before append')
+            return updated, True
+
+    def reopen_pending_build_source(self, world_id, conversation_id, turn_id, *,
+                                    expected_revision, expected_attempt,
+                                    reopen_source, authorize_current_access):
+        """Reopen a settled source/query without mutating or repeating discovery.
+
+        The host callback runs outside App transactions. Both locked boundaries
+        check the original pointer, leaf, live claim, exact execution and current
+        access. Reopening grants no new provider attempt or source selection.
+        """
+        from . import types as t
+        from .build_source_free import effective_pending_source
+        world_id = _world_id(world_id)
+        if (type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(reopen_source) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending reopening requires its exact host and current-access owners')
+        with unit_of_work(_ready_dsn()) as conn:
+            before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            try:
+                source = effective_pending_source(before.graph_context_receipt, before.graph_context_execution)
+            except ValueError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if source is None:
+                raise ApplicationStateValidationError('Pending reopening requires an already settled source')
+            if authorize_current_access(conn, before, source) is not True:
+                raise ApplicationStateConflictError('Current access does not authorize retained pending source')
+            if before.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending source claim expired before reopening')
+            frozen = (before.graph_context_receipt.context_receipt_sha256,
+                      t.canonical_sha256(before.graph_context_execution),
+                      before.submitted_intent_fingerprint_v2)
+        reopened = reopen_source(before, source)
+        if type(reopened) is not tuple or reopened != source:
+            raise ApplicationStateValidationError('Pending reopening cannot replace its original authority or query')
+        with unit_of_work(_ready_dsn()) as conn:
+            current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            actual = (current.graph_context_receipt.context_receipt_sha256,
+                      t.canonical_sha256(current.graph_context_execution),
+                      current.submitted_intent_fingerprint_v2)
+            if actual != frozen:
+                raise ApplicationStateConflictError('Pending execution changed during source reopening')
+            if authorize_current_access(conn, current, source) is not True:
+                raise ApplicationStateConflictError('Current access changed during pending source reopening')
+            if current.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending source claim expired during reopening')
+            return current, False
+
+    def observe_pending_build_app_catalog(self, world_id, conversation_id, turn_id, *,
+                                          expected_revision, expected_attempt, event_id,
+                                          discover_pages, authorize_current_access):
+        """Capture App navigation after selected lookup, independently of Core.
+
+        Both callbacks are host owners. Access is App-only under the transaction;
+        discovery runs outside row locks. No model dispatch or page body read is
+        authorized by admitting this metadata observation.
+        """
+        from . import types as t
+        from .native_execution import BuildPendingExecutionV1
+        from .build_related_pages import PagePointer
+        from .build_source_free import (BuildAppPageCatalogObservedV1,
+            pending_source_work, effective_pending_app_catalog)
+        world_id = _world_id(world_id)
+        if (type(event_id) is not UUID or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(discover_pages) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('App catalog requires its actual discovery and access owners')
+        with unit_of_work(_ready_dsn()) as conn:
+            before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt,
+                replay_event_id=event_id, replay_event_type=BuildAppPageCatalogObservedV1)
+            if authorize_current_access(conn, before, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize catalog discovery')
+            if before.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending App catalog claim expired before discovery')
+            prior = [event for event in before.graph_context_execution.events
+                     if type(event) is BuildAppPageCatalogObservedV1]
+            if prior:
+                if (len(prior) == 1 and prior[0].event_id == event_id
+                        and prior[0].admitted_from_revision == expected_revision):
+                    return before, False
+                raise ApplicationStateConflictError('Pending App catalog was already observed')
+            try:
+                work = pending_source_work(before.graph_context_execution)
+            except ValueError as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            work_event_id, sequence = work.event_id, len(before.graph_context_execution.events)
+            frozen = (before.graph_context_receipt.context_receipt_sha256,
+                      before.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(before.graph_context_execution),
+                      before.submitted_intent_fingerprint_v2)
+        pages = discover_pages(before)
+        if type(pages) not in (list, tuple) or any(type(page) not in (dict, PagePointer) for page in pages):
+            raise ApplicationStateValidationError('App discovery must return its actual page pointers')
+        try:
+            observed = BuildAppPageCatalogObservedV1.model_validate_json(json.dumps({
+                'event_id': str(event_id), 'sequence': sequence, 'work_event_id': str(work_event_id),
+                'pending_context_receipt_sha256': frozen[0], 'admitted_from_revision': expected_revision,
+                'pages': [page.model_dump(mode='json') if type(page) is PagePointer else page for page in pages]}))
+            prepared_execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                before.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                    'events': [event.model_dump(mode='json', by_alias=True)
+                               for event in [*before.graph_context_execution.events, observed]]}))
+            effective_pending_app_catalog(before.graph_context_receipt, prepared_execution)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            actual = (current.graph_context_receipt.context_receipt_sha256,
+                      current.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(current.graph_context_execution),
+                      current.submitted_intent_fingerprint_v2)
+            if actual != frozen:
+                raise ApplicationStateConflictError('Pending request or execution changed during App discovery')
+            if authorize_current_access(conn, current, observed.pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during catalog discovery')
+            if current.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending App catalog claim expired before admission')
+            try:
+                execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                    current.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                        'events': [event.model_dump(mode='json', by_alias=True)
+                                   for event in [*current.graph_context_execution.events, observed]]}))
+                effective_pending_app_catalog(current.graph_context_receipt, execution)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError('Pending App catalog claim changed before append')
+            return updated, True
+
+    def _validate_pending_prompt(self, conn, turn, authorization, prepared_request_json):
+        """Join actual request bytes to the existing captured prompt-reference owner."""
+        from .context_trace import TracePromptReference
+        if not isinstance(prepared_request_json, str):
+            raise ApplicationStateValidationError('Pending dispatch requires its actual prepared request')
+        rows = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s',
+                            (turn.turn_id,)).fetchall()
+        try:
+            prompts = [TracePromptReference.model_validate_json(json.dumps(observation))
+                for row in rows for observation in row[0].get('observations', [])
+                if observation.get('kind') == 'prompt_reference'
+                and observation.get('provider_attempt_id') == str(authorization.provider_attempt_id)]
+            if len(prompts) != 1:
+                raise ValueError('Pending dispatch requires its unique captured prompt')
+            prompt = prompts[0]
+            if (prompt.payload_sha256 != authorization.envelope_sha256
+                    or prompt.payload_sha256 != hashlib.sha256(prepared_request_json.encode()).hexdigest()
+                    or prompt.payload_utf8_bytes != len(prepared_request_json.encode())
+                    or any(getattr(prompt, key) != getattr(authorization, key) for key in (
+                        'provider_attempt_id', 'provider', 'model', 'api_mode', 'serializer_version'))):
+                raise ValueError('Pending dispatch differs from its captured prompt')
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+
+    def _validate_pending_initial_prompt(self, conn, turn, initial_request_json):
+        """Use the exact captured opening, never reconstruct from current history."""
+        first = next((event for event in turn.graph_context_execution.events
+                      if isinstance(event, ProviderAttemptAuthorizedEventV1)), None)
+        if (first is None or first.envelope_sha256
+                != turn.graph_context_receipt.assembled_input.assembled_input_sha256):
+            raise ApplicationStateValidationError('Pending page selection has no matching initial controller')
+        self._validate_pending_prompt(conn, turn, first, initial_request_json)
+
+    def authorize_pending_app_coverage(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization, prepared_request_json,
+            initial_request_json, authorize_current_access):
+        """Admit only the exact saved-read assessment, never source/writer authority."""
+        from .build_pending_app_coverage import (BuildAppCoverageAuthorizedV1,
+            pending_app_coverage_reads, validate_coverage_request)
+        world_id = _world_id(world_id)
+        if (type(authorization) is not BuildAppCoverageAuthorizedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or authorization.admitted_from_revision != expected_revision
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('App coverage requires its exact host claim and access owner')
+        try:
+            authorization = BuildAppCoverageAuthorizedV1.model_validate_json(authorization.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt,
+                replay_event_id=authorization.event_id, replay_event_type=BuildAppCoverageAuthorizedV1)
+            self._validate_pending_initial_prompt(conn, turn, initial_request_json)
+            try:
+                pages = tuple(row.page for row in pending_app_coverage_reads(
+                    turn.graph_context_receipt, turn.graph_context_execution))
+                if authorize_current_access(conn, turn, pages) is not True:
+                    raise ApplicationStateConflictError('Current App access does not authorize coverage')
+                validate_coverage_request(turn.graph_context_receipt, turn.graph_context_execution,
+                    authorization, prepared_request_json, initial_request_json)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during coverage admission')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('App coverage claim expired during admission')
+            prior = [row for row in turn.graph_context_execution.events
+                if isinstance(row, ProviderAttemptAuthorizedEventV1)
+                and (row.event_id == authorization.event_id or row.provider_attempt_id == authorization.provider_attempt_id)]
+            if prior:
+                if len(prior) == 1 and prior[0] == authorization:
+                    return turn, False
+                raise ApplicationStateConflictError('App coverage authorization identity was already used')
+            return self._append_pending_checked(conn, turn, authorization, expected_revision)
+
+    def record_pending_app_coverage(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, decision, producer_proof, authorize_current_access):
+        """Bind a verdict to protected actual SDK output and current exact App reads."""
+        from .build_pending_app_coverage import (BuildAppCoverageDecidedV1,
+            pending_app_coverage_reads, validate_coverage_result)
+        world_id = _world_id(world_id)
+        if (type(decision) is not BuildAppCoverageDecidedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not isinstance(producer_proof, dict) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('App coverage verdict requires its exact proof and claim owner')
+        try:
+            decision = BuildAppCoverageDecidedV1.model_validate_json(decision.model_dump_json())
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            self._validate_pending_initial_prompt(conn, turn, producer_proof.get('initial_request_json'))
+            try:
+                pages = tuple(row.page for row in pending_app_coverage_reads(
+                    turn.graph_context_receipt, turn.graph_context_execution))
+                if authorize_current_access(conn, turn, pages) is not True:
+                    raise ApplicationStateConflictError('Current App access does not authorize the coverage verdict')
+                prior = [row for row in turn.graph_context_execution.events if type(row) is BuildAppCoverageDecidedV1]
+                if prior and (len(prior) != 1 or prior[0] != decision):
+                    raise ApplicationStateConflictError('App coverage verdict was already admitted differently')
+                prefix = turn.graph_context_execution.model_copy(update={
+                    'events': turn.graph_context_execution.events[:decision.sequence]})
+                row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                    (turn.turn_id, turn.attempt)).fetchone()
+                validate_coverage_result(turn.graph_context_receipt, prefix, decision, producer_proof, row[0] if row else None)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during coverage proof')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('App coverage verdict claim expired during proof')
+            if prior:
+                return turn, False
+            return self._append_pending_checked(conn, turn, decision, expected_revision)
+
+    def _pending_native_read_operation(self, world_id, conversation_id, turn_id, *,
+                                       expected_revision, expected_attempt, producer,
+                                       authorize_current_access, **arguments):
+        """Guard a closed native producer with current pending App ownership.
+
+        Core callbacks receive only their detached selected grants and retain
+        current public Core access checks. No generic Turn callback is accepted.
+        """
+        from .native_reads import (_NativeReadOperation, authorize_read,
+            observe_selected_read_locked, authorize_direct_sources_locked, observe_direct_source_locked,
+            authorize_body_search_locked, observe_body_search_locked, authorize_body_reads_locked, observe_body_reads_locked)
+        from .native_execution import BuildPendingExecutionV1
+        from .build_pending_native import pending_native_owner
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        if (not any(producer is allowed for allowed in (authorize_read, observe_selected_read_locked,
+                             authorize_direct_sources_locked, observe_direct_source_locked,
+                             authorize_body_search_locked, observe_body_search_locked, authorize_body_reads_locked, observe_body_reads_locked))
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending native IO requires its closed producer and current App owner')
+        operation = _NativeReadOperation(producer, arguments)
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            try:
+                pending_native_owner(turn)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            pages = pending_writer_access_pages(turn)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending native IO')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending native IO claim expired before materialization')
+            produced = operation(conn, turn)
+            events = produced if type(produced) is tuple else (produced,)
+            if not events:
+                raise ApplicationStateValidationError('Pending native producer returned no records')
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during pending native IO')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending native IO claim expired during materialization')
+            prior_by_id = {e.event_id: e for e in turn.graph_context_execution.events}
+            known = [prior_by_id.get(e.event_id) for e in events]
+            if any(known):
+                if not all(known) or any(old != new for old, new in zip(known, events)):
+                    raise ApplicationStateConflictError('Pending native producer repeated a partial or changed batch')
+                return turn, False
+            try:
+                execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                    turn.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                        'events': [e.model_dump(mode='json', by_alias=True)
+                                   for e in [*turn.graph_context_execution.events, *events]]}))
+                self._bind_execution_append(turn.graph_context_receipt, execution)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending native IO claim expired before append')
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError('Pending native IO lost its claim fence')
+            return updated, True
+
+    def authorize_pending_native_read(self, world_id, conversation_id, turn_id, *,
+                                      expected_revision, expected_attempt, event_id,
+                                      record_kind, record_ids, authorize_current_access):
+        from .native_reads import authorize_read
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_read, event_id=event_id, record_kind=record_kind, record_ids=record_ids,
+            authorize_current_access=authorize_current_access)
+
+    def observe_pending_native_read(self, world_id, conversation_id, turn_id, *,
+                                    expected_revision, expected_attempt, event_id,
+                                    authorization_event_id, read, authorize_current_access):
+        from .native_reads import observe_selected_read_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_selected_read_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, read=read,
+            authorize_current_access=authorize_current_access)
+
+    def authorize_pending_native_direct_sources(self, world_id, conversation_id, turn_id, *,
+                                                expected_revision, expected_attempt, grants,
+                                                authorize_current_access):
+        from .native_reads import authorize_direct_sources_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_direct_sources_locked, grants=grants,
+            authorize_current_access=authorize_current_access)
+
+    def observe_pending_native_direct_source(self, world_id, conversation_id, turn_id, *,
+                                             expected_revision, expected_attempt, event_id,
+                                             authorization_event_id, read, authorize_current_access):
+        from .native_reads import observe_direct_source_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_direct_source_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, read=read,
+            authorize_current_access=authorize_current_access)
+
+    def authorize_pending_native_body_search(self, world_id, conversation_id, turn_id, *,
+                                             expected_revision, expected_attempt, event_id,
+                                             authorize_current_access):
+        from .native_reads import authorize_body_search_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_body_search_locked, event_id=event_id,
+            authorize_current_access=authorize_current_access)
+
+    def observe_pending_native_body_search(self, world_id, conversation_id, turn_id, *,
+                                           expected_revision, expected_attempt, event_id,
+                                           authorization_event_id, capture, authorize_current_access):
+        from .native_reads import observe_body_search_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_body_search_locked, event_id=event_id,
+            authorization_event_id=authorization_event_id, capture=capture,
+            authorize_current_access=authorize_current_access)
+
+    def authorize_pending_native_body_reads(self, world_id, conversation_id, turn_id, *,
+                                            expected_revision, expected_attempt, grants,
+                                            authorize_current_access):
+        from .native_reads import authorize_body_reads_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=authorize_body_reads_locked, grants=grants,
+            authorize_current_access=authorize_current_access)
+
+    def observe_pending_native_body_reads(self, world_id, conversation_id, turn_id, *,
+                                          expected_revision, expected_attempt, reads, read,
+                                          authorize_current_access):
+        from .native_reads import observe_body_reads_locked
+        return self._pending_native_read_operation(world_id, conversation_id, turn_id,
+            expected_revision=expected_revision, expected_attempt=expected_attempt,
+            producer=observe_body_reads_locked, reads=reads, read=read,
+            authorize_current_access=authorize_current_access)
+
+    def authorize_pending_native_retrieval(self, world_id, conversation_id, turn_id, *,
+                                           expected_revision, expected_attempt, authorization,
+                                           prepared_input_proof, authorize_current_access):
+        """Admit exact native SDK bytes under the pending pointer/claim fence.
+
+        This grants dispatch admission only. Core public access and selected-read
+        admission remain with their existing IO owners. Exact replay is non-fresh.
+        """
+        from .native_retrieval import NativeRetrievalAuthorizedV1, verify_input
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        if (type(authorization) is not NativeRetrievalAuthorizedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending retrieval requires its exact native authorization and access owner')
+        try:
+            authorization = NativeRetrievalAuthorizedV1.model_validate_json(authorization.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            pages = pending_writer_access_pages(turn)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize native retrieval')
+            try:
+                verify_input(turn, authorization, prepared_input_proof)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during native retrieval proof')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending native retrieval claim expired during proof')
+            prior = [e for e in turn.graph_context_execution.events if e.event_id == authorization.event_id]
+            if prior:
+                if len(prior) == 1 and prior[0] == authorization:
+                    return turn, False
+                raise ApplicationStateConflictError('Pending retrieval identity was reused with changed content')
+            return self._append_pending_checked(conn, turn, authorization, expected_revision)
+
+    def record_pending_native_selection(self, world_id, conversation_id, turn_id, *,
+                                        expected_revision, expected_attempt, selection,
+                                        producer_proof, authorize_current_access):
+        """Join native choices to their protected actual SDK request/response."""
+        from .native_retrieval import NativeRetrievalSelectedV1, verify_selection
+        from .build_pending_app_coverage import pending_writer_access_pages
+        world_id = _world_id(world_id)
+        if (type(selection) is not NativeRetrievalSelectedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending native selection requires its exact producer and access owner')
+        try:
+            selection = NativeRetrievalSelectedV1.model_validate_json(selection.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            pages = pending_writer_access_pages(turn)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize native selection')
+            try:
+                row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                    (turn.turn_id, turn.attempt)).fetchone()
+                verify_selection(turn, selection, producer_proof, row[0] if row else None)
+                if selection.operation == 'finish_retrieval':
+                    from .rules_authority_store import load_turn_rules_locked
+                    from .rules_authority_events import RulesToolAuthorizedV1, RulesQueryObservedV1
+                    rules = load_turn_rules_locked(conn, turn)
+                    if rules is not None:
+                        calls = {e.call_id for e in rules.execution.events if isinstance(e, RulesToolAuthorizedV1)}
+                        observed = {e.call_id for e in rules.execution.events if isinstance(e, RulesQueryObservedV1)}
+                        if calls != observed:
+                            raise ValueError('Pending retrieval cannot finish with an unresolved Rules read')
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access changed during native selection proof')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending native selection claim expired during proof')
+            prior = [e for e in turn.graph_context_execution.events if e.event_id == selection.event_id]
+            if prior:
+                if len(prior) == 1 and prior[0] == selection:
+                    return turn, False
+                raise ApplicationStateConflictError('Pending native selection identity was reused with changed content')
+            return self._append_pending_checked(conn, turn, selection, expected_revision)
+
+    def authorize_pending_app_page_selection(self, world_id, conversation_id, turn_id, *,
+                                             expected_revision, expected_attempt, authorization,
+                                             prepared_request_json, initial_request_json,
+                                             authorize_current_access):
+        """One-shot durable dispatch admission; True alone permits dispatch.
+
+        The current-access callback is the host's App-only owner and performs no
+        Core/network IO under these locks. The caller still captures the newly
+        prepared prompt and obtains guarded SDK entry before invoking the model.
+        """
+        from .native_execution import BuildPendingExecutionV1, BuildAppPageSelectionAuthorizedV1
+        from .build_source_free import (BuildAppPageCatalogObservedV1,
+            validate_pending_app_page_selection_request, effective_pending_app_catalog)
+        world_id = _world_id(world_id)
+        if (type(authorization) is not BuildAppPageSelectionAuthorizedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or authorization.admitted_from_revision != expected_revision
+                or not isinstance(prepared_request_json, str) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending page dispatch requires its exact host authorization and access owner')
+        try:
+            authorization = BuildAppPageSelectionAuthorizedV1.model_validate_json(authorization.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt,
+                replay_event_id=authorization.event_id, replay_event_type=BuildAppPageSelectionAuthorizedV1)
+            self._validate_pending_initial_prompt(conn, turn, initial_request_json)
+            try:
+                validate_pending_app_page_selection_request(turn.graph_context_receipt,
+                    turn.graph_context_execution, authorization, prepared_request_json, initial_request_json)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            catalogs = [event for event in turn.graph_context_execution.events
+                        if type(event) is BuildAppPageCatalogObservedV1]
+            if authorize_current_access(conn, turn, catalogs[0].pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize page-selection dispatch')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending page-selection claim expired before admission')
+            prior = [event for event in turn.graph_context_execution.events
+                     if isinstance(event, ProviderAttemptAuthorizedEventV1)
+                     and (event.provider_attempt_id == authorization.provider_attempt_id
+                          or event.event_id == authorization.event_id)]
+            if prior:
+                if len(prior) == 1 and prior[0] == authorization:
+                    return turn, False
+                raise ApplicationStateConflictError('Pending page dispatch identity was reused with changed authorization')
+            try:
+                execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                    turn.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                        'events': [event.model_dump(mode='json', by_alias=True)
+                                   for event in [*turn.graph_context_execution.events, authorization]]}))
+                effective_pending_app_catalog(turn.graph_context_receipt, execution)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending page-selection claim expired during validation')
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError('Pending page-selection claim changed before append')
+            return updated, True
+
+    def enter_pending_app_page_sdk(self, world_id, conversation_id, turn_id, *,
+                                    expected_revision, expected_attempt, outcome,
+                                    prepared_request_json, authorize_current_access):
+        """True is the one-shot SDK-entry grant for an already admitted request.
+
+        A lost entry response must not be retried as another model call. Exact
+        recorded entry is non-fresh; stale revision/claim or changed entry is a
+        conflict. The host App access callback performs no Core/network IO.
+        """
+        from .native_execution import BuildPendingExecutionV1, BuildAppPageSelectionAuthorizedV1
+        from .types import ProviderAttemptAuthorizedEventV5
+        from .build_source_free import BuildAppPageCatalogObservedV1, effective_pending_app_catalog
+        world_id = _world_id(world_id)
+        if (type(outcome) is not ProviderOutcomeEventV1 or outcome.outcome != 'sdk_entered'
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending SDK entry requires its actual outcome and App access owner')
+        try:
+            outcome = ProviderOutcomeEventV1.model_validate_json(outcome.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            authorizations = [event for event in turn.graph_context_execution.events
+                              if isinstance(event, ProviderAttemptAuthorizedEventV1)]
+            authorization = authorizations[-1] if authorizations else None
+            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
+            writer_selection = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'writer_selection')
+            from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
+            from .native_retrieval import NativeRetrievalAuthorizedV1
+            if (not initial and not writer_selection and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1, NativeRetrievalAuthorizedV1)
+                    or authorization is None or outcome.provider_attempt_id != authorization.provider_attempt_id):
+                raise ApplicationStateValidationError('Pending SDK entry lacks its latest admitted Build controller')
+            self._validate_pending_prompt(conn, turn, authorization, prepared_request_json)
+            catalogs = [event for event in turn.graph_context_execution.events
+                        if type(event) is BuildAppPageCatalogObservedV1]
+            from .build_pending_app_coverage import pending_writer_access_pages
+            pages = (pending_writer_access_pages(turn) if writer_selection or type(authorization) is NativeRetrievalAuthorizedV1
+                else tuple(row.page for row in pending_app_coverage_reads(turn.graph_context_receipt, turn.graph_context_execution))
+                if type(authorization) is BuildAppCoverageAuthorizedV1 else None if initial else catalogs[0].pages)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize SDK entry')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending SDK entry claim expired during access validation')
+            prior = [event for event in turn.graph_context_execution.events
+                     if isinstance(event, ProviderOutcomeEventV1)
+                     and event.provider_attempt_id == authorization.provider_attempt_id]
+            if prior:
+                if len(prior) == 1 and prior[0] == outcome:
+                    return turn, False
+                raise ApplicationStateConflictError('Pending controller already has an observed SDK outcome')
+            try:
+                execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                    turn.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                        'events': [event.model_dump(mode='json', by_alias=True)
+                                   for event in [*turn.graph_context_execution.events, outcome]]}))
+                effective_pending_app_catalog(turn.graph_context_receipt, execution)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending SDK entry claim expired before append')
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError('Pending SDK entry lost its claim fence')
+            return updated, True
+
+    def _append_pending_checked(self, conn, turn, event, expected_revision):
+        """Append only after the caller's locked pending claim and proof checks."""
+        from .native_execution import BuildPendingExecutionV1
+        from .build_source_free import effective_pending_source
+        try:
+            execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                turn.graph_context_execution.model_dump(mode='json', by_alias=True) | {
+                    'events': [row.model_dump(mode='json', by_alias=True)
+                               for row in [*turn.graph_context_execution.events, event]]}))
+            effective_pending_source(turn.graph_context_receipt, execution)
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        if turn.claim_expires_at <= repo.database_clock(conn):
+            raise ApplicationStateConflictError('Pending claim expired before verified append')
+        updated = self._persist_execution_append(conn, world_id=turn.world_id, turn_id=turn.turn_id,
+            expected_revision=expected_revision, execution=execution)
+        if updated is None:
+            raise ApplicationStateConflictError('Pending verified append lost its claim fence')
+        return updated, True
+
+    def record_pending_app_controller_outcome(self, world_id, conversation_id, turn_id, *,
+                                              expected_revision, expected_attempt, outcome,
+                                              authorize_current_access):
+        """Record the actual resolved/unknown observation; never grant SDK entry."""
+        from .native_execution import BuildAppPageSelectionAuthorizedV1
+        from .types import ProviderAttemptAuthorizedEventV5
+        from .build_source_free import BuildAppPageCatalogObservedV1
+        world_id = _world_id(world_id)
+        if (type(outcome) is not ProviderOutcomeEventV1 or outcome.outcome == 'sdk_entered'
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending outcome requires its actual non-entry observation and App owner')
+        try:
+            outcome = ProviderOutcomeEventV1.model_validate_json(outcome.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            authorizations = [event for event in turn.graph_context_execution.events
+                              if isinstance(event, ProviderAttemptAuthorizedEventV1)]
+            authorization = authorizations[-1] if authorizations else None
+            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
+            writer_selection = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'writer_selection')
+            from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
+            from .native_retrieval import NativeRetrievalAuthorizedV1
+            if (not initial and not writer_selection and type(authorization) not in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1, NativeRetrievalAuthorizedV1)
+                    or authorization is None or authorization.provider_attempt_id != outcome.provider_attempt_id):
+                raise ApplicationStateValidationError('Pending outcome differs from its latest Build controller')
+            catalogs = [event for event in turn.graph_context_execution.events
+                        if type(event) is BuildAppPageCatalogObservedV1]
+            from .build_pending_app_coverage import pending_writer_access_pages
+            pages = (pending_writer_access_pages(turn) if writer_selection or type(authorization) is NativeRetrievalAuthorizedV1
+                else tuple(row.page for row in pending_app_coverage_reads(turn.graph_context_receipt, turn.graph_context_execution))
+                if type(authorization) is BuildAppCoverageAuthorizedV1 else None if initial else catalogs[0].pages)
+            if authorize_current_access(conn, turn, pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending outcome admission')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending outcome claim expired during access validation')
+            prior = [event for event in turn.graph_context_execution.events if event.event_id == outcome.event_id]
+            if prior:
+                if len(prior) == 1 and prior[0] == outcome:
+                    return turn, False
+                raise ApplicationStateConflictError('Pending outcome identity was reused with changed content')
+            return self._append_pending_checked(conn, turn, outcome, expected_revision)
+
+    def record_pending_app_page_selection(self, world_id, conversation_id, turn_id, *,
+                                          expected_revision, expected_attempt, selection,
+                                          producer_proof, authorize_current_access):
+        """Admit SDK page choices against the actual stored trace, never caller materials."""
+        from .build_related_pages import RelatedPagesSelection
+        from .native_execution import BuildPendingExecutionV1
+        from .build_source_free import BuildAppPageCatalogObservedV1, validate_pending_app_page_selection_result
+        world_id = _world_id(world_id)
+        if (type(selection) is not RelatedPagesSelection
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not isinstance(producer_proof, dict) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending selection requires its actual producing proof and App owner')
+        try:
+            selection = RelatedPagesSelection.model_validate_json(selection.model_dump_json())
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            self._validate_pending_initial_prompt(conn, turn, producer_proof.get('initial_request_json'))
+            row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                               (turn.turn_id, turn.attempt)).fetchone()
+            prior = [event for event in turn.graph_context_execution.events if type(event) is RelatedPagesSelection]
+            if prior and (len(prior) != 1 or prior[0] != selection):
+                raise ApplicationStateConflictError('Pending App page choices were already admitted differently')
+            try:
+                execution = turn.graph_context_execution
+                if prior:
+                    execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+                        execution.model_dump(mode='json', by_alias=True) | {
+                            'events': [event.model_dump(mode='json', by_alias=True)
+                                       for event in execution.events[:selection.sequence]]}))
+                validate_pending_app_page_selection_result(turn.graph_context_receipt,
+                    execution, selection, producer_proof, row[0] if row else None)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            catalog, = [event for event in turn.graph_context_execution.events
+                        if type(event) is BuildAppPageCatalogObservedV1]
+            if authorize_current_access(conn, turn, catalog.pages) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending page choices')
+            if turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending page choice claim expired during validation')
+            if prior:
+                return turn, False
+            return self._append_pending_checked(conn, turn, selection, expected_revision)
+
+    def read_pending_app_page(self, world_id, conversation_id, turn_id, *,
+                              expected_revision, expected_attempt, document_id, event_id, read_id,
+                              materialize_page, authorize_current_access):
+        """Materialize one selected exact App page without holding App row locks.
+
+        The materializer is the existing public App snapshot owner, not a model
+        selector or Core grant. Repeated reads never silently refresh the pointer.
+        """
+        from . import types as t
+        from .build_related_pages import PagePointer, PageReference, RelatedPagesSelection, RelatedPageRead
+        from .build_source_free import BuildAppPageCatalogObservedV1
+        world_id = _world_id(world_id)
+        if (any(type(value) is not UUID for value in (document_id, event_id, read_id))
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(materialize_page) or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending page read requires its exact host selection and read/access owners')
+        with unit_of_work(_ready_dsn()) as conn:
+            before = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            catalogs = [event for event in before.graph_context_execution.events
+                        if type(event) is BuildAppPageCatalogObservedV1]
+            selections = [event for event in before.graph_context_execution.events if type(event) is RelatedPagesSelection]
+            pointers = [page for catalog in catalogs for page in catalog.pages if page.document_id == document_id]
+            if len(selections) != 1 or len(pointers) != 1 or document_id not in selections[0].document_ids:
+                raise ApplicationStateValidationError('Pending page read lacks its actual admitted page choice')
+            pointer, = pointers
+            if authorize_current_access(conn, before, (pointer,)) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize the selected saved page')
+            if before.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending saved-page claim expired before materialization')
+            prior = [event for event in before.graph_context_execution.events if type(event) is RelatedPageRead
+                     and (event.page.document_id == document_id or event.event_id == event_id or event.read_id == read_id)]
+            if prior:
+                if (len(prior) == 1 and prior[0].event_id == event_id and prior[0].read_id == read_id
+                        and prior[0].page.document_id == document_id):
+                    return before, False
+                raise ApplicationStateConflictError('Pending saved page was already read or read identity was reused')
+            if any(event.event_id == event_id for event in before.graph_context_execution.events):
+                raise ApplicationStateConflictError('Pending saved-page event identity is already in use')
+            selection_id, sequence = selections[0].event_id, len(before.graph_context_execution.events)
+            frozen = (before.graph_context_receipt.context_receipt_sha256,
+                      before.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(before.graph_context_execution), before.submitted_intent_fingerprint_v2)
+        try:
+            materialized = materialize_page(pointer)
+            if type(materialized) is not dict or set(materialized) != set(PageReference.model_fields) | {'markdown'}:
+                raise ValueError('Pending page materialization must return the exact public App snapshot')
+            read = RelatedPageRead.model_validate_json(json.dumps({
+                'event_id': str(event_id), 'sequence': sequence, 'read_id': str(read_id),
+                'selection_event_id': str(selection_id), 'markdown': materialized['markdown'],
+                'page': {key: value for key, value in materialized.items() if key != 'markdown'}}))
+            if any(getattr(read.page, key) != getattr(pointer, key) for key in PagePointer.model_fields):
+                raise ValueError('Pending page materialization changed the selected saved pointer')
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            current = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            actual = (current.graph_context_receipt.context_receipt_sha256,
+                      current.graph_context_execution.execution_policy_sha256,
+                      t.canonical_sha256(current.graph_context_execution), current.submitted_intent_fingerprint_v2)
+            if actual != frozen:
+                raise ApplicationStateConflictError('Pending request or execution changed during saved-page materialization')
+            if authorize_current_access(conn, current, (read.page,)) is not True:
+                raise ApplicationStateConflictError('Current App access changed during saved-page materialization')
+            return self._append_pending_checked(conn, current, read, expected_revision)
+
+    def authorize_pending_build_opening_with_prompt(self, world_id, conversation_id, turn_id, *,
+                                                    expected_revision, expected_attempt,
+                                                    provider_attempt_event, prepared_decision_json,
+                                                    trace_id, prompt, authorized, authorize_current_access):
+        """Atomically admit exact initial Build bytes and their existing prompt trace."""
+        from .types import ProviderAttemptAuthorizedEventV5, validate_provider_envelope_accounting
+        from .build_decision_context import validate_prepared
+        from .context_trace import TracePromptReference, TraceProviderCall
+        from .context_trace_store import append_opening_prompt_locked
+        world_id = _world_id(world_id)
+        if (type(provider_attempt_event) is not ProviderAttemptAuthorizedEventV5
+                or provider_attempt_event.context_phase != 'select'
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or type(trace_id) is not UUID or type(prompt) is not TracePromptReference
+                or type(authorized) is not TraceProviderCall or not isinstance(prepared_decision_json, str)
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending opening requires its exact prepared-input and App access owners')
+        try:
+            event = ProviderAttemptAuthorizedEventV5.model_validate_json(provider_attempt_event.model_dump_json(by_alias=True))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise ApplicationStateValidationError(str(exc)) from exc
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            initial = turn.graph_context_receipt.assembled_input
+            if (event.envelope_sha256 != initial.assembled_input_sha256
+                    or event.input_tokens != initial.provider_envelope_input_tokens
+                    or event.output_token_reserve != initial.output_token_reserve
+                    or event.input_estimator != initial.tokenizer_name
+                    or prompt.provider_attempt_id != event.provider_attempt_id
+                    or prompt.payload_sha256 != event.envelope_sha256
+                    or prompt.payload_utf8_bytes != len(prepared_decision_json.encode())):
+                raise ApplicationStateValidationError('Pending opening differs from its frozen first request')
+            try:
+                validate_prepared(event, turn.graph_context_execution, prepared_decision_json, host_phase='select')
+                validate_provider_envelope_accounting(initial, turn.graph_context_execution, event)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize pending opening')
+            if any(getattr(prior, 'provider_attempt_id', None) == event.provider_attempt_id
+                   for prior in turn.graph_context_execution.events):
+                raise ApplicationStateConflictError('Pending opening provider authorization is already committed')
+            updated, fresh = self._append_pending_checked(conn, turn, event, expected_revision)
+            trace = append_opening_prompt_locked(conn, updated, trace_id, prompt, authorized)
+            return updated, fresh, trace
 
     def record_build_draft_context(self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, event):
@@ -3290,6 +4515,17 @@ class AgentConversationService:
     def complete_turn(self, result: TurnResult) -> Turn:
         return self._complete_turn(result, prepared_recovery=False)
 
+    def complete_pending_native_base_turn(self, result: TurnResult, *, output_proof,
+            expected_rules_revision: int, work_proof=None, authorize_current_access):
+        """Accept only a pending native reply through its live App pointer owner."""
+        if (type(result) is not TurnResult or type(expected_rules_revision) is not int
+                or expected_rules_revision < 1 or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Pending completion requires its exact output and live App owner')
+        result = TurnResult.model_validate_json(result.model_dump_json(by_alias=True))
+        return self._complete_turn(result, prepared_recovery=False, native_output_proof=output_proof,
+            expected_rules_revision=expected_rules_revision, native_work_proof=work_proof,
+            pending_current_access=authorize_current_access)
+
     def complete_native_base_turn(self, result: TurnResult, *, output_proof,
                                   expected_rules_revision: int, work_proof=None) -> Turn:
         """Accept a captured native answer and close its unused Rules scope atomically."""
@@ -3533,7 +4769,8 @@ class AgentConversationService:
         return self._complete_turn(result, prepared_recovery=True)
 
     def _complete_turn(self, result: TurnResult, *, prepared_recovery: bool,
-                       native_output_proof=None, expected_rules_revision=None, authoring_proposal=None, native_work_proof=None) -> Turn:
+                       native_output_proof=None, expected_rules_revision=None, authoring_proposal=None, native_work_proof=None,
+                       pending_current_access=None) -> Turn:
         from .types import BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1
         if prepared_recovery and not isinstance(result.completion, (BuildAuthoringCompletionV1, BuildImagePreparationCompletionV1)):
             raise ApplicationStateValidationError("Recovery requires a typed prepared Build proposal")
@@ -3542,6 +4779,16 @@ class AgentConversationService:
         from .plan_authoring import lock_authoring_owners,validate_authoring_transaction,validate_stored_authoring_result
         from application_state.plan_action_dialogue import repository as actions
         with self._transaction(dsn) as conn:
+            pending_pointer = None
+            if pending_current_access is not None:
+                from .build_pending_app_coverage import pending_writer_access_pages
+                if not callable(pending_current_access) or prepared_recovery:
+                    raise ApplicationStateValidationError('Pending completion cannot borrow another lifecycle owner')
+                pending_pointer = repo.lock_world_state(conn, world_id)
+                pending_conversation = repo.lock_conversation(conn, world_id, result.conversation_id)
+                if (pending_pointer is None or pending_pointer.active_conversation_id != result.conversation_id
+                        or pending_conversation is None or pending_conversation.status != 'active'):
+                    raise ApplicationStateConflictError('Pending completion lost its active conversation')
             from .lore_page_review import ProposedLorePage
             from .types import LoreSaveReviewReference
             if isinstance(result.completion, LoreSaveReviewReference):
@@ -3560,6 +4807,14 @@ class AgentConversationService:
             turn = _ordinary_mutation_turn(turn, result.conversation_id)
             if turn is None or turn.conversation_id != result.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
+            from .native_context import BuildPendingContextReceiptV1
+            if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+                if (pending_pointer is None or pending_current_access is None
+                        or pending_pointer.revision != turn.graph_context_receipt.conversation_observation.pointer_revision
+                        or pending_current_access(conn, turn, pending_writer_access_pages(turn)) is not True):
+                    raise ApplicationStateConflictError('Pending completion requires its current captured App pointer and access')
+            elif pending_current_access is not None:
+                raise ApplicationStateValidationError('Pending completion owner cannot accept another receipt family')
             validate_authoring_transaction(conn,action,authoring_proposal,turn,result,native_output_proof)
             if turn.status == "completed":
                 stored_binding = None
@@ -3641,6 +4896,10 @@ class AgentConversationService:
                 native_output_verified = True
             execution = _validated_base_execution_locked(conn, turn, result,
                 prepared_recovery=prepared_recovery, native_output_verified=native_output_verified)
+            if pending_current_access is not None and pending_current_access(conn, turn, pending_writer_access_pages(turn)) is not True:
+                raise ApplicationStateConflictError('Current App access changed during pending output verification')
+            if pending_current_access is not None and turn.claim_expires_at <= repo.database_clock(conn):
+                raise ApplicationStateConflictError('Pending claim expired during final output verification')
             from .rules_authority_store import close_unused_locked
             # A recovered object does not reopen or erase the failed unused capability.
             if recovered_rules_state != 'failed':
@@ -3989,8 +5248,8 @@ class AgentConversationService:
                     proof = result.output_proof
                     from .native_rules_output import sealed_native_producer
                     capture, graph_support = sealed_native_producer(turn, current.execution, proof)
-                    from .native_execution import SurfaceNativeExecutionV1
-                    if type(turn.graph_context_execution) is SurfaceNativeExecutionV1:
+                    from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1
+                    if type(turn.graph_context_execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1):
                         from .native_rules_output import normalize_shared_native_output
                         captured=conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
                             (turn.turn_id,turn.attempt)).fetchone()

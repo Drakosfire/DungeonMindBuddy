@@ -128,6 +128,10 @@ def is_anchored_current_page_edit(selection):
 
 
 def project(execution):
+    from .native_execution import BuildPendingExecutionV1
+    if type(execution) is BuildPendingExecutionV1:
+        from .build_pending_app_coverage import pending_related_pages_project
+        return pending_related_pages_project(execution)
     if catalog(execution.policy) is None:
         return None
     if is_plan_catalog(execution):

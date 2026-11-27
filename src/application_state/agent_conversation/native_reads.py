@@ -41,7 +41,7 @@ class _NativeReadOperation:
         )
         from .native_batch_completion import conclude_selected_batch
         if self.producer not in {
-            authorize_read, observe_read, capture_native_input,
+            authorize_read, observe_read, observe_selected_read_locked, capture_native_input,
             authorize_native_reference, observe_native_reference, observe_native_source_reference,
             authorize_direct_sources_locked, observe_direct_source_locked,
             authorize_body_search_locked, observe_body_search_locked,
@@ -65,6 +65,11 @@ def validate_execution_binding(receipt, execution):
     from . import types as t
     from .native_context import SurfaceNativeContextReceiptV1
     from .native_execution import SurfaceNativeExecutionV1, validate_context_binding
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import prepared_pending_source
+        prepared_pending_source(receipt, execution)
+        return
     if (type(receipt), type(execution)) == (SurfaceNativeContextReceiptV1, SurfaceNativeExecutionV1):
         validate_context_binding(receipt, execution)
         return
@@ -97,7 +102,14 @@ def _owner(turn, *, require_source=False):
     from .plan_jev_decision import _owner as plan_owner
     from .plan_source_context import validate_source_provenance
 
-    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_context import BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1
+    if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import pending_native_owner, prepared_pending_source
+        receipt, execution = pending_native_owner(turn)
+        authority, _ = prepared_pending_source(receipt, execution)
+        if require_source and not isinstance(authority, NativeCorpusAuthorityV1):
+            raise ValueError("Native body acquisition requires its available frozen source authority")
+        return receipt, execution
     if type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1:
         from .native_retrieval import owner
         receipt, execution = owner(turn)
@@ -128,17 +140,22 @@ def _validate_prospective_read(receipt, execution, event):
 
 def authorize_read(turn, *, event_id, record_kind, record_ids):
     """Authorize one native record family through the shared selected-read ledger."""
-    from .plan_jev_decision import current_selection
+    from .build_pending_native import read_selection as current_selection
     from . import types as t
     from .native_plan_assertions import NativePlanQueryV2, NativePlanAssertionReadAuthorizedV1
     if record_kind not in {"statement", "assertion"}:
         raise ValueError("Unknown native selected-read record kind")
     receipt, execution = _owner(turn)
     from .native_execution import effective_native_query
-    query = (effective_native_query(receipt, execution)
-             if isinstance(receipt, t.SurfaceNativeContextReceiptV1)
-             else getattr(receipt, "native_query", None))
-    if (not isinstance(receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1))
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import prepared_pending_source
+        _, query = prepared_pending_source(receipt, execution)
+    else:
+        query = (effective_native_query(receipt, execution)
+                 if isinstance(receipt, t.SurfaceNativeContextReceiptV1)
+                 else getattr(receipt, "native_query", None))
+    if (not isinstance(receipt, (t.PlanNativeContextReceiptV1,t.SurfaceNativeContextReceiptV1,BuildPendingContextReceiptV1))
             or not isinstance(query, NativePlanQueryV1)
             or record_kind == "assertion" and not isinstance(query, NativePlanQueryV2)):
         raise ValueError("Native query is unavailable for the selected record kind")
@@ -177,6 +194,33 @@ def observe_read(turn, *, event_id, authorization_event_id, reads, unavailable_i
     return event
 
 
+def observe_selected_read_locked(turn, *, event_id, authorization_event_id, read):
+    """Open only the actual current grant; never expose a Turn to a reader."""
+    from .native_plan_assertions import NativePlanAssertionReadAuthorizedV1, NativePlanAssertionReadObservedV1
+    from .build_pending_native import read_selection
+    from .native_context import BuildPendingContextReceiptV1
+    if type(turn.graph_context_receipt) is not BuildPendingContextReceiptV1:
+        raise ValueError('Guarded selected-record materialization requires its actual pending Build owner')
+    _, execution = _owner(turn)
+    prior = _prior_event(execution, event_id,
+        (NativePlanStatementReadObservedV1, NativePlanAssertionReadObservedV1),
+        authorization_event_id=authorization_event_id)
+    if prior is not None:
+        return prior
+    grants = [e for e in execution.events
+        if type(e) in (NativePlanStatementReadAuthorizedV1, NativePlanAssertionReadAuthorizedV1)
+        and e.event_id == authorization_event_id]
+    selected = read_selection(turn)
+    if (len(grants) != 1 or selected.operation != 'select_candidates'
+            or grants[0].provider_attempt_id != selected.controller_attempt_id
+            or any(isinstance(e, (NativePlanStatementReadObservedV1, NativePlanAssertionReadObservedV1))
+                   and e.authorization_event_id == authorization_event_id for e in execution.events)):
+        raise ValueError('Selected native read requires its unique current unobserved grant')
+    reads, unavailable = read(deepcopy(grants[0]))
+    return observe_read(turn, event_id=event_id, authorization_event_id=authorization_event_id,
+        reads=reads, unavailable_ids=unavailable)
+
+
 def _prior_event(execution, event_id, model, **identity):
     prior = next((event for event in execution.events if event.event_id == event_id), None)
     if prior is not None and (not isinstance(prior, model)
@@ -186,7 +230,7 @@ def _prior_event(execution, event_id, model, **identity):
 
 
 def _selected_controller(turn, handle):
-    from .plan_jev_decision import current_selection
+    from .build_pending_native import read_selection as current_selection
     selected = current_selection(turn)
     if selected.operation != "select_candidates" or handle not in selected.selected_handles:
         raise ValueError("Native body acquisition was not selected by the current controller")
@@ -195,6 +239,8 @@ def _selected_controller(turn, handle):
 
 def authorize_body_search_locked(turn, *, event_id):
     receipt, execution = _owner(turn, require_source=True)
+    from .build_pending_native import read_source_authority
+    authority = read_source_authority(receipt, execution)
     query = sha256(turn.user_text.encode()).hexdigest()
     prior = _prior_event(execution, event_id, NativeBodySearchAuthorizedV1, query_sha256=query)
     if prior is not None:
@@ -205,7 +251,7 @@ def authorize_body_search_locked(turn, *, event_id):
         provider_attempt_id=_selected_controller(turn, native_corpus_search_handle(query)),
         context_receipt_sha256=receipt.context_receipt_sha256,
         execution_policy_sha256=execution.execution_policy_sha256,
-        authority=receipt.source_authority, query_sha256=query)
+        authority=authority, query_sha256=query)
 
 
 def authorize_initial_source_search_locked(turn, *, event_id):
@@ -248,6 +294,8 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
     """The trusted Core capture runs only after a durable discovery grant."""
     from .corpus_source_search import terms
     receipt, execution = _owner(turn, require_source=True)
+    from .build_pending_native import read_source_authority
+    authority = read_source_authority(receipt, execution)
     prior = _prior_event(execution, event_id, NativeBodySearchObservedV1,
         authorization_event_id=authorization_event_id)
     if prior is not None:
@@ -273,8 +321,14 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
             for event in execution.events):
         raise ValueError("Native source search already has an observation; reuse its receipt")
     captured = capture()
-    if captured.authority != receipt.source_authority:
+    from .native_context import BuildPendingContextReceiptV1
+    pending = type(receipt) is BuildPendingContextReceiptV1
+    if captured.authority != authority and (not pending
+            or captured.authority.model_dump(mode='json', exclude={'acquisition_epoch'})
+                != authority.model_dump(mode='json', exclude={'acquisition_epoch'})
+            or captured.authority.acquisition_epoch < authority.acquisition_epoch):
         raise ValueError("Native source capture differs from its frozen authority")
+    catalog_authority = captured.authority if pending else authority
     from collections import Counter
     from math import log1p
     import re
@@ -286,7 +340,7 @@ def observe_body_search_locked(turn, *, event_id, authorization_event_id, captur
     for member in captured.members:
         key = (member.artifact.source_artifact_id, member.revision.source_revision_id)
         body = captured.bodies[key]
-        catalog = build_native_body_catalog(receipt.source_authority, member, body)
+        catalog = build_native_body_catalog(catalog_authority, member, body)
         catalogs.append(catalog)
         for section in catalog.sections:
             words = Counter(re.findall(r"\w+", body[section.char_start:section.char_end].casefold()))
@@ -450,7 +504,8 @@ def observe_body_reads_locked(turn, *, reads, read):
         raise ValueError('Native body group already has an observation; reuse its receipt')
     # External code sees detached authority/member only, never the private Turn.
     # Exceptions propagate. A failed physical capture is not unavailability.
-    text = read(deepcopy(receipt.source_authority), deepcopy(catalog.source))
+    from .build_pending_native import read_source_authority
+    text = read(deepcopy(read_source_authority(receipt, execution)), deepcopy(catalog.source))
     if reads != tuple(dict(event_id=eid, authorization_event_id=aid) for eid, aid in command):
         raise ValueError('Native body group command changed during physical capture')
     if text is not None and not isinstance(text, str):
@@ -462,15 +517,20 @@ def observe_body_reads_locked(turn, *, reads, read):
 def authorize_direct_sources_locked(turn, *, grants):
     """Authorize one consecutive batch under the same acknowledged selection."""
     from .native_corpus import NativeDirectSourceAuthorizedV1, native_direct_source_handle
-    from .native_context import SurfaceNativeContextReceiptV1
-    from .plan_jev_decision import current_selection
+    from .native_context import BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1
+    from .build_pending_native import read_selection as current_selection
     receipt, execution = _owner(turn, require_source=True)
-    if type(receipt) is not SurfaceNativeContextReceiptV1:
-        raise ValueError("Direct source selection requires the current shared native owner")
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import prepared_pending_source
+        authority, _ = prepared_pending_source(receipt, execution)
+    elif type(receipt) is SurfaceNativeContextReceiptV1:
+        authority = receipt.source_authority
+    else:
+        raise ValueError("Direct source selection requires its actual native owner")
     fields = {"event_id", "source_artifact_id", "source_revision_id", "content_sha256"}
     if not isinstance(grants, tuple) or not grants or any(type(row) is not dict or set(row) != fields for row in grants):
         raise ValueError("Direct source grants require a nonempty closed batch")
-    handles = [native_direct_source_handle(receipt.source_authority,
+    handles = [native_direct_source_handle(authority,
         row["source_artifact_id"], row["source_revision_id"], row["content_sha256"]) for row in grants]
     if len({row["event_id"] for row in grants}) != len(grants) or len(set(handles)) != len(handles):
         raise ValueError("Direct source batch repeats a grant or source")
@@ -488,23 +548,28 @@ def authorize_direct_sources_locked(turn, *, grants):
             raise ValueError("Direct source batch replay is partial, reordered or belongs to another controller")
         return tuple(priors)
     return tuple(NativeDirectSourceAuthorizedV1(**row, sequence=len(execution.events) + index,
-        provider_attempt_id=selection.controller_attempt_id, authority=receipt.source_authority)
+        provider_attempt_id=selection.controller_attempt_id, authority=authority)
         for index, row in enumerate(grants))
 
 
 def observe_direct_source_locked(turn, *, event_id, authorization_event_id, read):
     from .native_corpus import NativeDirectSourceAuthorizedV1, NativeDirectSourceObservedV1, native_direct_source_handle
-    from .native_context import SurfaceNativeContextReceiptV1
+    from .native_context import BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1
     receipt, execution = _owner(turn, require_source=True)
-    if type(receipt) is not SurfaceNativeContextReceiptV1:
-        raise ValueError("Direct source selection requires the current shared native owner")
+    if type(receipt) is BuildPendingContextReceiptV1:
+        from .build_pending_native import prepared_pending_source
+        authority, _ = prepared_pending_source(receipt, execution)
+    elif type(receipt) is SurfaceNativeContextReceiptV1:
+        authority = receipt.source_authority
+    else:
+        raise ValueError("Direct source selection requires its actual native owner")
     prior = _prior_event(execution, event_id, NativeDirectSourceObservedV1,
         authorization_event_id=authorization_event_id)
     if prior is not None:
         return prior
     auth = next((event for event in execution.events if isinstance(event, NativeDirectSourceAuthorizedV1)
         and event.event_id == authorization_event_id), None)
-    if auth is None or _selected_controller(turn, native_direct_source_handle(auth.authority,
+    if auth is None or auth.authority != authority or _selected_controller(turn, native_direct_source_handle(auth.authority,
             auth.source_artifact_id, auth.source_revision_id, auth.content_sha256)) != auth.provider_attempt_id:
         raise ValueError("Direct source read lacks its current durable selection")
     if any(isinstance(event, NativeDirectSourceObservedV1)

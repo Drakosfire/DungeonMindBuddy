@@ -209,7 +209,8 @@ def require_open_plan_jev_acquisition_locked(conn, scope):
     turn = repository.get_turn(conn, scope.world_id, scope.turn_id)
     execution = getattr(turn, "graph_context_execution", None)
     from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
-    shared = type(execution) is SurfaceNativeExecutionV1
+    from .native_execution import BuildPendingExecutionV1
+    shared = type(execution) in (SurfaceNativeExecutionV1, BuildPendingExecutionV1)
     if shared and any(type(event) in NATIVE_WRITER_TYPES for event in execution.events):
         raise ApplicationStateValidationError("Shared native writer closes Rules acquisition")
     shared_plan = shared and type(execution.policy.action) in NATIVE_PLAN_ACTION_TYPES
@@ -336,7 +337,7 @@ def append_provider_event_locked(
     ):
         raise ApplicationStateValidationError("Not a Rules provider lifecycle event")
     turn_head = _lock_current_claim(conn, scope, expected_turn_revision)
-    if (turn_head['graph_execution_schema'] == 'dmb_surface_native_execution_v1'
+    if (turn_head['graph_execution_schema'] in {'dmb_surface_native_execution_v1', 'dmb_build_pending_execution_v1'}
             and isinstance(event,(RulesProviderAuthorizedV1,RulesProviderIncludedV1))):
         raise ApplicationStateValidationError("Shared writer input requires atomic admission")
     current = _locked_record(conn, scope)

@@ -133,7 +133,8 @@ def validate_unclaimed_receipt_owner(
     envelope: CompletedTurnEnvelopeV1 | Turn, receipt: GraphContextReceipt
 ) -> None:
     from .types import PlanSourceContextReceiptV1
-    if type(receipt) is SurfaceNativeContextReceiptV1:
+    from .native_context import BuildPendingContextReceiptV1
+    if type(receipt) in (SurfaceNativeContextReceiptV1, BuildPendingContextReceiptV1):
         from .native_context import validate_work_context
         from .types import canonical_sha256
         validate_work_context(receipt,envelope.provenance,play_context_receipt=envelope.play_context_receipt)
@@ -294,6 +295,12 @@ class MixedCompletedTurnV1(ClosedRulesModel):
                     )
                 validate_graph_producer_join(turn.graph_context_execution, binding)
         elif isinstance(base, RulesUnclaimedBaseV1):
+            from .native_context import BuildPendingContextReceiptV1
+            from .native_execution import BuildPendingExecutionV1
+            if (type(base.graph_context_receipt) is BuildPendingContextReceiptV1
+                    or type(base.graph_context_execution) is BuildPendingExecutionV1):
+                from .build_source_free import validate_pending_request_identity
+                validate_pending_request_identity(base.graph_context_receipt, base.graph_context_execution, envelope)
             if (type(base.graph_context_receipt) is SurfaceNativeContextReceiptV1
                     or type(base.graph_context_execution) is SurfaceNativeExecutionV1):
                 from .native_execution import validate_request_identity

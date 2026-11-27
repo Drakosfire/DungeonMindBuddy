@@ -236,16 +236,45 @@ class CorpusSourceNavigation:
                  'source_revision': self.revision_metadata(next(h for h,c in owner.catalogs.items() if c.event_id == hit.catalog_event_id))} for hit in matches]}
 
 
+def _navigation_source_authority(adapter):
+    if adapter.fence is None:
+        return adapter.native_source_authority
+    turn = adapter.fence.turn
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+        from application_state.agent_conversation.build_pending_native import pending_native_owner, prepared_pending_source
+        receipt, execution = pending_native_owner(turn)
+        return prepared_pending_source(receipt, execution)[0]
+    return turn.graph_context_receipt.source_authority
+
+
+def _navigation_source_context_matches(adapter, context):
+    authority = _navigation_source_authority(adapter)
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    if adapter.fence is not None and type(adapter.fence.turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+        return (context.authority.model_dump(mode='json', exclude={'acquisition_epoch'})
+                == authority.model_dump(mode='json', exclude={'acquisition_epoch'})
+                and context.authority.acquisition_epoch >= authority.acquisition_epoch)
+    return context.authority == authority
+
+
+def _navigation_query(turn):
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    if type(turn.graph_context_receipt) is BuildPendingContextReceiptV1:
+        from application_state.agent_conversation.build_pending_native import prepared_pending_source
+        return prepared_pending_source(turn.graph_context_receipt, turn.graph_context_execution)[1]
+    return turn.graph_context_receipt.native_query
+
+
 class NativeBodyNavigation:
-    """Native-only Plan navigation; no classic registry dispatch or body cache."""
+    """Native source navigation; no classic registry dispatch or body cache."""
     def __init__(self, adapter):
         from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
         from ..integrations.dungeonmind.native_corpus_source import NativeCorpusContext
-        authority = (adapter.fence.turn.graph_context_receipt.source_authority
-            if adapter.fence is not None else adapter.native_source_authority)
+        authority = _navigation_source_authority(adapter)
         context = getattr(adapter, "native_corpus_context", None)
         if isinstance(authority, NativeCorpusAuthorityV1) and (
-                not isinstance(context, NativeCorpusContext) or context.authority != authority):
+                not isinstance(context, NativeCorpusContext) or not _navigation_source_context_matches(adapter, context)):
             raise ValueError("Native navigation requires its original trusted source context")
         self.adapter = adapter
         self._source_display = None
@@ -322,7 +351,7 @@ class NativeBodyNavigation:
         from application_state.agent_conversation.native_retrieval import native_selection_types
         from application_state.agent_conversation.native_source_keywords import KEYWORD_KIND
         turn = self.adapter.fence.turn
-        if (type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1 or
+        if (type(turn.graph_context_receipt) not in (t.SurfaceNativeContextReceiptV1, t.BuildPendingContextReceiptV1) or
                 any(type(e) in native_selection_types() for e in turn.graph_context_execution.events) or
                 self._acquired_extents()):
             return ()
@@ -348,7 +377,7 @@ class NativeBodyNavigation:
 
     def _scoped_offers(self, rows, search):
         turn = self.adapter.fence.turn
-        if type(turn.graph_context_receipt) is not t.SurfaceNativeContextReceiptV1:
+        if type(turn.graph_context_receipt) not in (t.SurfaceNativeContextReceiptV1, t.BuildPendingContextReceiptV1):
             return tuple(rows)
         from .native_source_candidate_scope import (
             post_cutoff_source_pairs, post_named_recap_source_pairs, preferred_source_pairs,
@@ -370,10 +399,10 @@ class NativeBodyNavigation:
                             turn.graph_context_receipt, turn.graph_context_execution))
         excluded = post_cutoff_source_pairs(turn.user_text, self._source_display)
         excluded |= post_named_recap_source_pairs(
-            getattr(turn.graph_context_receipt.native_query, "named_recap_bound", None),
+            getattr(_navigation_query(turn), "named_recap_bound", None),
             self._source_display,
         )
-        focus = (getattr(turn.graph_context_receipt.native_query, "episode_campaign_focus", None)
+        focus = (getattr(_navigation_query(turn), "episode_campaign_focus", None)
                  if search is not None else None)
         if pairs is None and not keywords and not rank_opening and not excluded and focus is None:
             return tuple(rows)
@@ -478,7 +507,7 @@ class NativeBodyNavigation:
         return tuple(narrowed)
 
     def _require_metadata_selection(self, handle, *, parent):
-        from application_state.agent_conversation.plan_jev_decision import current_selection
+        from application_state.agent_conversation.build_pending_native import read_selection as current_selection
         selection = current_selection(self.adapter.fence.turn)
         if (selection.operation != 'select_candidates'
                 or handle not in selection.selected_handles
@@ -509,7 +538,7 @@ class NativeBodyNavigation:
         turn = a.fence.turn
         request_owned = request_source_discovery_enabled(turn.graph_context_receipt, turn.graph_context_execution)
         if (not (request_owned or initial_source_discovery_enabled(turn.graph_context_execution))
-                or not isinstance(turn.graph_context_receipt.source_authority, NativeCorpusAuthorityV1)):
+                or not isinstance(_navigation_source_authority(self.adapter), NativeCorpusAuthorityV1)):
             return
         grant_type = NativePlanRequestSearchAuthorizedV1 if request_owned else NativeInitialSourceSearchAuthorizedV1
         method = 'authorize_native_plan_request_search' if request_owned else 'authorize_initial_native_source_search'
@@ -550,7 +579,7 @@ class NativeBodyNavigation:
                 kind='Source lexical navigation; not evidence or semantic completeness'))
             return tuple(rows)
         turn = self.adapter.fence.turn
-        if not isinstance(turn.graph_context_receipt.source_authority, NativeCorpusAuthorityV1):
+        if not isinstance(_navigation_source_authority(self.adapter), NativeCorpusAuthorityV1):
             return ()
         grant, search, auths, reads = self._events()
         from application_state.agent_conversation.native_corpus import (
@@ -571,7 +600,7 @@ class NativeBodyNavigation:
         opened_pairs = {(catalog.source.artifact.source_artifact_id, catalog.source.revision.source_revision_id)
                         for read, catalog in acquired if read.excerpt.selector_policy == 'native_full_document_v1'}
         rows = []
-        direct = self._source_choices() if type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1 else {}
+        direct = self._source_choices() if type(turn.graph_context_receipt) in (t.SurfaceNativeContextReceiptV1, t.BuildPendingContextReceiptV1) else {}
         for handle, (pair, digest, display) in direct.items():
             if handle not in attempted and pair not in opened_pairs:
                 rows.append(RetrievalCandidate(handle=handle,
@@ -643,7 +672,7 @@ class NativeBodyNavigation:
         if self.adapter.fence is None:
             return ()
         turn = self.adapter.fence.turn
-        authority = turn.graph_context_receipt.source_authority
+        authority = _navigation_source_authority(self.adapter)
         if not isinstance(authority, NativeCorpusAuthorityV1):
             return (RetrievalCandidate(handle="native-source-unavailable:" + authority.failure_code,
                 label="Native source inspection unavailable", kind=authority.failure_code + "; not evidence of absence"),)
@@ -677,7 +706,7 @@ class NativeBodyNavigation:
             if read is None or read.excerpt is None:
                 rows.append(RetrievalCandidate(handle=self._handle(auth), label="Previously selected native source extent",
                     kind="Unavailable source read" if read is not None else "Unresolved source read"))
-        if type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1:
+        if type(turn.graph_context_receipt) in (t.SurfaceNativeContextReceiptV1, t.BuildPendingContextReceiptV1):
             from application_state.agent_conversation.native_source_keywords import retained_keyword_candidates
             focus = retained_keyword_candidates(turn)
             if focus and self._expanded():
@@ -695,17 +724,33 @@ class NativeBodyNavigation:
                         with trace.measure_host_work("native_source_materialization"):
                             return _materialize(*args, **kwargs)
                     fields[name] = measured
+        pending = type(a.fence.turn.graph_context_receipt) is t.BuildPendingContextReceiptV1
         with trace.measure_host_work("native_source_append") if trace is not None else nullcontext():
-            if method in {'authorize_native_body_reads', 'authorize_native_direct_sources',
+            if pending:
+                methods = {
+                    'authorize_native_body_search': 'authorize_pending_native_body_search',
+                    'observe_native_body_search': 'observe_pending_native_body_search',
+                    'authorize_native_body_reads': 'authorize_pending_native_body_reads',
+                    'observe_native_body_reads': 'observe_pending_native_body_reads',
+                    'authorize_native_direct_sources': 'authorize_pending_native_direct_sources',
+                    'observe_native_direct_source': 'observe_pending_native_direct_source',
+                }
+                if method not in methods:
+                    raise ValueError('Pending navigation requires its exact guarded source owner')
+                result = a.fence.commit(methods[method], authorize_current_access=a.pending_build_access, **fields)
+            elif method in {'authorize_native_body_reads', 'authorize_native_direct_sources',
                           'observe_native_body_reads', 'observe_native_direct_source'}:
                 events = a.fence.commit_session_source_events(method, **fields)
                 if events is not None:
                     return events[0] if method == 'observe_native_direct_source' else events
-            result = a.fence.commit(method, **fields)
+            if not pending:
+                result = a.fence.commit(method, **fields)
         a.turn = result[0]
         if method in {'authorize_native_direct_sources', 'authorize_native_body_reads', 'observe_native_body_reads'}:
             by_id = {event.event_id: event for event in result[0].graph_context_execution.events}
             return tuple(by_id[row['event_id']] for row in fields['reads' if method == 'observe_native_body_reads' else 'grants'])
+        if pending:
+            return next(e for e in result[0].graph_context_execution.events if e.event_id == fields['event_id'])
         return result[0].graph_context_execution.events[-1]
 
     def _fulfilled_in_current_selection(self, handle):
@@ -715,7 +760,7 @@ class NativeBodyNavigation:
         once. Do not reopen the section or label its already acquired text as
         unavailable. Prior decisions and merely similar sources cannot satisfy it.
         """
-        from application_state.agent_conversation.plan_jev_decision import current_selection
+        from application_state.agent_conversation.build_pending_native import read_selection as current_selection
         from application_state.agent_conversation.native_corpus import selected_batch_covering_reads
         owner = self.adapter.fence.renewer
         with owner._lock:
@@ -744,7 +789,7 @@ class NativeBodyNavigation:
         )
         a = self.adapter
         context = getattr(a, "native_corpus_context", None)
-        if not isinstance(context, NativeCorpusContext) or context.authority != a.fence.turn.graph_context_receipt.source_authority:
+        if not isinstance(context, NativeCorpusContext) or not _navigation_source_context_matches(a, context):
             raise ValueError("Native navigation requires its original trusted source context")
         reuse_connection = getattr(context.repository, "reuse_native_source_read_connection", None)
 
@@ -801,7 +846,7 @@ class NativeBodyNavigation:
                     else:
                         catalog_sha, section = handle.removeprefix("native-body:").split(":", 1)
                         kind = "section"
-                    from application_state.agent_conversation.plan_jev_decision import current_selection
+                    from application_state.agent_conversation.build_pending_native import read_selection as current_selection
                     if turn is not None:
                         _, search, _, _ = self._events(turn)
                         search_event_id = search.event_id

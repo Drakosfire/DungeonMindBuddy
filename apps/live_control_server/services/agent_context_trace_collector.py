@@ -168,10 +168,19 @@ class ContextTraceCollector:
                 "provider_attempt_id": authorization.provider_attempt_id,
                 "provider": authorization.provider, "model": authorization.model,
             })
+            from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+            pending = type(self.fence.turn.graph_context_receipt) is BuildPendingContextReceiptV1
+            options = {}
+            if pending:
+                access = getattr(self.fence, 'pending_build_access', None)
+                if not callable(access):
+                    raise ApplicationStateValidationError('Pending opening capture requires its current App access owner')
+                options['authorize_current_access'] = access
             turn, fresh, trace = self.fence.append(
-                "authorize_build_opening_with_prompt", "provider_attempt_event", authorization,
-                prepared_decision_json=view["payloadJson"], trace_id=self.trace.trace_id,
-                prompt=prompt, authorized=authorized,
+                'authorize_pending_build_opening_with_prompt' if pending else 'authorize_build_opening_with_prompt',
+                'provider_attempt_event', authorization,
+                prepared_decision_json=view['payloadJson'], trace_id=self.trace.trace_id,
+                prompt=prompt, authorized=authorized, **options,
             )
             self.trace = trace
             return turn, fresh
@@ -391,7 +400,10 @@ class ContextTraceCollector:
                 from application_state.agent_conversation.native_execution import SurfaceNativeExecutionPolicyV1, NativeBuildActionV1
                 native_build = (type(execution.policy) is SurfaceNativeExecutionPolicyV1
                     and type(execution.policy.action) is NativeBuildActionV1)
-                if (not (native_build or isinstance(execution.policy, BuildSelectedSourceActionControllerWriterPolicyV1))
+                from application_state.agent_conversation.native_execution import BuildPendingExecutionV1, BuildPendingExecutionPolicyV1
+                pending_build = (type(execution) is BuildPendingExecutionV1
+                    and type(execution.policy) is BuildPendingExecutionPolicyV1)
+                if (not (native_build or pending_build or isinstance(execution.policy, BuildSelectedSourceActionControllerWriterPolicyV1))
                     or (authorizations[-1].provider, authorizations[-1].model, authorizations[-1].api_mode)
                     != execution.policy.provider_roles.controller.identity()):
                     raise ApplicationStateValidationError("controller capture lacks its frozen selection role")
