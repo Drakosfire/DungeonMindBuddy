@@ -394,19 +394,13 @@ def native_conversation_terminal(turn):
 
 
 def native_work_terminal(turn):
-    from . import types as t
     from .build_source_free import pending_source_free_terminal, pending_native_terminal, validate_pending_execution_binding
     from .build_pending_app_coverage import pending_app_writer_terminal, pending_app_partial_candidate
     from .native_context import BuildPendingContextReceiptV1
     execution = turn.graph_context_execution
     # An unobserved native scope or an exclusive current-page request permits
     # a bounded partial answer, not a claim about unsearched sources.
-    # This reader understands current-page partial records only after one was
-    # already stored. Fresh admission remains disabled until its producer ships.
-    current_recorded = any(type(row) is t.BuildWriterEvidenceSelectionV2
-        and row.terminal_disposition == {'status': 'ready', 'reason': 'pending_current_page_partial'}
-        for row in execution.events)
-    partial = pending_app_partial_candidate(execution, allow_current_page=current_recorded)
+    partial = pending_app_partial_candidate(execution, allow_current_page=True)
     receipt = turn.graph_context_receipt
     if (partial is not None and type(receipt) is BuildPendingContextReceiptV1
             and (partial['reason'] == 'pending_current_page_partial'

@@ -383,7 +383,7 @@ def test_current_partial_reader_requires_exact_saved_page_and_coverage():
     decoded = pending_execution(receipt, execution.policy, [*execution.events, selection])
     assert validate_pending_execution_binding(receipt, decoded) == decoded
     assert native_work_terminal(SimpleNamespace(graph_context_receipt=receipt,
-        graph_context_execution=execution)) is None
+        graph_context_execution=execution)) == selection.terminal_disposition
     assert native_work_terminal(SimpleNamespace(graph_context_receipt=receipt,
         graph_context_execution=decoded)) == selection.terminal_disposition
 
@@ -416,6 +416,28 @@ def test_current_partial_reader_keeps_explicit_scope_with_a_bound_native_source(
     decoded = pending_execution(bound, policy, [*rows, selection])
     assert native_work_terminal(SimpleNamespace(graph_context_receipt=bound,
         graph_context_execution=decoded)) == selection.terminal_disposition
+
+
+def test_current_partial_producer_never_prepares_native_sources():
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    receipt, execution, _ = _current_partial_case()
+    turn = SimpleNamespace(graph_context_receipt=receipt, graph_context_execution=execution)
+    adapter = SimpleNamespace(turn=turn, _broker_receipt=lambda: receipt,
+        _broker_execution=lambda: execution)
+    assert prepare_pending_native_source(adapter) is False
+
+
+def test_current_partial_producer_refuses_unread_page():
+    from application_state.agent_conversation import types as t
+    from apps.live_control_server.services.build_pending_source import prepare_pending_native_source
+    receipt, execution, _ = _current_partial_case()
+    execution = execution.model_copy(update={'events': [row for row in execution.events
+        if type(row) is not t.RelatedPageRead]})
+    turn = SimpleNamespace(graph_context_receipt=receipt, graph_context_execution=execution)
+    adapter = SimpleNamespace(turn=turn, _broker_receipt=lambda: receipt,
+        _broker_execution=lambda: execution)
+    with pytest.raises(ValueError):
+        prepare_pending_native_source(adapter)
 
 
 @pytest.mark.parametrize('failure', ['missing_read', 'wrong_page', 'foreign_catalog', 'sufficient'])
