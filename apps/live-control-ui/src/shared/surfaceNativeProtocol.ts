@@ -255,6 +255,17 @@ export function isBuildImageMoveCompletion(value: unknown, receiptHash: string):
       : value.action_id === null && value.placement_sha256 === null);
 }
 
+/** Host-owned uncertainty asks only a fixed scope question, with no evidence claim. */
+export function isPlanGraphClarification(v:unknown,r:SurfaceNativeContextReceiptV1):v is import('../api/types').NativePlanGraphClarificationCompletionV1 {
+  return r.work_context.surface_id==='plan'&&r.native_query.schema==='dmb_native_plan_graph_query_pending_v1'
+    &&exact(v,['schema','surface_id','context_receipt_sha256','observation_event_id','answer_context_status','answer_segments'])
+    &&v.schema==='dmb_plan_graph_need_clarification_v1'&&v.surface_id==='plan'
+    &&v.context_receipt_sha256===r.context_receipt_sha256&&uuid(v.observation_event_id)&&v.answer_context_status==='discussion'
+    &&Array.isArray(v.answer_segments)&&v.answer_segments.length===1
+    &&exact(v.answer_segments[0],['kind','text'])&&v.answer_segments[0].kind==='clarification'
+    &&v.answer_segments[0].text==='What context would you like me to use for this request?';
+}
+
 /** The shared response envelope is independent of the surface-owned work shape. */
 export function isSurfaceNativeContext(
   v:unknown, validateWork:(work:unknown)=>work is SurfaceNativeWorkContextV1,
@@ -271,6 +282,7 @@ export function isSurfaceNativeContext(
     ||planMembership&&(v.receipt.work_context.surface_id!=='plan'||v.receipt.native_query.schema!=='dmb_native_plan_graph_query_pending_v1')
     ||v.execution!==null&&!validateExecution(v.execution)||typeof v.delivery_replay!=='boolean'
     ||(v.completion===null?membership:!(isSurfaceNativeCompletion(v.completion,v.receipt,planMembership?v.deferred_plan_citations:v.deferred_build_citations)
+      ||!membership&&isPlanGraphClarification(v.completion,v.receipt)
       ||!membership&&v.receipt.work_context.surface_id==='build'&&(isBuildAuthoringCompletion(v.completion,v.receipt.context_receipt_sha256)||isBuildImageCompletion(v.completion,v.receipt.context_receipt_sha256)
         ||isBuildGraphReferenceCompletion(v.completion,v.receipt.context_receipt_sha256)
         ||isBuildImageMoveCompletion(v.completion,v.receipt.context_receipt_sha256)))))return false;
