@@ -46,6 +46,10 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
             or len(parent["content_sha256"]) != 64
             or any(ch not in "0123456789abcdef" for ch in parent["content_sha256"])):
         raise ValueError("Image regeneration requires an exact parent asset and digest")
+    placement = spec.get("image_placement_anchor")
+    if "image_placement_anchor" in spec and (
+            parent is None or not isinstance(placement, str) or not placement.strip()):
+        raise ValueError("Image placement requires an exact parent and destination paragraph")
     unsent_draft = spec.get("unsent_draft", False)
     if type(unsent_draft) is not bool or (unsent_draft and (not build_fixture or live_plan)):
         raise ValueError("Unsent draft requires a Build browser fixture")
@@ -141,6 +145,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
         raise ValueError("Browser capture requires explicit local operator auth")
     image_preview = manifest["browser_capture"].get("image_preview", False)
     image_parent = manifest["browser_capture"].get("image_parent")
+    image_placement = manifest["browser_capture"].get("image_placement_anchor")
     if image_preview and not live_build:
         raise ValueError("Image preview requires explicit live Build capture")
     live = live_build or live_plan
@@ -456,6 +461,13 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             if not parent_before["matches_pin"]:
                                 raise ValueError("Selected image parent differs from the pinned original")
                             env["DMB_BENCHMARK_IMAGE_PARENT"] = json.dumps(image_parent)
+                        if image_placement is not None:
+                            markdown = page_before["body"]["committed_markdown"]
+                            if (markdown.count(image_placement) != 1
+                                    or f"dmb-media:{image_parent['asset_id']}" in markdown):
+                                raise ValueError("Image placement needs one unique paragraph and an absent asset")
+                            env["DMB_BENCHMARK_IMAGE_PLACEMENT"] = json.dumps({"anchor": image_placement})
+
                     driver = Path(__file__).with_name("browser_send.cjs")
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     try:
@@ -515,6 +527,25 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                                 and provenance.get("parent_content_sha256") == image_parent["content_sha256"]
                                 and provenance.get("mode") == "image_to_image"
                                 and provenance.get("instructions") == case["question"])
+                        if image_placement is not None:
+                            placed = observation.get("placement") or {}
+                            saved = page_after["body"]
+                            prior = page_before["body"]["committed_markdown"]
+                            expected = prior.replace(image_placement,
+                                image_placement + f"\n\n![Saved artwork](dmb-media:{image_parent['asset_id']})", 1)
+                            for key in ("private_staged_preview", "single_generation", "no_save_or_place_request",
+                                        "committed_page_unchanged", "mounted_editor_unchanged",
+                                        "distinct_child_bound_to_parent"):
+                                checks.pop(key)
+                            checks.update(
+                                zero_generation=observation.get("generation_posts") == 0,
+                                no_media_save=all(row["path"].startswith("/api/live/workspace-documents/")
+                                                  for row in observation.get("write_requests", ())),
+                                committed_unchanged_before_save=bool(placed and placed["initial"] == placed["before_save"]),
+                                mounted_reopen_exact=placed.get("mounted_reopened_exact") is True,
+                                exact_saved_image=saved["committed_markdown"] == expected
+                                    and saved["loaded_revision"] == work["expected_revision"] + 1,
+                            )
                         artifacts.immutable_save(directory, "fixture-result", {
                             "status": "observed" if not driver_failed and all(checks.values()) else "incomplete",
                             "checks": checks, "image_preview": observation,

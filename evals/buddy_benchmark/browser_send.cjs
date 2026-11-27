@@ -55,7 +55,7 @@ async function run() {
     await page.goto(origin + (build ? "/build?world=" : "/plan?world=") +
       encodeURIComponent(process.env.DMB_BENCHMARK_WORLD) + "&documentId=" + encodeURIComponent(documentId));
     if (imagePreview) {
-      const { generatePrivatePreview, regeneratePrivatePreview } = require("./image_studio.cjs");
+      const { generatePrivatePreview, regeneratePrivatePreview, selectLibraryImage } = require("./image_studio.cjs");
       const { createHash } = require("node:crypto");
       let generationPosts = 0;
       const writeRequests = [];
@@ -90,12 +90,66 @@ async function run() {
           if (!doc?.type?.isBlock || typeof doc.toJSON !== "function") {
             throw new Error("Mounted Build editor has no readable document model");
           }
-          return JSON.stringify(doc.toJSON());
+          return doc.toJSON();
         });
         const editorBefore = await readDocument();
         await page.getByRole("button", { name: "Open Image Studio", exact: true }).click();
         const parent = JSON.parse(process.env.DMB_BENCHMARK_IMAGE_PARENT || "null");
-        if (parent) {
+        const placement = JSON.parse(process.env.DMB_BENCHMARK_IMAGE_PLACEMENT || "null");
+        if (placement) {
+          const studio = await selectLibraryImage(page, origin, parent);
+          const blocks = editorBefore.content;
+          const text = node => node.text ?? (node.content ?? []).map(text).join("");
+          const matches = blocks.flatMap((node, index) =>
+            node.type === "paragraph" && text(node) === placement.anchor ? [index] : []
+          );
+          if (matches.length !== 1) throw new Error("Expected one exact image-placement paragraph");
+          const anchor = editor.locator("p").filter({ hasText: placement.anchor });
+          const snapshotPath = "/api/live/workspace-documents/" + documentId + "/snapshot";
+          const committed = async () => {
+            const response = await page.request.get(origin + snapshotPath + "?view=committed", {
+              headers: { authorization: "Bearer " + process.env.DMB_BENCHMARK_BROWSER_TOKEN },
+            });
+            if (!response.ok()) throw new Error("Committed placement page could not be read");
+            const body = await response.json();
+            return { revision: body.loaded_revision, sha256: body.committed_content_sha256 };
+          };
+          const initial = await committed();
+          if (initial.revision !== pin.expected_revision || initial.sha256 !== pin.expected_content_sha256)
+            throw new Error("Placement page changed before the interaction");
+          const started = performance.now();
+          await studio.getByRole("button", { name: "Place on page", exact: true }).click();
+          await editor.and(page.locator(".is-media-placement-target")).waitFor();
+          await anchor.click();
+          const index = matches[0] + 1;
+          const after = await pollBrowserRead(async () => {
+            const doc = await readDocument();
+            return doc.content.length === blocks.length + 1 && doc;
+          }, 5000, 100, "one mounted image block");
+          const inserted = after.content[index];
+          const retained = after.content.filter((_, i) => i !== index);
+          if (inserted?.content?.length !== 1 || inserted.content[0].type !== "mediaImage"
+              || inserted.content[0].attrs?.assetId !== parent.asset_id
+              || JSON.stringify(retained) !== JSON.stringify(blocks))
+            throw new Error("Mounted image placement differs from the pinned target and neighbors");
+          const beforeSave = await committed();
+          result.placement = { index, asset_id: parent.asset_id, initial, before_save: beforeSave };
+          if (JSON.stringify(initial) !== JSON.stringify(beforeSave))
+            throw new Error("Placement changed the committed page before Save");
+          await page.getByTestId("surface-edit-host").getByRole("button", { name: /^Save$/ }).click();
+          result.placement.after_save = await pollBrowserRead(async () => {
+            const saved = await committed();
+            return saved.revision > initial.revision && saved;
+          }, 10000, 100, "committed image placement");
+          await page.reload();
+          result.placement.reopened = await pollBrowserRead(async () => {
+            const doc = await readDocument();
+            return doc.content.length === after.content.length && doc;
+          }, 10000, 100, "mounted placed image after reload");
+          result.placement.mounted_reopened_exact = JSON.stringify(result.placement.reopened) === JSON.stringify(after);
+          delete result.placement.reopened;
+          result.placement.elapsed_ms = performance.now() - started;
+        } else if (parent) {
           result.preview = await regeneratePrivatePreview(page, origin, parent, process.env.DMB_BENCHMARK_QUESTION);
         } else {
           const { asset, model, elapsedMs } = await generatePrivatePreview(
@@ -109,7 +163,7 @@ async function run() {
             model, elapsedMs,
           };
         }
-        result.editor_unchanged = editorBefore === await readDocument();
+        if (!placement) result.editor_unchanged = JSON.stringify(editorBefore) === JSON.stringify(await readDocument());
       } finally {
         writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
           ...result, generation_posts: generationPosts, write_requests: writeRequests, turn_posts: turnPosts,
