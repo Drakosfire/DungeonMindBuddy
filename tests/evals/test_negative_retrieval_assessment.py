@@ -2323,6 +2323,86 @@ def test_report_primary_pointer_attempt_without_crediting_read(
     assert result['status'] == 'unproven' and result['capture_environment_verified'] is None
 
 
+@pytest.mark.parametrize(('state', 'input_world', 'input_id', 'input_revision', 'returned_world', 'returned_id', 'returned_revision', 'returned_hash', 'bound', 'collision', 'credited'), [
+    ('returned', 'world', 'primary', 1, 'world', 'primary', 1, 'matching', True, False, True),
+    ('entered', 'world', 'primary', 1, 'world', 'primary', 1, 'matching', True, False, False),
+    ('raised', 'world', 'primary', 1, 'world', 'primary', 1, 'matching', True, False, False),
+    ('returned', 'other', 'primary', 1, 'world', 'primary', 1, 'matching', True, False, False),
+    ('returned', 'world', 'other', 1, 'world', 'primary', 1, 'matching', True, False, False),
+    ('returned', 'world', 'primary', 2, 'world', 'primary', 1, 'matching', True, False, False),
+    ('returned', 'world', 'primary', 1, 'other', 'primary', 1, 'matching', True, False, False),
+    ('returned', 'world', 'primary', 1, 'world', 'other', 1, 'matching', True, False, False),
+    ('returned', 'world', 'primary', 1, 'world', 'primary', 2, 'matching', True, False, False),
+    ('returned', 'world', 'primary', 1, 'world', 'primary', 1, 'wrong', True, False, False),
+    ('returned', 'world', 'primary', 1, 'world', 'primary', 1, 'matching', False, False, False),
+    ('returned', 'world', 'primary', 1, 'world', 'primary', 1, 'matching', True, True, False),
+    ('returned', 'world', 'other', 1, 'world', 'other', 1, 'zero', True, True, False),
+])
+def test_report_primary_return_requires_frozen_exact_body(
+        tmp_path, monkeypatch, state, input_world, input_id, input_revision,
+        returned_world, returned_id, returned_revision, returned_hash, bound, collision, credited):
+    import hashlib
+    import json
+    from uuid import NAMESPACE_URL, uuid5
+    from evals.negative_retrieval import report, fixture_binding, fixture_sources
+
+    def envelope(body):
+        raw = json.dumps(body).encode()
+        return {'http_status': 200, 'body': body, 'raw_body_hex': raw.hex(),
+                'raw_body_sha256': hashlib.sha256(raw).hexdigest()}
+
+    request = {'turn_id': 'turn', 'client_thread_id': 'thread', 'message': 'Use the current page.',
+        'owner_scope': {'world_id': 'world'}, 'surface': {'surface_id': 'build', 'instance_id': 'primary'},
+        'primary_work': {'object_id': 'primary', 'expected_revision': 1,
+                         'expected_content_sha256': hashlib.sha256(b'fixture page').hexdigest()}}
+    turn = {'turn_id': 'saved', 'idempotency_key': str(uuid5(NAMESPACE_URL, 'dmb-agent-turn:world:turn')),
+        'user_text': request['message'], 'lifecycle_status': 'completed', 'provenance': {
+            'world_id': 'world', 'surface_id': 'build', 'surface_instance_id': 'primary'},
+        'knowledge_context': {'completion': question_completion('Where?')}}
+    history = {'world_id': 'world', 'conversation_id': 'conversation', 'turns': [turn]}
+    trace = {'world_id': 'world', 'turn_id': 'saved', 'attempts': [{'schema': 'dmb_turn_context_trace_v1',
+        'world_id': 'world', 'conversation_id': 'conversation', 'turn_id': 'saved',
+        'terminal_status': 'completed', 'capture_status': 'complete', 'observations': []}]}
+    row = {'owner': 'related_page_materialization', 'state': state,
+           'document_id': input_id, 'world_id': input_world, 'registry_revision': input_revision,
+           'returned_world_id': returned_world, 'returned_document_id': returned_id,
+           'returned_registry_revision': returned_revision,
+           'returned_content_sha256': ('0' * 64 if returned_hash == 'zero' else
+               hashlib.sha256(b'fixture page' if returned_hash == 'matching' else b'wrong').hexdigest())}
+    inventory = [{'document_id': 'other', 'label': 'current-page', 'world_id': 'world',
+                  'registry_revision': 1, 'content_sha256': '0' * 64}] if collision else []
+    artifacts = {'request': request, 'history-before': envelope(history), 'history-after': envelope(history),
+        'context-trace': envelope(trace), 'answer-http': envelope({'turn_id': 'turn', 'client_thread_id': 'thread',
+            'knowledge_context': turn['knowledge_context']}), 'fixture-sources': {'before': inventory}, 'fixture-pin': {},
+        'related-page-probe': {'schema': 'dmb_negative_retrieval_related_page_probe_v1', 'coverage': 'partial',
+            'case_id': 'case1', 'status': 'observed', 'window': 'turn_post_v1', 'records': [row,
+                {'owner': 'current_page_metadata', 'state': 'returned'}]},
+        'native-graph-probe': {'schema': 'dmb_negative_retrieval_native_graph_probe_v1', 'coverage': 'partial',
+            'case_id': 'case1', 'status': 'observed', 'window': 'turn_post_v1', 'records': []}}
+    for name, value in artifacts.items():
+        (tmp_path / f'{name}.json').write_text(json.dumps(value))
+    monkeypatch.setattr(report, 'verify_fixture_pin', lambda *a: True)
+    monkeypatch.setattr(fixture_sources, 'verify_related_record', lambda *a: True)
+    monkeypatch.setattr(fixture_sources, 'related_trace_labels', lambda *a: {})
+    def verify(*args):
+        if not bound:
+            raise ValueError('fixture differs')
+        return True
+    monkeypatch.setattr(fixture_binding, 'verify_fixture', verify)
+    actual_assess, observations = report.assess, []
+    def record_assessment(rubric, observation):
+        observations.append(observation)
+        return actual_assess(rubric, observation)
+    monkeypatch.setattr(report, 'assess', record_assessment)
+    rubric = {'max_catalog_discoveries': 0, 'required_reads': ['current-page'],
+              'allowed_reads': ['current-page'], 'outcomes': ['clarification']}
+    result = report.report_case(tmp_path, {'id': 'case1', 'request': request['message'], 'page': 'fixture page'}, rubric)
+    observation, = observations
+    assert ('current-page' in observation['completed_reads']) is credited
+    assert result['checks']['required_evidence'] is (True if credited else None)
+    assert result['status'] == 'unproven' and result['capture_environment_verified'] is None
+
+
 def test_assessor_distinguishes_attempts_from_completed_required_reads():
     positive = {"max_catalog_discoveries": 1, "required_reads": ["ledger"],
                 "allowed_reads": ["ledger"], "outcomes": ["answer"]}
