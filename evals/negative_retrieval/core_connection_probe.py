@@ -42,8 +42,14 @@ def validate_artifact(value, case_id):
     if digest is not None and (not isinstance(digest, str) or len(digest) != 64
                                or any(c not in '0123456789abcdef' for c in digest)):
         raise ValueError('Invalid Core owner fingerprint')
-    if value['status'] == 'observed' and (digest is None or value['mismatches'] or value['errors'] or value['pending_at_close']):
+    if value['status'] == 'observed' and (digest is None or value['mismatches'] or value['errors']
+                                           or value['pending_at_close'] or value['verified'] != value['transactions']):
         raise ValueError('Uncertain Core observation cannot be marked observed')
+    if value['status'] in {'unavailable', 'not_started'} and (digest is not None
+            or any(value[name][scope] for name in ('connections', 'transactions', 'verified')
+                   for scope in ('scoped', 'unscoped'))
+            or value['mismatches'] or value['errors'] or value['pending_at_close']):
+        raise ValueError('Unavailable Core observation cannot contain observed activity')
     return value
 
 
@@ -110,7 +116,9 @@ def observe_core_connections(dsn, expected, *, scope_ref):
                   (_ScopedReadTransactions, 'transaction', True)]
         for owner, name, transaction in owners:
             original = getattr(owner, name)
-            if inspect.iscoroutinefunction(original) or inspect.isasyncgenfunction(original):
+            unwrapped = inspect.unwrap(original)
+            if any(inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)
+                   for fn in (original, unwrapped)):
                 raise TypeError('Asynchronous Core owner is unsupported')
 
             def bucket():
@@ -122,16 +130,26 @@ def observe_core_connections(dsn, expected, *, scope_ref):
                     @contextmanager
                     def wrapped(*args, **kwargs):
                         nonlocal pending
-                        with fn(*args, **kwargs) as connection:
-                            with guard:
-                                key = bucket()
-                                if active:
-                                    pending += 1
-                                    state['transactions'][key] += 1
-                            try:
+                        with guard:
+                            watching = active
+                            if watching:
+                                pending += 1
+                        if not watching:
+                            # An alias retained beyond the window must be inert.
+                            with fn(*args, **kwargs) as connection:
+                                yield connection
+                            return
+                        entered = False
+                        try:
+                            with fn(*args, **kwargs) as connection:
+                                entered = True
+                                with guard:
+                                    key = bucket()
+                                    if active:
+                                        state['transactions'][key] += 1
                                 try:
                                     actual = _identity(connection)
-                                except Exception:
+                                except BaseException:
                                     with guard:
                                         if active:
                                             state['errors'] += 1
@@ -150,9 +168,11 @@ def observe_core_connections(dsn, expected, *, scope_ref):
                                     if active:
                                         state['verified'][key] += 1
                                 yield connection
-                            finally:
-                                with guard:
-                                    pending -= 1
+                        finally:
+                            with guard:
+                                if active and not entered:
+                                    state['errors'] += 1
+                                pending -= 1
                     return wrapped
                 replacement = make_transaction(original)
             else:
@@ -175,7 +195,8 @@ def observe_core_connections(dsn, expected, *, scope_ref):
         with guard:
             active = False
             state['pending_at_close'] = pending
-            if pending or state['errors'] or state['mismatches']:
+            if (pending or state['errors'] or state['mismatches']
+                    or state['verified'] != state['transactions']):
                 state['status'] = 'uncertain'
         try:
             for owner, name, original, replacement in reversed(installed):
@@ -189,6 +210,9 @@ def observe_core_connections(dsn, expected, *, scope_ref):
         finally:
             _lock.release()
         if _poisoned:
+            with guard:
+                state['status'] = 'uncertain'
+                state['errors'] += 1
             error = RuntimeError('Core connection hooks could not be restored; use a fresh process')
             if failure is None:
                 raise error

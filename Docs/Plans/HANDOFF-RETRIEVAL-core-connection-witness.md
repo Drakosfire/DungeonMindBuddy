@@ -25,3 +25,10 @@ database scan belongs to this slice. Review the exact cumulative diff and have
 an independent exact-head review before merge. A successor can use the witness
 to build stronger per-run environment evidence after this slice merges; its
 scope and source parent must be re-anchored then.
+
+Provider-free initial owner check on the existing clone reached the real
+read-only Core transaction; case 413 failed because the check script expected
+a tuple from the Core owner's dictionary row factory. Case 414 corrected that
+assertion and observed one connection and one verified transaction using only
+`SELECT 1`. Both workers closed. These checks used the earlier witness head;
+the lifecycle fixes require a fresh exact-head check and review.
