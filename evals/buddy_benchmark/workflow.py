@@ -483,8 +483,33 @@ def reopen_native_body_citations(client, turn_route, world, turn_id, completion)
     return {"scope": "native_body_excerpts", "citations": results}
 
 
+def require_pinned_history(history, expected, *, allow_interrupted=False):
+    """Reject nonterminal, stale, or extra turns in a restored conversation."""
+    observed = []
+    for turn in history["turns"]:
+        status = turn["lifecycle_status"]
+        if status != "completed" and not (allow_interrupted and status == "interrupted"):
+            raise ValueError("Active conversation differs from the pinned conversation history")
+        answer = turn["assistant_text"]
+        if status == "completed" and not isinstance(answer, str):
+            raise ValueError("Active conversation differs from the pinned conversation history")
+        row = {
+            "turn_id": turn["turn_id"], "sequence": turn["sequence"],
+            "user_text_sha256": sha256(turn["user_text"].encode("utf-8")).hexdigest(),
+            "assistant_text_sha256": sha256(answer.encode("utf-8")).hexdigest() if answer is not None else None,
+        }
+        if status != "completed":
+            row["lifecycle_status"] = status
+        observed.append(row)
+    observed.sort(key=lambda turn: turn["sequence"])
+    if (history["active_conversation_id"] != expected["conversation_id"]
+            or history.get("next_before_sequence") is not None
+            or not observed or observed != expected["prior_turns"]):
+        raise ValueError("Active conversation differs from the pinned conversation history")
+
+
 def capture_case(client, world, template, case, directory, *, context_only=False, writer_transport=False, detailed_trace=False,
-                 build_thread_id=None, expected_conversation_id=None, build_editor_snapshot=None):
+                 build_thread_id=None, expected_conversation_id=None, build_editor_snapshot=None, pinned_history=None):
     """The single ordinary route sequence, shared by all question fixtures."""
     build_sequence = build_thread_id is not None
     validate_template(template, world, context_only=context_only, build_sequence=build_sequence)
@@ -510,6 +535,11 @@ def capture_case(client, world, template, case, directory, *, context_only=False
         body = envelope["body"]
         return body
     before = save("history-before", client.get(route))
+    if pinned_history is not None:
+        if not build_sequence or expected_conversation_id is not None:
+            raise ValueError("Pinned Build history must start the ordinary sequence")
+        require_pinned_history(before, pinned_history, allow_interrupted=True)
+        expected_conversation_id = before["active_conversation_id"]
     if expected_conversation_id is None:
         command = {"schema": "dmb_agent_new_conversation_v1", "command_id": str(uuid4()),
             "expected_pointer_revision": before["pointer_revision"],
@@ -533,7 +563,7 @@ def capture_case(client, world, template, case, directory, *, context_only=False
             raise ValueError("Build conversation changed; no turn dispatched")
     request = json.loads(json.dumps(template))
     request.update(client_thread_id=build_thread_id or str(uuid4()), turn_id=str(uuid4()), message=case["question"])
-    if build_sequence and expected_conversation_id is not None:
+    if build_sequence and expected_conversation_id is not None and pinned_history is None:
         request.pop("build_authored_references", None)
     if not build_sequence:
         request["surface"]["instance_id"] = request["client_thread_id"]
@@ -643,6 +673,11 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
                       or context_only or writer_transport or detailed_trace):
         raise ValueError("Live Plan browser capture requires its own App clone and selected case in response mode")
     manifest, base = load_manifest(manifest_path, expected_sha256=cohort_manifest_sha256)
+    if "build_history" in manifest and (
+            manifest.get("conversation_mode") != "build_sequence"
+            or browser_case is not None or context_only or writer_transport or detailed_trace
+            or (not clone_app and cohort_app is None)):
+        raise ValueError("Pinned Build history requires ordinary response capture on an owned App clone")
     if manifest.get("browser_capture", {}).get("image_preview") is True and (
             not live_build or browser_case is None or (not clone_app and cohort_app is None)):
         raise ValueError("Image preview requires a selected live Build case and an owned App clone")
@@ -689,6 +724,11 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
     if mode not in {"fresh_per_case", "build_sequence"}:
         raise ValueError("Unknown benchmark conversation mode")
     build_sequence = mode == "build_sequence"
+    build_history = None
+    if "build_history" in manifest:
+        if not build_sequence or browser_case is not None or context_only or writer_transport or detailed_trace:
+            raise ValueError("Pinned Build history requires an ordinary Build response sequence")
+        build_history = json.loads(read_pin(manifest["build_history"], base))
     validate_template(template, manifest["world"], context_only=context_only, build_sequence=build_sequence)
     browser = None
     if browser_case is not None:
@@ -806,12 +846,13 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
                 raise ValueError("Effective ordinary provider policy differs")
             conversation_id = None
             build_thread_id = str(uuid4()) if build_sequence else None
-            for case in manifest["cases"]:
+            for index, case in enumerate(manifest["cases"]):
                 verify_capture_environment(owned_env)
                 directory = output / case["id"]
                 response = capture_case(client, manifest["world"], template, case, directory,
                     context_only=context_only, writer_transport=writer_transport, detailed_trace=detailed_trace, build_thread_id=build_thread_id,
-                    expected_conversation_id=conversation_id, build_editor_snapshot=editor_snapshot)
+                    expected_conversation_id=conversation_id, build_editor_snapshot=editor_snapshot,
+                    pinned_history=build_history if index == 0 else None)
                 if build_sequence:
                     if response.status_code != 200:
                         raise BuildSequenceStopped("Build turn failed; later turns not dispatched")

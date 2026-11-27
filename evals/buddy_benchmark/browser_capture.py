@@ -426,7 +426,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             raise ValueError("Browser fixture conversation was not empty")
                     else:
                         artifacts.immutable_save(directory, "history-before", fresh)
-                        require_plan_history(fresh, pinned_history)
+                        workflow.require_pinned_history(fresh, pinned_history)
                     runtime = output / "runtime-artifacts"
                     env = {
                         "PATH": os.defpath, "HOME": str(runtime), "TMPDIR": str(scratch),
@@ -778,25 +778,6 @@ def validate_plan_browser_placement(request, *, world, work, question, conversat
         raise ValueError("Plan fixture requires a document-start caret in the committed text")
     return parsed
 
-
-
-def require_plan_history(history, expected):
-    """Reject stale or extra turns before dispatch into a restored conversation."""
-    def digest(value):
-        return sha256(value.encode("utf-8")).hexdigest()
-
-    observed = [
-        {"turn_id": turn["turn_id"], "sequence": turn["sequence"],
-         "user_text_sha256": digest(turn["user_text"]),
-         "assistant_text_sha256": digest(turn["assistant_text"])}
-        for turn in history["turns"] if turn["lifecycle_status"] == "completed"
-    ]
-    observed.sort(key=lambda turn: turn["sequence"])
-    if (history["active_conversation_id"] != expected["conversation_id"]
-            or history.get("next_before_sequence") is not None
-            or not observed or len(observed) != len(history["turns"])
-            or observed != expected["prior_turns"]):
-        raise ValueError("Active conversation differs from the pinned Plan history")
 
 
 def require_plan_fixture_basis(committed, world, work, selection, *, require_clean=False):
