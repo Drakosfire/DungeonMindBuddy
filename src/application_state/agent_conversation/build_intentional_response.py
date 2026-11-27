@@ -259,6 +259,18 @@ EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE = FUTURE_CURRENT_PAGE_SOURCE_NEED_GUI
     "when no other source is requested. If the reference is ambiguous, choose uncertain."
 )
 
+# Reader-first: a citation to material already supplied is not itself a request
+# to find or read new material. Historical exact questions stay unchanged.
+FUTURE_RETAINED_CITATION_SOURCE_NEED_GUIDANCE = EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE.replace(
+    "lookup, citation, search in another source, or an explicit new reference that must be located.",
+    "lookup or citation requiring new evidence, search in another source, or an explicit new reference that must be located.",
+) + (
+    " When the author asks to use or cite a source already read or supplied and explicitly "
+    "asks for no new search or reads, choose anchored even for a factual answer or citation. "
+    "If retained evidence is insufficient, preserve that limitation rather than seeking new "
+    "sources. Choose source_lookup when the author actually asks for fresh evidence."
+)
+
 
 class UnresolvedDiscussionSource(ValueError):
     """The read-only work choice is settled, but its evidence scope is tied."""
@@ -273,7 +285,8 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
                           for guidance in (SOURCE_NEED_GUIDANCE, _REUSE_SOURCE_NEED_GUIDANCE, _PAGE_SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE))
     current_questions = tuple({"type": "choice", "criteria": dict.fromkeys(FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS),
                                "instructions": guidance} for guidance in
-                              (FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE, EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE))
+                              (FUTURE_CURRENT_PAGE_SOURCE_NEED_GUIDANCE, EXPLICIT_CURRENT_PAGE_SOURCE_NEED_GUIDANCE,
+                               FUTURE_RETAINED_CITATION_SOURCE_NEED_GUIDANCE))
     if question not in (*old_questions, *current_questions):
         raise ValueError("Build source scope differs from its offered decision")
     options = FUTURE_CURRENT_PAGE_SOURCE_NEED_OPTIONS if question in current_questions else SOURCE_NEED_OPTIONS
