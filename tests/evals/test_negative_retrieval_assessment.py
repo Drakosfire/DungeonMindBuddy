@@ -4421,6 +4421,30 @@ def test_tampered_hook_poisoned_and_original_error_preserved(owners, monkeypatch
             pass
 
 
+def test_interrupted_hook_restoration_poisoned_and_restores_other_hooks(owners, monkeypatch):
+    import builtins
+    database, scoped, _, _, _ = owners
+    original_connect, original_scoped = database.connect, scoped.transaction
+    monkeypatch.setattr(probe, '_poisoned', False)
+    def interrupted_setattr(owner, name, value):
+        if owner is scoped and name == 'transaction' and value is original_scoped:
+            raise KeyboardInterrupt('synthetic restoration interruption')
+        return builtins.setattr(owner, name, value)
+    monkeypatch.setattr(probe, 'setattr', interrupted_setattr, raising=False)
+    try:
+        with pytest.raises(ValueError, match='original failure') as error:
+            with probe.observe_core_connections('unused', EXPECTED, scope_ref=[None]) as state:
+                raise ValueError('original failure')
+        assert state['status'] == 'uncertain' and state['errors'] == 1
+        assert database.connect is original_connect
+        assert any('could not be restored' in note for note in error.value.__notes__)
+        with pytest.raises(RuntimeError, match='fresh process'):
+            with probe.observe_core_connections('unused', EXPECTED, scope_ref=[None]):
+                pass
+    finally:
+        builtins.setattr(scoped, 'transaction', original_scoped)
+
+
 def test_retained_transaction_alias_is_inert_after_observer_closes(owners):
     from copy import deepcopy
     _, scoped, connection, _, _ = owners

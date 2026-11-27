@@ -205,7 +205,7 @@ def observe_core_connections(dsn, expected, *, scope_ref):
                         _poisoned = True
                     else:
                         setattr(owner, name, original)
-                except Exception:
+                except BaseException:
                     _poisoned = True
         finally:
             _lock.release()
