@@ -602,8 +602,13 @@ distinct sources, discovery, or materialized bodies. Pending calls, unknown
 resumed work, missing driver APIs, overflow and observer errors are uncertain.
 Other processes, custom/native driver paths and external services remain
 uncovered, so an empty inventory is unknown and it never changes a benchmark
-budget or proves a complete acquisition journal. Classification against pinned
-source and verification of the remaining boundaries are follow-up work.
+budget or proves a complete acquisition journal. New v2 captures record interpreter
+provenance and classify a small set of exact pinned App call sites as page
+inventory, saved-revision body, or working-copy body attempts. Unmatched calls,
+legacy v1 captures and other interpreter versions remain unknown. These counts
+are diagnostic lower bounds, do not imply successful reads or evidence support,
+and do not establish that a zero count means no acquisition occurred.
+Verification of the remaining boundaries is follow-up work.
 
 A provider-free real-owner check (case 357) ran the serving-source Build work
 resolver against the exact synthetic App page on the existing read-only clone.
@@ -612,3 +617,8 @@ caller reads the saved revision's Markdown; another reads the working copy's
 Markdown even though the committed snapshot uses only its working-copy revision.
 These are observations of that one owner invocation, not an ordinary model turn,
 a count of distinct pages, or a general latency measurement.
+
+A provider-free check (case 363) exercised the deployed serving source on the
+same synthetic clone. Its Build resolver classified one saved-revision body
+attempt and no working-copy body attempt, with seven other calls unclassified.
+This was not a complete turn or a complete acquisition measurement.

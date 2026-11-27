@@ -3234,6 +3234,12 @@ def test_source_window_bound_text_attempt_affects_only_negative_budget(tmp_path,
     assert result['sql_window_probe']['started']==1 and result['checks']['unexpected_retrieval'] is None
     bad=copy.deepcopy(sql_row);bad['calls'][0]['count']=2;sql_path.write_text(json.dumps(bad))
     with pytest.raises(ValueError,match='Inconsistent SQL window'):assess_row(discovery)
+    from evals.negative_retrieval.sql_source_classification import _KNOWN_RUNTIME, _PAGE_INVENTORY, _PAGES
+    v2=copy.deepcopy(sql_row);v2['schema']='dmb_negative_retrieval_sql_window_v2';v2['runtime']=copy.deepcopy(_KNOWN_RUNTIME)
+    v2['calls'][0].update(source_sha256=sorted(_PAGES)[0],code_sha256=_PAGE_INVENTORY,line=512)
+    sql_path.write_text(json.dumps(v2)); classified=assess_row(discovery)
+    assert classified['sql_source_classification']['observed_attempts']['page_inventory_attempts']==1
+    assert classified['checks']['unexpected_retrieval'] is None and classified['status']=='unproven'
     sql_path.unlink()
     assert assess_row(discovery)['sql_window_probe'] is None
     empty=copy.deepcopy(app_batch);empty['app_batch_read']['scoped']=0
@@ -3994,7 +4000,7 @@ def test_sql_window_observes_prebound_calls_and_exception_without_payload(tmp_pa
     assert {r['api'] for r in state['calls']}=={'execute','executemany'}
     assert all(r['scope']=='app' and r['code_sha256'] and r['source_sha256'] for r in state['calls'])
     assert all(secret not in str(state) for secret in ('private sql','private argument','private result','private failure','synthetic-app'))
-    row={'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state}
+    row={'schema':'dmb_negative_retrieval_sql_window_v2','case_id':'case1','window':'turn_post_v1',**state}
     assert validate_sql_window(row,'case1')['status']=='observed'
 
 
@@ -4011,7 +4017,7 @@ def test_sql_window_pending_thread_and_unknown_scope_are_not_complete():
     try:
         assert state['status']=='uncertain' and state['started']==1 and state['pending_at_close']==1
         assert state['calls'][0]['scope']=='unknown'
-        row={'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state}
+        row={'schema':'dmb_negative_retrieval_sql_window_v2','case_id':'case1','window':'turn_post_v1',**state}
         validate_sql_window(row,'case1')
     finally:
         release.set();thread.join(timeout=5)
@@ -4030,7 +4036,7 @@ def test_sql_window_detects_preexisting_async_execution():
     with observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[Path(__file__).resolve().parents[2]],endpoints={}) as state:
         with pytest.raises(StopIteration):pending.send(None)
     assert state['status']=='uncertain' and state['resumed_unknown']==1 and state['started']==0
-    validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state},'case1')
+    validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v2','case_id':'case1','window':'turn_post_v1',**state},'case1')
 
 
 def test_sql_window_limits_cardinality_and_rejects_malformed(monkeypatch,tmp_path):
@@ -4042,7 +4048,7 @@ def test_sql_window_limits_cardinality_and_rejects_malformed(monkeypatch,tmp_pat
     with sw.observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[tmp_path],endpoints={}) as state:
         Cursor().execute()
     assert state['status']=='uncertain' and state['overflow']==1 and state['calls']==[]
-    row={'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state}
+    row={'schema':'dmb_negative_retrieval_sql_window_v2','case_id':'case1','window':'turn_post_v1',**state}
     sw.validate_sql_window(row,'case1')
     for bad in (dict(row,status='observed'),dict(row,overflow=0),dict(row,started=True),dict(row,case_id='other'),dict(row,payload='private')):
         with pytest.raises(ValueError):sw.validate_sql_window(bad,'case1')
@@ -4094,7 +4100,7 @@ def test_sql_window_pending_limit_marks_dropped_calls_unknown(monkeypatch,tmp_pa
         assert Cursor().execute()=='synthetic'
     assert state['status']=='uncertain' and state['dropped_starts']==1 and state['started']==0
     assert state['monitor_error'] is True
-    sw.validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state},'case1')
+    sw.validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v2','case_id':'case1','window':'turn_post_v1',**state},'case1')
 
 
 def test_sql_window_tracks_async_cursor_through_suspend_and_return():
@@ -4108,7 +4114,7 @@ def test_sql_window_tracks_async_cursor_through_suspend_and_return():
     with observe_sql_window(owners={Cursor.execute.__code__:'execute'},roots=[Path(__file__).resolve().parents[2]],endpoints={}) as state:
         assert asyncio.run(Cursor().execute())=='private result'
     assert (state['status'],state['started'],state['returned'],state['raised'],state['resumed_unknown'])==('observed',1,1,0,0)
-    validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state},'case1')
+    validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v2','case_id':'case1','window':'turn_post_v1',**state},'case1')
 
 
 def test_sql_window_tracks_generator_cursor_api_without_double_counting():
@@ -4125,4 +4131,39 @@ def test_sql_window_tracks_generator_cursor_api_without_double_counting():
         with Cursor().copy() as result:assert result=='private result'
     assert (state['status'],state['started'],state['returned'],state['resumed_unknown'])==('observed',1,1,0)
     assert state['calls'][0]['api']=='copy' and 'private result' not in str(state)
-    validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v1','case_id':'case1','window':'turn_post_v1',**state},'case1')
+    validate_sql_window({'schema':'dmb_negative_retrieval_sql_window_v2','case_id':'case1','window':'turn_post_v1',**state},'case1')
+
+
+def test_sql_source_classification_is_exact_partial_and_never_guesses():
+    import copy
+    from evals.negative_retrieval import sql_source_classification as sc
+    from evals.negative_retrieval.sql_window import validate_sql_window
+    old_page="29179cbe37f50b19157e6f0f157ed0cb860a42d6a7c62d3ccccfa15d42244273"
+    old_repo="59803ac57cbb152e87e27665a8a626a9a1c47fcf56194f92e5efa40eabdc619d"
+    new_repo="4a10c408016820ef35c1f119a2ffdd2d700f85c4336ed450cc8442039fd47819"
+    def entry(source,code,line,count=1,scope='app',api='execute'):
+        return {'scope':scope,'api':api,'source_sha256':source,'code_sha256':code,'line':line,'count':count}
+    rows=[entry(old_page,sc._PAGE_INVENTORY,512,2),entry(old_repo,sc._REVISION,192,3),
+          entry(new_repo,sc._REVISION_BY_N,209),entry(*next(x for x in sc._WORKING_COPY if x[0]==old_repo)),
+          entry(new_repo,sc._REVISION,192,scope='core'),entry('0'*64,sc._REVISION,192),
+          entry(new_repo,sc._REVISION,193),entry(new_repo,sc._REVISION,192,api='copy')]
+    record={'schema':'dmb_negative_retrieval_sql_window_v2','case_id':'case1','window':'turn_post_v1',
+        'coverage':'partial','status':'observed','started':sum(row['count'] for row in rows),
+        'returned':sum(row['count'] for row in rows),'raised':0,'pending_at_close':0,
+        'resumed_unknown':0,'overflow':0,'dropped_starts':0,'monitor_error':False,'unsupported_apis':0,
+        'runtime':copy.deepcopy(sc._KNOWN_RUNTIME),'calls':rows}
+    result=sc.classify_sql_window(record,'case1')
+    assert result['coverage']=='partial' and result['observed_attempts']=={
+        'page_inventory_attempts':2,'saved_revision_body_attempts':4,'working_copy_body_attempts':1}
+    assert result['unclassified_started']==4
+    uncertain=copy.deepcopy(record);uncertain['status']='uncertain';uncertain['resumed_unknown']=1
+    assert sc.classify_sql_window(uncertain,'case1')['resumed_unknown']==1
+    old=copy.deepcopy(record);old['schema']='dmb_negative_retrieval_sql_window_v1';del old['runtime']
+    assert validate_sql_window(old,'case1') and sc.classify_sql_window(old,'case1') is None
+    changed=copy.deepcopy(record);changed['runtime']['version']=[3,13,13]
+    assert sc.classify_sql_window(changed,'case1') is None
+    changed=copy.deepcopy(record);changed['runtime']['version']=[3,13,True]
+    with pytest.raises(ValueError,match='runtime'):sc.classify_sql_window(changed,'case1')
+    changed=copy.deepcopy(record);changed['status']='not_started';changed['started']=0;changed['returned']=0;changed['calls']=[]
+    assert sc.classify_sql_window(changed,'case1') is None
+    with pytest.raises(ValueError):sc.classify_sql_window(record,'other')

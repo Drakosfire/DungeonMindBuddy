@@ -24,7 +24,7 @@ from .source_window import observe_source_window
 from .owned_db_fixture import checked_owned_dsn
 from .primary_page_stability import inspect_primary_page, expected_primary_page
 from .primary_resolution_probe import observe_primary_resolution
-from .sql_window import observe_sql_window
+from .sql_window import observe_sql_window, runtime_identity
 
 _lock = Lock()
 
@@ -214,14 +214,14 @@ def capture(manifest, output, *, expected_manifest_sha256=None, expected_fixture
                         "coverage": "partial", "status": "unavailable" if dispatch_started else "not_started",
                         "started": 0, "returned": 0, "raised": 0, "pending_at_close": 0,
                         "resumed_unknown": 0, "overflow": 0, "dropped_starts": 0, "monitor_error": False,
-                        "unsupported_apis": 0, "calls": [],
+                        "unsupported_apis": 0, "calls": [], "runtime": runtime_identity(),
                     }
                     if not post_entered and sql_window_state is not None:
                         sql_row["status"] = "uncertain" if sql_row["started"] or sql_row["resumed_unknown"] or sql_row["dropped_starts"] else "not_started"
                     elif dispatch_uncertain and sql_row["status"] == "observed":
                         sql_row["status"] = "uncertain"
                     immutable_save(Path(directory), "sql-window-probe", {
-                        "schema": "dmb_negative_retrieval_sql_window_v1", "case_id": case["id"],
+                        "schema": "dmb_negative_retrieval_sql_window_v2", "case_id": case["id"],
                         "window": "turn_post_v1", **sql_row,
                     })
                     primary_row = dict(primary_resolution_state) if primary_resolution_state is not None else {
