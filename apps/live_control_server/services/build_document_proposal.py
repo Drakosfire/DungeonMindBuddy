@@ -508,4 +508,11 @@ def _writer_request(request, snapshot, model, *, frozen_history=None, related_au
             "and features to correct discrepancies. Preserve author decisions and encounter details "
             "the image cannot establish. Do not invent measurements or claim the image shows unseen details."
         )
+    from application_state.build_proposal.citations import offer_citations
+    if offer_citations(schema, body):
+        expected["instructions"] += (
+            "\nCite saved pages used in the replacement. For each citation return its offered source handle, "
+            "an exact quote from that source, and the exact replacement text it supports. "
+            "Return an empty citations list when no offered source supports the replacement."
+        )
     return expected

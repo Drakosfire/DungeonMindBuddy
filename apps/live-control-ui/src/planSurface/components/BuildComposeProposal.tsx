@@ -11,6 +11,8 @@ import type { WorldAgentConversationHistoryResponse } from '../../api/types';
 import type { BuildComposeBridge, CapturedBuildInsertion } from '../../buildSurface/buildComposeBridge';
 import { admitMarkdownInsertion } from '../../documentEditing/markdownInsertion';
 import { WorldPlanAgentAnswer } from './WorldPlanAgentAnswer';
+import { SourceCitationEvidence } from './SourceCitationEvidence';
+import { relatedPageChoice } from './sourceCitationReads';
 import { ResponseEvidenceTabs } from './ResponseEvidenceTabs';
 import { PreparedRequestInspector } from './PreparedRequestInspector';
 import './BuildComposeProposal.css';
@@ -250,7 +252,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
       &&history.pointer_revision===active.reservation.expected_pointer_revision
       // Durable review lifetime follows page identity; its own save advances sourceKey.
       ? <BuildPageProposal key={`${scope}:${active.action_id}`} record={active} bridge={bridge} sourceKey={JSON.stringify([worldId,pageDocumentId])}
-          requestKey={selected?.generation??0} inspector={<BuildPrompt record={active}/>} onStatus={text=>setReviewStatus(previous=>({...previous,[active.action_id]:text}))}
+          requestKey={selected?.generation??0} inspector={<BuildPrompt record={active}/>} citations={<BuildProposalCitations record={active}/>} onStatus={text=>setReviewStatus(previous=>({...previous,[active.action_id]:text}))}
           onComplete={state=>{if(state==='applied')setRecords(previous=>previous.scope===scope?{...previous,values:previous.values.map(value=>value.action_id===active.action_id?{...value,inserted_in_draft:true}:value)}:previous);}}/>:null,
     items: [...values.map(record=>({key:record.action_id,originTurnId:record.proposal&&record.reservation.basis.editor_sha256?record.reservation.origin?.durable_turn_id:undefined,
       details:record.proposal&&record.reservation.origin?<SavedProposalHistory record={record}/>:null,afterSequence:Math.max(record.after_turn_sequence,
@@ -259,6 +261,7 @@ export function useBuildCompose({ worldId, history, bridge, enabled, readHistory
         ? <section className="build-compose-proposal" aria-label="Page suggestion">
             <p className="world-plan-agent-conversation__context">Generated suggestion</p>
             <WorldPlanAgentAnswer answer={record.proposal.replacement_markdown}/>
+            <BuildProposalCitations record={record}/>
             {enabled&&bridge&&record.reservation.basis.editor_sha256&&record.reservation.basis.document_id===pageDocumentId&&!record.inserted_in_draft&&reviewStatus[record.action_id]!=='Suggestion discarded'?<button type="button" onClick={()=>{setOpened(previous=>({action:record.action_id,documentId:record.reservation.basis.document_id,generation:(previous?.generation??0)+1}));onReviewOnPage?.();}}>
               {reviewStatus[record.action_id]??'Review suggestion on page'}
             </button>:<><p>{record.inserted_in_draft?'Inserted into the draft.':reviewStatus[record.action_id]==='Suggestion discarded'?'Suggestion discarded.':'Open its original page to review this suggestion.'}</p>{!record.reservation.origin&&<EarlierBuildProposal record={record} label={reviewStatus[record.action_id]}/>}</>}
@@ -315,6 +318,24 @@ function BuildPrompt({ record }: { record: BuildProposalRecord }) {
     : error ? <p role="alert">The captured request is unavailable.</p>
     : payload ? <PreparedRequestInspector payloadJson={payload} /> : <p role="status">Loading captured request…</p>;
 }
+export function BuildProposalCitations({record}: {record: BuildProposalRecord}) {
+  const origin = record.reservation.origin;
+  const citations = record.proposal?.citations;
+  if (!origin || !citations?.length) return null;
+  const world = record.reservation.basis.world_id;
+  return <SourceCitationEvidence identity={record.action_id} statements={citations.map((citation, index) => {
+    const source = relatedPageChoice({kind: 'related_page_claim', read_id: citation.read_id,
+      page: citation.page, text: citation.supports}, world, origin.durable_turn_id, index);
+    return {text: citation.supports, choices: [{...source, load: async () => {
+      const markdown = await source.load();
+      if (typeof markdown !== 'string' || !markdown.includes(citation.quote)) {
+        throw new Error('Proposal citation differs from the retained passage');
+      }
+      return citation.quote;
+    }}]};
+  })} />;
+}
+
 export function BuildComposeProposal({ record }: { record: BuildProposalRecord }) {
   return <article className="build-compose-proposal" aria-label="Page proposal">
     <div className="build-compose-proposal__request">{record.reservation.origin
@@ -323,6 +344,7 @@ export function BuildComposeProposal({ record }: { record: BuildProposalRecord }
     {record.proposal ? <div className="world-plan-agent-conversation__message--assistant">
       <p>Authored suggestion for your page</p>
       <WorldPlanAgentAnswer answer={record.proposal.replacement_markdown} />
+      <BuildProposalCitations record={record} />
       {buildProposalMarkdown(record.proposal.replacement_markdown).alignmentAdjusted ? <p>Column alignment will use the page’s default when inserted.</p> : null}
       {record.proposal.assumptions.length ? <details><summary>Creative assumptions</summary><ul>{record.proposal.assumptions.map((text, i) => <li key={i}>{text}</li>)}</ul></details> : null}
       {record.inserted_in_draft ? <p role="status">Inserted into the draft. Save the page when you’re ready.</p>

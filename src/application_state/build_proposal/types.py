@@ -13,6 +13,8 @@ from uuid import UUID
 from markdown_it import MarkdownIt
 from pydantic import BaseModel, ConfigDict, Field, model_validator, model_serializer
 
+from application_state.agent_conversation.build_related_pages import PageReference
+
 from .boundary_markdown import split_boundary_callout
 
 Digest = str
@@ -204,10 +206,18 @@ class BuildWriteCapability(BuildProposalReservation):
         return self
 
 
+class BuildProposalCitation(StrictModel):
+    read_id: UUID
+    page: PageReference
+    quote: str = Field(min_length=1, max_length=4000)
+    supports: str = Field(min_length=1, max_length=12000)
+
+
 class BuildGeneratedProposal(StrictModel):
     replacement_markdown: str = Field(min_length=1, max_length=12_000)
     summary: str = Field(min_length=1, max_length=1000)
     assumptions: list[str] = Field(max_length=20)
+    citations: tuple[BuildProposalCitation, ...] = Field(default=(), max_length=16, exclude_if=lambda value: not value)
     target: Literal["captured", "page_body", "page_end"] | None = None
 
     @model_serializer(mode="wrap")

@@ -1,3 +1,4 @@
+import {webcrypto} from 'node:crypto';
 import {proposalReview} from '../../api/buildProposalReviewApi';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
@@ -11,7 +12,7 @@ import { BuildComposeProposal, useBuildCompose } from './BuildComposeProposal';
 vi.mock('../../api/buildProposalReviewApi',()=>({proposalReview:vi.fn()}));
 vi.mock('../../api/buildDocumentProposalApi', () => ({ composeBuildProposal: vi.fn(), getBuildProposal: vi.fn(),
   getBuildProposalPrompt: vi.fn(), listBuildProposals: vi.fn(), reportBuildInsertion: vi.fn() }));
-vi.mock('../../api/liveApi', () => ({ getWorldAgentConversationHistory: vi.fn(), postWorldAgentNewConversation: vi.fn(), getWorldAgentNewConversationStatus:vi.fn(), getWorldAgentTurnPrompt: vi.fn() }));
+vi.mock('../../api/liveApi', () => ({ getWorldAgentConversationHistory: vi.fn(), postWorldAgentNewConversation: vi.fn(), getWorldAgentNewConversationStatus:vi.fn(), getWorldAgentTurnPrompt: vi.fn(), getAgentRelatedPage: vi.fn() }));
 const basis = { world_id: 'world', document_id: 'doc', registry_revision: 1, content_sha256: 'a'.repeat(64),
   draft_sha256: 'b'.repeat(64), editor_sha256: 'e'.repeat(64), visibility: 'internal' as const, caret: 1, draft_generation: 0, selection_generation: 0 };
 const history: WorldAgentConversationHistoryResponse = { schema: 'dmb_agent_conversation_history_v1', world_id: 'world', conversation_state: 'active',
@@ -24,6 +25,30 @@ function receipt(request?: api.BuildProposalRequest): api.BuildProposalRecord {
     authorization: null, failure_code: null, inserted_in_draft: false,
     proposal: { replacement_markdown: '| NPC | Job |\n| --- | --- |\n| Nella | Baker |', summary: 'Proposed NPC', assumptions: ['Invented'] } };
 }
+it('reopens only the exact proposal quotation from its bound saved revision', async () => {
+  vi.stubGlobal('crypto', webcrypto);
+  try {
+    const record = receipt();
+    record.reservation.origin = {client_turn_id: 'client-turn', durable_turn_id: 'durable-turn',
+      turn_attempt: 1, broker_operation_id: 'operation', arguments_sha256: 'c'.repeat(64)};
+    const quote = 'The linen inventory lists six towels.';
+    const markdown = `Other inventory.\n\n${quote}\n\nUnrelated footer.`;
+    const page = {world_id: 'world', document_id: 'linen', registry_revision: 2,
+      title: 'Linen inventory', visibility: 'internal' as const,
+      content_sha256: 'c5b751f1e4919f82914a917f811ff621ef00753c4a0e8a7da3ccf4085ab68d9b'};
+    record.proposal!.citations = [{read_id: 'read', page, quote, supports: '| Nella | Baker |'}];
+    vi.mocked(live.getAgentRelatedPage).mockResolvedValue({schema: 'dmb_agent_related_page_read_v1',
+      world_id: 'world', turn_id: 'durable-turn', read_id: 'read', page, markdown});
+    render(<BuildComposeProposal record={record}/>);
+    fireEvent.click(screen.getByRole('button', {name: 'Read Linen inventory · saved revision 2'}));
+    expect(await screen.findByText(quote)).toBeTruthy();
+    expect(screen.queryByText('Unrelated footer.')).toBeNull();
+    expect(live.getAgentRelatedPage).toHaveBeenCalledWith('world', 'durable-turn', 'read');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 let bridge: BuildComposeBridge;
 beforeEach(() => {
   vi.resetAllMocks();window.localStorage.clear(); bridge = { captureContext:vi.fn(async()=>({schema:'dmb_build_draft_snapshot_v1' as const,

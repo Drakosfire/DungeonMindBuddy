@@ -176,8 +176,9 @@ class BuildProposalService:
             if state == "proposed":
                 # The proposal owner derives its result from the acknowledged raw
                 # final. Caller-created Markdown cannot replace the writer result.
+                from application_state.build_proposal.citations import normalize_cited_proposal
                 if type(previous) is BuildProseBoundaryProposalRecord:
-                    proposal = normalize_boundary_proposal_output(previous.raw_response)
+                    normalize = normalize_boundary_proposal_output
                 else:
                     required_target = None
                     if self.require_native_page_target:
@@ -193,9 +194,12 @@ class BuildProposalService:
                         required_target = explicit_build_page_target(action.write_capability, selected)
                         if required_target is None or selected.broker_operation_id != previous.reservation.origin.broker_operation_id:
                             raise ApplicationStateConflictError("Explicit Build target differs from its native opening")
-                    proposal = normalize_proposal_output(previous.raw_response,
-                        previous.reservation.page_body_offer, previous.reservation.page_end_offer,
-                        required_target=required_target)
+                    def normalize(raw):
+                        return normalize_proposal_output(raw, previous.reservation.page_body_offer,
+                            previous.reservation.page_end_offer, required_target=required_target)
+                proposal = normalize_cited_proposal(previous.raw_response, normalize,
+                    load_turn=lambda: _require_origin_claim(conn, previous.reservation),
+                    authorization=previous.authorization)
                 if "raw_response" in fields or "proposal" in fields and fields["proposal"] != proposal:
                     raise ApplicationStateConflictError("Build proposal differs from its captured writer result")
                 fields["proposal"] = proposal

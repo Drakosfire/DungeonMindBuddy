@@ -46,7 +46,10 @@ export interface BuildProposalRecord {
   created_at: string; updated_at: string; claim_expires_at: string;
   authorization: null | { provider_attempt_id: string; provider: string; model: string; api_mode: string;
     payload_sha256: string; payload_utf8_bytes: number; evidence_id: string | null; serializer_version: string };
-  proposal: null | { replacement_markdown: string; summary: string; assumptions: string[]; target?: 'captured' | 'page_body' | 'page_end' | 'prose_target' | null };
+  proposal: null | { replacement_markdown: string; summary: string; assumptions: string[];
+    citations?: Array<{ read_id: string; quote: string; supports: string;
+      page: Extract<import('./types').WorldBuildRelatedPageCompletionV1['answer_segments'][number],
+        {kind:'related_page_claim'}>['page'] }>; target?: 'captured' | 'page_body' | 'page_end' | 'prose_target' | null };
   failure_code: string | null; inserted_in_draft: boolean;
 }
 const root = (world: string) => `/api/live/agent/worlds/${encodeURIComponent(world)}/build-proposals`;
