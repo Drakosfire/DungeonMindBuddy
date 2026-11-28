@@ -129,6 +129,8 @@ class StatblockV1Client(Protocol):
 
     def append_revision(self, statblock_id: str, body: dict[str, Any]) -> ExactRevisionResourceV1: ...
 
+    def purge_statblock_revisions(self, statblock_id: str, expected_revision_id: str) -> None: ...
+
 
 class DungeonMindStatblockV1Client:
     """Authenticated transport for DungeonMindServer statblock v1 routes."""
@@ -226,6 +228,27 @@ class DungeonMindStatblockV1Client:
             )
         verify_exact_revision_mechanics_integrity(revision)
         return revision
+
+    def purge_statblock_revisions(self, statblock_id: str, expected_revision_id: str) -> None:
+        """Require an exact canonical identity and a confirmed empty purge response."""
+        invalid_id: str | None = None
+        try:
+            safe_id = validate_statblock_id(statblock_id)
+            safe_revision = validate_revision_id(expected_revision_id)
+        except ValueError as exc:
+            invalid_id = str(exc)
+        if invalid_id is not None:
+            raise downstream_invalid_request(invalid_id)
+
+        status, body = self._request_bytes(
+            "DELETE",
+            f"{API_PREFIX}/statblocks/{safe_id}?expected_revision_id={safe_revision}",
+        )
+        if status == 204 and not body:
+            return
+        if 200 <= status < 300:
+            raise downstream_unexpected("invalid canonical statblock purge acknowledgement", status_code=status)
+        raise self._map_error_response(status, body)
 
     def append_revision(self, statblock_id: str, body: dict[str, Any]) -> ExactRevisionResourceV1:
         """Append one exact parent with the producer's idempotent CAS contract."""
