@@ -172,12 +172,18 @@ class NativePlanGraphQueryStartedV1(Strict):
     authorization_event_id: UUID
 
 
+from .native_corpus import NativeCorpusAuthorityV1
+from .types import NativeCorpusUnavailableV1
+
+
 class NativePlanGraphQueryClosedV1(Strict):
     kind: Literal['native_plan_graph_query_closed_without_graph_v1'] = 'native_plan_graph_query_closed_without_graph_v1'
     event_id: UUID
     sequence: int = Field(ge=0, strict=True)
     need_event_id: UUID
     pending_query_sha256: Digest
+    source_authority: NativeCorpusAuthorityV1 | NativeCorpusUnavailableV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
 
 class NativePlanGraphQueryFailedV1(Strict):
@@ -188,8 +194,6 @@ class NativePlanGraphQueryFailedV1(Strict):
     reason: Literal['uncertain_owner_result', 'authority_unavailable']
 
 
-from .native_corpus import NativeCorpusAuthorityV1
-from .types import NativeCorpusUnavailableV1
 from .native_plan_assertions import NativePlanQueryV2, NativeGraphQueryV3, NativeGraphQueryV4
 from .native_plan_statements import NativePlanQueryUnavailableV1
 
@@ -391,6 +395,18 @@ def validate_pending_graph(context, execution):
             or closed.sequence <= observed.sequence or grant is not None or started is not None
             or settled is not None or failed is not None or object_selections(native_references(execution))):
         raise ValueError('No-Graph closure requires its exact decision and no authored Graph references')
+    if closed is not None and closed.source_authority is not None:
+        source = closed.source_authority
+        from .native_plan_opening import NativePlanAuthorScopeObservedV1
+
+        if (query.authority is not None
+                or source.managed_world_id != context.source_authority.managed_world_id
+                or (isinstance(source, NativeCorpusAuthorityV1)
+                    and action.intent.graph_request.revision_pin not in (None, source.revision_id))
+                or not any(type(event) is NativePlanAuthorScopeObservedV1
+                           and event.scope_observation.source_use == 'source_needed'
+                           for event in events[:need_auth.sequence])):
+            raise ValueError("No-Graph source acquisition requires exact source-seeking Plan intent")
     source_free_intent = None
     if query.authority is None and not need_auths and not graph_events and len(events) >= 4:
         from .native_plan_opening import NativePlanAuthorScopeObservedV1
@@ -427,5 +443,5 @@ def effective_plan_source_authority(receipt, events):
     if type(authority) is not NativePlanSourcePendingV1:
         return authority
     settled = next((event for event in events
-                    if type(event) is NativePlanGraphQuerySettledV1), None)
+                    if type(event) in (NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)), None)
     return settled.source_authority if settled is not None else None

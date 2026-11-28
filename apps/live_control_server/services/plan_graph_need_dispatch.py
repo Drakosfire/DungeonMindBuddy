@@ -111,7 +111,7 @@ class PlanGraphNeedDispatch:
             await client.aclose()
 
 
-def settle_graph_need(adapter, observed, *, prepare_graph):
+def settle_graph_need(adapter, observed, *, prepare_graph, prepare_corpus=False):
     """Close or run one pinned query after its actual decision has settled.
 
     The supplied Graph owner must refresh current access before acquisition.
@@ -133,9 +133,19 @@ def settle_graph_need(adapter, observed, *, prepare_graph):
     starts = [event for event in events if type(event) is NativePlanGraphQueryStartedV1]
     failures = [event for event in events if type(event) is NativePlanGraphQueryFailedV1]
     if observed.choice == 'no_graph':
-        if not closed:
+        source = authority = None
+        if closed:
+            authority = closed[0].source_authority
+            if authority is not None:
+                source = prepare_graph(authority)
+        else:
+            if prepare_corpus:
+                source, authority = prepare_graph(source_only=True)
             adapter.turn = _require_fresh_execution_append(adapter.fence.commit('_transition_plan_graph_need',
-                action='close', event_id=uuid4()))
+                action='close', event_id=uuid4(), source_authority=authority))
+        if authority is not None:
+            adapter.native_corpus_context = source
+            adapter.native_source_authority = authority
         adapter.native_query_context = adapter.native_query = None
         return
     if observed.choice != 'require_graph' or not callable(prepare_graph):

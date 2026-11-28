@@ -924,7 +924,7 @@ class SurfaceNativeExecutionV1(Strict):
                 from .native_plan_opening import NativePlanAuthorScopeObservedV1
 
                 source_needed = any(type(row) is NativePlanAuthorScopeObservedV1
-                                    and row.scope_observation.source_use == "source_needed" for row in prefix)
+                                    and row.scope_observation.source_use in {"source_needed", "saved_page_only"} for row in prefix)
                 settlements = [row for row in prefix if type(row) is NativePlanGraphQuerySettledV1
                                or (source_needed and type(row) is NativePlanGraphQueryClosedV1)]
                 if (type(action) not in (NativePlanActionV2, NativePlanActionV3)

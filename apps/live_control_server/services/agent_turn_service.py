@@ -7940,7 +7940,7 @@ def execute_agent_turn(
             native_source_authority = NativePlanSourcePendingV1(managed_world_id=canonical_world_id)
             native_query = NativePlanGraphQueryPendingV1(question=request.message)
 
-            def prepare_deferred_plan_query(retained_authority=None):
+            def prepare_deferred_plan_query(retained_authority=None, *, source_only=False):
                 if type(retained_authority) is graph_types.NativeCorpusUnavailableV1:
                     return None
                 revision = (retained_authority.revision_id if retained_authority is not None
@@ -7951,6 +7951,8 @@ def execute_agent_turn(
                     if authority != retained_authority:
                         raise ValueError("Retained Plan source authority changed")
                     return source
+                if source_only:
+                    return source, authority
                 with trace.phase("plan_native_statement_query"):
                     context, query = native_graph_query_resolver(request, owner, work, frozen, source)
                 return context, query, source, authority

@@ -89,7 +89,7 @@ class NativePlanIntentInputV1(Strict):
     dialogue: tuple[RetrievalDialogue, ...] = ()
     requested_operation: Literal["discuss", "write_current_page"] | None = None
 
-    source_use_version: Literal["v1"] | None = Field(default=None, exclude_if=lambda value: value is None)
+    source_use_version: Literal["v1", "v2"] | None = Field(default=None, exclude_if=lambda value: value is None)
 
     def prepare(self):
         from .surface_action_catalog import prepare_opening_intent
@@ -107,14 +107,17 @@ class NativePlanIntentInputV1(Strict):
         if self.source_use_version is None:
             return request
         from generationengine.types import ChoiceDecisionQuestion
+        descriptions = {
+            "conversation_only": "Use only the supplied conversation and current Plan, or draft original material without lookup. Respect an explicit request to avoid search.",
+            "source_needed": "The request needs facts from a saved source, World evidence or Rules beyond the supplied context.",
+            "uncertain": "The supplied request does not establish which context should be used.",
+        }
+        if self.source_use_version == "v2":
+            descriptions["saved_page_only"] = "Read a saved authored page. No recap, World Graph facts, or Rules are requested."
         source_use = ChoiceDecisionQuestion(
             name="source_use",
-            options=("conversation_only", "source_needed", "uncertain"),
-            option_descriptions={
-                "conversation_only": "Use only the supplied conversation and current Plan, or draft original material without lookup. Respect an explicit request to avoid search.",
-                "source_needed": "The request needs facts from a saved source, World evidence or Rules beyond the supplied context.",
-                "uncertain": "The supplied request does not establish which context should be used.",
-            },
+            options=tuple(descriptions),
+            option_descriptions=descriptions,
             question="Does satisfying this request require consulting sources outside the supplied conversation and current Plan?",
         )
         return request.model_copy(update={"questions": (*request.questions, source_use)})
@@ -143,7 +146,7 @@ class NativePlanAuthorScopeObservationV1(Strict):
     """Interpretation evidence alone, with no source or placement authority."""
 
     requested_work: str | None = Field(default=None, exclude_if=lambda value: value is None)
-    source_use: Literal["conversation_only", "source_needed", "uncertain"] | None = Field(default=None, exclude_if=lambda value: value is None)
+    source_use: Literal["conversation_only", "source_needed", "uncertain", "saved_page_only"] | None = Field(default=None, exclude_if=lambda value: value is None)
     relation: str
     selected_alias: str
     scope: ScopeExpression

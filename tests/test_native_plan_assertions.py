@@ -618,7 +618,7 @@ def _ordinary_native_case(
                 answers = {"requested_work": {"type": "choice", "choice": choice, "confidence": 1,
                     "probabilities": {key: float(key == choice) for key in criteria}}}
                 if "source_use" in body["questions"]:
-                    source_use = "source_needed"
+                    source_use = "saved_page_only" if saved_page_only else "source_needed"
                     answers["source_use"] = {"type": "choice", "choice": source_use, "confidence": 1,
                         "probabilities": {key: float(key == source_use)
                                           for key in body["questions"]["source_use"]["criteria"]}}

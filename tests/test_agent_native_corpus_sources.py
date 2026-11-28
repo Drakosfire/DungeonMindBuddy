@@ -252,6 +252,7 @@ class SourceChoices(httpx2.AsyncBaseTransport):
         for name, entry in body['questions'].items():
             choice = (('require_graph' if self.graph_required else 'no_graph') if name == 'graph_need' else
                       'discuss' if name == 'requested_work' else
+                      ('conversation_only' if self.no_source and not self.graph_required else 'source_needed') if name == 'source_use' else
                       'finish_retrieval' if name == 'operation' else
                       'review_after_reads' if name == 'post_read_plan' else 'exclude')
             if name.startswith('candidate_'):
@@ -663,7 +664,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             assert prose.count(HTTP_PASSAGE) == 1 and HTTP_BODY not in prose
             assert 'Unselected unrelated private context.' not in prose
             assert 'native_body_evidence' not in prose and 'source_artifact_id' not in prose
-            authority = self.adapter.turn.graph_context_receipt.source_authority
+            authority = self.adapter.native_source_authority
             assert authority.revision_id not in prose and sha256(HTTP_BODY.encode()).hexdigest() not in prose
             self.excerpt_handle = handle
             from application_state.agent_conversation.native_plan_assertions import POLICY
@@ -735,7 +736,8 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         expected_graph_calls = [True] if decisions[0].choice == 'require_graph' else []
         assert graph_calls == expected_graph_calls
         assert receipt['native_query']['schema'] == 'dmb_native_plan_graph_query_pending_v1'
-        assert receipt['native_query']['authority']['revision_id'] == receipt['source_authority']['revision_id']
+        assert 'authority' not in receipt['native_query']
+        assert receipt['source_authority']['schema'] == 'dmb_native_plan_source_pending_v1'
         assert receipt['native_query']['question'] == request.message
     else:
         expected_graph_calls = [True]
@@ -750,7 +752,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     assert len(opening_parents) == 1
     assert opening_parents[0].work_choice_guidance_version == 'v1'
     assert opening_auths[0].parent_request_sha256 == opening_parents[0].digest
-    opening_wires = [call for call in choices.calls if 'requested_work' in call['questions']]
+    opening_wires = [call for call in choices.calls if 'requested_work' in call['questions'] and 'source_use' not in call['questions']]
     assert len(opening_wires) == 1
     assert 'work_choice_guidance_version' not in json.dumps(opening_wires[0])
     assert all(opening_wires[0]['questions']['requested_work']['criteria'].values())
@@ -781,10 +783,10 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
             assert 'blue bead' in turn.assistant_text
         return
     selection_count = len(choices.calls)
-    assert selection_count == (5 if direct else 3)
+    assert selection_count == (5 if direct else 3) + sum('graph_need' in call['questions'] for call in choices.calls)
     first = choices.calls[0]
     assert first["state"] == {"surface": "plan", "user_utterance": request.message}
-    assert set(first["questions"]) == {"requested_work"}
+    assert set(first["questions"]) == {"requested_work", "source_use"}
     groups = [group for group in choices.selected_kinds if group]
     if direct:
         assert len(groups) == 3 and len(groups[0]) == 1

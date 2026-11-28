@@ -106,14 +106,14 @@ def query_transition(context, execution, *, action, event_id, query=None, reason
     sequence = len(events)
     pending_sha = t.canonical_sha256(context.native_query)
     common = dict(event_id=event_id, sequence=sequence)
-    if source_authority is not None and action != 'settle':
-        raise ValueError('Only Graph settlement can record source authority')
+    if source_authority is not None and action not in {'close', 'settle'}:
+        raise ValueError('Only Graph outcomes can record source authority')
     if action == 'authorize' and len(needs) == 1 and query is None and reason is None:
         event = NativePlanGraphQueryAuthorizedV1(**common, need_event_id=needs[0].event_id,
             pending_query_sha256=pending_sha)
     elif action == 'close' and len(needs) == 1 and query is None and reason is None:
         event = NativePlanGraphQueryClosedV1(**common, need_event_id=needs[0].event_id,
-            pending_query_sha256=pending_sha)
+            pending_query_sha256=pending_sha, source_authority=source_authority)
     elif action == 'start' and len(grants) == 1 and query is None and reason is None:
         event = NativePlanGraphQueryStartedV1(**common, authorization_event_id=grants[0].event_id)
     elif action == 'settle' and len(starts) == 1 and query is not None and reason is None:

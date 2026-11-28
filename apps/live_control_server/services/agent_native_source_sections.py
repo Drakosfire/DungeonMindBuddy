@@ -168,8 +168,11 @@ def open_native_body_excerpt(*, world_id, turn_id, citation_index, principal, se
                 raise ValueError('Pending citation lacks its settled source authority')
             authority = pending_source[0]
         else:
-            authority = (turn.graph_context_receipt.authored_source_context.authority
-                if play else turn.graph_context_receipt.source_authority)
+            from application_state.agent_conversation.native_plan_graph_need import effective_plan_source_authority
+
+            receipt = turn.graph_context_receipt
+            authority = (receipt.authored_source_context.authority if play
+                else effective_plan_source_authority(receipt, turn.graph_context_execution.events))
         prepared = prepare_native_source_context(managed_world_id=authority.managed_world_id,
             principal=principal, revision_id=authority.revision_id, repository=repository,
             resolve_identity=resolve_identity)

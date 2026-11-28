@@ -171,11 +171,16 @@ class PlanJevHarness:
                     if observed is None:
                         adapter.native_query_context = adapter.native_query = None
                     else:
-                        clarification = settle_graph_need(adapter, observed, prepare_graph=prepare_graph)
+                        from application_state.agent_conversation.native_context import NativePlanSourcePendingV1
+
+                        prepare_corpus = (type(adapter.native_source_authority) is NativePlanSourcePendingV1
+                                          and intent.scope_observation.source_use == "source_needed")
+                        clarification = settle_graph_need(adapter, observed, prepare_graph=prepare_graph,
+                            prepare_corpus=prepare_corpus)
                         if clarification is not None:
                             return clarification
                     if observed is not None and (observed.choice == "require_graph"
-                            or intent.scope_observation.source_use == "source_needed"):
+                            or intent.scope_observation.source_use in {"source_needed", "saved_page_only"}):
                         from uuid import uuid4
                         from .agent_turn_service import _require_fresh_execution_append
                         from .build_related_pages import discover

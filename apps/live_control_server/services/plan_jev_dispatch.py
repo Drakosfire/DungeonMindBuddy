@@ -244,7 +244,7 @@ class PlanJevDispatch:
             prior_scope_event_id=prior_scope.event_id if prior_scope is not None else None,
             scope_review=review or None,
             intent_opening=plan_intent_input(turn.graph_context_execution.policy.action, dialogue,
-                source_use_version=('v1' if type(turn.graph_context_receipt.source_authority)
+                source_use_version=('v2' if type(turn.graph_context_receipt.source_authority)
                                     is NativePlanSourcePendingV1 else None)) if intent_opening else None)
         return dispatch
 
