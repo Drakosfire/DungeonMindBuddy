@@ -2004,7 +2004,7 @@ class AgentConversationService:
                 try:
                     image_move = None
                     if (isinstance(requested_work_proof, dict) and "opening_request_json" in requested_work_proof
-                            and getattr(action, "image_move_capture", None) is not None):
+                            and getattr(turn.graph_context_execution.policy.action, "image_move_capture", None) is not None):
                         image_move = self._build_image_offer_locked(conn, turn)
                     validate_selection(turn, event, requested_work_proof, captured[0] if captured else None,
                         image_move=image_move)

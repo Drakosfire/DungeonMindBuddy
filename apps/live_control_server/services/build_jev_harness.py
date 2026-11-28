@@ -737,14 +737,30 @@ class BuildJevHarness:
                 request = adapter._prepared_build_decision.body.decode()
                 split_proof = {"intent": intent.requested_work, "opening_request": request, "scope": "anchored"}
                 if intent.requested_work not in {"clarify_request", "clarify_creation"}:
-                    followup = PendingBuildSourceScopeDriver(adapter, request, result.model_dump(mode="json"))
+                    followup = PendingBuildSourceScopeDriver(adapter, request, result.model_dump(mode="json"),
+                        image_move=getattr(driver, "image_move", None))
                     await self._decide(adapter, followup)
                     split_proof.update(scope=followup.result, response=followup.response)
+                    if followup.image_move is not None and intent.requested_work == "write_current_page":
+                        from generationengine.types import DecisionResult
+                        from application_state.build_proposal.image_move_decision import admitted_image_move_choice
+
+                        image_answers = followup.image_move.opening_answers(
+                            json.loads(followup.prepared.body), DecisionResult.model_validate_json(followup.response),
+                        )
+                        split_proof["image_move"] = admitted_image_move_choice(image_answers, adapter.request.message)
             if prepare_deferred_query is not None:
                 if not opening_dispatched:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
                 conversation_only = False
-                if wait_for_work:
+                if split_proof is not None:
+                    from application_state.agent_conversation.native_corpus import is_prior_conversation_work
+
+                    conversation_only = (
+                        split_proof.get("image_move") in {"move_existing", "unresolved"}
+                        or is_prior_conversation_work(split_proof["intent"], split_proof["scope"], allow_discussion=True)
+                    )
+                elif wait_for_work:
                     from application_state.agent_conversation.build_intentional_response import (
                         UnresolvedDiscussionSource, opening_image_choice, opening_work,
                     )

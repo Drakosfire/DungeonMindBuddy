@@ -586,6 +586,11 @@ def effective_native_query(context, execution):
                 and (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.controller.identity()):
             authorization = event
             continue
+        if type(event) is t.BuildOpeningIntentSelectedV1 and authorization is not None and responded:
+            continue
+        if type(event) is BuildSourceScopeAuthorizedV1 and authorization is not None and responded:
+            authorization, responded = event, False
+            continue
         if (type(event) is t.ProviderOutcomeEventV1 and authorization is not None
                 and event.provider_attempt_id == authorization.provider_attempt_id):
             responded = event.outcome == "response_received"

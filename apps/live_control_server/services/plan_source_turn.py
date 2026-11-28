@@ -331,8 +331,9 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
             move = BuildImageMoveDecision.from_saved(
                 action.image_move_capture, request.message, basis.markdown, basis.page_presentation,
             )
-            move.require_opening_offer(body)
-            expected_state["interaction"][OPENING_STATE_KEY] = move.semantic_state()
+            if set(body["questions"]) != {"requested_work"}:
+                move.require_opening_offer(body)
+                expected_state["interaction"][OPENING_STATE_KEY] = move.semantic_state()
         if (host['current_page']!={'document_id':basis.document_id,'title':basis.title}
             or host['allowed_operations']!=list(caps.operations)
             or host['capability_sha256']!=(digest(request.build_write_capability.model_dump(mode='json')) if request.build_write_capability is not None else None)

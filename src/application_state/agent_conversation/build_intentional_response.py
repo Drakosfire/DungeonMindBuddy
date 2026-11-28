@@ -291,7 +291,7 @@ def build_source_followup_wire(state, requested_work, *, menu_digest, write_capa
             questions[choice.name] = {
                 "type": "choice", "instructions": choice.question, "criteria": dict.fromkeys(choice.options),
             }
-    if image_move is not None:
+    if image_move is not None and requested_work == "write_current_page":
         from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY as IMAGE_STATE_KEY
 
         if image_move.question != state["user_question"]:
@@ -345,7 +345,13 @@ def verify_build_source_followup(opening_wire, opening_response, *, menu_digest,
         write_capability=write_capability, graph_reference=graph_reference, related_pages=related_pages, image_move=image_move)
     if wire != expected or tuple(wire["questions"]["source_need"]["criteria"]) != SOURCE_NEED_OPTIONS:
         raise ValueError("Build source-scope request differs from the verified intent context")
-    validated_choice_answers(DecisionResult.model_validate(response), set(expected["questions"]))
+    result = DecisionResult.model_validate(response)
+    validated_choice_answers(result, set(expected["questions"]))
+    if image_move is not None and requested_work == "write_current_page":
+        from application_state.build_proposal.image_move_decision import admitted_image_move_choice
+
+        if admitted_image_move_choice(image_move.opening_answers(wire, result), image_move.question) in {"move_existing", "unresolved"}:
+            return "anchored"
     return source_need(wire, response, clarify_uncertain_tie=requested_work == "discuss")
 
 
@@ -1020,7 +1026,16 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     )
     image_offer = request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY)
     image_answers = {name: value for name, value in response.answers.items() if name.startswith("image_move_")}
-    if capture is None:
+    if split is not None and capture is not None:
+        expected_image = "other"
+        if followup and label == "write_current_page":
+            if image_move is None:
+                raise ValueError("Build image resolution requires the locked image offer")
+            expected_image = admitted_image_move_choice(
+                image_move.opening_answers(produced_request, DecisionResult.model_validate(produced_response)), user_text)
+        if event.typed_image_move != expected_image:
+            raise ValueError("Image move choice differs from its downstream decision")
+    elif capture is None:
         if event.typed_image_move is not None or image_answers or image_offer is not None:
             raise ValueError("Image move choices require a captured Build Page")
     else:

@@ -16,11 +16,12 @@ from .build_pending_app_pages import _commit
 
 
 class PendingBuildSourceScopeDriver:
-    def __init__(self, adapter, opening_request, opening_response):
+    def __init__(self, adapter, opening_request, opening_response, *, image_move=None):
         self.adapter = adapter
         self.before = adapter._broker_execution()
         self.opening_request = opening_request
         self.opening_response = opening_response
+        self.image_move = image_move
         self.opening_wire = json.loads(opening_request)
         self.intent = self.before.events[-1]
         if type(self.intent) is not ledger.BuildOpeningIntentSelectedV1:
@@ -30,7 +31,7 @@ class PendingBuildSourceScopeDriver:
         self.wire = build_source_followup_wire(
             self.opening_wire["state"], self.intent.requested_work, menu_digest=self.menu,
             write_capability=self.before.policy.action.write_capability, graph_reference=self.graph_reference,
-            related_pages=self.before.policy.action.related_page_catalog,
+            related_pages=self.before.policy.action.related_page_catalog, image_move=self.image_move,
         )
         self.step = DecisionIntent(
             request_id="build-source-scope:" + digest(self.wire), phase="source_scope",
@@ -94,7 +95,7 @@ class PendingBuildSourceScopeDriver:
                 self.opening_wire, self.opening_response, menu_digest=self.menu,
                 wire=json.loads(self.prepared.body), response=actual_response.model_dump(mode="json"),
                 write_capability=self.before.policy.action.write_capability, graph_reference=self.graph_reference,
-            related_pages=self.before.policy.action.related_page_catalog,
+            related_pages=self.before.policy.action.related_page_catalog, image_move=self.image_move,
             )
         except UnresolvedDiscussionSource as exc:
             from .agent_turn_service import AgentTurnServiceError
