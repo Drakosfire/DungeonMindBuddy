@@ -267,10 +267,21 @@ def build_source_followup_wire(state, requested_work, *, menu_digest):
     }
 
 
-def verify_build_source_followup(state, opening_response, *, menu_digest, wire, response):
+def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response):
     from generationengine.types import DecisionResult
-    from .jev_retrieval_contract import validated_choice_answers
+    from .jev_retrieval_contract import MODEL, validated_choice_answers
 
+    question = opening_wire.get("questions", {}).get("requested_work")
+    if (
+        set(opening_wire) != {"model", "state", "questions"}
+        or opening_wire["model"] != MODEL
+        or set(opening_wire["questions"]) != {"requested_work"}
+        or question != opening_work_question(menu_digest)
+        or tuple(question["criteria"]) != tuple(_menu_work(menu_digest))
+    ):
+        raise ValueError("Build opening request differs from the intent-only ballot")
+
+    state = opening_wire["state"]
     validated_choice_answers(DecisionResult.model_validate(opening_response), {"requested_work"})
     requested_work = selected(opening_response, menu=menu_digest)
     expected = build_source_followup_wire(state, requested_work, menu_digest=menu_digest)
