@@ -1372,8 +1372,11 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expectBuildSaveState("unsaved");
     });
-    expect(within(screen.getByTestId("build-page-title")).getByRole("heading", { name: "Ironveil Property", level: 1 })).toBeVisible();
-    expect(screen.getByTestId("build-page-title-rename-open")).not.toBeDisabled();
+    const heading = screen.getByRole("heading", { name: "Ironveil Property", level: 1 });
+    const header = heading.closest("header")!;
+    expect(header).toHaveAccessibleName("Document title");
+    expect(screen.getByTestId("build-markdown-editor")).not.toContainElement(heading);
+    expect(within(header).getByTestId("build-page-title-rename-open")).not.toBeDisabled();
 
     await user.click(screen.getByTestId("build-page-title-rename-open"));
     const titleInput = screen.getByTestId("build-document-rename-title");
@@ -1486,6 +1489,7 @@ describe("BuildSurfacePage", () => {
     await waitFor(() => {
       expect(screen.getByTestId("build-canvas-title")).toHaveTextContent("Ironveil Manufactory Grounds");
       expectBuildSaveState("saved");
+      expect(screen.getByRole("heading", { name: "Ironveil Manufactory Grounds", level: 1 })).toBeVisible();
     });
     expect(await screen.findByTestId("build-markdown-editor")).toHaveTextContent(
       /western warehouse is empty during festival season/i,
@@ -1536,7 +1540,7 @@ describe("BuildSurfacePage", () => {
     const projectionCallsBefore = vi.mocked(liveApi.getNativeGraphCatalog).mock.calls.length;
     expect(projectionCallsBefore).toBeGreaterThan(0);
 
-    await user.click(screen.getByTestId("build-document-rename-open"));
+    await user.click(screen.getByTestId("build-page-title-rename-open"));
     const titleInput = screen.getByTestId("build-document-rename-title");
     await user.clear(titleInput);
     await user.type(titleInput, "Ironveil Manufactory Grounds");
