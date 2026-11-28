@@ -48,8 +48,12 @@ def prepare(path):
             play_request(state, scopes[surface])
         elif surface == "plan":
             plan_request(state)
-        if case["expected"] not in scopes[surface]:
+        expected = case["expected"]
+        if expected not in scopes[surface]:
             raise ValueError(f"{case['id']} expects a choice unavailable on {surface}")
+        required_title = {"write_current_page": "page_title", "play_edit": "current_scene_title"}.get(expected)
+        if required_title and not state.get(required_title, "").strip():
+            raise ValueError(f"{case['id']} requires a pinned {required_title} for {expected}")
         groups[surface].append(case)
 
     combined = {}
