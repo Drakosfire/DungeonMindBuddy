@@ -328,3 +328,26 @@ arm has ten wrong actions and one invalid deferral. The scoped arm has five
 wrong actions. Neither arm has a provider failure or top-score tie. These
 decision times come from retained captures made at different times. They
 are descriptive rather than an end-to-end latency estimate.
+
+### Build comparison with the ordinary question shape
+
+The [36-case wire-shaped comparison](right_action_intent/build-wire-shaped-cohort-jev.json)
+uses the ordinary Build requested-work instructions and the same source-need
+question in both arms. It reconstructs intent-visible state from the fixtures
+and pins it with the results. Reproduce with `--surface build --build-wire-shape`.
+The underlying fixture document stays local. The projection supplies its
+title and exact selected text. It assumes a saved Build page with insertion
+available and no working draft, and does not synthesize conditional placement
+votes or application state.
+
+| Menu | Correct | Median input tokens | Median decision |
+| --- | ---: | ---: | ---: |
+| Combined | 29/36 | 1,202 | 264.94 ms |
+| Scoped | 33/36 | 1,136 | 214.03 ms |
+
+The accuracy totals match the simplified benchmark, but the misses differ.
+In this comparison, five combined-menu errors selected a live Play scene edit
+for a Build page edit. Both arms missed connected-page creation and saved
+statblock review. The scoped arm unnecessarily clarified one request for a
+map description in chat. These are classifier results, with ordinary runtime
+placement and side effects covered separately.

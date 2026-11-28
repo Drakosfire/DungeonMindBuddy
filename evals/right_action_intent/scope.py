@@ -101,6 +101,35 @@ def with_menu(request, menu):
     }),)})
 
 
+def build_wire(state, menu, model):
+    from application_state.agent_conversation.build_intentional_response import (
+        SCOPED_BUILD_MENU_DIGEST, SOURCE_NEED_GUIDANCE, SOURCE_NEED_OPTIONS,
+        opening_work_question,
+    )
+
+    work = opening_work_question(SCOPED_BUILD_MENU_DIGEST)
+    for label, meaning in menu.items():
+        if label not in work["criteria"]:
+            work["criteria"][label] = None
+            work["instructions"] += f"\n{label}: {meaning}"
+    selection = state.get("selected_text")
+    return {
+        "model": model,
+        "state": {"user_question": state["user_utterance"], "interaction": {
+            "allowed_operations": ["answer_from_sources", "propose_build_insertion"],
+            "current_page_title": state.get("page_title", "Current Build page"),
+            "history": state.get("prior_dialogue", []),
+            "page_target": {"kind": "replace_selection", "text": selection} if selection else None,
+            "working_draft_available": False,
+        }},
+        "questions": {
+            "requested_work": work,
+            "source_need": {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
+                            "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)},
+        },
+    }
+
+
 def decision_summary(rows, surface):
     deferrals = {"needs_context_to_choose", "clarify_request", "clarify_creation"}
     if surface == "plan":
@@ -183,7 +212,11 @@ async def main():
     parser.add_argument("--summarize", type=Path, help="Summarize a retained paired capture without a provider")
     parser.add_argument("--plan-intent-only", action="store_true",
                         help="Evaluate the shared source-blind intent request for Plan")
+    parser.add_argument("--build-wire-shape", action="store_true",
+                        help="Use the ordinary Build question instructions and source-need ballot")
     args = parser.parse_args()
+    if args.build_wire_shape and args.surface != "build":
+        parser.error("--build-wire-shape requires --surface build")
     if args.plan_intent_only and args.surface != "plan":
         parser.error("--plan-intent-only requires --surface plan")
     if args.frozen_cohort:
@@ -244,12 +277,18 @@ async def main():
         frozen["plan_question"] = plan.questions[0].name
         frozen["plan_wire_state_by_case"] = {row["id"]: plan_request(row["input"]).state
                                             for row in groups["plan"]}
+    if args.build_wire_shape:
+        frozen["build_wire_by_case"] = {
+            row["id"]: {arm: build_wire(row["input"], menu, model)
+                        for arm, menu in menus["build"].items()}
+            for row in groups["build"]
+        }
     (args.output / "frozen-inputs.json").write_text(json.dumps(frozen, indent=2) + "\n")
     retained = {}
     if args.reuse:
         prior = json.loads((args.reuse / "frozen-inputs.json").read_bytes())
         prior_report = json.loads((args.reuse / "results.json").read_bytes())
-        if (any(prior.get(key) != frozen.get(key) for key in ("model", "prompt", "menus", "play_prompt", "play_question", "plan_prompt", "plan_question", "plan_wire_state_by_case"))
+        if (any(prior.get(key) != frozen.get(key) for key in ("model", "prompt", "menus", "play_prompt", "play_question", "plan_prompt", "plan_question", "plan_wire_state_by_case", "build_wire_by_case"))
             or any(tuple(menu) != tuple(menus[surface][arm])
                    for surface, arms in prior["menus"].items() for arm, menu in arms.items())
         ):
@@ -267,7 +306,9 @@ async def main():
         menu = body["action_definitions"]
         payload = {"model": model, "state": body["state"], "questions": {"intent": {
             "question": body["instructions"], "options": list(menu), "option_descriptions": menu}}}
-        if args.plan_intent_only:
+        if args.build_wire_shape:
+            request = DecisionRequest.model_validate(sdk_request(build_wire(body["state"], menu, model)))
+        elif args.plan_intent_only:
             request = with_menu(plan_request(body["state"]), menu)
         else:
             request = (play_request(body["state"], menu) if body["state"]["surface"] == "play"
