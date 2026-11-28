@@ -595,6 +595,9 @@ def validate_retained_completion(completion, receipt, execution, producer, bindi
         from .build_source_free import _pending_components, _join_pending_source
         receipt, execution = _pending_components(receipt, execution)
         _join_pending_source(receipt, execution)
+        if type(completion) is t.BuildImageMoveCompletionV1:
+            _join_build_image_move_completion(completion, receipt, execution, producer, bindings)
+            return
         final = [event for event in execution.events if type(event) is t.CompletionBindingEventV1]
         if (len(final) != 1 or final[0].provider_attempt_id != producer
                 or final[0].claim_graph_event_ids != bindings

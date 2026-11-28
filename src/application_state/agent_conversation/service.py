@@ -4771,7 +4771,7 @@ class AgentConversationService:
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.content import pages
         from . import types as t
-        from .native_execution import NativeBuildActionV1, SurfaceNativeExecutionV1
+        from .native_execution import BuildPendingExecutionV1, NativeBuildActionV1, SurfaceNativeExecutionV1
         from .retry import require_leaf
         from .rules_authority_store import close_unused_locked
         from .source_writer_output import strict_json
@@ -4785,7 +4785,7 @@ class AgentConversationService:
             if turn is None or turn.conversation_id != conversation_id:
                 raise ApplicationStateNotFoundError("Image move turn is unavailable")
             execution = turn.graph_context_execution
-            if not isinstance(execution, SurfaceNativeExecutionV1):
+            if not isinstance(execution, (SurfaceNativeExecutionV1, BuildPendingExecutionV1)):
                 raise ApplicationStateValidationError("Image movement requires native Build")
             action = execution.policy.action
             opening = next((event for event in execution.events if isinstance(event, t.BuildRequestedWorkResolutionV1)), None)
@@ -4831,7 +4831,7 @@ class AgentConversationService:
                     provider_attempt_id=opening.controller_attempt_id, completion_sha256=t.canonical_sha256(completion),
                     claim_graph_event_ids={}, opening_event_id=opening.event_id,
                 )
-                execution = SurfaceNativeExecutionV1.model_validate_json(json.dumps(
+                execution = type(execution).model_validate_json(json.dumps(
                     execution.model_dump(mode="json", by_alias=True) | {
                         "events": [event.model_dump(mode="json", by_alias=True) for event in [*execution.events, binding]],
                     }))

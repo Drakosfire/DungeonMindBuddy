@@ -867,7 +867,7 @@ class AgentBuildPendingContextResponseV1(BaseModel):
     schema_: Literal['dmb_agent_build_pending_context_response_v1'] = Field(
         default='dmb_agent_build_pending_context_response_v1', alias='schema')
     receipt: BuildPendingContextReceiptV1
-    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | None
+    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | BuildImageMoveCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
 

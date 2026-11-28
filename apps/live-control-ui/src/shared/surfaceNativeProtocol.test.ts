@@ -415,3 +415,21 @@ it.each(['bound', 'foreign-receipt', 'unexpected-citations'])(
     expect(isBuildPendingContext(context, buildWork, () => true)).toBe(mode === 'bound');
   },
 );
+
+it.each(['bound', 'foreign-receipt', 'unexpected-citations'])(
+  'checks pending image review completion: %s', mode => {
+    const context = {
+      ...structuredClone(pendingBuild),
+      completion: {
+        schema: 'dmb_build_image_move_completion_v1',
+        context_receipt_sha256: mode === 'foreign-receipt'
+          ? '0'.repeat(64) : pendingBuild.receipt.context_receipt_sha256,
+        disposition: 'ready',
+        action_id: '11111111-1111-4111-8111-111111111111',
+        placement_sha256: 'a'.repeat(64),
+      },
+      ...(mode === 'unexpected-citations' ? {deferred_build_citations: {}} : {}),
+    };
+    expect(isBuildPendingContext(context, buildWork, () => true)).toBe(mode === 'bound');
+  },
+);
