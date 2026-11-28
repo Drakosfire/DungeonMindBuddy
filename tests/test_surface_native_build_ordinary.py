@@ -195,6 +195,32 @@ def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, 
     assert opened == (source_scope == "source_lookup")
 
 
+def test_contextual_build_reopens_deferred_page_citation(lane, tmp_path, monkeypatch):
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    from application_state.agent_conversation.native_execution import BuildSourceScopeAuthorizedV1
+    from application_state.build_proposal.service import BuildProposalService
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, True,
+        contextual="unique", requested_work="write_current_page", source_need="source_lookup",
+        message="After the orchid paragraph in East, add a supply note and cite the towel count from Optional lore.",
+        proposal_markdown="Set out six towels.",
+        capture_pending=True, read_optional_page=True, cite_optional_page=True,
+    )
+    assert case.response.status_code == 200, case.response.text
+    execution = case.turn.graph_context_execution
+    ballot, = [event for event in execution.events if type(event) is BuildSourceScopeAuthorizedV1]
+    proposed, = BuildProposalService().list(case.world, case.turn.conversation_id)
+    citation, = proposed.proposal.citations
+    pointer = PagePointer.model_validate(citation.page.model_dump(exclude={"content_sha256"}))
+    assert pointer in ballot.discovered_pages
+    route = f"/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/related-pages"
+    opened = case.client.get(f"{route}/{citation.read_id}")
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["markdown"] == citation.quote == "The linen inventory lists six towels."
+    assert opened.json()["page"] == citation.page.model_dump(mode="json")
+
+
 @pytest.mark.parametrize("work", ["write_current_page", "clarify_request"])
 def test_pending_build_resolves_paragraph_after_intent(lane, tmp_path, monkeypatch, work):
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
@@ -795,6 +821,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                         probabilities={key: float(key == chosen) for key in choices})
                     continue
+                if cite_optional_page and name.startswith("related_page_"):
+                    chosen = "read" if "Optional lore" in question["instructions"] else "skip"
+                    answers[name] = dict(type="choice", choice=chosen, confidence=1,
+                        probabilities={key: float(key == chosen) for key in choices})
+                    continue
                 if name == "source_need" and failure == "discussion_source_tie":
                     answers[name] = dict(type="choice", choice="uncertain", confidence=.07,
                                          probabilities={"anchored": .24, "source_lookup": .38, "uncertain": .38})
@@ -1039,7 +1070,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     if cite_optional_page:
                         handle, = properties["citations"]["items"]["properties"]["source"]["enum"]
                         candidate["citations"].append({"source": handle,
-                            "quote": "The linen inventory lists six towels.", "supports": "| towels | 6 |"})
+                            "quote": "The linen inventory lists six towels.",
+                            "supports": proposal_markdown if contextual else "| towels | 6 |"})
                 if failure == 'target_unavailable' and len(self.calls) == 1:
                     candidate.update(target='unavailable', replacement_markdown='', summary='Untrusted provider summary.')
                 if mode=='image':
