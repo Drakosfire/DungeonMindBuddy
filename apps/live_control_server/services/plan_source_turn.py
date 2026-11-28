@@ -132,12 +132,10 @@ def _contextual_document_title(basis, composed_capture=None):
     return obj.title
 
 
-def _native_plan_parts(request, basis, playable_target, submitted_intent):
-    from application_state.agent_conversation.native_context import PlanWorkContextV1
+def _native_plan_action(request, basis, submitted_intent, *, related_page_catalog):
     from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
     from application_state.agent_conversation.plan_composed_targeting import ComposedPlanPlacementCatalogV1
-    from .build_related_pages import discover
     composed = type(request.plan_placement_catalog) is ComposedPlanPlacementCatalogV1
     contextual_capture = composed or (type(request.plan_placement_catalog) is PlanPlacementCatalogV2
         and request.plan_authoring_capture.target_kind in {'insert_at_caret', 'replace_selection'})
@@ -149,10 +147,26 @@ def _native_plan_parts(request, basis, playable_target, submitted_intent):
         )
     elif contextual_capture:
         contextual["document_title"] = _contextual_document_title(basis)
-    return (PlanWorkContextV1(plan_basis=basis, plan_context_policy=request.plan_context_policy,
-            playable_target=playable_target),
-        action_type(intent=submitted_intent, authoring_capture=request.plan_authoring_capture,
-            placement_catalog=request.plan_placement_catalog, related_page_catalog=discover(request), **contextual))
+    return action_type(
+        intent=submitted_intent,
+        authoring_capture=request.plan_authoring_capture,
+        placement_catalog=request.plan_placement_catalog,
+        related_page_catalog=related_page_catalog,
+        **contextual,
+    )
+
+
+def _native_plan_parts(request, basis, playable_target, submitted_intent):
+    from application_state.agent_conversation.native_context import PlanWorkContextV1
+    from .build_related_pages import discover
+
+    action = _native_plan_action(
+        request, basis, submitted_intent, related_page_catalog=discover(request)
+    )
+    return PlanWorkContextV1(
+        plan_basis=basis, plan_context_policy=request.plan_context_policy,
+        playable_target=playable_target,
+    ), action
 
 
 def freeze_plan_request(request, work, playable_target, budget, *, authority, native_query,
