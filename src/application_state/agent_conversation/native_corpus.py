@@ -338,7 +338,7 @@ def validate_request_source_search(execution, grant):
     scope_attempt_ids = [event.controller_attempt_id for event in prefix
                          if type(event) is NativePlanAuthorScopeObservedV1]
     after_author_scope = (
-        type(action) is NativePlanActionV3
+        (type(action) is NativePlanActionV3 or all(getattr(event, "intent_opening", None) is True for event in prior_attempts))
         and all(type(event) is NativePlanAuthorScopeAuthorizedV1 for event in prior_attempts)
         and [event.provider_attempt_id for event in prior_attempts] == scope_attempt_ids
     )

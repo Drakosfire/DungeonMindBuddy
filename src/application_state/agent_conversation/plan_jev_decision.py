@@ -330,6 +330,14 @@ def verify_selection_records(receipt, execution, event, proof, trace, *, questio
         elif (isinstance(request, PlanRequestedWorkInputV2)
                 or event.requested_work != selected or event.target_capture_sha256 != request.target_capture_sha256):
             raise ValueError('Plan destination differs from its exact typed result or capture')
+        if event.requested_work in {"write_current_page", "review_connected_page"}:
+            opening_work = next((
+                prior.scope_observation.requested_work for prior in execution.events[:auth.sequence]
+                if type(prior) is NativePlanAuthorScopeObservedV1
+                and prior.scope_observation.requested_work is not None
+            ), None)
+            if opening_work is not None and opening_work != event.requested_work:
+                raise ValueError("Plan writing or creation differs from the verified opening intent")
     else:
         selected = decode_selection(request, result)
         if native_action is not None or isinstance(receipt, t.PlanSourceContextReceiptV1):
