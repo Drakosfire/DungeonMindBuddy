@@ -444,11 +444,12 @@ class BuildJevDriver:
                     question="Which offered operation serves this user turn in its conversation context?",
                     options=options),))
         if (adapter.budget.get('buildJevActions') or {}).get('intentional_response_policy') is not None:
-            from application_state.agent_conversation.build_intentional_response import POLICY, WORK, decision_instructions
+            from application_state.agent_conversation.build_intentional_response import POLICY, decision_instructions
+            from application_state.agent_conversation.surface_action_catalog import opening_action_menu
             selection_state = {'user_question': adapter.request.message, 'interaction': self._interaction,
                                'rules': decision_instructions(), 'requested_work_policy': POLICY}
             self._selection_intent = DecisionIntent(request_id='select:' + digest(selection_state), phase='select', state=selection_state,
-                questions=(DecisionQuestion(name='requested_work', kind='choice', question=decision_instructions(), options=tuple(WORK)),))
+                questions=(DecisionQuestion(name='requested_work', kind='choice', question=decision_instructions(), options=tuple(opening_action_menu("build"))),))
         if self._selection_intent is not None and "related_page_catalog" in self._interaction:
             from application_state.agent_conversation.build_related_pages import PagePointer,question_name,question_text
             extra=tuple(DecisionQuestion(name=question_name(i),kind="choice",question=question_text(PagePointer.model_validate(page)),options=("read","skip"))
@@ -533,7 +534,8 @@ class BuildJevDriver:
 
     def _init_native(self):
         """Build selects its own work; shared native retrieval owns acquisition."""
-        from application_state.agent_conversation.build_intentional_response import POLICY, WORK, decision_instructions
+        from application_state.agent_conversation.build_intentional_response import POLICY, decision_instructions
+        from application_state.agent_conversation.surface_action_catalog import opening_action_menu
         a = self._adapter
         self._interaction = freeze_interaction(a)
         state = dict(user_question=a.request.message, interaction=self._interaction,
@@ -549,7 +551,7 @@ class BuildJevDriver:
             from application_state.agent_conversation.build_intentional_response import semantic_routing_state
             state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references,
                 write_capability=a.request.build_write_capability)
-        questions = (DecisionQuestion(name='requested_work',kind='choice',question=decision_instructions(),options=tuple(WORK)),)
+        questions = (DecisionQuestion(name='requested_work',kind='choice',question=decision_instructions(),options=tuple(opening_action_menu("build"))),)
         capture = a.request.build_image_move_capture
         if capture is not None:
             from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
