@@ -258,7 +258,15 @@ def retained_cohort(path):
                             )):
                         raise ValueError(f"Build wire changed for {case['id']} {arm}")
         fixtures = {case["id"]: case for case in groups[surface]}
-        captured_cases = {case["id"]: case for case in capture["cases"][surface]}
+        if "fixtures" in entry:
+            if "cases" in capture:
+                raise ValueError("Embedded capture cases must validate directly")
+            capture_digest, capture_groups, _ = prepare(path.parent / entry["fixtures"])
+            if capture_digest != capture["fixture_sha256"]:
+                raise ValueError("Historical capture fixture hash changed")
+        else:
+            capture_groups = capture["cases"]
+        captured_cases = {case["id"]: case for case in capture_groups[surface]}
         for arm, data in capture["results"][surface].items():
             for row in data["rows"]:
                 fixture = fixtures.get(row["id"])

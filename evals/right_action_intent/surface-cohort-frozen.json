@@ -5,6 +5,7 @@
   "captures": [
     {
       "file": "surface-cohort-play-handoff-jev.json",
+      "fixtures": "surface-cohort-play-handoff-fixtures.json",
       "surface": "build",
       "path": [],
       "sha256": "3c39705b57fe8c7427e943e0edf8c8fe7644b110509620cc69badff7a7298928"
