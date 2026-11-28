@@ -984,3 +984,39 @@ def test_actual_model_multiple_nominations_clarify_without_reservation_or_factua
             decode_question(invalid, turn.graph_context_execution)
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute('SELECT count(*) FROM plan_action.action').fetchone()[0] == 0
+
+
+def test_request_discovery_can_follow_only_settled_author_scope():
+    from hashlib import sha256
+    from types import SimpleNamespace
+
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_corpus import (
+        NativeCorpusAuthorityV1, NativePlanRequestSearchAuthorizedV1,
+        validate_request_source_search,
+    )
+    from application_state.agent_conversation.native_execution import NativePlanActionV3
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+    from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
+
+    source = NativeCorpusAuthorityV1.model_construct(acquisition_epoch=194)
+    message = "What do we know about the ferry?"
+    action = NativePlanActionV3.model_construct(intent=SimpleNamespace(message=message))
+    policy = SimpleNamespace(action=action, source_authority_sha256=t.canonical_sha256(source))
+    scope_attempt = NativePlanAuthorScopeAuthorizedV1.model_construct(provider_attempt_id=uuid4())
+    observed = NativePlanAuthorScopeObservedV1.model_construct(controller_attempt_id=scope_attempt.provider_attempt_id)
+
+    def validate(prefix):
+        execution = SimpleNamespace(events=prefix, policy=policy,
+            context_receipt_sha256="a" * 64, execution_policy_sha256="b" * 64)
+        grant = NativePlanRequestSearchAuthorizedV1.model_construct(
+            sequence=len(prefix), authority=source, query_sha256=sha256(message.encode()).hexdigest(),
+            context_receipt_sha256=execution.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256,
+        )
+        validate_request_source_search(execution, grant)
+
+    validate(())
+    validate((scope_attempt, observed))
+    with pytest.raises(ValueError, match="actual first admitted Plan request"):
+        validate((scope_attempt,))

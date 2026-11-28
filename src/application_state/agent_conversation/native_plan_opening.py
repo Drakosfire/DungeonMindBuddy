@@ -816,6 +816,10 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
         raise ValueError('Opening SDK must be the first actual provider attempt')
     grants = [e for e in prefix if isinstance(e, NativePlanRequestSearchAuthorizedV1)]
     if isinstance(context.source_authority, NativeCorpusAuthorityV1):
+        # Source-blind interpretation can precede discovery. Historical turns
+        # with discovery already in the prefix still require exact settlement.
+        if author_scope_recheck and not grants:
+            return
         if (len(grants) != 1 or len([e for e in prefix if isinstance(e, NativeBodySearchObservedV1)
                 and e.authorization_event_id == grants[0].event_id]) != 1):
             raise ValueError('Opening SDK requires actual settled request-owned discovery')

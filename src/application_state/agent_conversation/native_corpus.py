@@ -329,14 +329,26 @@ def request_source_discovery_enabled(context, execution):
 def validate_request_source_search(execution, grant):
     from . import types as t
     from .native_execution import NativePlanActionV2, NativePlanActionV3
+    from .native_plan_opening import NativePlanAuthorScopeObservedV1
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+
     prefix = execution.events[:grant.sequence]
     action = execution.policy.action
+    prior_attempts = [event for event in prefix if isinstance(event, t.ProviderAttemptAuthorizedEventV1)]
+    scope_attempt_ids = [event.controller_attempt_id for event in prefix
+                         if type(event) is NativePlanAuthorScopeObservedV1]
+    after_author_scope = (
+        type(action) is NativePlanActionV3
+        and all(type(event) is NativePlanAuthorScopeAuthorizedV1 for event in prior_attempts)
+        and [event.provider_attempt_id for event in prior_attempts] == scope_attempt_ids
+    )
     if (type(action) not in (NativePlanActionV2, NativePlanActionV3)
             or grant.context_receipt_sha256 != execution.context_receipt_sha256
             or grant.execution_policy_sha256 != execution.execution_policy_sha256
             or t.canonical_sha256(grant.authority) != execution.policy.source_authority_sha256
             or grant.query_sha256 != sha256(action.intent.message.encode()).hexdigest()
-            or any(isinstance(e, (t.ProviderAttemptAuthorizedEventV1, NativeBodySearchAuthorizedV1,
+            or (prior_attempts and not after_author_scope)
+            or any(isinstance(e, (NativeBodySearchAuthorizedV1,
                 NativeInitialSourceSearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1)) for e in prefix)):
         raise ValueError('Request discovery requires its actual first admitted Plan request')
 
