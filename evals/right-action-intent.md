@@ -167,3 +167,19 @@ handoff, and both retained the current-scene edit choice. Median decision
 time was 311.78 ms combined and 177.90 ms scoped. The treatment was designed
 after observing the Build handoff miss. It needs fresh destination contrasts
 before a runtime adoption decision.
+
+The [held-out comparison](right_action_intent/play-destination-holdout-jev.json)
+was frozen at `ecea160a8504` before calling Jev. All eight fixtures pin Play
+and a live scene. Run using `--surface play --tier play_destination_holdout`,
+with and without `--play-destination-wording`.
+
+| Wording | Combined correct | Scoped correct | Combined median | Scoped median |
+| --- | ---: | ---: | ---: | ---: |
+| Current | 6/8 | 7/8 | 253.70 ms | 182.62 ms |
+| Treatment | 6/8 | 6/8 | 227.90 ms | 217.86 ms |
+
+The scoped treatment fixed the Plan edit handoff but classified both the
+Combat handoff and the ambiguous request as current-scene edits. The combined
+treatment fixed the Build edit handoff but missed Combat and still missed
+the Plan edit. Retain the current runtime wording. The development improvement
+did not generalize to the held-out cases.
