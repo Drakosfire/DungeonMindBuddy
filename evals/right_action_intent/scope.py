@@ -101,7 +101,7 @@ def with_menu(request, menu):
     }),)})
 
 
-def build_wire(state, menu, model):
+def build_wire(state, menu, model, *, intent_only=False):
     from application_state.agent_conversation.build_intentional_response import (
         SCOPED_BUILD_MENU_DIGEST, SOURCE_NEED_GUIDANCE, SOURCE_NEED_OPTIONS,
         opening_work_question,
@@ -124,8 +124,10 @@ def build_wire(state, menu, model):
         }},
         "questions": {
             "requested_work": work,
-            "source_need": {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
-                            "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)},
+            **({} if intent_only else {
+                "source_need": {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
+                                "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)},
+            }),
         },
     }
 
@@ -224,7 +226,11 @@ async def main():
                         help="Evaluate the shared source-blind intent request for Plan")
     parser.add_argument("--build-wire-shape", action="store_true",
                         help="Use the ordinary Build question instructions and source-need ballot")
+    parser.add_argument("--build-intent-only", action="store_true",
+                        help="Ablate the source-need question from the scoped ordinary Build request")
     args = parser.parse_args()
+    if args.build_intent_only and not args.build_wire_shape:
+        parser.error("--build-intent-only requires --build-wire-shape")
     if args.build_wire_shape and args.surface != "build":
         parser.error("--build-wire-shape requires --surface build")
     if args.plan_intent_only and args.surface != "plan":
@@ -259,6 +265,8 @@ async def main():
                 "play_edit": "Request a change to the current live session scene in Play.",
                 "different_destination": "Request work on a different surface or target, such as editing a saved page outside the live scene, or using a separate operator control.",
             })
+    if args.build_intent_only:
+        menus["build"] = {"scoped": menus["build"]["scoped"]}
     if args.validate_only:
         print(digest, {surface: len(rows) for surface, rows in groups.items()})
         return
@@ -289,7 +297,7 @@ async def main():
                                             for row in groups["plan"]}
     if args.build_wire_shape:
         frozen["build_wire_by_case"] = {
-            row["id"]: {arm: build_wire(row["input"], menu, model)
+            row["id"]: {arm: build_wire(row["input"], menu, model, intent_only=args.build_intent_only)
                         for arm, menu in menus["build"].items()}
             for row in groups["build"]
         }
@@ -317,7 +325,7 @@ async def main():
         payload = {"model": model, "state": body["state"], "questions": {"intent": {
             "question": body["instructions"], "options": list(menu), "option_descriptions": menu}}}
         if args.build_wire_shape:
-            request = DecisionRequest.model_validate(sdk_request(build_wire(body["state"], menu, model)))
+            request = DecisionRequest.model_validate(sdk_request(build_wire(body["state"], menu, model, intent_only=args.build_intent_only)))
         elif args.plan_intent_only:
             request = with_menu(plan_request(body["state"]), menu)
         else:
@@ -334,7 +342,7 @@ async def main():
         for index, (surface, cases) in enumerate(groups.items()):
             report[surface] = {}
             arms = ("full", "scoped") if index % 2 == 0 else ("scoped", "full")
-            for arm in arms:
+            for arm in (name for name in arms if name in menus[surface]):
                 prior_rows = retained.get(surface, {}).get(arm, {})
                 reused = {case["id"]: prior_rows[case["id"]][1] for case in cases
                           if case["id"] in prior_rows and prior_rows[case["id"]][0] == case}

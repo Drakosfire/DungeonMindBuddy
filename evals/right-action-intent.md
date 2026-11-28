@@ -360,3 +360,18 @@ the 49/60 combined and 55/60 scoped totals. On this roster, the combined arm
 has ten wrong actions and one invalid deferral. The scoped arm has four
 wrong actions and one invalid deferral. Both have eight valid deferrals and
 zero provider failures or top-score ties.
+
+### Build source-need ablation
+
+The [scoped intent-only comparison](right_action_intent/build-intent-only-cohort-jev.json)
+removes only `source_need` from the earlier scoped wire-shaped packets and
+keeps the action question, option order, and model-visible state. Reproduce
+with `--surface build --build-wire-shape --build-intent-only`.
+
+Jev scored 34/36, up from 33/36 on the retained two-question scoped control.
+The request for a map description in chat recovered and the other two misses
+persisted. Median input fell from 1,136 to 899 tokens and median decision time
+from 214.03 to 197.56 ms. Both runs used reconstructed fixture state and were
+made at different times. Downstream retrieval and proposal behavior are
+outside this comparison. Removing the question from ordinary Build requires
+an explicit owning decision for turns that still need source scope.
