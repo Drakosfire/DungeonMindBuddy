@@ -170,10 +170,14 @@ def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, pas
     body_frame["excerpts"].extend(bodies.model_body_frame_rows(
         receipt.source_authority, (), body_handle,
         passage_supports=native_supports(execution))["excerpts"])
+    statement_frame = statements.model_frame_records(query, execution)
+    if isinstance(receipt.native_query, NativePlanGraphQueryPendingV1) and query is None:
+        # No Graph was requested; do not label an unqueried catalog complete.
+        statement_frame['status'] = 'not_requested'
     return dict(schema=schema, answer_policy=assertions.POLICY, input_status='partial' if partial else 'complete',
         user_question=execution.policy.action.intent.message,
         native_body_evidence=body_frame,
-        native_statements=statements.model_frame_records(query, execution),
+        native_statements=statement_frame,
         native_assertions=assertions.model_frame_records(query, execution,
             schema='dmb_plan_native_assertion_frame_v1' if schema == LEGACY_SCHEMA else 'dmb_native_assertion_frame_v2',
             read_records=_writer_assertion_reads(execution, passages_only=passages_only))

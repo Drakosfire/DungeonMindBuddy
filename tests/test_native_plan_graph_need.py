@@ -246,7 +246,7 @@ def test_pending_receipt_and_empty_execution_bind_at_actual_native_boundary():
     assert type(record).model_validate_json(record.model_dump_json(by_alias=True)) == record
 
 
-def test_no_graph_closure_roundtrips_through_actual_execution_and_context_validation():
+def actual_need_execution(choice='no_graph'):
     from uuid import uuid4
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_execution import validate_context_binding
@@ -266,7 +266,7 @@ def test_no_graph_closure_roundtrips_through_actual_execution_and_context_valida
         'kind': 'native_plan_graph_need_authorized_v1', 'parent_request_sha256': value.digest,
         'parent_json': value.model_dump_json(by_alias=True),
         'envelope_sha256': sha256(canonical_wire(value, expected_model=base.model)).hexdigest()})
-    typed = result(answers={'graph_need': ChoiceDecisionAnswer(selected='no_graph')})
+    typed = result(answers={'graph_need': ChoiceDecisionAnswer(selected=choice)})
     typed = typed.model_copy(update={'observation': typed.observation.model_copy(update={
         'resolved_model': auth.model, 'response_model': auth.model})})
     raw = typed.model_dump_json()
@@ -274,13 +274,37 @@ def test_no_graph_closure_roundtrips_through_actual_execution_and_context_valida
         controller_attempt_id=auth.provider_attempt_id, decision_request_id=auth.decision_request_id,
         context_receipt_sha256=context.context_receipt_sha256, execution_policy_sha256=record.execution_policy_sha256,
         parent=value, envelope_sha256=auth.envelope_sha256, result_json=raw,
-        result_sha256=sha256(raw.encode()).hexdigest(), choice='no_graph')
+        result_sha256=sha256(raw.encode()).hexdigest(), choice=choice)
+    return context, record, auth, outcomes(auth, 1), observed
+
+
+def actual_closed_execution():
+    from uuid import uuid4
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQueryClosedV1
+    from tests.test_surface_native_execution import execution
+    context, record, auth, lifecycle, observed = actual_need_execution()
     closed = NativePlanGraphQueryClosedV1(event_id=uuid4(), sequence=4, need_event_id=observed.event_id,
-        pending_query_sha256=value.pending_query_sha256)
-    retained = execution(context.context_receipt_sha256, record.policy, [auth, *outcomes(auth, 1), observed, closed])
+        pending_query_sha256=observed.parent.pending_query_sha256)
+    retained = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle, observed, closed])
+    return context, retained
+
+
+def test_no_graph_closure_roundtrips_through_actual_execution_and_context_validation():
+    from application_state.agent_conversation.native_execution import validate_context_binding
+    context, retained = actual_closed_execution()
     assert validate_context_binding(context, retained) == retained
     reopened = type(retained).model_validate_json(retained.model_dump_json(by_alias=True))
     assert validate_context_binding(context, reopened) == retained
+
+
+def test_no_graph_writer_projection_does_not_claim_complete_graph():
+    from application_state.agent_conversation.native_writer import model_frame
+    context, retained = actual_closed_execution()
+    frame = model_frame(context, retained)
+    assert frame['native_statements']['status'] == 'not_requested'
+    assert frame['native_statements']['statements'] == []
+    assert frame['native_assertions'] is None
+    assert frame['native_body_evidence']['coverage']['global_completeness'] == 'not_established'
 
 
 def test_graph_settlement_requires_exact_started_query_and_pinned_authority():
@@ -309,6 +333,18 @@ def test_graph_settlement_requires_exact_started_query_and_pinned_authority():
     assert validate_pending_graph(context, execution) == context.native_query
     execution.events.append(settled.model_copy(update={'sequence': 7}))
     with pytest.raises(ValueError):
+        validate_pending_graph(context, execution)
+
+
+@pytest.mark.parametrize('event_name', [
+    'BuildAuthoredReferenceAuthorizedV2', 'BuildAuthoredReferenceReadV2', 'BuildAuthoredReferenceReadV3',
+])
+def test_authored_graph_access_before_settlement_is_rejected(event_name):
+    from application_state.agent_conversation import authored_graph_references as refs
+    from application_state.agent_conversation.native_plan_graph_need import validate_pending_graph
+    context, execution, _ = pending_execution('require_graph')
+    execution.events.append(getattr(refs, event_name).model_construct(sequence=4))
+    with pytest.raises(ValueError, match='prior exact query settlement'):
         validate_pending_graph(context, execution)
 
 
@@ -373,3 +409,31 @@ def test_pending_receipt_is_admitted_and_reopened_from_app_database(source_adapt
     reopened = service.inspect_turn(world_id=a.world_id, turn_id=created.turn_id)
     assert reopened.graph_context_receipt == receipt
     assert reopened.graph_context_execution == execution
+
+
+def test_typed_execution_settles_exact_graph_query_and_rejects_late_failure():
+    from uuid import uuid4
+    from application_state.agent_conversation.native_execution import effective_native_query, validate_context_binding
+    from application_state.agent_conversation.native_plan_assertions import NativePlanQueryV2
+    from application_state.agent_conversation.native_plan_graph_need import (
+        NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+        NativePlanGraphQuerySettledV1, NativePlanGraphQueryFailedV1,
+    )
+    from tests.test_surface_native_context import wire
+    from tests.test_surface_native_execution import execution
+    context, record, auth, lifecycle, observed = actual_need_execution('require_graph')
+    grant = NativePlanGraphQueryAuthorizedV1(event_id=uuid4(), sequence=4, need_event_id=observed.event_id,
+        pending_query_sha256=observed.parent.pending_query_sha256)
+    start = NativePlanGraphQueryStartedV1(event_id=uuid4(), sequence=5, authorization_event_id=grant.event_id)
+    data = wire('plan')['native_query']; data['authority']['scope_mode'] = 'world'; data['authority']['campaign_id'] = None
+    query = NativePlanQueryV2.model_validate(data)
+    settlement = NativePlanGraphQuerySettledV1(event_id=uuid4(), sequence=6, started_event_id=start.event_id, query=query)
+    events = [auth, *lifecycle, observed, grant, start, settlement]
+    retained = execution(context.context_receipt_sha256, record.policy, events)
+    assert validate_context_binding(context, retained) == retained
+    assert effective_native_query(context, retained) == query
+    failure = NativePlanGraphQueryFailedV1(event_id=uuid4(), sequence=7,
+        started_event_id=start.event_id, reason='uncertain_owner_result')
+    with pytest.raises(ValueError):
+        invalid = execution(context.context_receipt_sha256, record.policy, [*events, failure])
+        validate_context_binding(context, invalid)
