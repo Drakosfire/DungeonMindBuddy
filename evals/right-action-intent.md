@@ -204,3 +204,21 @@ Combat handoff and the ambiguous request as current-scene edits. The combined
 treatment fixed the Build edit handoff but missed Combat and still missed
 the Plan edit. Retain the current runtime wording. The development improvement
 did not generalize to the held-out cases.
+
+#### Contextual Plan wire control
+
+The [ordinary synthetic Plan capture](right_action_intent/plan-contextual-ordinary-wire.json)
+is from the existing ambiguous-placement test with a simulated Jev transport.
+The first two requests have three questions each: page-edit intent, placement
+relation and existing scope. The third has twelve questions, including
+requested work, placement, a candidate vote and retrieval disposition. It
+also receives the earlier page-edit intent. The seven paired Plan cases
+measure requested work in isolation. Treat this capture as the control for
+a future intent-first Plan route.
+
+The first request contains no source candidates. The current Plan harness
+still acquires explicit references and starts request-owned source discovery
+before dispatch when the relevant authorities are available. The opening
+admission validator requires settled discovery in the prefix. Moving source
+work later therefore needs a coordinated change to orchestration and
+admission, with replay coverage for the earlier ordering.
