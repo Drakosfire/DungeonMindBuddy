@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.build_intentional_response import (
-    UnresolvedDiscussionSource, build_source_followup_wire, verify_build_source_followup,
+    UnresolvedDiscussionSource, build_source_followup_wire, has_explicit_build_graph_reference, verify_build_source_followup,
 )
 from application_state.agent_conversation.native_execution import BuildSourceScopeAuthorizedV1
 
@@ -16,19 +16,22 @@ from .build_pending_app_pages import _commit
 
 
 class PendingBuildSourceScopeDriver:
-    def __init__(self, adapter, opening_request, opening_response):
+    def __init__(self, adapter, opening_request, opening_response, *, image_move=None):
         self.adapter = adapter
         self.before = adapter._broker_execution()
         self.opening_request = opening_request
         self.opening_response = opening_response
+        self.image_move = image_move
         self.opening_wire = json.loads(opening_request)
         self.intent = self.before.events[-1]
         if type(self.intent) is not ledger.BuildOpeningIntentSelectedV1:
             raise ValueError("Build source scope needs its saved opening intent")
         self.menu = self.before.policy.action.requested_work_menu_sha256
+        self.graph_reference = has_explicit_build_graph_reference(getattr(self.before.policy.action.intent, "authored_references", None))
         self.wire = build_source_followup_wire(
             self.opening_wire["state"], self.intent.requested_work, menu_digest=self.menu,
-            write_capability=self.before.policy.action.write_capability,
+            write_capability=self.before.policy.action.write_capability, graph_reference=self.graph_reference,
+            related_pages=self.before.policy.action.related_page_catalog, image_move=self.image_move,
         )
         self.step = DecisionIntent(
             request_id="build-source-scope:" + digest(self.wire), phase="source_scope",
@@ -71,9 +74,12 @@ class PendingBuildSourceScopeDriver:
             max_question_input_tokens=view["maxQuestionInputTokens"], dispatch_identity_sha256=view["dispatchIdentitySha256"],
             opening_intent_event_id=self.intent.event_id,
         )
+        access = getattr(adapter, "build_intent_access", None) or adapter.pending_build_access
+        if not callable(access):
+            raise ValueError("Build source scope requires its current World access owner")
         _commit(adapter, "authorize_pending_build_source_scope", authorization=auth,
             request_json=prepared.body.decode(), initial_request_json=self.opening_request,
-            authorize_current_access=adapter.pending_build_access)
+            authorize_current_access=access)
         adapter.last_provider_attempt_id = auth.provider_attempt_id
         adapter._prepared_build_decision = prepared
         adapter._capture_prepared_prompt(view, auth)
@@ -88,7 +94,8 @@ class PendingBuildSourceScopeDriver:
             scope = verify_build_source_followup(
                 self.opening_wire, self.opening_response, menu_digest=self.menu,
                 wire=json.loads(self.prepared.body), response=actual_response.model_dump(mode="json"),
-                write_capability=self.before.policy.action.write_capability,
+                write_capability=self.before.policy.action.write_capability, graph_reference=self.graph_reference,
+            related_pages=self.before.policy.action.related_page_catalog, image_move=self.image_move,
             )
         except UnresolvedDiscussionSource as exc:
             from .agent_turn_service import AgentTurnServiceError

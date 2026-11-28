@@ -1942,10 +1942,13 @@ class AgentConversationService:
             from .types import BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1
             from .build_pending_app_coverage import BuildAppCoverageDecidedV1
             from .types import BuildOpeningIntentSelectedV1, PlanJevRetrievalSelectionV1
+            from .native_execution import BuildSourceScopeAuthorizedV1
+            if type(event) in (BuildOpeningIntentSelectedV1, BuildSourceScopeAuthorizedV1):
+                raise ApplicationStateValidationError('Build intent dispatch requires its dedicated proof owner')
             if type(turn.graph_context_execution) is BuildPendingExecutionV1 and (native_source_materializer is not None or isinstance(event, (
                     ProviderAttemptAuthorizedEventV1, ProviderOutcomeEventV1, RelatedPagesSelection, RelatedPageRead,
                     BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1, BuildAppCoverageDecidedV1,
-                    BuildOpeningIntentSelectedV1, PlanJevRetrievalSelectionV1))):
+                    PlanJevRetrievalSelectionV1))):
                 raise ApplicationStateValidationError('Pending Build dispatch/acquisition requires its exact prepared-input admission owner')
             from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
@@ -1999,7 +2002,12 @@ class AgentConversationService:
                 from .build_intentional_response import validate_selection
                 captured = conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s", (turn.turn_id, turn.attempt)).fetchone()
                 try:
-                    validate_selection(turn, event, requested_work_proof, captured[0] if captured else None)
+                    image_move = None
+                    if (isinstance(requested_work_proof, dict) and "opening_request_json" in requested_work_proof
+                            and getattr(turn.graph_context_execution.policy.action, "image_move_capture", None) is not None):
+                        image_move = self._build_image_offer_locked(conn, turn)
+                    validate_selection(turn, event, requested_work_proof, captured[0] if captured else None,
+                        image_move=image_move)
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             from .types import BuildDraftProviderInclusionV1
@@ -3234,10 +3242,11 @@ class AgentConversationService:
         )
 
     def _pending_source_turn_locked(self, conn, world_id, conversation_id, turn_id, *,
-                                    expected_revision, expected_attempt, replay_event_id=None, replay_event_type=None):
+                                    expected_revision, expected_attempt, replay_event_id=None, replay_event_type=None,
+                                    allow_native_build_intent=False):
         """Use reset's lock order and the actual moving claim, not a source grant."""
-        from .native_context import BuildPendingContextReceiptV1
-        from .native_execution import BuildPendingExecutionV1
+        from .native_context import BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1
+        from .native_execution import BuildPendingExecutionV1, NativeBuildActionV1, SurfaceNativeExecutionV1
         from .build_source_free import validate_pending_conversation_pointer
         pointer = repo.lock_world_state(conn, world_id)
         conversation = repo.lock_conversation(conn, world_id, conversation_id)
@@ -3245,13 +3254,20 @@ class AgentConversationService:
         if (turn is None or turn.conversation_id != conversation_id
                 or conversation is None or conversation.status != 'active'):
             raise ApplicationStateConflictError('Pending source lost its active conversation')
-        if (type(turn.graph_context_receipt) is not BuildPendingContextReceiptV1
-                or type(turn.graph_context_execution) is not BuildPendingExecutionV1):
+        if (type(turn.graph_context_receipt) is BuildPendingContextReceiptV1
+                and type(turn.graph_context_execution) is BuildPendingExecutionV1):
+            try:
+                validate_pending_conversation_pointer(turn.graph_context_receipt, pointer)
+            except ValueError as exc:
+                raise ApplicationStateConflictError(str(exc)) from exc
+        elif (allow_native_build_intent
+                and type(turn.graph_context_receipt) is SurfaceNativeContextReceiptV1
+                and type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+                and type(turn.graph_context_execution.policy.action) is NativeBuildActionV1):
+            if pointer is None or pointer.active_conversation_id != conversation_id:
+                raise ApplicationStateConflictError('Native Build intent lost its active conversation')
+        else:
             raise ApplicationStateValidationError('Source settlement requires its actual pending Build Turn')
-        try:
-            validate_pending_conversation_pointer(turn.graph_context_receipt, pointer)
-        except ValueError as exc:
-            raise ApplicationStateConflictError(str(exc)) from exc
         from .native_execution import NativeBuildSourceSettledV1
         replay_event_type = replay_event_type or NativeBuildSourceSettledV1
         replay = (replay_event_id is not None and any(
@@ -3547,7 +3563,7 @@ class AgentConversationService:
             raise ApplicationStateValidationError('Build opening intent requires its exact request and response')
         with unit_of_work(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
-                expected_revision=expected_revision, expected_attempt=expected_attempt)
+                expected_revision=expected_revision, expected_attempt=expected_attempt, allow_native_build_intent=True)
             self._validate_pending_initial_prompt(conn, turn, request_json)
             try:
                 decision = BuildOpeningIntentSelectedV1.model_validate_json(decision.model_dump_json())
@@ -3567,14 +3583,32 @@ class AgentConversationService:
                 raise ApplicationStateValidationError(str(exc)) from exc
             if authorize_current_access(conn, turn, None) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize the opening intent')
-            return self._append_pending_checked(conn, turn, decision, expected_revision)
+            return self._append_pending_checked(conn, turn, decision, expected_revision, allow_native_build_intent=True)
+
+    def _build_image_offer_locked(self, conn, turn):
+        """Rebuild an image offer from the exact current saved composed page."""
+        from application_state.build_proposal.image_move_decision import BuildImageMoveDecision
+        from application_state.content import pages
+
+        capture = turn.graph_context_execution.policy.action.image_move_capture
+        if capture is None:
+            return None
+        basis = capture.basis
+        state = pages._state(conn, basis.document_id, turn.world_id, lock=True)
+        saved = pages._committed_snapshot(conn, state)
+        if (capture.conversation_id != turn.conversation_id
+                or state.page.status != "active" or state.metadata.visibility_state != "internal"
+                or state.page.object_revision != basis.registry_revision or saved.revision is None
+                or saved.revision.content_sha256 != basis.content_sha256 or saved.presentation is None):
+            raise ApplicationStateConflictError("The captured Page changed before the image decision")
+        return BuildImageMoveDecision.from_saved(capture, turn.user_text, saved.revision.markdown, saved.presentation)
 
     def authorize_pending_build_source_scope(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, request_json, initial_request_json,
             authorize_current_access):
         """Authorize only the source ballot derived from the captured opening state."""
         from .build_decision_context import validate_prepared
-        from .build_intentional_response import build_source_followup_wire
+        from .build_intentional_response import build_source_followup_wire, has_explicit_build_graph_reference
         from .native_execution import BuildSourceScopeAuthorizedV1
         from .source_writer_output import strict_json
         from .types import BuildOpeningIntentSelectedV1
@@ -3587,7 +3621,7 @@ class AgentConversationService:
             raise ApplicationStateValidationError('Build source scope requires its exact authorization and App owner')
         with unit_of_work(_ready_dsn()) as conn:
             turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
-                expected_revision=expected_revision, expected_attempt=expected_attempt)
+                expected_revision=expected_revision, expected_attempt=expected_attempt, allow_native_build_intent=True)
             self._validate_pending_initial_prompt(conn, turn, initial_request_json)
             execution = turn.graph_context_execution
             try:
@@ -3598,7 +3632,10 @@ class AgentConversationService:
                 opening = strict_json(initial_request_json)
                 expected = build_source_followup_wire(opening["state"], intent.requested_work,
                     menu_digest=execution.policy.action.requested_work_menu_sha256,
-                    write_capability=execution.policy.action.write_capability)
+                    write_capability=execution.policy.action.write_capability,
+                    graph_reference=has_explicit_build_graph_reference(getattr(execution.policy.action.intent, "authored_references", None)),
+                    related_pages=execution.policy.action.related_page_catalog,
+                    image_move=self._build_image_offer_locked(conn, turn))
                 validate_prepared(authorization, execution, request_json, host_phase="source_scope")
                 if strict_json(request_json) != expected:
                     raise ValueError('Build source scope differs from the admitted opening')
@@ -3606,7 +3643,7 @@ class AgentConversationService:
                 raise ApplicationStateValidationError(str(exc)) from exc
             if authorize_current_access(conn, turn, None) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize source scope')
-            return self._append_pending_checked(conn, turn, authorization, expected_revision)
+            return self._append_pending_checked(conn, turn, authorization, expected_revision, allow_native_build_intent=True)
 
     def authorize_pending_app_coverage(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, prepared_request_json,
@@ -4057,16 +4094,21 @@ class AgentConversationService:
                 raise ApplicationStateConflictError('Pending SDK entry lost its claim fence')
             return updated, True
 
-    def _append_pending_checked(self, conn, turn, event, expected_revision):
-        """Append only after the caller's locked pending claim and proof checks."""
-        from .native_execution import BuildPendingExecutionV1
+    def _append_pending_checked(self, conn, turn, event, expected_revision, *, allow_native_build_intent=False):
+        """Append only after the caller's locked claim and proof checks."""
+        from .native_execution import BuildPendingExecutionV1, SurfaceNativeExecutionV1
         from .build_source_free import effective_pending_source
         try:
-            execution = BuildPendingExecutionV1.model_validate_json(json.dumps(
+            native = allow_native_build_intent and type(turn.graph_context_execution) is SurfaceNativeExecutionV1
+            execution_type = SurfaceNativeExecutionV1 if native else BuildPendingExecutionV1
+            execution = execution_type.model_validate_json(json.dumps(
                 turn.graph_context_execution.model_dump(mode='json', by_alias=True) | {
                     'events': [row.model_dump(mode='json', by_alias=True)
                                for row in [*turn.graph_context_execution.events, event]]}))
-            effective_pending_source(turn.graph_context_receipt, execution)
+            if native:
+                execution = self._bind_execution_append(turn.graph_context_receipt, execution)
+            else:
+                effective_pending_source(turn.graph_context_receipt, execution)
         except (ValueError, TypeError, KeyError, AttributeError) as exc:
             raise ApplicationStateValidationError(str(exc)) from exc
         if turn.claim_expires_at <= repo.database_clock(conn):

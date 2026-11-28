@@ -530,3 +530,25 @@ def test_build_followup_offers_paragraph_placement_only_for_page_edit(monkeypatc
     edit = c.build_source_followup_wire(state, "write_current_page", **kwargs)
     assert set(discussion["questions"]) == {"source_need"}
     assert edit["questions"]["paragraph_work"]["criteria"] == {"place": None, "skip": None}
+
+
+def test_build_image_followup_projects_only_the_captured_offer():
+    from types import SimpleNamespace
+
+    state = {"user_question": "Move this map right.", "interaction": {"surface": "build"}}
+    image_move = SimpleNamespace(
+        question=state["user_question"],
+        semantic_state=lambda: {"author_selected_occurrence": "image1"},
+        wire_questions=lambda: {"image_move_occurrence": {
+            "type": "choice", "instructions": "Which occurrence?", "criteria": {"image1": None},
+        }},
+    )
+    wire = c.build_source_followup_wire(state, "write_current_page",
+        menu_digest=c.SCOPED_BUILD_MENU_DIGEST, image_move=image_move)
+    assert wire["state"]["interaction"]["image_move"] == image_move.semantic_state()
+    assert wire["questions"]["image_move_occurrence"] == image_move.wire_questions()["image_move_occurrence"]
+    assert "image_move" not in state["interaction"]
+    image_move.question = "Change the prose."
+    with pytest.raises(ValueError, match="opening utterance"):
+        c.build_source_followup_wire(state, "write_current_page",
+            menu_digest=c.SCOPED_BUILD_MENU_DIGEST, image_move=image_move)

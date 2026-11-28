@@ -551,12 +551,20 @@ class BuildJevDriver:
         pending = getattr(a, "pending_build_source_observation", None) is not None
         if pending and "related_page_catalog" in self._interaction:
             raise ValueError("Pending Build discovers related pages only after selecting work")
-        self.split_opening = fresh and pending and capture is None
+        from application_state.agent_conversation.build_intentional_response import has_explicit_build_graph_reference
+
+        split_reference = (
+            callable(getattr(a, "build_intent_access", None))
+            and self._boundary_catalog is not None
+            and has_explicit_build_graph_reference(a.request.build_authored_references)
+        )
+        split_image = capture is not None and callable(getattr(a, "build_intent_access", None))
+        self.split_opening = fresh and (pending or split_reference or split_image)
         if fresh:
             from application_state.agent_conversation.build_intentional_response import semantic_routing_state
             state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references,
                 write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening,
-                include_surface=True)
+                include_surface=True, include_related_catalog=not self.split_opening)
         questions = (DecisionQuestion(name='requested_work',kind='choice',question=work_question["instructions"],options=tuple(work_question["criteria"])),)
         if capture is not None:
             from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
@@ -574,9 +582,12 @@ class BuildJevDriver:
                     "The saved Page and editor capture differ. Reopen the Page and send again.",
                     code="build_image_move_context_changed", status_code=409, provider_dispatched=False,
                 ) from exc
-            state["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
-            questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
-                               for q in self.image_move.questions())
+            if self.split_opening:
+                state["interaction"]["image_editor"] = self.image_move.intent_context()
+            else:
+                state["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
+                questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
+                                   for q in self.image_move.questions())
         if fresh and not self.split_opening:
             from application_state.agent_conversation.build_intentional_response import source_need_question
 
@@ -596,7 +607,7 @@ class BuildJevDriver:
 
                 q = GRAPH_REFERENCE_OPENING
                 questions += (DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options),)
-        if 'related_page_catalog' in self._interaction:
+        if 'related_page_catalog' in self._interaction and not self.split_opening:
             from application_state.agent_conversation.build_related_pages import PagePointer, question_name, question_text
             questions += tuple(DecisionQuestion(name=question_name(i),kind='choice',
                 question=question_text(PagePointer.model_validate(page), semantic=fresh),options=('read','skip'))
@@ -1165,10 +1176,13 @@ class BuildJevDriver:
                 from .agent_turn_service import _turn_idempotency_key
                 expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references,
                     write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening,
-                    include_surface=True)
+                    include_surface=True, include_related_catalog=not self.split_opening)
                 if self.image_move is not None:
-                    from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
-                    expected["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
+                    if self.split_opening:
+                        expected["interaction"]["image_editor"] = self.image_move.intent_context()
+                    else:
+                        from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
+                        expected["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
                 if (plan.host_phase!='select' or plan.state()!=expected
                     or plan.host_interaction_json!=canonical(self._interaction)
                     or plan.questions()!=wire_questions(self.step)
@@ -1329,7 +1343,7 @@ class BuildJevDriver:
                 expected_answers = {question.name for question in self._selection_intent.questions
                                     if question.name in {"requested_work", "source_need", GRAPH_REFERENCE_OPENING.name}
                                     or question.name.startswith(OPENING_QUESTION_PREFIX)}
-                if self.image_move is not None:
+                if self.image_move is not None and split_proof is None:
                     expected_answers.update(q.name for q in self.image_move.questions())
                 if (model != self._selection_intent.model or set(answers) != expected_answers
                     or not isinstance(actual_response, DecisionResult) or sdk_answers(actual_response).get('requested_work') != answers['requested_work']):
@@ -1337,11 +1351,20 @@ class BuildJevDriver:
                 raw = canonical(actual_response.model_dump(mode='json'))
                 execution = a._broker_execution()
                 request = json.loads(split_proof["opening_request"] if split_proof else prepared.body)
-                graph_reference = resolve_graph_reference_opening(request, actual_response)
-                image_move = (opening_image_choice(
-                    execution.policy, json.loads(raw),
-                    self.image_move.opening_answers(request, actual_response), a.request.message,
-                ) if self.image_move is not None else None)
+                if split_proof is not None and prepared.attempt_id != self._attempt:
+                    followup_response = DecisionResult.model_validate_json(split_proof["response"])
+                    graph_reference = resolve_graph_reference_opening(json.loads(prepared.body), followup_response)
+                else:
+                    graph_reference = resolve_graph_reference_opening(request, actual_response)
+                image_move = None
+                if self.image_move is not None:
+                    if split_proof is None:
+                        image_move = opening_image_choice(
+                            execution.policy, json.loads(raw),
+                            self.image_move.opening_answers(request, actual_response), a.request.message,
+                        )
+                    else:
+                        image_move = split_proof.get("image_move", "other")
                 image_terminal = image_move in {"move_existing", "unresolved"}
                 try:
                     if split_proof is None:
@@ -1356,9 +1379,9 @@ class BuildJevDriver:
                 _require_guest_build_discussion(a, label=label, graph_reference=graph_reference, image_move=image_move)
                 resolution = resolution_for(execution.policy, label, source_scope=source_scope)
                 placement = None
-                if split_proof is None:
+                if split_proof is None and graph_reference != "place_existing_reference":
                     placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
-                elif label == "write_current_page":
+                elif split_proof is not None and label == "write_current_page" and graph_reference != "place_existing_reference":
                     placement = paragraph_placement_for(execution.policy, json.loads(prepared.body),
                         DecisionResult.model_validate_json(split_proof["response"]), a.request.message, label)
                 _, _, menu, resolver = _captured_semantics(execution.policy)
@@ -1387,7 +1410,7 @@ class BuildJevDriver:
                 self.operation, self.selection = selected, event
                 if image_terminal:
                     self.image_move_opening_proof = {
-                        "request_json": prepared.body.decode(), "response_json": raw,
+                        "request_json": prepared.body.decode(), "response_json": producer_proof["response_json"],
                     }
                 if image_terminal or graph_reference == "place_existing_reference":
                     self._selection_intent = None
@@ -1399,13 +1422,13 @@ class BuildJevDriver:
                     is_anchored_conversation_draft, is_anchored_current_page_edit,
                 )
                 from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
-                if ('related_page_catalog' in self._interaction
+                if ('related_page_catalog' in self._interaction and (split_proof is None or prepared.attempt_id != self._attempt)
                         and not ((conversation_route_can_admit(a._broker_receipt(), a._broker_execution())
                                   and prior_conversation_work((event,), allow_discussion=True) is not None)
                                  or is_anchored_discussion(event) or is_variant_approval(event)
                                  or is_anchored_current_page_edit(event)
                                  or is_anchored_conversation_draft(a._broker_execution(), event))):
-                    select_pages(self, prepared, actual_response)
+                    select_pages(self, prepared, followup_response if split_proof is not None else actual_response)
             else:
                 _require_guest_build_discussion(a, label=None, graph_reference=None, image_move=None)
                 question = self._selection_intent.questions[0]

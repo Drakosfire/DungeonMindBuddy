@@ -321,8 +321,8 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
         host = json.loads(projection.host_interaction_json)
         expected_state = semantic_routing_state(request.message, host, request.build_authored_references,
                                                 write_capability=request.build_write_capability,
-            include_paragraph_catalog=not (pending and action.image_move_capture is None),
-            include_surface=True)
+            include_paragraph_catalog=set(body["questions"]) != {"requested_work"},
+            include_surface=True, include_related_catalog=set(body["questions"]) != {"requested_work"})
         if action.image_move_capture is not None:
             from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
 
@@ -331,8 +331,11 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
             move = BuildImageMoveDecision.from_saved(
                 action.image_move_capture, request.message, basis.markdown, basis.page_presentation,
             )
-            move.require_opening_offer(body)
-            expected_state["interaction"][OPENING_STATE_KEY] = move.semantic_state()
+            if set(body["questions"]) == {"requested_work"}:
+                expected_state["interaction"]["image_editor"] = move.intent_context()
+            else:
+                move.require_opening_offer(body)
+                expected_state["interaction"][OPENING_STATE_KEY] = move.semantic_state()
         if (host['current_page']!={'document_id':basis.document_id,'title':basis.title}
             or host['allowed_operations']!=list(caps.operations)
             or host['capability_sha256']!=(digest(request.build_write_capability.model_dump(mode='json')) if request.build_write_capability is not None else None)

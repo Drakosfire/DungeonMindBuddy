@@ -8440,6 +8440,9 @@ def execute_agent_turn(
                 'pending_build_source_preparation': pending_build_source_preparation} if pending_build else {}),
         )
         if isinstance(selected_runtime, BuildJevHarness):
+            adapter.build_intent_access = pending_build_access
+            if adapter.build_intent_access is None and callable(authorize_build_world):
+                adapter.build_intent_access = _pending_build_app_access(canonical_world_id, authorize_build_world)
             adapter.prepare_deferred_build_query = prepare_deferred_build_query
             adapter.build_image_owner = operator_subject
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)

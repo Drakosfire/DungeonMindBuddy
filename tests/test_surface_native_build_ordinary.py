@@ -268,7 +268,7 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
                else "Insert a reference to the selected object after the orchid paragraph in East.")
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
                 message=request,
-                graph_reference=disposition)
+                graph_reference=disposition, read_optional_page=True)
 
 
 @pytest.mark.parametrize(("message", "disposition"), [
@@ -292,7 +292,9 @@ def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypa
 
         monkeypatch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
     _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
-                message=message, image_move=disposition)
+                message=message, image_move=disposition,
+                requested_work=("write_current_page" if disposition in {"ready", "different_row", "duplicate_context"}
+                                else None))
 
 
 def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_path, monkeypatch):
@@ -620,8 +622,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
     if graph_reference:
-        from apps.live_control_server.services import build_graph_reference
+        from apps.live_control_server.services import build_graph_reference, build_related_pages
 
+        def unexpected_related_page_read(*_args, **_kwargs):
+            pytest.fail("Graph-reference review opened an unrelated authoring page")
+
+        monkeypatch.setattr(build_related_pages, "materialize", unexpected_related_page_read)
         reference = selected.references[0].model_copy(update={"graph_revision": current_revision})
         selected = selected.model_copy(update={"references": (reference,)})
         identities = [{"node_id": reference.node_id, "label": reference.label, "kind": "threat", "selectable": True}]
@@ -998,7 +1004,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 candidate.update(answer_segments=[], collaboration={
                     "kind": "questions", "questions": [{"text": question}],
                 })
-            if image_move == "other_discussion":
+            if image_move in {"discussion", "other_discussion"}:
                 candidate["answer_segments"] = [
                     dict(kind="discussion", text="The image would sit to the right of the nearby material."),
                 ]
@@ -1485,12 +1491,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError
 
-        if image_move == "other_discussion":
+        if image_move in {"tied_menu", "other_discussion_tied_work"}:
+            assert response.status_code == 503, response.text
+            assert len(decisions.calls) == 1 and not writer.calls
+            with pytest.raises(ApplicationStateNotFoundError):
+                BuildImageMoveReviewService().get(world, writer.adapter.turn.turn_id)
+            return
+        if image_move in {"discussion", "other_discussion"}:
             assert response.status_code == 200, response.text
             context = response.json()["knowledge_context"]
             assert context["completion"]["schema"] != "dmb_build_image_move_completion_v1"
             assert "The image would sit to the right" in str(context["completion"])
             assert len(writer.calls) == 1
+            ballots = [set(json.loads(call.content)["questions"]) for call in decisions.calls]
+            assert ballots[0] == {"requested_work"}
+            assert not any(name.startswith("image_move_") for ballot in ballots for name in ballot)
             with pytest.raises(ApplicationStateNotFoundError):
                 BuildImageMoveReviewService().get(world, writer.adapter.turn.turn_id)
             counts = len(decisions.calls), len(writer.calls)
@@ -1512,6 +1527,13 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert completion["disposition"] == expected
         opening = json.loads(decisions.calls[0].content)
         assert opening["state"]["interaction"]["surface"] == "build"
+        assert set(opening["questions"]) == {"requested_work"}
+        assert "image_move" not in opening["state"]["interaction"]
+        assert "current-page edit" in opening["state"]["interaction"]["image_editor"]["available_work"]
+        if expected in {"ready", "different_row"}:
+            followup = json.loads(decisions.calls[1].content)
+            assert "image_move_occurrence" in followup["questions"]
+            assert "requested_work" not in followup["questions"]
         turn_id = writer.adapter.turn.turn_id
         if expected == "ready":
             assert not any(event.kind == "native_build_query_settled_v1"
@@ -1555,7 +1577,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         replay = client.post("/api/live/agent/turn", json=body)
         assert replay.status_code == 200, replay.text
         assert replay.json()["knowledge_context"]["completion"] == completion
-        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 1
+        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 2
         assert not writer.calls
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         return
@@ -1566,7 +1588,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         store = BuildGraphReferenceReviewService()
         if graph_reference == "remapped_inventory":
             assert response.status_code == 503, response.text
-            assert len(decisions.calls) == 2 and not writer.calls
+            assert len(decisions.calls) == 3 and not writer.calls
             with pytest.raises(ApplicationStateNotFoundError):
                 store.get(world, writer.adapter.turn.turn_id)
             assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
@@ -1574,11 +1596,22 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert response.status_code == 200, response.text
         completion = response.json()["knowledge_context"]["completion"]
         assert completion["disposition"] == graph_reference
-        assert len(decisions.calls) == 2 and not writer.calls
-        opening = json.loads(decisions.calls[0].content)
+        assert len(decisions.calls) == 3 and not writer.calls
+        opening, followup, nomination = [json.loads(call.content) for call in decisions.calls]
         assert opening["state"]["interaction"]["surface"] == "build"
+        assert set(opening["questions"]) == {"requested_work"}
+        assert "related_page_labels" not in opening["state"]["interaction"]
+        assert "typed_graph_reference" in followup["questions"]
+        assert any(name.startswith("related_page_") for name in followup["questions"])
+        assert "reference_nomination" in nomination["questions"]
         turn = writer.adapter.turn
         assert turn.status == "completed"
+        assert not any(isinstance(event, (t.RelatedPagesSelection, t.RelatedPageRead))
+                       for event in turn.graph_context_execution.events)
+        selection, = [event for event in turn.graph_context_execution.events
+                      if type(event) is t.BuildRequestedWorkResolutionV1]
+        assert selection.typed_graph_reference == "place_existing_reference"
+        assert selection.paragraph_placement is None
         if graph_reference == "ready":
             review = store.get(world, turn.turn_id)
             assert completion["action_id"] == str(review.action_id)
@@ -1602,7 +1635,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         replay = client.post('/api/live/agent/turn', json=body)
         assert replay.status_code == 200, replay.text
         assert replay.json()["knowledge_context"]["completion"] == completion
-        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 2
+        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 3
         return
     if contextual in {"stale", "foreign"}:
         from application_state.build_proposal.service import BuildProposalService
@@ -1715,7 +1748,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             "code": "build_discussion_source_uncertain",
             "message": "Should I answer from this Page alone, or look for other sources?",
         }
-        assert len(decisions.calls) == 1 and not writer.calls and not classic_calls
+        assert len(decisions.calls) == (2 if image_move else 1) and not writer.calls and not classic_calls
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         assert lane.repo.get_head(world).head_revision_id == current_revision
         return

@@ -737,14 +737,30 @@ class BuildJevHarness:
                 request = adapter._prepared_build_decision.body.decode()
                 split_proof = {"intent": intent.requested_work, "opening_request": request, "scope": "anchored"}
                 if intent.requested_work not in {"clarify_request", "clarify_creation"}:
-                    followup = PendingBuildSourceScopeDriver(adapter, request, result.model_dump(mode="json"))
+                    followup = PendingBuildSourceScopeDriver(adapter, request, result.model_dump(mode="json"),
+                        image_move=getattr(driver, "image_move", None))
                     await self._decide(adapter, followup)
                     split_proof.update(scope=followup.result, response=followup.response)
+                    if followup.image_move is not None and intent.requested_work == "write_current_page":
+                        from generationengine.types import DecisionResult
+                        from application_state.build_proposal.image_move_decision import admitted_image_move_choice
+
+                        image_answers = followup.image_move.opening_answers(
+                            json.loads(followup.prepared.body), DecisionResult.model_validate_json(followup.response),
+                        )
+                        split_proof["image_move"] = admitted_image_move_choice(image_answers, adapter.request.message)
             if prepare_deferred_query is not None:
                 if not opening_dispatched:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
                 conversation_only = False
-                if wait_for_work:
+                if split_proof is not None:
+                    from application_state.agent_conversation.native_corpus import is_prior_conversation_work
+
+                    conversation_only = (
+                        split_proof.get("image_move") in {"move_existing", "unresolved"}
+                        or is_prior_conversation_work(split_proof["intent"], split_proof["scope"], allow_discussion=True)
+                    )
+                elif wait_for_work:
                     from application_state.agent_conversation.build_intentional_response import (
                         UnresolvedDiscussionSource, opening_image_choice, opening_work,
                     )
@@ -817,7 +833,7 @@ class BuildJevHarness:
         from hashlib import sha256
         from uuid import UUID, uuid4
         from application_state.agent_conversation.build_intentional_response import verify_build_intent_opening
-        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1
         from application_state.agent_conversation.types import BuildOpeningIntentSelectedV1
         from .agent_turn_service import _require_fresh_execution_append
 
@@ -827,8 +843,11 @@ class BuildJevHarness:
             raw, producing_provider_attempt_id=adapter.last_provider_attempt_id,
         )
         if (projection.host_phase != "select" or set(projection.questions()) != {"requested_work"}
-                or type(adapter._broker_receipt()) is not BuildPendingContextReceiptV1):
+                or type(adapter._broker_receipt()) not in (BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1)):
             return
+        access = getattr(adapter, "build_intent_access", None) or adapter.pending_build_access
+        if not callable(access):
+            raise ValueError("Build intent requires its current World access owner")
         prepared = adapter._prepared_build_decision
         execution = adapter._broker_execution()
         request = prepared.body.decode()
@@ -841,7 +860,7 @@ class BuildJevHarness:
         )
         adapter.turn = _require_fresh_execution_append(adapter.fence.commit(
             "record_pending_build_opening_intent", decision=event, request_json=request,
-            response_json=raw, authorize_current_access=adapter.pending_build_access,
+            response_json=raw, authorize_current_access=access,
         ))
 
     @staticmethod

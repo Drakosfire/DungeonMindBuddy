@@ -511,7 +511,7 @@ def validate_decision_phases(execution):
     retrieval_finished = False
     initial_search = None
     events = execution.events
-    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1
+    from .native_execution import BuildPendingExecutionV1, NativeBuildSourceSettledV1, BuildSourceScopeAuthorizedV1
     if type(execution) is BuildPendingExecutionV1:
         settlements = [e for e in events if type(e) is NativeBuildSourceSettledV1]
         if len(settlements) != 1:
@@ -574,7 +574,7 @@ def validate_decision_phases(execution):
                 if (type(native_action) is NativePlanActionV3 and type(intent) in (NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3)
                         and intent.requested_work == 'clarify'):
                     raise ValueError('Question-only Plan work cannot open factual retrieval')
-                if native_build and type(event) is t.ProviderAttemptAuthorizedEventV5:
+                if native_build and type(event) in (t.ProviderAttemptAuthorizedEventV5, BuildSourceScopeAuthorizedV1):
                     if (
                         writer is not None
                         or retrieval_started
