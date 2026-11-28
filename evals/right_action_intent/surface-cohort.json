@@ -580,6 +580,94 @@
       },
       "expected": "play_edit",
       "reason": "The current live scene supplies the target. Direct the user to the Play scene edit review control."
+    },
+    {
+      "id": "play-heldout-plan-edit",
+      "tier": "play_destination_holdout",
+      "input": {
+        "surface": "play",
+        "user_utterance": "In the Plan for tomorrow, change the opening so the ferry is already gone.",
+        "current_scene_title": "Ferry Crossing at Dusk"
+      },
+      "expected": "different_destination",
+      "reason": "The edit targets tomorrow’s Plan."
+    },
+    {
+      "id": "play-heldout-build-edit",
+      "tier": "play_destination_holdout",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Add the ferryman’s warning to the saved Ferry Crossing page in Build.",
+        "current_scene_title": "Ferry Crossing at Dusk"
+      },
+      "expected": "different_destination",
+      "reason": "The target is a saved Build page."
+    },
+    {
+      "id": "play-heldout-combat",
+      "tier": "play_destination_holdout",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Open the prepared ferry ambush in Combat.",
+        "current_scene_title": "Ferry Crossing at Dusk"
+      },
+      "expected": "different_destination",
+      "reason": "The request requires the Combat control."
+    },
+    {
+      "id": "play-heldout-scene-weather",
+      "tier": "play_destination_holdout",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Revise this live scene so the river is already rising when the party arrives.",
+        "current_scene_title": "Ferry Crossing at Dusk"
+      },
+      "expected": "play_edit",
+      "reason": "The edit targets the active live scene."
+    },
+    {
+      "id": "play-heldout-scene-dialogue",
+      "tier": "play_destination_holdout",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Change the guard’s opening line in the current scene to ‘The ferry left at dawn.’",
+        "current_scene_title": "Ferry Crossing at Dusk"
+      },
+      "expected": "play_edit",
+      "reason": "The user explicitly asks to revise dialogue in the current scene."
+    },
+    {
+      "id": "play-heldout-scene-discussion",
+      "tier": "play_destination_holdout",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Would a rising river make this scene more interesting? Let’s just talk through the options.",
+        "current_scene_title": "Ferry Crossing at Dusk"
+      },
+      "expected": "discuss",
+      "reason": "The user wants discussion in chat."
+    },
+    {
+      "id": "play-heldout-rules",
+      "tier": "play_destination_holdout",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Check the published rules for whether a prone creature can stand in shallow water.",
+        "current_scene_title": "Ferry Crossing at Dusk"
+      },
+      "expected": "read_source",
+      "reason": "The user requests a Rules lookup."
+    },
+    {
+      "id": "play-heldout-clarify",
+      "tier": "play_destination_holdout",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Make the other one like this.",
+        "current_scene_title": "Ferry Crossing at Dusk"
+      },
+      "expected": "clarify_request",
+      "reason": "The active scene is visible but there is no identifiable other target."
     }
   ]
 }

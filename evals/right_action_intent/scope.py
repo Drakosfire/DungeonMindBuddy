@@ -94,6 +94,7 @@ async def main():
     parser.add_argument("--surface", choices=("build", "plan", "play"))
     parser.add_argument("--play-destination-wording", action="store_true",
                         help="Compare explicit edit destinations in the Play ballot")
+    parser.add_argument("--tier", help="Run only cases in this tier while retaining the original menu union")
     args = parser.parse_args()
     if args.play_destination_wording and args.surface != "play":
         parser.error("--play-destination-wording requires --surface play")
@@ -101,6 +102,13 @@ async def main():
     if args.surface:
         groups = {args.surface: groups[args.surface]}
         menus = {args.surface: menus[args.surface]}
+    if args.tier:
+        groups = {surface: [case for case in rows if case["tier"] == args.tier]
+                  for surface, rows in groups.items()}
+        groups = {surface: rows for surface, rows in groups.items() if rows}
+        if not groups:
+            parser.error("No cases matched that tier")
+        menus = {surface: menus[surface] for surface in groups}
     if args.play_destination_wording:
         for menu in menus["play"].values():
             menu.update({
