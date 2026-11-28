@@ -4,7 +4,7 @@ from hashlib import sha256
 from generationengine.types import DecisionResult
 
 from .native_plan_graph_need import NativePlanGraphNeedInputV1, NativePlanGraphNeedObservedV1, decode_decision
-from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanGraphNeedAuthorizedV1
+from .native_retrieval import NativePlanGraphNeedAuthorizedV1
 
 
 def observed_from_sdk_result(context, execution, *, event_id, result):
@@ -63,36 +63,14 @@ def validate_prepared_authorization(context, execution, authorization, raw):
     """Prove a pending Graph decision's exact SDK wire before any dispatch."""
     from . import types as t
     from .native_execution import validate_context_binding
-    from .native_plan_graph_need import validate_wire
+    from .native_plan_graph_need import validate_graph_need_intent_prefix, validate_wire
     from .native_writer import json_container_count
     from .plan_authoring import strict_json
 
     if type(authorization) is not NativePlanGraphNeedAuthorizedV1 or type(raw) is not bytes:
         raise ValueError('Graph-need authorization requires its exact typed authorization and prepared bytes')
     validate_context_binding(context, execution)
-    attempts = [event for event in execution.events if isinstance(event, t.ProviderAttemptAuthorizedEventV1)]
-    if attempts:
-        from .native_plan_opening import NativePlanAuthorScopeObservedV1
-
-        intent = attempts[0]
-        if len(attempts) != 1 or type(intent) is not NativePlanAuthorScopeAuthorizedV1 or not intent.intent_opening:
-            raise ValueError('Graph-need dispatch must be the first provider attempt or follow one settled Plan intent')
-        observations = [event for event in execution.events if type(event) is NativePlanAuthorScopeObservedV1]
-        outcomes = [event for event in execution.events if type(event) is t.ProviderOutcomeEventV1
-                    and event.provider_attempt_id == intent.provider_attempt_id]
-        if (len(observations) != 1 or len(outcomes) != 2
-                or [event.outcome for event in outcomes] != ['sdk_entered', 'response_received']):
-            raise ValueError('Graph-need dispatch requires a settled Plan intent')
-        observed = observations[0]
-        if (not intent.sequence < outcomes[0].sequence < outcomes[1].sequence < observed.sequence
-                or observed.controller_attempt_id != intent.provider_attempt_id
-                or observed.decision_request_id != intent.decision_request_id
-                or observed.controller_envelope_sha256 != intent.envelope_sha256
-                or observed.parent_request_sha256 != intent.parent_request_sha256
-                or observed.context_receipt_sha256 != execution.context_receipt_sha256
-                or observed.execution_policy_sha256 != execution.execution_policy_sha256
-                or observed.scope_observation.requested_work in (None, 'clarify', 'different_destination')):
-            raise ValueError('Graph-need dispatch requires the exact eligible Plan intent')
+    validate_graph_need_intent_prefix(execution, execution.events)
     if authorization.sequence != len(execution.events):
         raise ValueError('Graph-need authorization sequence is stale')
     parent = NativePlanGraphNeedInputV1.model_validate_json(authorization.parent_json)

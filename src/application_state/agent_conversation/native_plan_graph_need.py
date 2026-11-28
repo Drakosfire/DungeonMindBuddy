@@ -205,6 +205,36 @@ _GRAPH_EVENTS = (NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEven
     NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1)
 
 
+def validate_graph_need_intent_prefix(execution, events):
+    """Validate the optional acknowledged intent preceding Graph need."""
+    from . import types as t
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+
+    attempts = [event for event in events if isinstance(event, t.ProviderAttemptAuthorizedEventV1)]
+    if attempts:
+        from .native_plan_opening import NativePlanAuthorScopeObservedV1
+
+        intent = attempts[0]
+        if len(attempts) != 1 or type(intent) is not NativePlanAuthorScopeAuthorizedV1 or not intent.intent_opening:
+            raise ValueError('Graph-need dispatch must be the first provider attempt or follow one settled Plan intent')
+        observations = [event for event in events if type(event) is NativePlanAuthorScopeObservedV1]
+        outcomes = [event for event in events if type(event) is t.ProviderOutcomeEventV1
+                    and event.provider_attempt_id == intent.provider_attempt_id]
+        if (len(observations) != 1 or len(outcomes) != 2
+                or [event.outcome for event in outcomes] != ['sdk_entered', 'response_received']):
+            raise ValueError('Graph-need dispatch requires a settled Plan intent')
+        observed = observations[0]
+        if (not intent.sequence < outcomes[0].sequence < outcomes[1].sequence < observed.sequence
+                or observed.controller_attempt_id != intent.provider_attempt_id
+                or observed.decision_request_id != intent.decision_request_id
+                or observed.controller_envelope_sha256 != intent.envelope_sha256
+                or observed.parent_request_sha256 != intent.parent_request_sha256
+                or observed.context_receipt_sha256 != execution.context_receipt_sha256
+                or observed.execution_policy_sha256 != execution.execution_policy_sha256
+                or observed.scope_observation.requested_work in (None, 'clarify', 'different_destination')):
+            raise ValueError('Graph-need dispatch requires the exact eligible Plan intent')
+
+
 def validate_pending_graph(context, execution):
     """Validate the complete retained Plan query prefix and return its effective query.
 
@@ -287,12 +317,20 @@ def validate_pending_graph(context, execution):
                     expected_model=need_auth.model) != observed.choice):
             raise ValueError('Graph-need observation differs from its authorized SDK result')
     if clarification:
+        terminal_events = events
+        from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+        if need_auth is not None and events and type(events[0]) is NativePlanAuthorScopeAuthorizedV1:
+            prefix = events[:need_auth.sequence]
+            if len(prefix) != 4:
+                raise ValueError('Plan Graph clarification requires one settled intent before Graph need')
+            validate_graph_need_intent_prefix(execution, prefix)
+            terminal_events = events[need_auth.sequence:]
         if (observed is None or observed.choice != 'uncertain'
                 or clarification.observation_event_id != observed.event_id
                 or clarification.sequence != observed.sequence + 1
                 or len(events) != clarification.sequence + 1
                 or any(type(event) not in (NativePlanGraphNeedAuthorizedV1, t.ProviderOutcomeEventV1,
-                    NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1) for event in events)
+                    NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1) for event in terminal_events)
                 or grant is not None or started is not None or closed is not None or failed is not None or settled is not None):
             raise ValueError('Plan Graph clarification requires its unique uncertain decision without acquisitions')
     if grant and (observed is None or observed.choice != 'require_graph'
