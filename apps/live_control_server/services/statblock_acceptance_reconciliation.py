@@ -22,6 +22,7 @@ from apps.live_control_server.models.threat_draft import require_draft_id
 from apps.live_control_server.services.threat_draft_store import (
     ThreatDraftStoreError,
     read_committed_draft_version,
+    remove_purged_threat_draft,
 )
 from live_store import load_json, write_json
 
@@ -297,6 +298,24 @@ def list_acceptance_operations_for_draft(
 ) -> list[AcceptanceOperationV1]:
     with _draft_acceptance_lock(root, draft_id):
         return _list_operations_unlocked(root, draft_id=draft_id)
+
+
+def remove_purged_acceptance(
+    root: Path, *, world_id: str, draft_id: str, expected_version: int, statblock_id: str,
+) -> None:
+    """Remove same-draft acceptance request bodies after the canonical purge receipt."""
+    with _draft_acceptance_lock(root, draft_id):
+        records = _list_operations_unlocked(root, draft_id=draft_id)
+        if any(record.authority_state in {"dispatched_unknown", "server_committed"}
+               or (record.locator is not None and record.locator.statblock_id != statblock_id)
+               for record in records):
+            raise AcceptanceReconciliationError("Unresolved or unrelated acceptance history", status_code=409)
+        remove_purged_threat_draft(
+            root, world_id=world_id, draft_id=draft_id,
+            expected_version=expected_version, statblock_id=statblock_id,
+        )
+        for record in records:
+            _record_path(root, draft_id=draft_id, operation_id=record.operation_id).unlink(missing_ok=True)
 
 
 def record_server_committed(
