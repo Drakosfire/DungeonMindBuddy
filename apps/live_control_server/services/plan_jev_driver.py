@@ -248,6 +248,12 @@ class PlanJevDriver:
         from application_state.errors import ApplicationStateValidationError
         operations = set()
         if selected.operation == "discover_more":
+            from application_state.agent_conversation.jev_retrieval_contract import NativePlayIntentDecisionInputV1
+
+            if type(dispatch.parent) is NativePlayIntentDecisionInputV1:
+                # The opening authorizes entering the existing retrieval loop;
+                # it does not choose an individual Graph query or source read.
+                return
             if self.discovered: raise ValueError("Plan discovery cannot repeat the same query")
             self.discovered = True
             from .plan_jev_acquisition import query_identity
@@ -749,6 +755,13 @@ class PlanJevDriver:
 
     def decision_arguments(self):
         """One actual catalog producer for opening and subsequent decisions."""
+        if (self.adapter.request.surface.surface_id == "play"
+                and self.adapter.fence is None
+                and self.adapter.native_source_authority is not None
+                and not self.adapter.request.authored_references):
+            return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
+                        allowed_operations=("discover_more", "finish_retrieval"),
+                        play_intent_opening=True)
         if self._variant_approval():
             return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
                         allowed_operations=("select_candidates", "finish_retrieval"))

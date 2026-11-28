@@ -929,13 +929,18 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
     revision = client.get(f'/api/live/workspace-documents/{document}/committed-revision')
     assert revision.status_code == 200, revision.text
 
+    play_openings = []
+
     class Decisions(httpx2.AsyncBaseTransport):
         async def handle_async_request(self, req):
             body = json.loads(req.content)
+            if body['state'].get('surface') == 'play':
+                play_openings.append(body)
             candidates = body.get('state', {}).get('candidates', [])
             answers = {}
             for name, entry in body['questions'].items():
                 choice = ('review_after_reads' if name == 'post_read_plan' else
+                          'read_source' if name == 'requested_work' and body['state'].get('surface') == 'play' else
                           'discuss' if name == 'requested_work' else
                           'finish_retrieval' if name == 'operation' else
                           'include' if name.startswith('candidate_') and
@@ -1092,6 +1097,10 @@ def test_native_source_world_bootstraps_real_guest_copy(application_state_dsn, t
             assert conn.execute("SELECT count(*) FROM agent.turn WHERE turn_id=%s AND status='completed'", (play_payload['turn_id'],)).fetchone()[0] == 0
         return
     play_response = client.post('/api/live/agent/turn', headers=headers, json=play_payload)
+    assert len(play_openings) == 1
+    assert set(play_openings[0]["questions"]) == {"requested_work"}
+    assert "candidates" not in play_openings[0]["state"]
+
     assert play_response.status_code == 200, play_response.text
     assert 'B fled' in play_response.json()['answer']['text']
     from apps.live_control_server.services import guest_build_access

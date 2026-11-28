@@ -448,7 +448,7 @@ def freeze_play(request,work,view,budget,*,authority,native_query,provenance,sub
     from application_state.agent_conversation.native_play_work import project_work
     from application_state.agent_conversation.native_context import PlayWorkContextV1,NativeProviderInputV1
     from application_state.agent_conversation.native_execution import NativePlayActionV1
-    if (request.surface.surface_id!='play' or type(parent) is not NativePlayRetrievalDecisionInputV1
+    if (request.surface.surface_id!='play' or not isinstance(parent, NativePlayRetrievalDecisionInputV1)
             or parent.question!=request.message or work.play_context_receipt is None
             or authority.managed_world_id!=work.play_context_receipt.world_id
             or (view['provider'],view['model'],view['apiMode'])!=('typesafe','jev-1.14.0','decision')):
