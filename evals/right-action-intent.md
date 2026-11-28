@@ -288,3 +288,12 @@ targets, and the discussion path that skips placement interpretation.
 The historical wire capture records the earlier sequence. The paired Jev
 study remains a decision comparison on pinned fixtures, with simulated
 provider responses used to verify the ordinary runtime separately.
+
+### Preserved baselines
+
+The [v1 Jev result](right_action_intent/jev-baseline.json) scored 93/103.
+The [v2 Jev result at its pinned revision](https://github.com/Drakosfire/DungeonMindBuddy/blob/09c682e732ac42875af70e592bc483019ed570fa/evals/right_action_intent/jev-baseline-v2.json)
+scored 86/89. Both captures match the SHA-256 of their corresponding case
+file. The checked v2 disposition accounts for all 89 IDs, with 32 reused
+and 57 parked. The result counts describe different cohorts and should
+not be used as a before-and-after accuracy comparison.
