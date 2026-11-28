@@ -230,3 +230,98 @@ def test_captured_plan_opening_ui_wire_uses_the_current_backend_response_model()
     assert context.completion.native_assertion_citations
     assert wire['source']['citation'] == context.completion.native_assertion_citations[0].model_dump(mode='json',by_alias=True)
     assert wire['source']['world_id'] == context.receipt.work_context.plan_basis.world_id
+
+
+def test_versioned_plan_intent_keeps_historical_ballot_and_records_source_use():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_plan_opening import NativePlanIntentInputV1, decode_author_scope_decision
+
+    legacy = NativePlanIntentInputV1(question="Using this conversation only, what did we plan?")
+    versioned = legacy.model_copy(update={"source_use_version": "v1"})
+    assert 'source_use_version' not in legacy.model_dump()
+    old_wire, new_wire = legacy.prepare(), versioned.prepare()
+    assert new_wire.state == old_wire.state
+    assert [question.name for question in old_wire.questions] == ["requested_work"]
+    assert [question.name for question in new_wire.questions] == ["requested_work", "source_use"]
+
+    answers = {"requested_work": ChoiceDecisionAnswer(selected="discuss")}
+    old = decode_author_scope_decision(SimpleNamespace(intent_opening=legacy), result(answers=answers))
+    assert "source_use" not in old.model_dump()
+    with pytest.raises(ValueError, match="Missing or unexpected"):
+        decode_author_scope_decision(SimpleNamespace(intent_opening=versioned), result(answers=answers))
+    for source_use in ("conversation_only", "source_needed", "uncertain"):
+        decision = result(answers=answers | {"source_use": ChoiceDecisionAnswer(selected=source_use)})
+        observed = decode_author_scope_decision(SimpleNamespace(intent_opening=versioned), decision)
+        assert observed.requested_work == "discuss"
+        assert observed.source_use == source_use
+
+
+def test_conversation_only_intent_refuses_request_source_grant():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
+    from application_state.agent_conversation.native_corpus import validate_request_source_search
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+    context, record = request_context()
+    observation = NativePlanAuthorScopeObservedV1.model_construct(
+        scope_observation=type("Scope", (), {"source_use": "conversation_only"})(),
+    )
+    prefix = record.model_copy(update={"events": [observation]})
+    with pytest.raises(ValueError, match="Conversation-only Plan intent"):
+        validate_request_source_search(prefix, request_grant(context, record, sequence=1))
+    navigation = object.__new__(NativeBodyNavigation)
+    navigation.adapter = SimpleNamespace(fence=SimpleNamespace(turn=SimpleNamespace(
+        graph_context_receipt=context, graph_context_execution=prefix,
+    )))
+    navigation.discover_initial()
+
+
+def test_plan_exact_replacement_survives_unresolved_later_relation():
+    from tests.application_state.test_plan_placement import original_capture
+    from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1, text_digest
+    from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2, PlanPlacementOptionV2
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservationV1
+    from application_state.agent_conversation.plan_author_location import UnscopedLocation
+    from application_state.agent_conversation.plan_contextual_targets import (
+        component_inventory, resolve_author_scope_targets,
+    )
+
+    payload = original_capture().model_dump(mode="json", by_alias=True)
+    selection = '{"type":"text","anchor":1,"head":8}'
+    payload.update(selection_json=selection, selection_sha256=text_digest(selection),
+        target_kind="replace_selection", selected_text="Objecti", **{"from": 1, "to": 8})
+    capture = PlanAuthoringCaptureV1.model_validate(payload)
+    option = PlanPlacementOptionV2(selector="captured", kind="captured_target",
+        label="Replace only the captured selection", source_root_index=None,
+        root_boundary=None, position=None, target_capture_sha256=capture.sha256)
+    catalog = PlanPlacementCatalogV2(original_capture_sha256=capture.sha256,
+        editor_sha256=capture.editor_sha256, entries=(option,))
+    direct, = component_inventory(capture, catalog)["direct"]
+    anchor = direct["view"]["selector"]
+    observation = NativePlanAuthorScopeObservationV1(relation="replace_explicit_selection",
+        selected_alias="none", scope=UnscopedLocation(), page_edit_intent="page_edit")
+    arguments = {"document_title": None, "page_edit_intent": "page_edit"}
+    resolve = resolve_author_scope_targets
+    legacy = resolve(capture, catalog, "write_current_page", "unresolved",
+        observation, [anchor], [], **arguments)
+    assert legacy["requested_work"] == "clarify"
+    result = resolve(capture, catalog, "write_current_page", "unresolved",
+        observation, [anchor], [], captured_selection_version="v1", **arguments)
+    assert result["requested_work"] == "write_current_page"
+    assert result["target_capture_sha256"] == capture.sha256
+    missing_anchor = resolve(capture, catalog, "write_current_page", "unresolved",
+        observation, [], [], captured_selection_version="v1", **arguments)
+    assert missing_anchor["requested_work"] == "clarify"
+
+
+def test_named_source_guidance_is_versioned_without_changing_the_offers():
+    historical = opening_input()
+    current = historical.model_copy(update={"source_requirement_guidance_version": "v1"})
+    old = prepare_opening_decision(historical)
+    new = prepare_opening_decision(current)
+    assert new.questions == old.questions
+    state = dict(new.state)
+    assert "does not replace the requested source" in state.pop("required_source_policy")
+    assert state == old.state
+    restored = NativePlanOpeningInputV1.model_validate_json(current.model_dump_json(by_alias=True))
+    assert prepare_opening_decision(restored) == new

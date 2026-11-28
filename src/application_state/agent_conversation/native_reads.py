@@ -91,6 +91,9 @@ def validate_execution_binding(receipt, execution):
             raise ValueError("Native source search differs from its frozen source-only authority")
 
 
+from .native_plan_graph_need import effective_plan_source_authority
+
+
 def _owner(turn, *, require_source=False):
     """Resolve a transaction-internal producer's actual running surface owner.
 
@@ -119,7 +122,7 @@ def _owner(turn, *, require_source=False):
         raise ValueError("Native read turn differs from its owning World")
     if type(receipt) is not SurfaceNativeContextReceiptV1:
         validate_execution_binding(receipt, execution)
-    if require_source and not isinstance(receipt.source_authority, NativeCorpusAuthorityV1):
+    if require_source and not isinstance(effective_plan_source_authority(receipt, execution.events), NativeCorpusAuthorityV1):
         raise ValueError("Native body acquisition requires its available frozen source authority")
     if type(receipt) is not SurfaceNativeContextReceiptV1:
         validate_source_provenance(receipt, turn.provenance)
@@ -267,7 +270,7 @@ def authorize_initial_source_search_locked(turn, *, event_id):
         return prior
     grant = NativeInitialSourceSearchAuthorizedV1(event_id=event_id, sequence=len(execution.events),
         work_selection_event_id=work.event_id, context_receipt_sha256=receipt.context_receipt_sha256,
-        execution_policy_sha256=execution.execution_policy_sha256, authority=receipt.source_authority,
+        execution_policy_sha256=execution.execution_policy_sha256, authority=effective_plan_source_authority(receipt, execution.events),
         query_sha256=sha256(turn.user_text.encode()).hexdigest())
     validate_initial_source_search(execution, grant)
     return grant
@@ -284,7 +287,7 @@ def authorize_request_source_search_locked(turn, *, event_id):
         return prior
     grant = NativePlanRequestSearchAuthorizedV1(event_id=event_id, sequence=len(execution.events),
         request_manifest_sha256=manifest, context_receipt_sha256=receipt.context_receipt_sha256,
-        execution_policy_sha256=execution.execution_policy_sha256, authority=receipt.source_authority,
+        execution_policy_sha256=execution.execution_policy_sha256, authority=effective_plan_source_authority(receipt, execution.events),
         query_sha256=sha256(turn.user_text.encode()).hexdigest())
     validate_request_source_search(execution, grant)
     return grant
@@ -524,7 +527,7 @@ def authorize_direct_sources_locked(turn, *, grants):
         from .build_pending_native import prepared_pending_source
         authority, _ = prepared_pending_source(receipt, execution)
     elif type(receipt) is SurfaceNativeContextReceiptV1:
-        authority = receipt.source_authority
+        authority = effective_plan_source_authority(receipt, execution.events)
     else:
         raise ValueError("Direct source selection requires its actual native owner")
     fields = {"event_id", "source_artifact_id", "source_revision_id", "content_sha256"}
@@ -560,7 +563,7 @@ def observe_direct_source_locked(turn, *, event_id, authorization_event_id, read
         from .build_pending_native import prepared_pending_source
         authority, _ = prepared_pending_source(receipt, execution)
     elif type(receipt) is SurfaceNativeContextReceiptV1:
-        authority = receipt.source_authority
+        authority = effective_plan_source_authority(receipt, execution.events)
     else:
         raise ValueError("Direct source selection requires its actual native owner")
     prior = _prior_event(execution, event_id, NativeDirectSourceObservedV1,

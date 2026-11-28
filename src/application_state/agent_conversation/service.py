@@ -1681,10 +1681,11 @@ class AgentConversationService:
                 raise ApplicationStateConflictError(
                     "turn claim fence changed before it could be acquired"
                 )
-            if turn.graph_context_execution is not None and any(
+            from .native_plan_graph_producer import safe_reclaimable_graph_need_prefix
+            if (turn.graph_context_execution is not None and any(
                 isinstance(event, ProviderAttemptAuthorizedEventV1)
                 for event in turn.graph_context_execution.events
-            ):
+            ) and not safe_reclaimable_graph_need_prefix(turn)):
                 if turn.status == "running" and (
                     turn.claim_expires_at is None or turn.claim_expires_at <= now
                 ):
@@ -1883,6 +1884,131 @@ class AgentConversationService:
             return validate_pending_execution_binding(context, execution)
         return validate_context_binding(context, execution)
 
+    def _authorize_plan_graph_need(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization, prepared_request):
+        """Admit one exact prepared Graph-need request under the live claim."""
+        from .native_plan_graph_producer import validate_prepared_authorization
+        world_id = _world_id(world_id)
+        with _execution_append_transaction(lambda _name: nullcontext(),
+                validate_transaction=self._validate_transaction) as conn:
+            if self._authorize_transaction is not None:
+                self._authorize_transaction(conn, read_only=False)
+            turn = _ordinary_mutation_turn(self._lock_execution_append_turn(conn, world_id, turn_id), conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError('turn not found in verified World conversation')
+            if turn.status != 'running' or turn.revision != expected_revision or turn.attempt != expected_attempt:
+                raise ApplicationStateConflictError('Graph-need authorization is fenced by a stale claim')
+            now = repo.database_clock(conn)
+            if turn.claim_expires_at is None or turn.claim_expires_at <= now:
+                raise ApplicationStateConflictError('Graph-need claim has expired')
+            try:
+                prospective = validate_prepared_authorization(turn.graph_context_receipt,
+                    turn.graph_context_execution, authorization, prepared_request)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=prospective)
+            if updated is None:
+                raise ApplicationStateConflictError('Graph-need claim expired during authorization')
+        return updated, True
+
+    def _record_plan_graph_need_result(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id, sdk_result):
+        """Persist the callback's typed result under the existing live claim.
+
+        This private owner accepts no caller-selected choice or serialized result.
+        Its only production caller must be the actual decision SDK callback.
+        """
+        from .native_plan_graph_producer import observed_from_sdk_result
+        world_id = _world_id(world_id)
+        with _execution_append_transaction(lambda _name: nullcontext(),
+                validate_transaction=self._validate_transaction) as conn:
+            if self._authorize_transaction is not None:
+                self._authorize_transaction(conn, read_only=False)
+            turn = _ordinary_mutation_turn(self._lock_execution_append_turn(conn, world_id, turn_id), conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError('turn not found in verified World conversation')
+            if turn.status != 'running' or turn.revision != expected_revision or turn.attempt != expected_attempt:
+                raise ApplicationStateConflictError('Graph-need result is fenced by a stale claim')
+            now = repo.database_clock(conn)
+            if turn.claim_expires_at is None or turn.claim_expires_at <= now:
+                raise ApplicationStateConflictError('Graph-need claim has expired')
+            try:
+                execution = turn.graph_context_execution
+                observed = observed_from_sdk_result(turn.graph_context_receipt, execution,
+                    event_id=event_id, result=sdk_result)
+                prospective = self._bind_execution_append(turn.graph_context_receipt, execution.model_copy(
+                    update={'events': [*execution.events, observed]}))
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=prospective)
+            if updated is None:
+                raise ApplicationStateConflictError('Graph-need claim expired during result admission')
+        return updated, True
+
+    def _complete_plan_graph_need_clarification(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, event_id):
+        """Atomically retain the host question and its admitted uncertain decision."""
+        from .native_plan_graph_need import GRAPH_NEED_CLARIFICATION_QUESTION
+        from .native_plan_graph_producer import clarification_terminal
+        from .retry import require_leaf
+
+        world_id = _world_id(world_id)
+        with _execution_append_transaction(lambda _name: nullcontext(),
+                validate_transaction=self._validate_transaction) as conn:
+            if self._authorize_transaction is not None:
+                self._authorize_transaction(conn, read_only=False)
+            turn = _ordinary_mutation_turn(self._lock_execution_append_turn(conn, world_id, turn_id), conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError('turn not found in verified World conversation')
+            require_leaf(conn, turn)
+            if turn.status != 'running' or turn.revision != expected_revision or turn.attempt != expected_attempt:
+                raise ApplicationStateConflictError('Graph clarification is fenced by a stale claim')
+            now = repo.database_clock(conn)
+            if turn.claim_expires_at is None or turn.claim_expires_at <= now:
+                raise ApplicationStateConflictError('Graph clarification claim has expired')
+            try:
+                completion, execution = clarification_terminal(turn.graph_context_receipt,
+                    turn.graph_context_execution, event_id=event_id)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = repo.complete_claimed_turn(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt,
+                assistant_text=GRAPH_NEED_CLARIFICATION_QUESTION, completion=completion,
+                graph_context_execution=execution)
+            if updated is None:
+                raise ApplicationStateConflictError('Graph clarification claim expired before completion')
+        return updated, True
+
+    def _transition_plan_graph_need(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, action, event_id, query=None, reason=None, source_authority=None):
+        """Commit a single pending-Graph transition under the live claim."""
+        from .native_plan_graph_producer import query_transition
+        world_id = _world_id(world_id)
+        with _execution_append_transaction(lambda _name: nullcontext(),
+                validate_transaction=self._validate_transaction) as conn:
+            if self._authorize_transaction is not None:
+                self._authorize_transaction(conn, read_only=False)
+            turn = _ordinary_mutation_turn(self._lock_execution_append_turn(conn, world_id, turn_id), conversation_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError('turn not found in verified World conversation')
+            if turn.status != 'running' or turn.revision != expected_revision or turn.attempt != expected_attempt:
+                raise ApplicationStateConflictError('Graph transition is fenced by a stale claim')
+            now = repo.database_clock(conn)
+            if turn.claim_expires_at is None or turn.claim_expires_at <= now:
+                raise ApplicationStateConflictError('Graph transition claim has expired')
+            try:
+                _event, prospective = query_transition(turn.graph_context_receipt, turn.graph_context_execution,
+                    action=action, event_id=event_id, query=query, reason=reason, source_authority=source_authority)
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            updated = self._persist_execution_append(conn, world_id=world_id, turn_id=turn_id,
+                expected_revision=expected_revision, execution=prospective)
+            if updated is None:
+                raise ApplicationStateConflictError('Graph claim expired during transition admission')
+        return updated, True
+
     def _append_graph_execution_event(
         self,
         world_id: str,
@@ -1917,6 +2043,19 @@ class AgentConversationService:
         _connection=None,
         _measure=None,
     ) -> tuple[Turn, bool]:
+        # Reader-first rollout: no generic APP append may produce the new Plan
+        # Graph decision or query events until their trusted producer exists.
+        from .native_retrieval import NativePlanGraphNeedAuthorizedV1
+        from .native_plan_graph_need import (
+            NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1, NativePlanGraphQueryAuthorizedV1,
+            NativePlanGraphQueryStartedV1, NativePlanGraphQueryClosedV1,
+            NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1,
+        )
+        reader_only_events = (NativePlanGraphNeedAuthorizedV1, NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1,
+            NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+            NativePlanGraphQueryClosedV1, NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1)
+        if type(event) in reader_only_events:
+            raise ApplicationStateValidationError('Plan Graph-need producer is not active')
         world_id = _world_id(world_id)
         from .plan_authoring import lock_authoring_writer,validate_authoring_writer
         measure = _measure or (lambda _name: nullcontext())
@@ -3213,6 +3352,17 @@ class AgentConversationService:
         return self._append_graph_execution_event(world_id, conversation_id, turn_id,
             expected_revision=expected_revision, expected_attempt=expected_attempt,
             event=event, duplicate_key="event_id", saved_statblock_materializer=materializer)
+
+    def record_plan_page_catalog(self, world_id, conversation_id, turn_id, *,
+                                 expected_revision, expected_attempt, event):
+        from .build_related_pages import PlanPageCatalogObservedV1
+
+        if type(event) is not PlanPageCatalogObservedV1:
+            raise ApplicationStateValidationError("Plan page catalog requires its typed observation")
+        return self._append_graph_execution_event(
+            world_id, conversation_id, turn_id, expected_revision=expected_revision,
+            expected_attempt=expected_attempt, event=event, duplicate_key="event_id",
+        )
 
     def record_build_related_pages(self, world_id, conversation_id, turn_id, *, expected_revision, expected_attempt,
                                    event, producer_proof=None, materializer=None):
