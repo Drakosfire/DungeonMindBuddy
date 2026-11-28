@@ -148,3 +148,73 @@ def test_reviewed_discussion_matches_only_the_saved_owner_dispatch(mutation):
     else:
         with pytest.raises(ValueError):
             validate_reviewed_work_plan_request(request, pin, owner, work, history)
+
+
+@pytest.mark.parametrize("mutation", [None, "selection", "pointer", "conversation"])
+def test_long_chat_request_binds_existing_conversation_without_selection(mutation):
+    request, controls = fixture()
+    controls["selection_text"] = None
+    if mutation != "selection":
+        request.pop("build_write_capability")
+    if mutation == "pointer":
+        controls["pointer_revision"] += 1
+    if mutation == "conversation":
+        controls["conversation_id"] = str(uuid4())
+    if mutation is None:
+        assert validate_build_browser_request(request, **controls).build_draft_context is not None
+    else:
+        with pytest.raises(ValueError, match="active conversation without a selection"):
+            validate_build_browser_request(request, **controls)
+
+
+def test_long_chat_fixture_requires_retained_history_instead_of_selection(tmp_path):
+    import json
+
+    from evals.buddy_benchmark import browser_capture
+
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (bundle / "index.html").write_text("<html></html>")
+
+    def pin(name, value):
+        raw = json.dumps(value).encode()
+        (tmp_path / name).write_bytes(raw)
+        return {"path": name, "sha256": sha256(raw).hexdigest()}
+
+    history = {"conversation_id": str(uuid4()), "prior_turns": [{}] * 14}
+    manifest = {
+        "build_history": pin("history.json", history),
+        "browser_capture": {
+            "bundle": "bundle",
+            "bundle_inventory": pin("bundle.json", {
+                "index.html": sha256(b"<html></html>").hexdigest(),
+            }),
+            "long_chat_page": {"title": "Glassmere Ferry Notes", "required_text": ["bronze moth", "amber"]},
+        },
+    }
+    assert browser_capture.browser_inputs(manifest, tmp_path, build_fixture=True)[3] == history
+    manifest["browser_capture"]["selection_text"] = "An unrelated page selection"
+    with pytest.raises(ValueError, match="standalone Build"):
+        browser_capture.browser_inputs(manifest, tmp_path, build_fixture=True)
+
+
+def test_registered_long_chat_prompt_binds_the_requested_title():
+    import json
+    from pathlib import Path
+
+    from application_state.agent_conversation.lore_page_review import explicit_lore_page_witness
+
+    root = Path(__file__).resolve().parents[2]
+    case = json.loads((root / "evals/buddy_benchmark/fixtures/long-chat-page.json").read_bytes())
+    assert explicit_lore_page_witness(case["question"], conversational=True).title == case["title"]
+
+
+def test_long_chat_rejects_details_in_a_divergent_working_draft():
+    request, controls = fixture()
+    controls["selection_text"] = None
+    request.pop("build_write_capability")
+    snapshot = request["build_draft_context"]["snapshot"]
+    snapshot["draft_markdown"] += "\nA bronze moth sits in the landing."
+    snapshot["draft_sha256"] = sha256(snapshot["draft_markdown"].encode()).hexdigest()
+    with pytest.raises(ValueError, match="unrelated committed editor"):
+        validate_build_browser_request(request, **controls)

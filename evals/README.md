@@ -298,6 +298,32 @@ ordinary citation readbacks. For an interrupted Build turn, pin
 `lifecycle_status: interrupted` and use a null assistant digest when the saved
 turn has no reply. In-progress turns cannot be admitted.
 
+### Long-chat page creation
+
+`LONG-CHAT-PAGE-1` is the mounted Build regression for
+`review_lore_page_from_conversation`. Use the
+[checked-in synthetic fixture](buddy_benchmark/fixtures/long-chat-page.json).
+Restore its 14 completed exchanges into an isolated active conversation on an
+unrelated saved Build page. Pin the restored turn IDs and text digests with
+`build_history`, and pin the browser bundle and ordinary runtime as for other live
+Build fixtures. The manifest uses `conversation_mode: build_sequence`, one case
+with the registered ID and exact `question`, and a `browser_capture.long_chat_page`
+object containing the fixture's `title` and `required_text` fields. Omit
+`selection_text` and `confirm_save`.
+
+```bash
+python -m evals.buddy_benchmark.workflow capture --manifest MANIFEST.json \
+  --output CAPTURE_DIRECTORY --case LONG-CHAT-PAGE-1 --build-fixture --live-build --clone-app
+```
+
+The driver sends once, verifies that no page changed before confirmation, then
+uses the mounted Review and Confirm controls. It opens and reloads the saved
+page. The runner verifies the exact committed revision, required retained
+details, unchanged opening page, and zero observed Graph, source and related
+page activity in the bound trace and owner probes. The probe receipts record
+partial acquisition coverage. This is an opt-in live benchmark with configured
+providers; the synthetic fixture contains no private campaign material.
+
 An owned Build response capture can opt into a lore-page confirmation by
 setting `lore_confirmation.foreign_conversation_id` to a different retained
 conversation in the fixture. The harness records rejected confirmations,

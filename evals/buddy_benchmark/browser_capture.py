@@ -73,6 +73,26 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
         for row in wire
     )):
         raise ValueError("Browser benchmark requires a successful pinned Jev replay")
+    lore_page = spec.get("long_chat_page")
+    if lore_page is not None and (
+            not build_fixture or live_plan or not isinstance(lore_page, dict)
+            or set(lore_page) != {"title", "required_text"}
+            or not isinstance(lore_page["title"], str) or not lore_page["title"].strip()
+            or not isinstance(lore_page["required_text"], list)
+            or len(lore_page["required_text"]) < 2
+            or any(not isinstance(text, str) or not text.strip() for text in lore_page["required_text"])
+            or any(key in spec for key in ("plan_history", "selection_text", "confirm_save",
+                "reviewed_work_plan", "terminal_build_failure", "image_preview",
+                "image_move_editor_sha256", "unsent_draft", "lose_confirm_ack"))
+            or "build_history" not in manifest):
+        raise ValueError("Long-chat page capture requires standalone Build with pinned history and expected content")
+    if lore_page is not None:
+        if type(spec.get("settled_pane", False)) is not bool:
+            raise ValueError("Invalid browser cache condition")
+        history = json.loads(workflow.read_pin(manifest["build_history"], base))
+        if len(history["prior_turns"]) < 12:
+            raise ValueError("Long-chat page capture requires at least 12 completed prior turns")
+        return bundle, wire, bool(spec.get("settled_pane", False)), history
     history_pin = spec.get("plan_history")
     if history_pin is not None and not live_plan:
         raise ValueError("A pinned Plan history requires live Plan browser capture")
@@ -217,6 +237,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             os.environ.get("DMB_AGENT_GRAPH_AUTH_MODE"), os.environ.get("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT")) != (
             "local", "local_operator", "local_operator", "local"):
         raise ValueError("Browser capture requires explicit local operator auth")
+    lore_page = manifest["browser_capture"].get("long_chat_page")
+    if lore_page is not None:
+        fixture = json.loads(Path(__file__).with_name("fixtures").joinpath("long-chat-page.json").read_bytes())
+        if (case["id"] != fixture["id"] or case["question"] != fixture["question"]
+                or lore_page != {key: fixture[key] for key in ("title", "required_text")}):
+            raise ValueError("Long-chat page manifest differs from the registered benchmark case")
     image_preview = manifest["browser_capture"].get("image_preview", False)
     image_parent = manifest["browser_capture"].get("image_parent")
     image_placement = manifest["browser_capture"].get("image_placement_anchor")
@@ -484,7 +510,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         )
                     else:
                         validate_build_browser_request(parsed, world=world, work=work, question=case["question"],
-                            selection_text=manifest["browser_capture"]["selection_text"],
+                            selection_text=manifest["browser_capture"].get("selection_text"),
                             conversation_id=fresh["active_conversation_id"], pointer_revision=fresh["pointer_revision"])
                 except (ValueError, KeyError):
                     if reviewed_plan is not None:
@@ -547,7 +573,16 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 await send(frame)
 
             try:
-                return await application(scope, deliver_body, retain_build_response)
+                if lore_page is None:
+                    return await application(scope, deliver_body, retain_build_response)
+                from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners
+                from evals.negative_retrieval.related_page_probe import observe_related_page_owners
+                with observe_related_page_owners() as related, observe_native_graph_owners() as graph:
+                    await application(scope, deliver_body, retain_build_response)
+                artifacts.immutable_save(directory, "long-chat-page-owner-probes", {
+                    "coverage": "partial", "related": related, "graph": graph,
+                })
+
             finally:
                 if transport_status is not None:
                     artifacts.immutable_save(directory, wire_name, {
@@ -682,6 +717,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     else:
                         artifacts.immutable_save(directory, "history-before", fresh)
                         workflow.require_pinned_history(fresh, pinned_history)
+                        if lore_page is not None:
+                            observed = [{key: row[key] for key in ("user_text", "assistant_text")}
+                                        for row in sorted(fresh["turns"], key=lambda row: row["sequence"])]
+                            if observed != fixture["prior_turns"]:
+                                raise ValueError("Restored history differs from the registered long-chat case")
+
                     runtime = output / "runtime-artifacts"
                     env = {
                         "PATH": os.defpath, "HOME": str(runtime), "TMPDIR": str(scratch),
@@ -695,6 +736,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_WORK_PLAN_DISCONNECT": "1" if recover_step else "0",
                         "DMB_BENCHMARK_UNSENT_DRAFT": "1" if unsent_draft else "0",
                         "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
+                        "DMB_BENCHMARK_LONG_CHAT_PAGE": json.dumps(manifest["browser_capture"].get("long_chat_page")),
                         "DMB_BENCHMARK_LOSE_CONFIRM_ACK": "1" if lose_confirm_ack else "0",
                         "DMB_BENCHMARK_TERMINAL_BUILD_FAILURE": "1" if terminal_build_failure else "0",
                         "DMB_BENCHMARK_DOCUMENT_START": "1" if at_document_start else "0",
@@ -741,6 +783,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         page_before = workflow.response_envelope(
                             client.get(page_route, params=page_params).raise_for_status())
                         artifacts.immutable_save(directory, "committed-page-before", page_before)
+                        if lore_page is not None and any(
+                                text.casefold() in page_before["body"]["committed_markdown"].casefold()
+                                for text in lore_page["required_text"]):
+                            raise ValueError("Opening page contains a detail reserved for the long-chat fixture")
                         if live_plan:
                             require_plan_fixture_basis(page_before["body"], world, work,
                                                        manifest["browser_capture"].get("selection_text"),
@@ -1029,10 +1075,57 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                             "checks": checks, "mounted": mounted,
                             "owner_failure": proposal.failure_code if proposal is not None else None,
                         })
+                    if lore_page is not None and (
+                            driver_failed or turn_posts != 1 or len(turns) != 1
+                            or turns[0]["lifecycle_status"] != "completed"):
+                        raise ValueError("Long-chat page benchmark did not complete exactly one browser turn")
+                    if lore_page is not None:
+                        before_turns = sorted(fresh["turns"], key=lambda row: row["sequence"])
+                        after_turns = sorted(after["body"]["turns"], key=lambda row: row["sequence"])
+                        if (len(after_turns) != len(before_turns) + 1
+                                or after_turns[-1]["turn_id"] != turns[0]["turn_id"]
+                                or [row["turn_id"] for row in after_turns[:-1]] !=
+                                [row["turn_id"] for row in before_turns]):
+                            raise ValueError("Long-chat page turn did not extend the retained conversation once")
                     if live and len(turns) == 1:
                         durable_id = turns[0]["turn_id"]
                         trace = client.get(route + "/turns/" + durable_id + "/context-trace")
                         artifacts.immutable_save(directory, "context-trace", workflow.response_envelope(trace))
+                        if lore_page is not None:
+                            from evals.negative_retrieval.trace_observation import observed_acquisitions
+                            attempts = trace.raise_for_status().json()["attempts"]
+                            if len(attempts) != 1 or attempts[0]["turn_id"] != durable_id:
+                                raise ValueError("Long-chat page benchmark requires one bound acquisition trace")
+                            acquisition = observed_acquisitions(attempts[0])
+                            artifacts.immutable_save(directory, "long-chat-page-acquisitions", acquisition)
+                            result = json.loads((output / "browser-timing.json").read_bytes()).get("long_chat_page")
+                            from application_state.agent_conversation.rules_authority_types import canonical_sha256
+                            from application_state.content.pages import committed_page
+
+                            completion = turns[0]["knowledge_context"]["completion"]
+                            expected_command = {
+                                "conversation_id": after["body"]["active_conversation_id"],
+                                "turn_id": durable_id,
+                                "review_sha256": canonical_sha256(completion),
+                            }
+                            if not result or result["confirm"]["command"] != expected_command:
+                                raise ValueError("Long-chat confirmation is not bound to the durable turn")
+                            receipt = result["confirm"]["body"]
+                            saved = committed_page(result["reloaded_document_id"], world_id=world)
+                            if (saved.revision is None or str(saved.revision.work_revision_id) != receipt["revision_id"]
+                                    or saved.page.title != lore_page["title"]
+                                    or page_before["body"] != page_after["body"]
+                                    or not (completion.get("collaboration") or {}).get("open_questions")
+                                    or any(text.casefold() not in saved.revision.markdown.casefold()
+                                           for text in lore_page["required_text"])):
+                                raise ValueError("Saved lore revision, unresolved questions or original page failed verification")
+                            artifacts.immutable_save(directory, "long-chat-page-confirmation", result)
+                            probes = json.loads((directory / "long-chat-page-owner-probes.json").read_bytes())
+                            if (acquisition["observed"] or probes["related"] or probes["graph"]
+                                    or acquisition["trace_capture_status"] != "complete"
+                                    or acquisition["terminal_status"] != "completed"):
+                                raise ValueError("Long-chat page workflow or captured no-search check failed")
+
                         if live_build:
                             readback = build_proposal_readback(browser_request, world, turns[0])
                             if readback is not None:
@@ -1313,6 +1406,19 @@ def validate_build_browser_request(request, *, world, work, question, selection_
         raise ValueError("Build browser request differs from the pinned fixture")
     capability = parsed.build_write_capability
     context = parsed.build_draft_context
+    if selection_text is None:
+        if (context is None or str(context.conversation_id) != str(conversation_id)
+                or context.expected_pointer_revision != pointer_revision
+                or (capability is not None and capability.basis.selection is not None)):
+            raise ValueError("Long-chat page request must bind the active conversation without a selection")
+        snapshot = context.snapshot
+        if (parsed.authored_references is not None or parsed.build_authored_references is not None
+                or snapshot.world_id != world or str(snapshot.document_id) != work["object_id"]
+                or snapshot.registry_revision != work["expected_revision"]
+                or snapshot.content_sha256 != work["expected_content_sha256"]
+                or sha256(snapshot.draft_markdown.encode("utf-8")).hexdigest() != work["expected_content_sha256"]):
+            raise ValueError("Long-chat page request must use the unrelated committed editor without source references")
+        return parsed
     if capability is None or context is None or capability.basis.selection is None:
         raise ValueError("Build browser request lacks its actual selected editor capability")
     basis, snapshot = capability.basis, context.snapshot
