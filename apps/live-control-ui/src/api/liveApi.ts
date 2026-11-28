@@ -715,7 +715,12 @@ function isHostedGraphRequest(path: string, init?: RequestInit): boolean {
       && Array.isArray(body.prompts) && body.prompts.length >= 1 && body.prompts.length <= 8;
   }
   if (/^\/api\/live\/agent\/worlds\/[^/?]+\/conversations\/[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}\/name$/i.test(path)) {
-    return method === "GET" && init?.body == null;
+    if (method === "GET") return init?.body == null;
+    const body = requestBodyRecord(init?.body);
+    return method === "PUT" && body !== null && Object.keys(body).length === 2
+      && typeof body.title === "string"
+      && typeof body.expected_revision === "number"
+      && Number.isSafeInteger(body.expected_revision) && body.expected_revision >= 0;
   }
   if (HOSTED_PDF_UPLOAD_PATH.test(path)) {
     return method === "POST" && init?.body instanceof Blob && init.body.size > 0
