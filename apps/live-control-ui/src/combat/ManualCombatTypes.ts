@@ -1,4 +1,4 @@
-import type {CombatEncounterRecord, CombatMechanicsSnapshot, CombatWorldIdentity} from './combatTypes';
+import type {CombatEncounterRecord, CombatEntity, CombatMechanicsSnapshot, CombatWorldIdentity} from './combatTypes';
 
 export interface ManualResource {current:number|null; minimum:number|null; maximum:number|null}
 export interface ManualCombatProfile {
@@ -12,6 +12,7 @@ export interface ManualCombatActor {
   values:{stats:Record<string,number|string|null>; resources:Record<string,ManualResource>};
   notes:string; statuses:string[]; tags:string[];
   world_identity:CombatWorldIdentity|null; mechanics_snapshot:CombatMechanicsSnapshot|null;
+  deleted_mechanics?: CombatEntity['deleted_mechanics'];
 }
 export type ManualTurn = {kind:'ordered'; active_actor_id:string|null} |
   {kind:'ordered_rounds'; active_actor_id:string|null; round:number; round_start_actor_id:string|null} |

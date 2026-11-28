@@ -171,6 +171,8 @@ def save_encounter(
         new_snapshots = []
         for entity in request.draft.entities:
             prior = existing.get(entity.id)
+            if entity.deleted_mechanics != (prior.deleted_mechanics if prior is not None else None):
+                raise ApplicationStateValidationError("Deleted statblock references are managed by the server")
             if entity.mechanics_snapshot is not None and prior is None:
                 if isinstance(entity.mechanics_snapshot, SavedCombatMechanicsSnapshot):
                     raise ApplicationStateValidationError("Saved mechanics overrides require explicit adoption for an existing actor")

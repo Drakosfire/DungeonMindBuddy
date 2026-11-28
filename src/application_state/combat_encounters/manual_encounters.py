@@ -26,6 +26,7 @@ from application_state.combat_encounters.types import (
     CombatWorldIdentity,
     ConversationVariantCombatSnapshot,
     CreateCombatEncounterRequest,
+    DeletedCombatMechanics,
     SaveCombatEncounterRequest,
     SavedCombatMechanicsSnapshot,
 )
@@ -51,6 +52,7 @@ class ManualParticipant(_Model):
     tags: tuple[Status, ...] = Field(default=(), max_length=32)
     world_identity: CombatWorldIdentity | None = None
     mechanics_snapshot: SourceSnapshot | None = None
+    deleted_mechanics: DeletedCombatMechanics | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @field_validator("world_identity", "mechanics_snapshot", mode="before")
     @classmethod
@@ -61,6 +63,8 @@ class ManualParticipant(_Model):
 
     @model_validator(mode="after")
     def coherent_identity(self):
+        if self.deleted_mechanics is not None and self.mechanics_snapshot is not None:
+            raise ValueError("Deleted combat mechanics cannot retain a statblock snapshot")
         if self.name != self.name.strip():
             raise ValueError("participant name must not have surrounding whitespace")
         if len(set(self.statuses)) != len(self.statuses) or len(set(self.tags)) != len(self.tags):
