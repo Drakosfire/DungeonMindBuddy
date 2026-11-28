@@ -121,7 +121,7 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             if locator is not None:
                 expected_state.add('existing_paragraph_locator')
                 assert body['state']['existing_paragraph_locator'] == locator
-            if any(scope.page_edit_intent for scope in scopes):
+            if any(scope.page_edit_intent or scope.requested_work == "discuss" for scope in scopes):
                 expected_state.add('author_page_edit_intent')
                 assert body['state']['author_page_edit_intent'] in {'page_edit', 'discussion', 'unresolved'}
         if any(candidate["kind"] == "Explicit admitted full-source read; metadata choice, not evidence"
@@ -1898,7 +1898,7 @@ def _shared_plan_authoring_case(
     if author_scope_calls is None:
         author_scope_calls = 2 if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2 else 0
     if author_scope_calls:
-        author_scope_calls += 1
+        author_scope_calls = 1 if routing == "discuss" else author_scope_calls + 1
     if routing is not None:
         from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
         from application_state.plan_action_dialogue.repository import get_authoring_for_turn

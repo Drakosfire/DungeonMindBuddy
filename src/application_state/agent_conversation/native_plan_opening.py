@@ -862,8 +862,14 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
                         and e.controller_attempt_id == first_intent.provider_attempt_id]
         if len(observations) != 1 or observations[0].scope_observation.requested_work is None:
             raise ValueError("Plan intent requires its settled first response")
-        attempts = attempts[1:]
-        prefix = tuple(e for e in prefix if e is not observations[0])
+        intent = observations[0]
+        if author_scope_event_id == intent.event_id:
+            if (author_scope_recheck or review_event_ids is not None or len(attempts) != 1
+                    or intent.scope_observation.requested_work != "discuss"):
+                raise ValueError("Only discussion can use the intent receipt without placement interpretation")
+        else:
+            attempts = attempts[1:]
+            prefix = tuple(e for e in prefix if e is not intent)
     if author_scope_event_id is not None:
         observations = [e for e in prefix if type(e) is NativePlanAuthorScopeObservedV1]
         allowed_counts = (2,) if review_event_ids is not None else (1,) if author_scope_recheck else (1, 2, 3)
