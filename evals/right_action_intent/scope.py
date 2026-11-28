@@ -76,6 +76,10 @@ def play_request(state, menu):
     ))
     if state != request.state:
         raise ValueError("Play fixture state differs from Buddy's opening request")
+    return with_menu(request, menu)
+
+
+def with_menu(request, menu):
     question = request.questions[0]
     if dict(question.option_descriptions) == menu and question.options == tuple(menu):
         return request
@@ -128,7 +132,11 @@ async def main():
                         help="Compare explicit edit destinations in the Play ballot")
     parser.add_argument("--tier", help="Run only cases in this tier while retaining the original menu union")
     parser.add_argument("--summarize", type=Path, help="Summarize a retained paired capture without a provider")
+    parser.add_argument("--plan-intent-only", action="store_true",
+                        help="Evaluate the shared source-blind intent request for Plan")
     args = parser.parse_args()
+    if args.plan_intent_only and args.surface != "plan":
+        parser.error("--plan-intent-only requires --surface plan")
     if args.summarize:
         capture = json.loads(args.summarize.read_bytes())
         results = capture.get("results", capture)
@@ -178,12 +186,18 @@ async def main():
         play = play_request(sample, menus["play"]["scoped"])
         frozen["play_prompt"] = play.questions[0].question
         frozen["play_question"] = play.questions[0].name
+    if args.plan_intent_only:
+        from application_state.agent_conversation.surface_action_catalog import prepare_opening_intent
+
+        plan = prepare_opening_intent("plan", groups["plan"][0]["input"])
+        frozen["plan_prompt"] = plan.questions[0].question
+        frozen["plan_question"] = plan.questions[0].name
     (args.output / "frozen-inputs.json").write_text(json.dumps(frozen, indent=2) + "\n")
     retained = {}
     if args.reuse:
         prior = json.loads((args.reuse / "frozen-inputs.json").read_bytes())
         prior_report = json.loads((args.reuse / "results.json").read_bytes())
-        if (any(prior.get(key) != frozen.get(key) for key in ("model", "prompt", "menus", "play_prompt", "play_question"))
+        if (any(prior.get(key) != frozen.get(key) for key in ("model", "prompt", "menus", "play_prompt", "play_question", "plan_prompt", "plan_question"))
             or any(tuple(menu) != tuple(menus[surface][arm])
                    for surface, arms in prior["menus"].items() for arm, menu in arms.items())
         ):
@@ -201,8 +215,11 @@ async def main():
         menu = body["action_definitions"]
         payload = {"model": model, "state": body["state"], "questions": {"intent": {
             "question": body["instructions"], "options": list(menu), "option_descriptions": menu}}}
-        request = (play_request(body["state"], menu) if body["state"]["surface"] == "play"
-                   else DecisionRequest.model_validate(sdk_request(payload)))
+        if args.plan_intent_only:
+            request = with_menu(prepare_opening_intent("plan", body["state"]), menu)
+        else:
+            request = (play_request(body["state"], menu) if body["state"]["surface"] == "play"
+                       else DecisionRequest.model_validate(sdk_request(payload)))
         result = (await client.decide(request)).model_dump(mode="json")
         try:
             return selection(result, request.questions[0].name), result

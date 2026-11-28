@@ -257,3 +257,18 @@ of other applicable action choices and descriptions to requested work only.
 Both chose discussion and marked the reference as sufficient to anchor the
 turn. This is evidence about classification on one captured request. It
 does not qualify actual source use or reproduce the 36-case quality change.
+
+#### Intent-only Plan request experiment
+
+The [seven-case Plan comparison](right_action_intent/plan-intent-only-paired-jev.json)
+uses the shared intent-only request builder with the fixtures' supplied
+surface and editor context. The only change between arms is the action
+menu. Reproduce with `--surface plan --plan-intent-only`. The scoped menu
+passed 7/7 and the combined menu passed 6/7, with two valid clarifications
+in each arm. The combined menu chose a live Play scene edit for the
+highlighted-sentence edit on the current Plan. Median decision wall time
+was 295.23 ms scoped and 303.19 ms combined.
+
+The shared builder already serves Play. The Plan trial evaluates the request
+before product integration. The contextual Plan wire control above shows
+the ordinary Plan sequence that still needs to change.
