@@ -49,6 +49,7 @@ One row per product idea. These rows are pointers, not separate status records. 
 | Idea | Next useful slice or decision |
 | --- | --- |
 | [Simple bulk selection and deletion](#idea-simple-bulk-selection-and-deletion--captured-2026-11-25) | Make multi-item selection and deletion consistent across Buddy, including a real purge for deleted conversations. |
+| [Permanently delete a statblock from Build](#permanently-delete-a-statblock-from-build) | Replace discovery-only archival with permanent deletion and verify it on hosted Buddy. |
 | [Delightful Buddy landing page](#idea-delightful-buddy-landing-page--captured-2026-11-16) | [Home implementation #3965](https://github.com/Drakosfire/DungeonMindBuddy/pull/3965) merged; assess actual hosted sign-in and any remaining acceptance. |
 | [Inviting canvases with no graph loaded](#idea-inviting-canvases-with-no-graph-loaded--captured-2026-11-16) | Loaded-empty Graph guidance shipped. Audit setup, unavailable, and optional-Graph states across surfaces. |
 | [Shared page composer residuals](#idea-high-priority--shared-grid-page-constructor) | Manual foundation merged; physical print and ordinary chat-directed layout remain separate acceptance work. |
@@ -77,6 +78,21 @@ One row per product idea. These rows are pointers, not separate status records. 
 **Context:** Conversation history shipped and passed hosted single and bulk verification. [Conversation lifecycle record](Backlog-DONE.md#done-conversation-library-lifecycle--2026-11-27)
 **Action:** Audit other Buddy collections. Reuse selection, scope, confirmation, and partial-failure patterns where they fit the collection’s own recovery and storage contract. State what can be recovered and which copies remain.
 **Surfaces when:** Building collection management, trash, retention, data deletion, or bulk actions beyond conversations.
+
+## Permanently delete a statblock from Build
+
+**Status:** Reopened after hosted verification showed that the toolbar action archives
+the statblock from the picker while its saved mechanics remain readable by exact URL.
+[Previous hosted verification](Backlog-DONE.md#done-delete-the-current-build-page--2026-11-28)
+
+**Scope:** Delete the selected statblock and all its live saved revisions and
+exclusively owned artwork. Preserve shared assets, the World creature, and saved
+encounters. References to the deleted statblock should report that it was deleted.
+
+**Delivery order:** DungeonMindServer owns deletion of canonical mechanics revisions.
+Buddy owns the World-scoped toolbar action, draft and reference handling, and the
+hosted verification. Keep this item open until a disposable illustrated statblock
+with multiple revisions passes the full deletion check in Buddy Cloud Pilot.
 
 ## [IDEA] Delightful Buddy landing page — captured 2026-11-16
 

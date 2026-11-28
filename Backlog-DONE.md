@@ -77,6 +77,9 @@ The independent hosted Rename issue is tracked separately in [#5011](https://git
 
 ## [DONE] Delete the current Build page — 2026-11-28
 
+This entry records the hosted verification of page Trash and statblock archival.
+[Permanent statblock deletion](Backlog.md#permanently-delete-a-statblock-from-build) remains open.
+
 Verified both direct toolbar actions in hosted Buddy Cloud Pilot on healthy release
 `e217670f9b47f0e0c5f00a95f8afbddad5aea9ce`.
 [Deployment evidence](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/46167726548)
