@@ -449,3 +449,28 @@ def test_lore_page_request_cannot_fall_through_to_connected_location_review(work
     assert c.selected(response, menu=prior) == "review_connected_page"
     with pytest.raises(ValueError, match="Invalid actual semantic selection"):
         c.selected(response, menu=c.MENU_DIGEST)
+
+
+
+def test_tied_source_need_does_not_override_build_clarification(monkeypatch):
+    monkeypatch.setattr(c, "_captured_semantics", lambda _: (None, None, c.SCOPED_BUILD_MENU_DIGEST, None))
+    menu = c.opening_work_question(c.SCOPED_BUILD_MENU_DIGEST)["criteria"]
+    request = {"questions": {"source_need": c.source_need_question()}}
+    source_vote = {"selected": "uncertain", "probabilities": {
+        "anchored": .24, "source_lookup": .38, "uncertain": .38,
+    }}
+
+    def response(label):
+        return {"answers": {
+            "requested_work": {"selected": label, "probabilities": {k: float(k == label) for k in menu}},
+            "source_need": source_vote,
+        }}
+
+    assert c.opening_work(None, request, response("clarify_request"), None) == (
+        "clarify_request", "anchored",
+    )
+    with pytest.raises(c.UnresolvedDiscussionSource):
+        c.opening_work(None, request, response("discuss"), None)
+    del source_vote["probabilities"]["anchored"]
+    with pytest.raises(ValueError, match="Invalid actual semantic selection"):
+        c.opening_work(None, request, response("clarify_request"), None)
