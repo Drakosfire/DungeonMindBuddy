@@ -63,6 +63,16 @@ def claim(target: PurgeTarget, *, authorize) -> bool:
         ).fetchone()
         if unresolved:
             raise ApplicationStateConflictError("Resolve the pending mechanics save before deleting")
+        # Preflight supplied a validated lineage. Recheck its unextended tip
+        # under the same lock that admits revision writes.
+        newer_revision = conn.execute(
+            """SELECT 1 FROM mechanics_revision.operation
+               WHERE statblock_id=%s AND state='committed'
+                 AND payload #>> '{base,revision_id}' = %s LIMIT 1""",
+            (target.statblock_id, target.expected_revision_id),
+        ).fetchone()
+        if newer_revision:
+            raise ApplicationStateConflictError("Saved mechanics changed before deletion")
         conn.execute(
             """INSERT INTO mechanics_revision.purge
                (statblock_id, world_id, draft_id, draft_version, expected_revision_id)
