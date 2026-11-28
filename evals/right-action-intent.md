@@ -280,3 +280,11 @@ the selection. No placement or retrieval questions are sent. This reproduced
 7/7 scoped and 6/7 combined on the same seven cases. Median time was 188.45 ms
 scoped and 294.12 ms combined. This is a prototype decision comparison.
 Ordinary Plan still uses the earlier dispatch sequence.
+
+The runtime draft now sends the shared intent-only request first on
+contextual Plan turns. Transport checks cover contextual and composed
+Plan, including saved placement replay, ambiguity, stale and foreign
+targets, and the discussion path that skips placement interpretation.
+The historical wire capture records the earlier sequence. The paired Jev
+study remains a decision comparison on pinned fixtures, with simulated
+provider responses used to verify the ordinary runtime separately.
