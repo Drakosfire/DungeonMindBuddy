@@ -1,5 +1,6 @@
 """Focused App-fence transport trust, pins, lock and receipt boundary checks."""
 import hashlib
+from io import BytesIO
 from importlib.machinery import SourceFileLoader
 import importlib.util
 import json
@@ -222,15 +223,17 @@ def test_deploy_receipts_follow_real_phase_results(helper, packet, monkeypatch, 
 def test_dispatcher_accepts_only_fixed_fence_grammar(tmp_path):
     entry = tmp_path / 'entry'
     stub = tmp_path / 'fence'
-    stub.write_text('#!/bin/bash\nprintf "%s\\n" "$BUDDY_DEPLOY_LOCK_HELD" "$@"\n')
+    stub.write_text('#!/bin/bash\nprintf "%s\\n" "$BUDDY_DEPLOY_LOCK_HELD" "$@"\ncat\n')
     stub.chmod(0o755)
     entry.write_text((ROOT / 'deploy/production/deploy-buddy-release').read_text()
                      .replace('/run/lock/buddy-production-deploy.lock', str(tmp_path / 'lock'))
                      .replace('/usr/local/sbin/deploy-buddy-app-fence', str(stub)))
     good = f'app-fence {REV} {REGISTRY} {IMAGE} {OLD} {OLD_IMAGE} ' + 'e' * 64
-    result = subprocess.run(['bash', str(entry), good], text=True, capture_output=True, timeout=10)
+    data = '{"manifest.json":"example"}'
+    result = subprocess.run(['bash', str(entry), good], input=data,
+                            text=True, capture_output=True, timeout=10)
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == ['1', REV, REGISTRY, IMAGE, OLD, OLD_IMAGE, 'e' * 64]
+    assert result.stdout.splitlines() == ['1', REV, REGISTRY, IMAGE, OLD, OLD_IMAGE, 'e' * 64, data]
     for bad in [good + ' extra', good + '\n', good.replace(REV, '../operator', 1), good.replace('app-fence', 'app-fence;false', 1)]:
         result = subprocess.run(['bash', str(entry), bad], text=True, capture_output=True, timeout=10)
         assert result.returncode != 0 and not result.stdout
@@ -240,15 +243,18 @@ def test_workflow_uses_same_queue_and_pinned_receipts():
     import yaml
     workflow = yaml.load((ROOT / '.github/workflows/deploy-buddy-app-fence.yml').read_text(), Loader=yaml.BaseLoader)
     ordinary = yaml.load((ROOT / '.github/workflows/deploy-buddy.yml').read_text(), Loader=yaml.BaseLoader)
-    assert workflow['permissions'] == {}
+    assert workflow['permissions'] == {'contents': 'read'}
     assert workflow['concurrency'] == ordinary['concurrency']
     job = workflow['jobs']['deploy']
     assert job['environment'] == 'buddy-production' and job['if'] == "github.ref == 'refs/heads/main'"
-    run = job['steps'][0]['run']
+    run = job['steps'][1]['run']
+    assert 'persist-credentials' in job['steps'][0]['with']
+    assert 'app-fence-releases' in run and '< "$ssh_dir/release.json"' in run
+    assert 'ssh -n' not in run
     assert '${{ inputs.' not in run and 'StrictHostKeyChecking=yes' in run
     assert 'BUDDY_STAGED $REVISION $CANDIDATE_ID $REGISTRY_DIGEST' in run
     assert 'BUDDY_LIVE $REVISION $CANDIDATE_ID' in run
-    assert 'status" == 401' in job['steps'][1]['run']
+    assert 'status" == 401' in job['steps'][2]['run']
 
 
 def test_ordinary_image_dispatch_keeps_existing_protocol(tmp_path):
@@ -283,3 +289,63 @@ def test_docker_failure_preserves_diagnostics_and_bounds(helper, monkeypatch, ca
     with pytest.raises(subprocess.CalledProcessError):
         helper.run(['/usr/bin/docker', operation])
     assert 'Docker operation was denied' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize('change', [None, 'script', 'invalid_digest', 'policy', 'oversize', 'tampered_release'])
+def test_authenticated_release_staging(helper, packet, change):
+    root, directory, manifest, seal = packet
+    if change == 'policy':
+        path = directory / 'release.json'
+        release = json.loads(path.read_text())
+        path.write_text(json.dumps(release | {'backup_tool': 'untrusted-image'}))
+    args = seal()
+    program = root / 'app-fence-programs' / manifest['files']['operator.py']
+    program.mkdir(parents=True)
+    program.chmod(0o700)
+    program.parent.chmod(0o700)
+    for name in helper.PROGRAMS:
+        (program / name).write_bytes((directory / name).read_bytes())
+        (program / name).chmod(0o600)
+        (directory / name).unlink()
+    policy = program / 'policy.json'
+    policy.write_text('{}')
+    policy.chmod(0o600)
+    data = {name: (directory / name).read_text() for name in helper.DATA_FILES}
+    for name in data:
+        (directory / name).unlink()
+    directory.rmdir()
+    if change == 'script':
+        data['operator.py'] = 'assert False'
+    elif change == 'invalid_digest':
+        args[-1] = 'f' * 64
+    elif change == 'tampered_release':
+        data['release.json'] += ' '
+    elif change == 'oversize':
+        data['release.json'] += ' ' * helper.MAX_REQUEST_BYTES
+
+    request = json.dumps(data).encode()
+    if change:
+        message = {
+            'script': 'three reviewed JSON files',
+            'invalid_digest': 'submitted manifest digest differs',
+            'policy': 'installed program policy',
+            'oversize': 'exceeds bounds',
+            'tampered_release': 'packet file digest differs',
+        }[change]
+        with pytest.raises(ValueError, match=message):
+            helper.stage_release_data(args, request, root=root, uid=os.getuid())
+        assert not directory.exists()
+        return
+
+    helper.stage_release_data(args, request, root=root, uid=os.getuid())
+    assert helper.load_packet(args, root=root, uid=os.getuid()) == (directory, manifest)
+    journal = directory / 'journal.json'
+    journal.write_text('{"phase":"drained"}')
+    journal.chmod(0o600)
+    helper.stage_release_data(args, request, root=root, uid=os.getuid())
+    assert journal.read_text() == '{"phase":"drained"}'
+
+
+def test_request_read_returns_at_most_one_byte_beyond_limit(helper):
+    stream = BytesIO(b'a' * (helper.MAX_REQUEST_BYTES + 100))
+    assert len(helper.read_request(stream)) == helper.MAX_REQUEST_BYTES + 1

@@ -25,11 +25,12 @@ on:
         type: string
         required: true
       packet_digest:
-        description: SHA-256 of the reviewed root-installed App-fence manifest
+        description: SHA-256 of the reviewed App-fence manifest on main
         type: string
         required: true
 
-permissions: {}
+permissions:
+  contents: read
 
 concurrency:
   group: buddy-production-deploy
@@ -43,7 +44,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - name: Run the exact approved App-fence packet
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Submit reviewed release data and run the App-fence checks
         env:
           REVISION: ${{ inputs.revision }}
           REGISTRY_DIGEST: ${{ inputs.registry_digest }}
@@ -72,12 +77,34 @@ jobs:
           printf '%s\n' "$DEPLOY_KEY" > "$ssh_dir/key"
           printf '%s\n' "$KNOWN_HOSTS" > "$ssh_dir/known_hosts"
           unset DEPLOY_KEY
-          ssh -nT -F /dev/null -i "$ssh_dir/key" \
+          python3 - "$ssh_dir/release.json" <<'PYTHON'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import sys
+
+          root = Path('deploy/production/app-fence-releases') / os.environ['REVISION']
+          files = {}
+          for name in ('manifest.json', 'release.json', 'qualification.json'):
+              path = root / name
+              if path.is_symlink() or not path.is_file() or path.stat().st_size > 128 * 1024:
+                  raise SystemExit(f'Missing or invalid reviewed release data: {name}')
+              with path.open(encoding='utf-8', newline='') as stream:
+                  files[name] = stream.read()
+          if hashlib.sha256(files['manifest.json'].encode()).hexdigest() != os.environ['PACKET_DIGEST']:
+              raise SystemExit('Reviewed manifest does not match the dispatch digest')
+          payload = json.dumps(files, ensure_ascii=False).encode()
+          if len(payload) > 128 * 1024:
+              raise SystemExit('Reviewed release data exceeds the server limit')
+          Path(sys.argv[1]).write_bytes(payload)
+          PYTHON
+          ssh -T -F /dev/null -i "$ssh_dir/key" \
             -o BatchMode=yes -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes -o GlobalKnownHostsFile=/dev/null \
             -o UserKnownHostsFile="$ssh_dir/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
-            "buddy-deploy@$DEPLOY_HOST" "$request" | tee "$ssh_dir/result"
+            "buddy-deploy@$DEPLOY_HOST" "$request" < "$ssh_dir/release.json" | tee "$ssh_dir/result"
           grep -Fxq "BUDDY_STAGED $REVISION $CANDIDATE_ID $REGISTRY_DIGEST" "$ssh_dir/result"
           grep -Fxq "BUDDY_LIVE $REVISION $CANDIDATE_ID" "$ssh_dir/result"
 

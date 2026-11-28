@@ -298,26 +298,34 @@ and pinned host key, GitHub deployment queue and host lock. Its fixed request is
 app-fence <candidate-sha> <registry-digest> <candidate-image-id> <healthy-serving-sha> <healthy-serving-image-id> <packet-manifest-sha256>
 ```
 
-The production operator must first review the complete release packet and its
-actual qualification evidence under the production and application-state recovery
-runbooks. Publish the candidate through Actions with the appropriate existing
-build options and exact serving parent. A changed serving source requires a new
-lineage check and packet; changing rollback inputs alone is insufficient.
+Publish the candidate through Actions with the current guest build options and
+the exact serving parent. A changed serving source requires a new lineage,
+qualification and release record.
 
-Install the reviewed `deploy-buddy-release` and `deploy-buddy-app-fence` from the
-same source as root-owned executables in `/usr/local/sbin`, under the production
-lock, and verify their checksums. The existing SSH key, forced command and
-sudoers grant do not change. The new helper accepts no uploaded script, command
-or arbitrary file path. Only a root-installed approved packet can run.
+Bootstrap the data-only path once per vetted recovery program. Under the
+production lock, install the reviewed `deploy-buddy-app-fence` helper and put
+its recovery program in `/etc/buddy-deploy/app-fence-programs/<operator-sha256>`.
+This root-owned directory contains `operator.py`, `dogfood_engine_transport.py`
+and `policy.json`. Keep directories mode0700 and files mode0600. The policy
+contains the fixed release configuration for that program, including backup
+tool, production PostgreSQL pins and recovery behavior. The server refuses any
+submitted release that changes these fixed fields. Keep the forced SSH command,
+deploy key and sudoers grant scoped to the existing dispatcher. A new recovery
+program or infrastructure policy requires a separately reviewed installation.
 
-Each candidate has a root-owned directory
-`/etc/buddy-deploy/app-fence-packets/<full-candidate-sha>` beneath the existing
-protected configuration root. Keep directories mode0700 and files mode0600.
-The sealed files are `manifest.json`, `operator.py`,
-`dogfood_engine_transport.py`, `release.json` and `qualification.json`.
-No package/cache directory or additional Python/native code is accepted. The
-operator may create root-owned JSON journals there. Installation and any guarded
-state settlement use the deployment lock; never edit an in-flight packet.
+For each compatible release, merge a reviewed directory at
+`deploy/production/app-fence-releases/<candidate-sha>/` on Buddy main. Include
+`manifest.json`, `release.json`, `qualification.json`, and the qualification
+evidence for reviewers. Keep credentials and production data out of the repo.
+Use manual dispatch from main with the exact pins. Actions submits only the
+three JSON inputs on the authenticated deploy connection. It does so under
+standing operator authorization without a release-specific sudo step.
+
+The server stages the data atomically under the existing deployment lock in
+`/etc/buddy-deploy/app-fence-packets/<candidate-sha>`. It validates the submitted
+manifest digest, every file hash and installed policy, and copies executable
+files from the root-owned program. It preserves existing local journals.
+No executable content or caller-selected host paths cross the SSH request.
 
 `manifest.json` has exactly these fields:
 
@@ -337,15 +345,10 @@ state settlement use the deployment lock; never edit an in-flight packet.
 exactly `status: accepted`, `evidence_sha256` and the manifest's
 `candidate_revision`, `candidate_id`, `recovery_revision`, `recovery_id`,
 `source_schema`, `target_schema` fields. Its evidence hash identifies the actual
-accepted rehearsal/review record. Acceptance of the exact App-fence packet
-authorizes both installation and GitHub Actions cutover with the pins sealed in
-that packet. Tell the operator the scope before prompting for acceptance. Once
-the operator returns the installed packet digest, recheck the healthy rollback
-pins and dispatch the matching workflow without requesting a second approval.
-Any material change to the candidate, rollback, schema transition, recovery
-plan, or sealed contents requires a new packet and acceptance. Acceptance
-records the operator's decision after they inspect the qualification. The
-final drained-archive rehearsal and its acceptance still gate activation.
+accepted rehearsal and review record. The merged record and manual dispatch
+authorize staging and cutover for those exact pins. The final drained-archive
+rehearsal still gates activation. A changed candidate, rollback, schema
+transition, recovery plan or sealed contents requires a new reviewed record.
 
 The sealed operator implements `prepare` then `apply` under inherited FD9. It
 must verify that FD9 is the existing production lock instead of opening a second
