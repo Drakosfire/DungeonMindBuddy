@@ -2380,6 +2380,14 @@ def test_ordinary_build_human_source_reaches_writer_and_reopens_exact_citation(l
     _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,authored_source=selection)
 
 
+def _capture_opening_wire(case, label):
+    import os
+    from pathlib import Path
+
+    if destination := os.environ.get("DMB_BUILD_OPENING_WIRE_DIR"):
+        Path(destination, f"build-{label}-opening.json").write_bytes(case.decisions.calls[0].content)
+
+
 def test_ordinary_build_source_status_guidance_reaches_the_provider(lane, tmp_path, monkeypatch):
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
                        authored_source="full_document")
@@ -2388,6 +2396,7 @@ def test_ordinary_build_source_status_guidance_reaches_the_provider(lane, tmp_pa
     )
     from application_state.agent_conversation.surface_action_catalog import opening_action_menu
 
+    _capture_opening_wire(case, "attached-source")
     opening = json.loads(case.decisions.calls[0].content)["questions"]["requested_work"]
     assert opening == opening_work_question(SCOPED_BUILD_MENU_DIGEST)
     assert tuple(opening["criteria"]) == tuple(opening_action_menu("build"))
