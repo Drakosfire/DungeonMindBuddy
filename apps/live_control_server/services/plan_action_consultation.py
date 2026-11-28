@@ -121,6 +121,11 @@ class _ActionFence:
     store: Any
     action: PlanActionRecord
 
+    def plan_provider_checkpoint(self, _attempt_id: UUID) -> None:
+        # Action-ledger attempts have no native Plan session checkpoint. The
+        # shared broker must append outcomes under this action's token and fence.
+        return None
+
     def append(
         self, _method_name: str, _event_name: str, event: Any
     ) -> tuple[PlanActionRecord, bool]:

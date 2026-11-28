@@ -570,10 +570,12 @@ def test_historical_native_question_bytes_remain_at_adopted_control(codec,expect
     fields=request().model_dump(exclude={'schema_','revision'})|dict(
         source_authority_status='available',source_revision='source:private',graph_revision='graph:private')
     accounting=ExperimentalAccounting('historical-tokenizer',lambda _:1).descriptor if 'Build' in codec else None
-    d=c.prepare_decision(getattr(c,codec)(**fields),controller_accounting=accounting)
-    raw=json.dumps(dict(model=d.model,state=d.state,questions={q.name:dict(
+    parent = getattr(c,codec)(**fields)
+    d=c.prepare_decision(parent,controller_accounting=accounting)
+    raw=json.dumps(dict(model='jev-1.14.0',state=d.state,questions={q.name:dict(
         type='choice',instructions=q.question,criteria=dict.fromkeys(q.options)) for q in d.questions}),sort_keys=True,separators=(',',':')).encode()
     assert sha256(raw).hexdigest()==expected
+    c.validate_wire_body(parent, raw, controller_accounting=accounting, expected_model='jev-1.14.0')
 
 
 @pytest.mark.parametrize('plan', ['review_after_reads', 'finish_if_selected_reads_succeed'])
