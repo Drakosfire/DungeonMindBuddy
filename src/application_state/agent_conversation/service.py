@@ -2964,10 +2964,11 @@ class AgentConversationService:
                 return turn, False
             try:
                 turns, seed = repo.list_retained_build_turns(conn, turn)
+                # Pending discussion and page review both require the V3 closure.
                 event = capture(turn, turns, seed=seed, event_id=event_id, work_event_id=work.event_id,
                     pointer_revision=receipt.conversation_observation.pointer_revision,
                     authorize_authored=_retained_authored_authorizer(conn, world_id),
-                    discussion=work.requested_work == "discuss")
+                    discussion=True)
             except (ValueError, TypeError, KeyError, AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             if authorize_current_access(conn, turn, None) is not True:
