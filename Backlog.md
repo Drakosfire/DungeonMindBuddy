@@ -372,6 +372,13 @@ a prototype is not a new durable authority.
 **Action:** Add edit and fork actions at a saved turn. Preserve the original conversation and its downstream turns. Reopen each branch from the picker with its own subsequent messages and the appropriate saved context.
 **Surfaces when:** Conversation history, message actions, or branching work begins.
 
+## [IDEA] Restore hosted conversation Rename — captured 2026-11-27
+
+**Context:** A signed-in World owner tried to rename a disposable Buddy Cloud Pilot conversation on release `bef1f4b5`. Saving retained the typed title and displayed the local-operator and same-origin route warning. Reproduced during [conversation lifecycle verification](https://github.com/Drakosfire/DungeonMindBuddy/pull/5010).
+**Action:** Trace the exact Rename request through the hosted route policy. Keep the change scoped to the existing World-authorized name operation and preserve its revision check.
+**Verification:** Rename a disposable conversation as its World owner, reload the library, and confirm the new title is saved. Verify that a signed-in non-owner and a stale name revision cannot change it.
+**Surfaces when:** Conversation library naming or hosted route authorization work begins.
+
 ## [IDEA] Audit saved Buddy conversation loading end to end — captured 2026-11-19
 
 **Context:** The operator reports that conversation loading seems broken.
