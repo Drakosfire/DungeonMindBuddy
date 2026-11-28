@@ -738,3 +738,27 @@ def test_build_query_settlement_requires_exact_opening_response(failure):
         assert frame["native_assertions"]["authority"] == catalog.authority.model_dump(
             mode="json", by_alias=True,
         )
+
+
+def test_native_build_decodes_source_scope_bound_to_acknowledged_intent():
+    from application_state.agent_conversation.native_execution import BuildSourceScopeAuthorizedV1
+
+    _, current = component("build")
+    first = controller("build", current.policy)
+    chosen = t.BuildOpeningIntentSelectedV1(
+        kind="build_opening_intent_selected_v1", event_id=uuid4(), sequence=3,
+        controller_attempt_id=first.provider_attempt_id, controller_envelope_sha256=first.envelope_sha256,
+        controller_response_sha256="a" * 64, requested_work="discuss",
+    )
+    ballot = controller("build", current.policy, sequence=4)
+    ballot = BuildSourceScopeAuthorizedV1.model_validate(
+        ballot.model_dump() | {"kind": "build_source_scope_authorized_v1", "context_phase": "source_scope",
+                               "opening_intent_event_id": chosen.event_id},
+    )
+    prefix = [first, *outcomes(first, 1), chosen]
+    native = execution(current.context_receipt_sha256, current.policy, [*prefix, ballot])
+    assert type(native).model_validate_json(native.model_dump_json(by_alias=True)) == native
+    with pytest.raises(ValueError, match="unresolved opening intent"):
+        execution(current.context_receipt_sha256, current.policy, [
+            *prefix, ballot.model_copy(update={"opening_intent_event_id": uuid4()}),
+        ])

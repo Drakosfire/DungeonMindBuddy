@@ -1942,10 +1942,13 @@ class AgentConversationService:
             from .types import BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1
             from .build_pending_app_coverage import BuildAppCoverageDecidedV1
             from .types import BuildOpeningIntentSelectedV1, PlanJevRetrievalSelectionV1
+            from .native_execution import BuildSourceScopeAuthorizedV1
+            if type(event) in (BuildOpeningIntentSelectedV1, BuildSourceScopeAuthorizedV1):
+                raise ApplicationStateValidationError('Build intent dispatch requires its dedicated proof owner')
             if type(turn.graph_context_execution) is BuildPendingExecutionV1 and (native_source_materializer is not None or isinstance(event, (
                     ProviderAttemptAuthorizedEventV1, ProviderOutcomeEventV1, RelatedPagesSelection, RelatedPageRead,
                     BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1, BuildAppCoverageDecidedV1,
-                    BuildOpeningIntentSelectedV1, PlanJevRetrievalSelectionV1))):
+                    PlanJevRetrievalSelectionV1))):
                 raise ApplicationStateValidationError('Pending Build dispatch/acquisition requires its exact prepared-input admission owner')
             from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5

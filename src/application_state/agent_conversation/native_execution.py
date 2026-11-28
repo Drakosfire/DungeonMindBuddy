@@ -620,6 +620,7 @@ SurfaceNativeEvent = Annotated[
     | t.BuildDraftContextCapturedV1 | NativeBuildQuerySettledV1 | t.BuildPriorBodyEvidenceAdmittedV1 | t.BuildPriorBodyEvidenceAdmittedV2 | t.BuildPriorBodyEvidenceAdmittedV3
     | t.BuildSectionReadAuthorizationV1 | t.ValidatedBuildSectionReadV1
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
+    | t.BuildOpeningIntentSelectedV1 | BuildSourceScopeAuthorizedV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildWriterEvidenceSelectionV2 | t.BuildPlanOutputContractV2
     | t.RelatedPagesSelection | t.RelatedPageRead | BuildSavedStatblockReadV1
     | t.BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV2
@@ -631,7 +632,7 @@ SurfaceNativeEvent = Annotated[
 _BUILD_WORK_EVENTS = (
     t.BuildDraftContextCapturedV1, NativeBuildQuerySettledV1, t.BuildPriorBodyEvidenceAdmittedV1,
     t.BuildSectionReadAuthorizationV1, t.ValidatedBuildSectionReadV1,
-    t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
+    t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1, t.BuildOpeningIntentSelectedV1, BuildSourceScopeAuthorizedV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
     t.RelatedPagesSelection, BuildSavedStatblockReadV1,
 )
@@ -715,14 +716,8 @@ class BuildPendingExecutionV1(Strict):
                             != self.policy.provider_roles.controller.identity()):
                         raise ValueError('Pending retrieval requires its settled source and actual Build controller')
                 elif type(event) is BuildSourceScopeAuthorizedV1:
-                    previous = self.events[event.sequence - 1] if event.sequence else None
-                    if (settled or work_selected
-                            or type(previous) is not t.BuildOpeningIntentSelectedV1
-                            or previous.event_id != event.opening_intent_event_id
-                            or previous.requested_work in {"clarify_request", "clarify_creation"}
-                            or (event.provider, event.model, event.api_mode)
-                            != self.policy.provider_roles.controller.identity()):
-                        raise ValueError("Build source scope requires its unresolved opening intent")
+                    if settled:
+                        raise ValueError("Build source scope cannot follow source preparation")
                 elif type(event) is BuildAppCoverageAuthorizedV1:
                     if settled:
                         raise ValueError('App coverage cannot follow native source preparation')

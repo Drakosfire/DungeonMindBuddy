@@ -876,6 +876,8 @@ def validate_native_action_events(execution):
     steps additionally require their existing review/reservation admission.
     """
     from . import types as t
+    from .native_execution import BuildSourceScopeAuthorizedV1
+
     caps,capability,menu,_=_captured_semantics(execution.policy)
     latest=outcome=selection=opening_intent=None
     for event in execution.events:
@@ -908,6 +910,14 @@ def validate_native_action_events(execution):
             validate_resolution_metadata(event,execution.policy)
             selection=event
         elif isinstance(event,t.ProviderAttemptAuthorizedEventV1):
+            if type(event) is BuildSourceScopeAuthorizedV1:
+                if (opening_intent is None or selection is not None
+                        or opening_intent.sequence + 1 != event.sequence
+                        or event.opening_intent_event_id != opening_intent.event_id
+                        or opening_intent.requested_work in {"clarify_request", "clarify_creation"}
+                        or (event.provider, event.model, event.api_mode)
+                        != execution.policy.provider_roles.controller.identity()):
+                    raise ValueError("Build source scope requires its unresolved opening intent")
             if getattr(selection, "typed_image_move", None) in {"move_existing", "unresolved"}:
                 raise ValueError("Typed image movement cannot authorize another provider call")
             if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.writer.identity():
