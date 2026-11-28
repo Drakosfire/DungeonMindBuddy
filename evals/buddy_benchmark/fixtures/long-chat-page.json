@@ -1,0 +1,70 @@
+{
+  "id": "LONG-CHAT-PAGE-1",
+  "title": "Glassmere Ferry Notes",
+  "question": "Create a new standalone lore page titled Glassmere Ferry Notes using only our conversation. Preserve the early ferry details, the lantern correction, the proposed fare, the ledger and unresolved questions. Do not search the World, open any other sources, or edit the current page.",
+  "required_text": [
+    "bronze moth",
+    "three stone bridges",
+    "amber",
+    "truthful memory",
+    "hollow willow"
+  ],
+  "prior_turns": [
+    {
+      "user_text": "Mara Vale runs the ferry and keeps a bronze moth at the landing.",
+      "assistant_text": "Mara Vale runs the ferry. The bronze moth belongs at the landing."
+    },
+    {
+      "user_text": "Three stone bridges mark the approach.",
+      "assistant_text": "There are three stone bridges on the approach."
+    },
+    {
+      "user_text": "The ferry only crosses at dawn.",
+      "assistant_text": "Keep the dawn crossing."
+    },
+    {
+      "user_text": "The lantern is blue for now.",
+      "assistant_text": "Blue is the tentative lantern color."
+    },
+    {
+      "user_text": "The boat is built from ash.",
+      "assistant_text": "The boat is ash."
+    },
+    {
+      "user_text": "Passengers wait on the eastern bank.",
+      "assistant_text": "They wait on the eastern bank."
+    },
+    {
+      "user_text": "Let the ticket price be a truthful memory, still a proposal.",
+      "assistant_text": "A truthful memory is the proposed fare."
+    },
+    {
+      "user_text": "Use a hollow willow for the ledger.",
+      "assistant_text": "Keep the ledger in a hollow willow."
+    },
+    {
+      "user_text": "The ledger has no known author.",
+      "assistant_text": "The author remains an open question."
+    },
+    {
+      "user_text": "The bronze moth is a marker, not a person.",
+      "assistant_text": "The bronze moth is a marker."
+    },
+    {
+      "user_text": "Correction: the lantern is amber, not blue.",
+      "assistant_text": "The lantern color is amber."
+    },
+    {
+      "user_text": "Leave the ferryman’s motive open.",
+      "assistant_text": "The motive remains unresolved."
+    },
+    {
+      "user_text": "The crossing ritual is proposed rather than established.",
+      "assistant_text": "Describe the ritual as a proposal."
+    },
+    {
+      "user_text": "Keep these notes together for our next step.",
+      "assistant_text": "I can use these notes when you ask for a page."
+    }
+  ]
+}

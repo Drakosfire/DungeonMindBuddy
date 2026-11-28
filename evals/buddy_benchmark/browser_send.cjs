@@ -12,6 +12,75 @@ async function pollBrowserRead(read, timeout, interval, description) {
   throw new Error("Timed out waiting for " + description);
 }
 
+async function readLorePages(page, world) {
+  const records = await page.evaluate(async world => {
+    const query = new URLSearchParams({world_id: world, kind: "worldbuilding_source"});
+    const response = await fetch("/api/live/workspace-documents?" + query, {cache: "no-store"});
+    if (!response.ok) throw new Error("Could not read the World page inventory");
+    return (await response.json()).records;
+  }, world);
+  return records.sort((a, b) => a.document_id.localeCompare(b.document_id));
+}
+
+async function captureLongChatPage(page, world, spec, before) {
+  const path = "/api/live/agent/worlds/" + encodeURIComponent(world) + "/conversation/lore-pages/";
+  const entries = [];
+  const record = request => {
+    const pathname = new URL(request.url()).pathname;
+    if (request.method() === "POST" && pathname.startsWith(path)) entries.push(pathname);
+  };
+  page.on("request", record);
+  const assertUnchanged = async () => {
+    if (JSON.stringify(await readLorePages(page, world)) !== JSON.stringify(before))
+      throw new Error("Page inventory changed before confirmation");
+  };
+  const click = async (action, label) => {
+    const pending = page.waitForResponse(response => response.request().method() === "POST"
+      && new URL(response.url()).pathname === path + action, {timeout: 20000});
+    pending.catch(() => {});
+    await page.getByRole("button", {name: label + spec.title, exact: true}).click({timeout: 20000});
+    const response = await pending;
+    if (!response.ok()) throw new Error("Lore " + action + " returned HTTP " + response.status());
+    return {command: response.request().postDataJSON(), body: await response.json()};
+  };
+  await assertUnchanged();
+  const review = await click("review", "Review save of ");
+  await assertUnchanged();
+  const confirm = await click("confirm", "Confirm save of ");
+  if (JSON.stringify(review.command) !== JSON.stringify(confirm.command)
+      || review.body.review_sha256 !== confirm.command.review_sha256
+      || confirm.body.review_sha256 !== confirm.command.review_sha256)
+    throw new Error("Confirmed lore page differs from the presented review");
+  const document = confirm.body.document_id;
+  const pages = await readLorePages(page, world);
+  const created = pages.find(row => row.document_id === document);
+  if (!created || created.title !== spec.title || created.world_id !== world
+      || JSON.stringify(pages.filter(row => row.document_id !== document)) !== JSON.stringify(before))
+    throw new Error("Confirmation did not create exactly one page with the expected title");
+  const link = page.getByRole("link", {name: "Open saved page", exact: true});
+  const url = new URL(await link.getAttribute("href"), page.url());
+  if (url.pathname !== "/build" || url.searchParams.get("world") !== world
+      || url.searchParams.get("documentId") !== document)
+    throw new Error("Saved page link differs from the confirmation receipt");
+  await link.click();
+  await page.waitForURL(url.href);
+  const editor = page.locator(".build-surface-shell .ProseMirror[contenteditable=true]:visible");
+  const verifyEditor = async () => {
+    await pollBrowserRead(async () => {
+      if (await editor.count() !== 1) return false;
+      const text = await editor.innerText();
+      return spec.required_text.every(fragment => text.toLowerCase().includes(fragment.toLowerCase()));
+    }, 15000, 150, "saved long-chat text in the editor");
+  };
+  await verifyEditor();
+  await page.reload();
+  await verifyEditor();
+  if (JSON.stringify(await readLorePages(page, world)) !== JSON.stringify(pages)
+      || JSON.stringify(entries) !== JSON.stringify([path + "review", path + "confirm"]))
+    throw new Error("Reload changed the page inventory or repeated a confirmation");
+  return {review, confirm, reloaded_document_id: document};
+}
+
 async function captureIngestNameReview(page, origin, pin) {
   const result = { review_posts: 0, extraction_posts: 0 };
   const reviewPath = "/api/live/recap-name-review";
@@ -326,7 +395,10 @@ async function run() {
           generationPosts += 1;
       });
     }
-    if (!reviewedWork && !imageMove && (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1")) {
+    const loreSpec = JSON.parse(process.env.DMB_BENCHMARK_LONG_CHAT_PAGE || "null");
+    const loreWorld = process.env.DMB_BENCHMARK_WORLD;
+    const loreBefore = loreSpec ? await readLorePages(page, loreWorld) : null;
+    if (!loreSpec && !reviewedWork && !imageMove && (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1")) {
       const selected = process.env.DMB_BENCHMARK_SELECTION;
       const documentStart = process.env.DMB_BENCHMARK_DOCUMENT_START === "1";
       const editor = page.locator((build ? ".build-surface-shell" : ".world-plan-visual-editor") + " .ProseMirror[contenteditable=true]:visible");
@@ -821,8 +893,10 @@ async function run() {
         confirmation.error = String(error);
       }
     }
+    const long_chat_page = loreSpec
+      ? await captureLongChatPage(page, loreWorld, loreSpec, loreBefore) : undefined;
     writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
-      before, after, browserMarks, confirmation, image_move: imageMoveResult, terminal_build_failure: terminalBuildFailure, status: delivered.status(), chromiumVersion: browser.version(),
+      before, after, browserMarks, confirmation, long_chat_page, image_move: imageMoveResult, terminal_build_failure: terminalBuildFailure, status: delivered.status(), chromiumVersion: browser.version(),
       playwrightVersion: require(require("node:path").join(process.env.DMB_BENCHMARK_PLAYWRIGHT, "package.json")).version,
       request: delivered.request().postDataJSON(), turnNetworkFailures,
     }, null, 2));
