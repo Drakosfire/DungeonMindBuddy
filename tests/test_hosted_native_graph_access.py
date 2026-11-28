@@ -574,7 +574,11 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/agent/worlds/{world_id}/conversation/turns/{turn_id}/context-trace/prompts"): access.resolve_hosted_conversation_world,
 
 
-            ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name"): access.resolve_hosted_conversation_world,
+            **{
+                key: HOSTED_WORLD_SCOPE_RESOLVERS[key]
+                for method in ("GET", "PUT")
+                for key in [(method, "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/name")]
+            },
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/retry-attempts"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/turns/{turn_id}/discussion-retry-input"): access.resolve_hosted_conversation_world,
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/retry-context"): access.resolve_hosted_conversation_world,
