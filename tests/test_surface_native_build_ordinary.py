@@ -691,6 +691,17 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             }
 
         monkeypatch.setattr(build_graph_reference, "authoring_identities", read_reference_inventory)
+
+        prepare_query = native.prepare_query
+
+        def prepare_after_ballot(*args, **kwargs):
+            ballots = [json.loads(call.content)["questions"] for call in decisions.calls]
+            assert len(ballots) == 2
+            assert set(ballots[0]) == {"requested_work"}
+            assert "typed_graph_reference" in ballots[1]
+            return prepare_query(*args, **kwargs)
+
+        monkeypatch.setattr(native, "prepare_query", prepare_after_ballot)
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
