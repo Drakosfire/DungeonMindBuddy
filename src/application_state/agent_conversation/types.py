@@ -4358,7 +4358,7 @@ class ProviderAttemptAuthorizedEventV3(ProviderAttemptAuthorizedEventV2):
 class ProviderAttemptAuthorizedEventV5(ProviderAttemptAuthorizedEventV3):
     kind: Literal["provider_attempt_authorized_v5"]
     context_mode: Literal["default", "long_context"]
-    context_phase: Literal["select", "navigate", "assess", "coverage", "retention", "writer_selection", "graph_reference"]
+    context_phase: Literal["select", "navigate", "assess", "coverage", "retention", "writer_selection", "graph_reference", "source_scope"]
     max_question_input_tokens: int = Field(strict=True, ge=0)
     dispatch_identity_sha256: Digest
     graph_reference_inventory_sha256: Digest | None = Field(default=None, exclude_if=lambda value: value is None)

@@ -3574,6 +3574,44 @@ class AgentConversationService:
                 raise ApplicationStateConflictError('Current App access does not authorize the opening intent')
             return self._append_pending_checked(conn, turn, decision, expected_revision)
 
+    def authorize_pending_build_source_scope(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization, request_json, initial_request_json,
+            authorize_current_access):
+        """Authorize only the source ballot derived from the captured opening state."""
+        from .build_decision_context import validate_prepared
+        from .build_intentional_response import build_source_followup_wire
+        from .native_execution import BuildSourceScopeAuthorizedV1
+        from .source_writer_output import strict_json
+        from .types import BuildOpeningIntentSelectedV1
+
+        world_id = _world_id(world_id)
+        if (type(authorization) is not BuildSourceScopeAuthorizedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Build source scope requires its exact authorization and App owner')
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            self._validate_pending_initial_prompt(conn, turn, initial_request_json)
+            execution = turn.graph_context_execution
+            try:
+                authorization = BuildSourceScopeAuthorizedV1.model_validate_json(authorization.model_dump_json())
+                intent = execution.events[-1] if execution.events else None
+                if type(intent) is not BuildOpeningIntentSelectedV1:
+                    raise ValueError('Build source scope requires the saved opening intent')
+                opening = strict_json(initial_request_json)
+                expected = build_source_followup_wire(opening["state"], intent.requested_work,
+                    menu_digest=execution.policy.action.requested_work_menu_sha256)
+                validate_prepared(authorization, execution, request_json, host_phase="source_scope")
+                if strict_json(request_json) != expected:
+                    raise ValueError('Build source scope differs from the admitted opening')
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize source scope')
+            return self._append_pending_checked(conn, turn, authorization, expected_revision)
+
     def authorize_pending_app_coverage(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, prepared_request_json,
             initial_request_json, authorize_current_access):
@@ -3962,7 +4000,7 @@ class AgentConversationService:
         recorded entry is non-fresh; stale revision/claim or changed entry is a
         conflict. The host App access callback performs no Core/network IO.
         """
-        from .native_execution import BuildPendingExecutionV1, BuildAppPageSelectionAuthorizedV1
+        from .native_execution import BuildPendingExecutionV1, BuildAppPageSelectionAuthorizedV1, BuildSourceScopeAuthorizedV1
         from .types import ProviderAttemptAuthorizedEventV5
         from .build_source_free import BuildAppPageCatalogObservedV1, effective_pending_app_catalog
         world_id = _world_id(world_id)
@@ -3981,7 +4019,8 @@ class AgentConversationService:
             authorizations = [event for event in turn.graph_context_execution.events
                               if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             authorization = authorizations[-1] if authorizations else None
-            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
+            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select'
+                       or type(authorization) is BuildSourceScopeAuthorizedV1)
             writer_selection = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'writer_selection')
             from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
             from .native_retrieval import NativeRetrievalAuthorizedV1
@@ -4046,7 +4085,7 @@ class AgentConversationService:
                                               expected_revision, expected_attempt, outcome,
                                               authorize_current_access):
         """Record the actual resolved/unknown observation; never grant SDK entry."""
-        from .native_execution import BuildAppPageSelectionAuthorizedV1
+        from .native_execution import BuildAppPageSelectionAuthorizedV1, BuildSourceScopeAuthorizedV1
         from .types import ProviderAttemptAuthorizedEventV5
         from .build_source_free import BuildAppPageCatalogObservedV1
         world_id = _world_id(world_id)
@@ -4065,7 +4104,8 @@ class AgentConversationService:
             authorizations = [event for event in turn.graph_context_execution.events
                               if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             authorization = authorizations[-1] if authorizations else None
-            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
+            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select'
+                       or type(authorization) is BuildSourceScopeAuthorizedV1)
             writer_selection = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'writer_selection')
             from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
             from .native_retrieval import NativeRetrievalAuthorizedV1

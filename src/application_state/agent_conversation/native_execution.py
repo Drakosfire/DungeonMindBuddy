@@ -491,6 +491,13 @@ class NativeBuildQuerySettledV1(Strict):
     query: NativeGraphQueryV4
 
 
+class BuildSourceScopeAuthorizedV1(t.ProviderAttemptAuthorizedEventV5):
+    """A source-scope ballot tied to a previously saved Build intent."""
+    kind: Literal["build_source_scope_authorized_v1"] = "build_source_scope_authorized_v1"
+    context_phase: Literal["source_scope"] = "source_scope"
+    opening_intent_event_id: UUID
+
+
 class BuildAppPageSelectionAuthorizedV1(t.ProviderAttemptAuthorizedEventV5):
     """A distinct later App metadata decision, never reopening initial work."""
     kind: Literal["build_app_page_selection_authorized_v1"] = "build_app_page_selection_authorized_v1"
@@ -633,7 +640,7 @@ from .build_pending_app_coverage import (BuildAppCoverageAuthorizedV1, BuildAppC
 # Native acquisition/terminal owners still need integration; the pending writer
 # is confined to its admitted retained closure and empty acquired catalog.
 BuildPendingPrefixEventV1 = Annotated[
-    t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | BuildAppCoverageAuthorizedV1 | BuildAppCoverageDecidedV1 | t.ProviderOutcomeEventV1
+    t.ProviderAttemptAuthorizedEventV5 | BuildSourceScopeAuthorizedV1 | BuildAppPageSelectionAuthorizedV1 | BuildAppCoverageAuthorizedV1 | BuildAppCoverageDecidedV1 | t.ProviderOutcomeEventV1
     | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1 | t.BuildOpeningIntentSelectedV1
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
     | NativeRetrievalAuthorizedV1 | NativeRetrievalSelectedV1
@@ -697,6 +704,15 @@ class BuildPendingExecutionV1(Strict):
                             or (event.provider, event.model, event.api_mode)
                             != self.policy.provider_roles.controller.identity()):
                         raise ValueError('Pending retrieval requires its settled source and actual Build controller')
+                elif type(event) is BuildSourceScopeAuthorizedV1:
+                    previous = self.events[event.sequence - 1] if event.sequence else None
+                    if (settled or work_selected
+                            or type(previous) is not t.BuildOpeningIntentSelectedV1
+                            or previous.event_id != event.opening_intent_event_id
+                            or previous.requested_work in {"clarify_request", "clarify_creation"}
+                            or (event.provider, event.model, event.api_mode)
+                            != self.policy.provider_roles.controller.identity()):
+                        raise ValueError("Build source scope requires its unresolved opening intent")
                 elif type(event) is BuildAppCoverageAuthorizedV1:
                     if settled:
                         raise ValueError('App coverage cannot follow native source preparation')
