@@ -3534,7 +3534,7 @@ class AgentConversationService:
             expected_revision, expected_attempt, decision, request_json, response_json,
             authorize_current_access):
         """Persist the intent from the exact acknowledged opening ballot."""
-        from .build_intentional_response import verify_build_intent_opening
+        from .build_intentional_response import require_captured_controller_response, verify_build_intent_opening
         from .source_writer_output import strict_json
         from .types import BuildOpeningIntentSelectedV1
 
@@ -3560,14 +3560,9 @@ class AgentConversationService:
                     raise ValueError('Build opening intent differs from the actual vote')
                 row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
                     (turn.turn_id, turn.attempt)).fetchone()
-                trace = row[0] if row else {}
-                receipt = turn.graph_context_receipt.context_receipt_sha256
-                item_id = f'unvalidated-controller-decision:{decision.controller_attempt_id}:{receipt}'
-                captured = [material for observation in trace.get('observations', [])
-                    if observation.get('kind') == 'context_snapshot'
-                    for material in observation.get('materials', []) if material.get('item_id') == item_id]
-                if len(captured) != 1 or captured[0].get('text') != response_json:
-                    raise ValueError('Build opening intent requires its exact captured controller response')
+                require_captured_controller_response(row[0] if row else None,
+                    decision.controller_attempt_id, response_json,
+                    receipt_sha256=turn.graph_context_receipt.context_receipt_sha256)
             except (ValueError, TypeError, KeyError, AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
             if authorize_current_access(conn, turn, None) is not True:

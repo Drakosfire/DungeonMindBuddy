@@ -1101,16 +1101,20 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         raise ValueError(
             "Semantic resolution differs from its actual admitted request/response"
         )
+    require_captured_controller_response(trace, event.controller_attempt_id, proof["response_json"])
+
+
+def require_captured_controller_response(trace, attempt_id, response_json, *, receipt_sha256=None):
+    """Require the unique protected response for this attempt and optional exact receipt."""
+    prefix = f"unvalidated-controller-decision:{attempt_id}:"
     captured = [
-        m
-        for o in (trace or {}).get("observations", [])
-        if o.get("kind") == "context_snapshot"
-        for m in o.get("materials", [])
-        if m.get("item_id", "").startswith(
-            f"unvalidated-controller-decision:{event.controller_attempt_id}:"
-        )
+        material for observation in (trace or {}).get("observations", [])
+        if observation.get("kind") == "context_snapshot"
+        for material in observation.get("materials", [])
+        if (material.get("item_id", "").startswith(prefix) if receipt_sha256 is None
+            else material.get("item_id") == prefix + receipt_sha256)
     ]
-    if len(captured) != 1 or captured[0].get("text") != proof["response_json"]:
+    if len(captured) != 1 or captured[0].get("text") != response_json:
         raise ValueError("Semantic provider response was not captured for this attempt")
 
 
