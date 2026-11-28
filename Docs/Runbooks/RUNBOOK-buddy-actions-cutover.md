@@ -154,7 +154,9 @@ gh workflow run deploy-buddy.yml --ref main \
   -f document_digest="${document_digest:-}"
 ```
 
-The production operator authorizes the exact request before dispatch. The
+The production operator authorizes the exact request before dispatch. For an
+App-fence release, use the sealed packet acceptance described below as that
+authorization. The
 `buddy-production` environment restricts the workflow to main. The dispatcher
 checks the healthy serving rollback, stages, and activates under a single lock.
 Confirm both `BUDDY_STAGED` and `BUDDY_LIVE` with the candidate image ID.
@@ -335,8 +337,15 @@ state settlement use the deployment lock; never edit an in-flight packet.
 exactly `status: accepted`, `evidence_sha256` and the manifest's
 `candidate_revision`, `candidate_id`, `recovery_revision`, `recovery_id`,
 `source_schema`, `target_schema` fields. Its evidence hash identifies the actual
-accepted rehearsal/review record. Writing `accepted` is an operator authorization
-record, never a substitute for doing or inspecting the qualification.
+accepted rehearsal/review record. Acceptance of the exact App-fence packet
+authorizes both installation and GitHub Actions cutover with the pins sealed in
+that packet. Tell the operator the scope before prompting for acceptance. Once
+the operator returns the installed packet digest, recheck the healthy rollback
+pins and dispatch the matching workflow without requesting a second approval.
+Any material change to the candidate, rollback, schema transition, recovery
+plan, or sealed contents requires a new packet and acceptance. Acceptance
+records the operator's decision after they inspect the qualification. The
+final drained-archive rehearsal and its acceptance still gate activation.
 
 The sealed operator implements `prepare` then `apply` under inherited FD9. It
 must verify that FD9 is the existing production lock instead of opening a second
