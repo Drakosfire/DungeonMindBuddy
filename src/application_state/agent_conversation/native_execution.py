@@ -496,6 +496,7 @@ class BuildSourceScopeAuthorizedV1(t.ProviderAttemptAuthorizedEventV5):
     kind: Literal["build_source_scope_authorized_v1"] = "build_source_scope_authorized_v1"
     context_phase: Literal["source_scope"] = "source_scope"
     opening_intent_event_id: UUID
+    discovered_pages: tuple[PagePointer, ...] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class BuildAppPageSelectionAuthorizedV1(t.ProviderAttemptAuthorizedEventV5):

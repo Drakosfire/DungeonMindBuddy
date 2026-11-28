@@ -103,6 +103,16 @@ def catalog(policy):
     return policy.related_page_catalog
 
 
+def effective_catalog(execution):
+    from .native_execution import BuildSourceScopeAuthorizedV1
+
+    discovered = [event.discovered_pages for event in execution.events
+                  if type(event) is BuildSourceScopeAuthorizedV1 and event.discovered_pages is not None]
+    if discovered:
+        return discovered[0]
+    return catalog(execution.policy)
+
+
 def records(execution):
     return [e for e in execution.events if isinstance(e, RelatedPageRead)]
 
@@ -132,7 +142,7 @@ def project(execution):
     if type(execution) is BuildPendingExecutionV1:
         from .build_pending_app_coverage import pending_related_pages_project
         return pending_related_pages_project(execution)
-    if catalog(execution.policy) is None:
+    if effective_catalog(execution) is None:
         return None
     if is_plan_catalog(execution):
         if not plan_read_enabled(execution):
@@ -143,7 +153,7 @@ def project(execution):
             "absence_authority": "not_proven_by_this_saved_page_catalog",
             "availability": [{"page": p.model_dump(mode="json"),
                 "acquisition": "read" if p.document_id in acquired else "not_read"}
-                for p in catalog(execution.policy)],
+                for p in effective_catalog(execution)],
             "pages": [{"read_id": str(e.read_id), "page": e.page.model_dump(mode="json"),
                 "markdown": e.markdown} for e in records(execution)]}
     choices = [e for e in execution.events if isinstance(e, RelatedPagesSelection)]
@@ -174,7 +184,7 @@ def project(execution):
             raise ValueError("Scoped authoring without a related-page selection cannot acquire related pages")
         return None
     from .types import BuildReviewedActionSelectionV1
-    empty_reviewed = not catalog(execution.policy) and not choices and any(isinstance(e, BuildReviewedActionSelectionV1) for e in execution.events)
+    empty_reviewed = not effective_catalog(execution) and not choices and any(isinstance(e, BuildReviewedActionSelectionV1) for e in execution.events)
     if not empty_reviewed and (len(choices) != 1 or set(choices[0].document_ids) != {
         e.page.document_id for e in records(execution)
     }):
@@ -191,7 +201,7 @@ def project(execution):
                 if p.document_id in choices[0].document_ids
                 else "not_read",
             }
-            for p in catalog(execution.policy)
+            for p in effective_catalog(execution)
         ],
         "pages": [
             {
@@ -231,7 +241,7 @@ def _validate_plan_reads(execution):
     """Use the admitted native selection; never create a second vote ledger."""
     from .native_retrieval import NativeRetrievalSelectedV1
     from . import types as t
-    offered = {p.document_id: p for p in catalog(execution.policy)}
+    offered = {p.document_id: p for p in effective_catalog(execution)}
     seen, read_ids = set(), set()
     for event in execution.events:
         if isinstance(event, (RelatedPagesSelection, RelatedPageInclusion)):
@@ -267,7 +277,7 @@ def validate_events(execution):
         BuildWriterEvidenceSelectionV1,
     )
 
-    offered = catalog(execution.policy)
+    offered = effective_catalog(execution)
     events = [
         e
         for e in execution.events
@@ -411,7 +421,7 @@ def validate_selection_records(execution, event, proof, trace, *, world_id, curr
     from generationengine.types import DecisionResult
     from .source_writer_output import strict_json
 
-    offered = catalog(execution.policy)
+    offered = effective_catalog(execution)
     if (
         offered is None
         or not isinstance(proof, dict)

@@ -28,10 +28,18 @@ class PendingBuildSourceScopeDriver:
             raise ValueError("Build source scope needs its saved opening intent")
         self.menu = self.before.policy.action.requested_work_menu_sha256
         self.graph_reference = has_explicit_build_graph_reference(getattr(self.before.policy.action.intent, "authored_references", None))
+        self.discovered_pages = None
+        self.related_pages = self.before.policy.action.related_page_catalog
+        if self.graph_reference and self.related_pages is None:
+            from application_state.agent_conversation.build_related_pages import PagePointer
+            from .build_related_pages import discover
+
+            self.discovered_pages = tuple(PagePointer.model_validate(row) for row in discover(adapter.request))
+            self.related_pages = self.discovered_pages
         self.wire = build_source_followup_wire(
             self.opening_wire["state"], self.intent.requested_work, menu_digest=self.menu,
             write_capability=self.before.policy.action.write_capability, graph_reference=self.graph_reference,
-            related_pages=self.before.policy.action.related_page_catalog, image_move=self.image_move,
+            related_pages=self.related_pages, image_move=self.image_move,
         )
         self.step = DecisionIntent(
             request_id="build-source-scope:" + digest(self.wire), phase="source_scope",
@@ -72,7 +80,7 @@ class PendingBuildSourceScopeDriver:
             included_assertion_ids=[], included_relationship_ids=[], included_evidence_ref_ids=[],
             included_graph_event_ids=[], included_source_read_event_ids=[], context_mode=view["contextMode"],
             max_question_input_tokens=view["maxQuestionInputTokens"], dispatch_identity_sha256=view["dispatchIdentitySha256"],
-            opening_intent_event_id=self.intent.event_id,
+            opening_intent_event_id=self.intent.event_id, discovered_pages=self.discovered_pages,
         )
         access = getattr(adapter, "build_intent_access", None) or adapter.pending_build_access
         if not callable(access):
@@ -95,7 +103,7 @@ class PendingBuildSourceScopeDriver:
                 self.opening_wire, self.opening_response, menu_digest=self.menu,
                 wire=json.loads(self.prepared.body), response=actual_response.model_dump(mode="json"),
                 write_capability=self.before.policy.action.write_capability, graph_reference=self.graph_reference,
-            related_pages=self.before.policy.action.related_page_catalog, image_move=self.image_move,
+            related_pages=self.related_pages, image_move=self.image_move,
             )
         except UnresolvedDiscussionSource as exc:
             from .agent_turn_service import AgentTurnServiceError

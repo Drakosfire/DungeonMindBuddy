@@ -8406,7 +8406,8 @@ def execute_agent_turn(
                 code="plan_graph_execution_unavailable", status_code=503,
             )
         budget = (selected_runtime.configured_budget(request, defer_related_pages=True)
-            if pending_build and isinstance(selected_runtime, BuildJevHarness)
+            if (pending_build or (durable_turn is None and prepare_deferred_build_query is not None
+                                  and deferred_explicit_reference)) and isinstance(selected_runtime, BuildJevHarness)
             else selected_runtime.configured_budget(request) if isinstance(selected_runtime, (BuildJevHarness, PlanJevHarness))
             else _policy_request_budget())
         if pending_build and not isinstance(selected_runtime, BuildJevHarness):

@@ -971,6 +971,15 @@ def validate_native_action_events(execution):
                         or (event.provider, event.model, event.api_mode)
                         != execution.policy.provider_roles.controller.identity()):
                     raise ValueError("Build source scope requires its unresolved opening intent")
+                pages = event.discovered_pages
+                action = execution.policy.action
+                if pages is not None and (
+                        action.related_page_catalog is not None
+                        or not has_explicit_build_graph_reference(getattr(action.intent, "authored_references", None))
+                        or len({page.document_id for page in pages}) != len(pages)
+                        or any(page.world_id != action.intent.world_id
+                               or str(page.document_id) == str(action.intent.primary_work.object_id) for page in pages)):
+                    raise ValueError("Deferred related pages differ from the admitted Build action")
             if getattr(selection, "typed_image_move", None) in {"move_existing", "unresolved"}:
                 raise ValueError("Typed image movement cannot authorize another provider call")
             if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.writer.identity():
@@ -1032,7 +1041,8 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
             source_scope = verify_build_source_followup(request, raw_response, menu_digest=menu,
                 wire=produced_request, response=produced_response, write_capability=policy.action.write_capability,
                 graph_reference=has_explicit_build_graph_reference(getattr(policy.action.intent, "authored_references", None)),
-                related_pages=policy.action.related_page_catalog, image_move=image_move)
+                related_pages=(source_auth[0].discovered_pages if source_auth[0].discovered_pages is not None
+                               else policy.action.related_page_catalog), image_move=image_move)
         elif label in {"clarify_request", "clarify_creation"}:
             source_scope = "anchored"
         else:
