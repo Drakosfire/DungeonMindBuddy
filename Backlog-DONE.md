@@ -48,3 +48,29 @@ filtered, nonempty Graphs.
 `826d6220`. The shared Build and Plan fieldset now uses “Review GM facts” for
 its visible legend and accessible name. The saved Pilot review reached
 confirmation with its existing evidence. The check stopped before publishing.
+
+## [DONE] Conversation library lifecycle — 2026-11-27
+
+Hosted release `bef1f4b5` on App schema `20261126_0215` defaulted to Recent and
+supported deliberate Archive, individual and bulk Trash/Restore, and single and
+bulk permanent deletion from Trash. Legacy chats remained accessible. In signed-in
+Buddy Cloud Pilot, switching kept prior chats in Recent, an archived chat reopened
+with its saved reply, and Restore left the original current chat selected.
+
+After confirming the targets, one disposable chat was deleted individually and two
+as a batch. All disappeared after reload. The signed-in transcript route refused
+all three, and both export modes in a stale tab refused the individually deleted
+chat. Production readback found no associated conversations, turns, traces,
+composer drafts, or outstanding erasure-file work. Copper Lantern Post, its
+separate artwork fixture, and the published Pilot Graph still opened. Pilot had
+no published statblock fixture for this smoke. Production signed-out access returned
+401. The exact-source hosted authorization tests covered a synthetic signed-in
+non-owner, and focused tests covered command replay and restore/delete conflicts.
+
+Permanent deletion removes live conversation-owned content. Operator-managed
+backups may retain copies according to the deployment retention policy. See the
+[recovery runbook](Docs/Runbooks/RUNBOOK-application-state-authority-recovery.md#conversation-erasure-and-retained-backups).
+The independent hosted Rename issue is tracked separately in [#5011](https://github.com/Drakosfire/DungeonMindBuddy/pull/5011).
+
+- [Backend #4860](https://github.com/Drakosfire/DungeonMindBuddy/pull/4860) and [delete controls #4868](https://github.com/Drakosfire/DungeonMindBuddy/pull/4868)
+- [Combined release #5010 and hosted evidence](https://github.com/Drakosfire/DungeonMindBuddy/pull/5010) and [production activation](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/46104134466)
