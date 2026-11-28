@@ -89,7 +89,7 @@ class PlanJevHarness:
         self.calls = []
         author_scope_calls = []
         page_title = next((line[2:].strip() for line in adapter.work.plan_markdown.splitlines() if line.startswith('# ') and line[2:].strip()), 'Current Plan')
-        semantic = None
+        semantic = graph_need = None
         rules = PlanRulesRuntime(adapter, rules_capability(graph=True))
         driver = writer = None
         primary_error = False
@@ -112,6 +112,24 @@ class PlanJevHarness:
                 if type(adapter.request.plan_context_policy) is not t.PlanContextPolicyV2:
                     raise ValueError('Current Plan orchestration requires the governed native request protocol')
                 adapter.claim_native_plan_request(dialogue=dialogue)
+                prepare_graph = getattr(adapter, 'prepare_deferred_plan_query', None)
+                if prepare_graph is not None:
+                    from .plan_graph_need_dispatch import PlanGraphNeedDispatch, settle_graph_need
+                    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphNeedObservedV1
+                    from application_state.agent_conversation.native_retrieval import NativePlanGraphNeedAuthorizedV1
+                    events = adapter.fence.turn.graph_context_execution.events
+                    observed_events = [event for event in events if type(event) is NativePlanGraphNeedObservedV1]
+                    if observed_events:
+                        observed = observed_events[0]
+                    elif any(type(event) is NativePlanGraphNeedAuthorizedV1 for event in events):
+                        raise AgentTurnServiceError('The earlier Graph decision has an uncertain outcome and cannot be repeated.',
+                            code='plan_graph_need_outcome_uncertain', status_code=409, provider_dispatched=False)
+                    else:
+                        graph_need = PlanGraphNeedDispatch(adapter, dialogue=dialogue)
+                        observed = asyncio.run(graph_need.run(transport=self.decision_transport, api_key=self.decision_api_key))
+                    clarification = settle_graph_need(adapter, observed, prepare_graph=prepare_graph)
+                    if clarification is not None:
+                        return clarification
                 from application_state.agent_conversation.native_execution import NativePlanActionV3
                 action = adapter.fence.turn.graph_context_execution.policy.action
                 if type(action) is NativePlanActionV3:
@@ -128,6 +146,10 @@ class PlanJevHarness:
                 with measure("plan_opening_candidate_preparation"):
                     semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title,
                         author_scope=author_scope, **driver.decision_arguments())
+                    from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
+                    if type(semantic.parent) is NativePlanOpeningInputV1:
+                        semantic.parent = semantic.parent.model_copy(
+                            update={'work_choice_guidance_version': 'v1'})
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
             _require_guest_discussion_selection(adapter, selected)
             if selected == 'different_destination':
@@ -177,7 +199,7 @@ class PlanJevHarness:
                     code='plan_authoring_target_changed', status_code=409) from exc
             raise
         finally:
-            self.calls = author_scope_calls + ([semantic.call] if semantic is not None and semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
+            self.calls = ([graph_need.call] if graph_need is not None and graph_need.call is not None else []) + author_scope_calls + ([semantic.call] if semantic is not None and semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
             self.output_limit_exceeded = writer.output_limit_exceeded if writer is not None else False
             if adapter.fence is not None:
                 try:

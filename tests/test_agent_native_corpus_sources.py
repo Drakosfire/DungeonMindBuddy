@@ -39,6 +39,12 @@ def source_adapter(application_state_dsn, monkeypatch, lane, request):
         submitted_intent=owner._submitted_turn_intent(request, world_id='world:one'), existing_turn=None,
         budget=request_budget(), context_read_enabled=True,
         native_corpus_context=context, native_source_authority=authority)
+    adapter._test_creative = bool(unique and supplied.get('no_source'))
+    adapter._test_multi = bool(unique and supplied.get('multi_source'))
+    adapter._test_long = bool(unique and supplied.get('long_context'))
+    adapter._test_missing = bool(unique and supplied.get('missing_source'))
+    adapter._test_graph_required = bool(unique and supplied.get('graph_required'))
+    adapter._test_graph_recovery = bool(unique and supplied.get('graph_recovery'))
     yield adapter
     if adapter.fence is not None:
         adapter.fence.renewer.stop_and_join()
@@ -218,7 +224,10 @@ def test_source_only_actual_rules_selection_reads_once_under_its_own_authority(s
 
 
 class SourceChoices(httpx2.AsyncBaseTransport):
-    def __init__(self, *, sections=False, direct=False, writer_passages=False):
+    def __init__(self, *, sections=False, direct=False, writer_passages=False, controller_source=False, no_source=False, graph_required=False):
+        self.graph_required = graph_required
+        self.controller_source = controller_source
+        self.no_source = no_source
         self.calls = []
         self.direct = direct
         self.writer_passages = writer_passages
@@ -228,11 +237,15 @@ class SourceChoices(httpx2.AsyncBaseTransport):
     async def handle_async_request(self, request):
         body = json.loads(request.content)
         self.calls.append(body)
-        assert len(self.calls) <= (5 if self.writer_passages else 4), body['state']
+        assert b'source_discovery_mode' not in request.content
+        assert b'controller_selection_v1' not in request.content
+        graph_decisions = sum('graph_need' in call['questions'] for call in self.calls)
+        assert len(self.calls) <= (5 if self.writer_passages else 4) + graph_decisions, body['state']
         answers = {}
         selected_kinds = []
         for name, entry in body['questions'].items():
-            choice = ('discuss' if name == 'requested_work' else
+            choice = (('require_graph' if self.graph_required else 'no_graph') if name == 'graph_need' else
+                      'discuss' if name == 'requested_work' else
                       'finish_retrieval' if name == 'operation' else
                       'review_after_reads' if name == 'post_read_plan' else 'exclude')
             if name.startswith('candidate_'):
@@ -544,20 +557,51 @@ HTTP_PASSAGE = '# Witness\n\nÉphanna heard the guard.\n\n'
 HTTP_BODY = HTTP_PASSAGE + '# Other scene\n\nUnselected unrelated private context.\n'
 
 
-@pytest.mark.parametrize('source_adapter', [[('first', HTTP_BODY)]], indirect=True, ids=['current-plan-source'])
+@pytest.mark.parametrize('source_adapter', [[('first', HTTP_BODY)],
+    {'unique_world': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'no_source': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'multi_source': True, 'sources': [('first', HTTP_BODY), ('second', HTTP_BODY.replace('Éphanna heard the guard.', 'Éphanna heard the bell.'))]},
+    {'unique_world': True, 'no_source': True, 'long_context': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'missing_source': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'graph_required': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'no_source': True, 'graph_recovery': True, 'sources': [('first', HTTP_BODY)]},
+    {'unique_world': True, 'no_source': True, 'graph_recovery': True, 'graph_required': True, 'sources': [('first', HTTP_BODY)]}],
+    indirect=True, ids=['current-plan-source', 'controller-source', 'controller-creative', 'controller-multi-source', 'controller-long-context', 'controller-missing-source', 'controller-graph-required', 'controller-graph-recovery', 'controller-graph-settled-recovery'])
 @pytest.mark.parametrize("graph_available", [False, True])
 @pytest.mark.parametrize('direct',[False,True])
-def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct):
+def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_adapter, lane, monkeypatch, tmp_path, graph_available,direct, application_state_dsn):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from apps.live_control_server.routes import agent
     from apps.live_control_server.services import plan_jev_harness
     from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
+    from apps.live_control_server.services.plan_jev_dispatch import PlanJevDispatch
+    from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
     from apps.live_control_server.services import managed_world_graph_projection as managed
     from apps.live_control_server.integrations.dungeonmind import native_registry_source
     from tests.test_plan_jev_writer import WriterWire
     a = source_adapter
-    request = a.request.model_copy(update={'message': 'Whom did Éphanna hear?',
+    opening_parents = []
+    original_authorize = PlanJevDispatch.authorize
+    def capture_opening(dispatch, prepared):
+        result = original_authorize(dispatch, prepared)
+        if type(dispatch.parent) is NativePlanOpeningInputV1:
+            opening_parents.append(dispatch.parent)
+        return result
+    monkeypatch.setattr(PlanJevDispatch, 'authorize', capture_opening)
+    creative = a._test_creative
+    multi = a._test_multi
+    long_context = a._test_long
+    missing = a._test_missing
+    graph_required = a._test_graph_required
+    graph_recovery = a._test_graph_recovery
+    if missing and direct:
+        pytest.skip('Missing-source control covers lexical search')
+    if long_context and direct:
+        pytest.skip('Long-context control covers creative lexical-free route once')
+    if multi and direct:
+        pytest.skip('Multi-source control covers lexical selection; direct selection has separate single-source controls')
+    request = a.request.model_copy(update={'message': ('Suggest a name for a fictional harbor. The keeper accepts a blue bead at dawn.' if creative else 'What was the secret password?' if missing else 'Whom did Éphanna hear?'),
         'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
     monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
@@ -581,6 +625,10 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         return prepare_query(a.world_id, request.message, native_principal,
             source_context=native_source_context, repository=lane.repo, resolve_binding=lambda _:lane.bound)
     monkeypatch.setattr(agent, "_plan_context_resolver", published_graph)
+    from apps.live_control_server.services import native_graph_reads
+    monkeypatch.setattr(native_graph_reads, 'resolve_managed_world_binding', lambda _: lane.bound)
+    if not graph_available:
+        monkeypatch.setattr(native_graph_reads, 'pending_plan_query', lambda *_args: None)
     monkeypatch.setattr('apps.live_control_server.integrations.dungeonmind.world_graph_reads.direct_services_from_config',
         lambda *_: pytest.fail('Classic fallback in source-only Plan'))
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: lane.bound)
@@ -589,7 +637,11 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
         assert verification_cache is None or verification_cache is _turn_revision_proof
         return lane.repo
     monkeypatch.setattr(native_registry_source, 'repository', read_repository)
-    choices = SourceChoices(direct=direct, writer_passages=True)
+    choices = SourceChoices(direct=direct, writer_passages=True, controller_source=True, no_source=creative, graph_required=graph_required)
+    if creative:
+        from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+        monkeypatch.setattr(native_corpus_source, 'capture_native_sources',
+            lambda **_kw: pytest.fail('Creative turn performed a native source scan'))
     class SourceWriter(WriterWire):
         async def handle_async_request(self, request):
             import re
@@ -630,20 +682,98 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', factory)
     app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
     client = TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token})
+    if graph_recovery:
+        from apps.live_control_server.services import plan_graph_need_dispatch, agent_turn_service
+        from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+        import psycopg
+        def historical(_body, _owner, provenance, **_kwargs):
+            reference = provenance.primary_work
+            assert reference.object_id == a.work.object_id
+            assert reference.content_sha256 == a.work.content_basis.content_sha256
+            assert str(reference.work_revision_id) == str(a.work.content_basis.work_revision_id)
+            return a.work
+        monkeypatch.setattr(agent, '_historical_work_resolver', historical)
+        original = plan_graph_need_dispatch.settle_graph_need
+        interrupted = []
+        def stop_after_closure(adapter, observed, **kwargs):
+            original(adapter, observed, **kwargs)
+            if not interrupted:
+                interrupted.append(True)
+                raise AgentTurnServiceError('Synthetic worker interruption', code='synthetic_interruption', status_code=503)
+        monkeypatch.setattr(plan_graph_need_dispatch, 'settle_graph_need', stop_after_closure)
+        monkeypatch.setattr(agent_turn_service, '_interrupt_policy_delivery', lambda *_args, **_kwargs: None)
+        first = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert first.status_code == 503 and interrupted == [True]
+        turn = wire.adapter.turn
+        assert turn.graph_context_execution.events[-1].kind == ('native_plan_graph_query_settled_v1' if graph_required
+            else 'native_plan_graph_query_closed_without_graph_v1')
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute("UPDATE agent.turn SET claim_expires_at = clock_timestamp() - interval '1 second' WHERE world_id=%s AND turn_id=%s", (turn.world_id, turn.turn_id))
     response = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
     assert response.status_code == 200, response.text + getattr(wire,"failure","")
+    if graph_recovery:
+        assert sum('graph_need' in call['questions'] for call in choices.calls) == 1
     data = response.json()
     assert data['plan_context']['schema'] == 'dmb_agent_surface_native_context_response_v1'
     receipt = data['plan_context']['receipt']
-    assert receipt['work_context']['surface_id'] == 'plan' and graph_calls == [True]
+    assert receipt['work_context']['surface_id'] == 'plan'
     assert 'graph_capability' not in receipt
     if graph_available:
+        decisions = [event for event in wire.adapter.turn.graph_context_execution.events
+            if event.kind == 'native_plan_graph_need_observed_v1']
+        assert len(decisions) == 1
+        if creative and not graph_required:
+            assert decisions[0].choice == 'no_graph'
+        if graph_required:
+            assert decisions[0].choice == 'require_graph'
+        expected_graph_calls = [True] if decisions[0].choice == 'require_graph' else []
+        assert graph_calls == expected_graph_calls
+        assert receipt['native_query']['schema'] == 'dmb_native_plan_graph_query_pending_v1'
         assert receipt['native_query']['authority']['revision_id'] == receipt['source_authority']['revision_id']
         assert receipt['native_query']['question'] == request.message
     else:
+        expected_graph_calls = [True]
+        assert graph_calls == expected_graph_calls
         assert receipt['native_query']['schema'] == 'dmb_native_plan_query_unavailable_v1'
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
-    assert len(wire.calls) == len(constructions) == 1
+    assert len(wire.calls) == 1 and len(constructions) == (2 if graph_recovery else 1)
+    from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
+    opening_auths = [event for event in wire.adapter.turn.graph_context_execution.events
+                     if type(event) is NativePlanOpeningAuthorizedV1]
+    assert len(opening_auths) == 1
+    assert len(opening_parents) == 1
+    assert opening_parents[0].work_choice_guidance_version == 'v1'
+    assert opening_auths[0].parent_request_sha256 == opening_parents[0].digest
+    opening_wires = [call for call in choices.calls if 'requested_work' in call['questions']]
+    assert len(opening_wires) == 1
+    assert 'work_choice_guidance_version' not in json.dumps(opening_wires[0])
+    assert all(opening_wires[0]['questions']['requested_work']['criteria'].values())
+    if creative:
+        from application_state.agent_conversation.native_corpus import (
+            NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+            NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1,
+        )
+        turn = wire.adapter.turn
+        assert turn.graph_context_execution.policy.action.source_discovery_mode == 'controller_selection_v1'
+        assert not any(isinstance(e, (NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+                                      NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1))
+                       for e in turn.graph_context_execution.events)
+        assert 'Lantern Quay' in turn.assistant_text
+        replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
+        assert len(wire.calls) == 1 and len(constructions) == (2 if graph_recovery else 1)
+        if long_context:
+            for index in range(10):
+                choices.calls.clear()
+                followup = request.model_copy(update={'turn_id': str(uuid4()),
+                    'message': ('What token was accepted at dawn?' if index == 9 else f'Consider harbor detail {index}.')})
+                response = client.post('/api/live/agent/turn', json=followup.model_dump(mode='json', by_alias=True))
+                assert response.status_code == 200, response.text + getattr(wire, 'failure', '')
+                turn = wire.adapter.turn
+                assert not any(isinstance(event, (NativeBodySearchAuthorizedV1, NativePlanRequestSearchAuthorizedV1,
+                    NativeBodyReadAuthorizedV1, NativeDirectSourceAuthorizedV1)) for event in turn.graph_context_execution.events)
+            assert 'blue bead' in turn.assistant_text
+        return
     selection_count = len(choices.calls)
     assert selection_count == (5 if direct else 3)
     first = choices.calls[0]
@@ -724,7 +854,7 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     assert replay.json()['plan_context']['completion'] == data['plan_context']['completion']
     assert replay.json()['plan_context']['delivery_replay']
     assert len(wire.calls) == len(constructions) == 1 and len(choices.calls) == selection_count
-    assert graph_calls == [True]  # Original completion reopens without reacquiring current Graph authority.
+    assert graph_calls == expected_graph_calls  # Replay does not reacquire Graph.
     history = client.get(f'/api/live/agent/worlds/{a.world_id}/conversation?include_turn_correlation=true')
     assert history.status_code == 200, history.text
     assert history.json()['turns'][0]['plan_context']['completion'] == data['plan_context']['completion']
@@ -794,3 +924,125 @@ def test_batch_coverage_preserves_exact_native_plan_passage_requirement(monkeypa
     navigator.adapter = SimpleNamespace(fence=SimpleNamespace(turn=turn))
     assert navigator._fulfilled_in_current_selection("native-body:exact") is covered
     assert calls == [family == "plan-v2"]
+
+
+def test_shared_legacy_plan_action_builder_keeps_historical_mode(monkeypatch):
+    from apps.live_control_server.services import build_related_pages, plan_source_turn
+    from tests.test_agent_turn_service import _pinned_plan_request, _pinned_plan_work
+
+    request = _pinned_plan_request().model_copy(update={
+        'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph'),
+    })
+    work = _pinned_plan_work('# Synthetic legacy Plan\n')
+    work = replace(work, content_basis=work.content_basis.model_copy(update={'work_revision_id': str(uuid4())}))
+    intent = owner._submitted_turn_intent(request, world_id='world:one')
+    monkeypatch.setattr(build_related_pages, 'discover', lambda _request: ())
+    _, action = plan_source_turn._native_plan_parts(
+        request, plan_source_turn._plan_basis(work), None, intent)
+    assert action.source_discovery_mode is None
+    assert 'source_discovery_mode' not in action.model_dump(mode='json', by_alias=True)
+
+
+@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', HTTP_BODY)]}], indirect=True)
+@pytest.mark.parametrize('interrupted', [False, True])
+def test_ordinary_http_uncertain_graph_need_delivers_replayable_clarification(
+        source_adapter, lane, monkeypatch, tmp_path, application_state_dsn, interrupted):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from apps.live_control_server.routes import agent
+    from apps.live_control_server.services import plan_jev_harness
+    from apps.live_control_server.services.plan_jev_harness import PlanJevHarness
+    from apps.live_control_server.services import managed_world_graph_projection as managed, native_graph_reads
+    from apps.live_control_server.integrations.dungeonmind import native_registry_source
+    from application_state.agent_conversation.native_plan_graph_need import GRAPH_NEED_CLARIFICATION_QUESTION
+
+    a = source_adapter
+    request = a.request.model_copy(update={'message': 'Should this use the World or our conversation?',
+        'plan_context_policy': t.PlanContextPolicyV2(policy='auto_plan_world', graph_source='reviewed_native_graph')})
+    token = 'synthetic-native-test-token-1234567890'
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_MODE', 'local_operator')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_AUTH_ENVIRONMENT', 'local')
+    monkeypatch.setenv('DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN', token)
+    monkeypatch.setattr(agent, 'repo_root', lambda: tmp_path)
+    monkeypatch.setattr(agent, 'session_dir', lambda: tmp_path / 'sessions')
+    monkeypatch.setattr(agent, '_owner_resolver', lambda _: {'kind': 'world', 'id': a.world_id, 'name': 'Synthetic World'})
+    monkeypatch.setattr(agent, '_verified_world_id', lambda world: world)
+    monkeypatch.setattr(agent, '_work_resolver', lambda *_: a.work)
+    monkeypatch.setattr(agent, '_historical_work_resolver', lambda *_args, **_kwargs: a.work)
+    monkeypatch.setattr(agent, '_graph_resolver', lambda *_: pytest.fail('Unexpected Graph fallback'))
+    monkeypatch.setattr(agent, '_plan_context_resolver', lambda *_args, **_kwargs: pytest.fail('Graph was acquired'))
+    monkeypatch.setattr(native_graph_reads, 'resolve_managed_world_binding', lambda _: lane.bound)
+    monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: lane.bound)
+    monkeypatch.setattr(native_registry_source, 'repository', lambda **_kwargs: lane.repo)
+    calls = []
+    class UncertainWire(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, wire):
+            body = json.loads(wire.content); calls.append(body)
+            assert set(body['questions']) == {'graph_need'}
+            return httpx2.Response(200, request=wire, json={'model': 'typesafe-ai/jev-1.14.0',
+                'answers': {'graph_need': {'type': 'choice', 'choice': 'uncertain', 'confidence': 1,
+                    'probabilities': {'require_graph': 0, 'no_graph': 0, 'uncertain': 1}}},
+                'usage': {'input_tokens': 10, 'output_tokens': 1}})
+    class NoWriter(httpx2.AsyncBaseTransport):
+        async def handle_async_request(self, wire):
+            pytest.fail('Uncertain Graph decision dispatched a writer')
+    holder = {}
+    class Harness(PlanJevHarness):
+        def execute(self, adapter, **kwargs):
+            holder['adapter'] = adapter
+            return super().execute(adapter, **kwargs)
+    monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', lambda: Harness(
+        decision_transport=UncertainWire(), writer_transport=NoWriter(),
+        decision_api_key='synthetic-not-secret', writer_api_key='synthetic-not-secret'))
+    app = FastAPI(); app.include_router(agent.router, prefix='/api/live')
+    with TestClient(app, client=('127.0.0.1', 42000), headers={'Authorization': 'Bearer ' + token}) as client:
+        if interrupted:
+            import psycopg
+            from apps.live_control_server.services import plan_graph_need_dispatch, agent_turn_service
+            from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
+            original = plan_graph_need_dispatch.settle_graph_need
+            def stop_after_decision(*_args, **_kwargs):
+                raise AgentTurnServiceError('Synthetic interruption', code='synthetic_interruption', status_code=503)
+            monkeypatch.setattr(plan_graph_need_dispatch, 'settle_graph_need', stop_after_decision)
+            monkeypatch.setattr(agent_turn_service, '_interrupt_policy_delivery', lambda *_args, **_kwargs: None)
+            stopped = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+            assert stopped.status_code == 503 and len(calls) == 1
+            current = holder['adapter'].turn
+            assert current.graph_context_execution.events[-1].kind == 'native_plan_graph_need_observed_v1'
+            with psycopg.connect(application_state_dsn) as conn:
+                conn.execute("UPDATE agent.turn SET claim_expires_at = clock_timestamp() - interval '1 second' WHERE world_id=%s AND turn_id=%s", (current.world_id, current.turn_id))
+            monkeypatch.setattr(plan_graph_need_dispatch, 'settle_graph_need', original)
+        first = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert first.status_code == 200, first.text
+        data = first.json()
+        assert data['answer']['text'] == GRAPH_NEED_CLARIFICATION_QUESTION
+        assert data['plan_context']['completion']['schema'] == 'dmb_plan_graph_need_clarification_v1'
+        replay = client.post('/api/live/agent/turn', json=request.model_dump(mode='json', by_alias=True))
+        assert replay.status_code == 200 and replay.json()['plan_context']['delivery_replay']
+        assert replay.json()['answer']['text'] == GRAPH_NEED_CLARIFICATION_QUESTION
+        assert len(calls) == 1
+
+        # A new user answer must continue the same conversation, rather than
+        # treating the stored question as an error or replaying the first turn.
+        from uuid import uuid4
+        from tests.test_plan_jev_writer import WriterWire
+        choices = SourceChoices(no_source=True)
+        writer = WriterWire(None, json.dumps({'schema': 'dmb_surface_evidence_answer_v8', 'limitations': [],
+            'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea', 'text': 'Lantern Quay.'}]}))
+        class FollowHarness(PlanJevHarness):
+            def execute(self, adapter, **kwargs):
+                writer.adapter = adapter
+                return super().execute(adapter, **kwargs)
+        monkeypatch.setattr(plan_jev_harness, 'default_plan_jev_runtime', lambda: FollowHarness(
+            decision_transport=choices, writer_transport=writer,
+            decision_api_key='synthetic-not-secret', writer_api_key='synthetic-not-secret'))
+        followup = request.model_copy(update={'turn_id': str(uuid4()),
+            'message': 'Use our conversation only. Suggest one fictional harbor name.'})
+        continued = client.post('/api/live/agent/turn', json=followup.model_dump(mode='json', by_alias=True))
+        assert continued.status_code == 200, continued.text
+        assert continued.json()['answer']['text'] == 'Lantern Quay.'
+        assert len(writer.calls) == 1
+        history = client.get('/api/live/agent/worlds/' + a.world_id + '/conversation').json()
+        assert [row['assistant_text'] for row in history['turns']] == [GRAPH_NEED_CLARIFICATION_QUESTION, 'Lantern Quay.']
+        assert any(GRAPH_NEED_CLARIFICATION_QUESTION in json.dumps(call) for call in choices.calls)
+    assert len(calls) == 1

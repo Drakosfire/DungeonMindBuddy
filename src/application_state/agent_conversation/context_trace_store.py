@@ -704,7 +704,7 @@ def _validate_graph_tool_observation(observation: TraceGraphTool, execution: obj
 def validate_prompt_authorization(observation: TracePromptReference, execution: object, start_sequence: int) -> None:
     events = execution.get("events", []) if isinstance(execution, dict) else []
     kinds = {"provider_attempt_authorized", "provider_attempt_authorized_v2", "provider_attempt_authorized_v3", "provider_attempt_authorized_v4", "provider_attempt_authorized_v5", "plan_jev_provider_authorized_v1", "plan_requested_work_authorized_v1", "plan_requested_work_authorized_v2", "plan_jev_writer_authorized_v1", "plan_jev_writer_authorized_v2", "plan_native_writer_authorized_v1", "plan_native_writer_authorized_v2", "native_writer_authorized_v1", "native_build_writer_authorized_v2", "native_retrieval_authorized_v1", "native_plan_opening_authorized_v1",
-            "native_plan_author_scope_authorized_v1", "build_source_scope_authorized_v1"}
+            "native_plan_author_scope_authorized_v1", "build_source_scope_authorized_v1", "native_plan_graph_need_authorized_v1"}
     if isinstance(execution, dict) and execution.get('schema') == 'dmb_build_pending_execution_v1':
         kinds.update({'build_app_page_selection_authorized_v1', 'build_app_coverage_authorized_v1'})
     matches = [event for event in events if isinstance(event, dict)
