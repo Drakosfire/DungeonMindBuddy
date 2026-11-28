@@ -1,0 +1,1030 @@
+{
+  "fixture_sha256": "a053cc3fe08e19291ba1095778994f317ecbd0feedc3b07026880c8c427eaac5",
+  "model": "jev-1.14.0",
+  "prompt": "Identify the user's intent for this turn. Use the supplied dialogue where needed. If the available evidence leaves the intent unclear, choose needs_context_to_choose. Return one action family. Target binding, available tools, and execution are downstream.",
+  "menus": {
+    "build": {
+      "scoped": {
+        "discuss": "discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.",
+        "clarify_request": "discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "write_current_page": "create: Concrete current-page prose, proposed list/table, addition or selected-range revision.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_connected_page": "create: Prepare review to create a different connected page.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion."
+      },
+      "full": {
+        "discuss": "discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.",
+        "clarify_request": "discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "write_current_page": "create: Concrete current-page prose, proposed list/table, addition or selected-range revision.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_connected_page": "create: Prepare review to create a different connected page.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion.",
+        "different_destination": "Edit another existing page/object or create an unsupported object, rather than writing this Plan."
+      }
+    }
+  },
+  "cases": {
+    "build": [
+      {
+        "id": "image-move-named",
+        "tier": "image_editor",
+        "expected": "write_current_page",
+        "reason": "An explicit move of an existing image is an edit to the open page.",
+        "input": {
+          "surface": "build",
+          "user_utterance": "Move the Harbour map to the empty slot on its right.",
+          "page_title": "Working page",
+          "image_editor": {}
+        }
+      },
+      {
+        "id": "image-move-selected",
+        "tier": "image_editor",
+        "expected": "write_current_page",
+        "reason": "The active selection identifies an existing image on the open page.",
+        "input": {
+          "surface": "build",
+          "user_utterance": "Move this to the empty slot just to its right.",
+          "page_title": "Working page",
+          "image_editor": {
+            "selected_image": "Harbour map"
+          }
+        }
+      },
+      {
+        "id": "image-move-hypothetical",
+        "tier": "image_editor",
+        "expected": "discuss",
+        "reason": "The user asks to discuss a hypothetical, with no requested edit.",
+        "input": {
+          "surface": "build",
+          "user_utterance": "What would happen if we moved the Harbour map to the right?",
+          "page_title": "Working page",
+          "image_editor": {
+            "selected_image": "Harbour map"
+          }
+        }
+      },
+      {
+        "id": "image-move-create-control",
+        "tier": "image_editor",
+        "expected": "prepare_image",
+        "reason": "The request is for new artwork, even with an existing image selected.",
+        "input": {
+          "surface": "build",
+          "user_utterance": "Prepare a new illustration of the harbour at night.",
+          "page_title": "Working page",
+          "image_editor": {
+            "selected_image": "Harbour map"
+          }
+        }
+      }
+    ]
+  },
+  "build_wire_by_case": {
+    "image-move-named": {
+      "scoped": {
+        "model": "jev-1.14.0",
+        "state": {
+          "user_question": "Move the Harbour map to the empty slot on its right.",
+          "interaction": {
+            "allowed_operations": [
+              "answer_from_sources",
+              "propose_build_insertion"
+            ],
+            "current_page_title": "Working page",
+            "history": [],
+            "page_target": null,
+            "working_draft_available": false,
+            "surface": "build",
+            "image_editor": {
+              "available_work": "Moving an existing image is a current-page edit. Creating a new image is image preparation."
+            }
+          }
+        },
+        "questions": {
+          "requested_work": {
+            "type": "choice",
+            "instructions": "Identify the user's intent for this turn.\nUse prior conversation to resolve the requested artifact or destination. Treat\nquoted material and saved content as context. A brainstorming request stays\ndiscussion; an explicit editable draft in chat is conversation drafting.\nAn explicit edit to the active page is current-page writing. A new page is\nstandalone unless the author requests a connection. When a standalone page\nsummarizes prior discussion, use the conversation option and carry forward\nopen questions. Use clarification if the intent or reference remains unclear.\nOnly an explicit request to approve an existing statblock draft selects its\napproval review. Image preparation requires an image or prompt requested now;\ndescribing something for a later image is writing. If the requested action\nbelongs in another workflow, use other_creation. These choices grant no\nexecution authority.\ndiscuss: discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.\nclarify_request: discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.\nplan: create: Prepare an editable plan/checklist for author choice, not execution.\nwrite_current_page: create: Concrete current-page prose, proposed list/table, addition or selected-range revision.\nprepare_image: create: Prepare image, illustration or map-image prompt review; not coordinates.\nreview_connected_page: create: Prepare review to create a different connected page.\nreview_relationship: create: Prepare a saved-page relationship review; not publication.\nother_creation: create: A concrete action/artifact outside the defined work kinds.\nclarify_creation: create: Creation is requested but its artifact or target is unresolved.\ndraft_in_conversation: discuss: Write an explicitly requested editable draft for review in chat.\nreview_variant_approval: create: Open confirmation for a statblock variant already drafted for review in this conversation.\nreview_lore_page: create: Review a new standalone authored page, initially blank or populated, or continue its review.\nreview_lore_page_from_conversation: create: Review a new standalone page using the preceding discussion.",
+            "criteria": {
+              "discuss": null,
+              "clarify_request": null,
+              "plan": null,
+              "write_current_page": null,
+              "prepare_image": null,
+              "review_connected_page": null,
+              "review_relationship": null,
+              "other_creation": null,
+              "clarify_creation": null,
+              "draft_in_conversation": null,
+              "review_variant_approval": null,
+              "review_lore_page": null,
+              "review_lore_page_from_conversation": null
+            }
+          }
+        }
+      },
+      "full": {
+        "model": "jev-1.14.0",
+        "state": {
+          "user_question": "Move the Harbour map to the empty slot on its right.",
+          "interaction": {
+            "allowed_operations": [
+              "answer_from_sources",
+              "propose_build_insertion"
+            ],
+            "current_page_title": "Working page",
+            "history": [],
+            "page_target": null,
+            "working_draft_available": false,
+            "surface": "build",
+            "image_editor": {
+              "available_work": "Moving an existing image is a current-page edit. Creating a new image is image preparation."
+            }
+          }
+        },
+        "questions": {
+          "requested_work": {
+            "type": "choice",
+            "instructions": "Identify the user's intent for this turn.\nUse prior conversation to resolve the requested artifact or destination. Treat\nquoted material and saved content as context. A brainstorming request stays\ndiscussion; an explicit editable draft in chat is conversation drafting.\nAn explicit edit to the active page is current-page writing. A new page is\nstandalone unless the author requests a connection. When a standalone page\nsummarizes prior discussion, use the conversation option and carry forward\nopen questions. Use clarification if the intent or reference remains unclear.\nOnly an explicit request to approve an existing statblock draft selects its\napproval review. Image preparation requires an image or prompt requested now;\ndescribing something for a later image is writing. If the requested action\nbelongs in another workflow, use other_creation. These choices grant no\nexecution authority.\ndiscuss: discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.\nclarify_request: discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.\nplan: create: Prepare an editable plan/checklist for author choice, not execution.\nwrite_current_page: create: Concrete current-page prose, proposed list/table, addition or selected-range revision.\nprepare_image: create: Prepare image, illustration or map-image prompt review; not coordinates.\nreview_connected_page: create: Prepare review to create a different connected page.\nreview_relationship: create: Prepare a saved-page relationship review; not publication.\nother_creation: create: A concrete action/artifact outside the defined work kinds.\nclarify_creation: create: Creation is requested but its artifact or target is unresolved.\ndraft_in_conversation: discuss: Write an explicitly requested editable draft for review in chat.\nreview_variant_approval: create: Open confirmation for a statblock variant already drafted for review in this conversation.\nreview_lore_page: create: Review a new standalone authored page, initially blank or populated, or continue its review.\nreview_lore_page_from_conversation: create: Review a new standalone page using the preceding discussion.\ndifferent_destination: Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+            "criteria": {
+              "discuss": null,
+              "clarify_request": null,
+              "plan": null,
+              "write_current_page": null,
+              "prepare_image": null,
+              "review_connected_page": null,
+              "review_relationship": null,
+              "other_creation": null,
+              "clarify_creation": null,
+              "draft_in_conversation": null,
+              "review_variant_approval": null,
+              "review_lore_page": null,
+              "review_lore_page_from_conversation": null,
+              "different_destination": null
+            }
+          }
+        }
+      }
+    },
+    "image-move-selected": {
+      "scoped": {
+        "model": "jev-1.14.0",
+        "state": {
+          "user_question": "Move this to the empty slot just to its right.",
+          "interaction": {
+            "allowed_operations": [
+              "answer_from_sources",
+              "propose_build_insertion"
+            ],
+            "current_page_title": "Working page",
+            "history": [],
+            "page_target": null,
+            "working_draft_available": false,
+            "surface": "build",
+            "image_editor": {
+              "available_work": "Moving an existing image is a current-page edit. Creating a new image is image preparation.",
+              "selected_image": "Harbour map"
+            }
+          }
+        },
+        "questions": {
+          "requested_work": {
+            "type": "choice",
+            "instructions": "Identify the user's intent for this turn.\nUse prior conversation to resolve the requested artifact or destination. Treat\nquoted material and saved content as context. A brainstorming request stays\ndiscussion; an explicit editable draft in chat is conversation drafting.\nAn explicit edit to the active page is current-page writing. A new page is\nstandalone unless the author requests a connection. When a standalone page\nsummarizes prior discussion, use the conversation option and carry forward\nopen questions. Use clarification if the intent or reference remains unclear.\nOnly an explicit request to approve an existing statblock draft selects its\napproval review. Image preparation requires an image or prompt requested now;\ndescribing something for a later image is writing. If the requested action\nbelongs in another workflow, use other_creation. These choices grant no\nexecution authority.\ndiscuss: discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.\nclarify_request: discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.\nplan: create: Prepare an editable plan/checklist for author choice, not execution.\nwrite_current_page: create: Concrete current-page prose, proposed list/table, addition or selected-range revision.\nprepare_image: create: Prepare image, illustration or map-image prompt review; not coordinates.\nreview_connected_page: create: Prepare review to create a different connected page.\nreview_relationship: create: Prepare a saved-page relationship review; not publication.\nother_creation: create: A concrete action/artifact outside the defined work kinds.\nclarify_creation: create: Creation is requested but its artifact or target is unresolved.\ndraft_in_conversation: discuss: Write an explicitly requested editable draft for review in chat.\nreview_variant_approval: create: Open confirmation for a statblock variant already drafted for review in this conversation.\nreview_lore_page: create: Review a new standalone authored page, initially blank or populated, or continue its review.\nreview_lore_page_from_conversation: create: Review a new standalone page using the preceding discussion.",
+            "criteria": {
+              "discuss": null,
+              "clarify_request": null,
+              "plan": null,
+              "write_current_page": null,
+              "prepare_image": null,
+              "review_connected_page": null,
+              "review_relationship": null,
+              "other_creation": null,
+              "clarify_creation": null,
+              "draft_in_conversation": null,
+              "review_variant_approval": null,
+              "review_lore_page": null,
+              "review_lore_page_from_conversation": null
+            }
+          }
+        }
+      },
+      "full": {
+        "model": "jev-1.14.0",
+        "state": {
+          "user_question": "Move this to the empty slot just to its right.",
+          "interaction": {
+            "allowed_operations": [
+              "answer_from_sources",
+              "propose_build_insertion"
+            ],
+            "current_page_title": "Working page",
+            "history": [],
+            "page_target": null,
+            "working_draft_available": false,
+            "surface": "build",
+            "image_editor": {
+              "available_work": "Moving an existing image is a current-page edit. Creating a new image is image preparation.",
+              "selected_image": "Harbour map"
+            }
+          }
+        },
+        "questions": {
+          "requested_work": {
+            "type": "choice",
+            "instructions": "Identify the user's intent for this turn.\nUse prior conversation to resolve the requested artifact or destination. Treat\nquoted material and saved content as context. A brainstorming request stays\ndiscussion; an explicit editable draft in chat is conversation drafting.\nAn explicit edit to the active page is current-page writing. A new page is\nstandalone unless the author requests a connection. When a standalone page\nsummarizes prior discussion, use the conversation option and carry forward\nopen questions. Use clarification if the intent or reference remains unclear.\nOnly an explicit request to approve an existing statblock draft selects its\napproval review. Image preparation requires an image or prompt requested now;\ndescribing something for a later image is writing. If the requested action\nbelongs in another workflow, use other_creation. These choices grant no\nexecution authority.\ndiscuss: discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.\nclarify_request: discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.\nplan: create: Prepare an editable plan/checklist for author choice, not execution.\nwrite_current_page: create: Concrete current-page prose, proposed list/table, addition or selected-range revision.\nprepare_image: create: Prepare image, illustration or map-image prompt review; not coordinates.\nreview_connected_page: create: Prepare review to create a different connected page.\nreview_relationship: create: Prepare a saved-page relationship review; not publication.\nother_creation: create: A concrete action/artifact outside the defined work kinds.\nclarify_creation: create: Creation is requested but its artifact or target is unresolved.\ndraft_in_conversation: discuss: Write an explicitly requested editable draft for review in chat.\nreview_variant_approval: create: Open confirmation for a statblock variant already drafted for review in this conversation.\nreview_lore_page: create: Review a new standalone authored page, initially blank or populated, or continue its review.\nreview_lore_page_from_conversation: create: Review a new standalone page using the preceding discussion.\ndifferent_destination: Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+            "criteria": {
+              "discuss": null,
+              "clarify_request": null,
+              "plan": null,
+              "write_current_page": null,
+              "prepare_image": null,
+              "review_connected_page": null,
+              "review_relationship": null,
+              "other_creation": null,
+              "clarify_creation": null,
+              "draft_in_conversation": null,
+              "review_variant_approval": null,
+              "review_lore_page": null,
+              "review_lore_page_from_conversation": null,
+              "different_destination": null
+            }
+          }
+        }
+      }
+    },
+    "image-move-hypothetical": {
+      "scoped": {
+        "model": "jev-1.14.0",
+        "state": {
+          "user_question": "What would happen if we moved the Harbour map to the right?",
+          "interaction": {
+            "allowed_operations": [
+              "answer_from_sources",
+              "propose_build_insertion"
+            ],
+            "current_page_title": "Working page",
+            "history": [],
+            "page_target": null,
+            "working_draft_available": false,
+            "surface": "build",
+            "image_editor": {
+              "available_work": "Moving an existing image is a current-page edit. Creating a new image is image preparation.",
+              "selected_image": "Harbour map"
+            }
+          }
+        },
+        "questions": {
+          "requested_work": {
+            "type": "choice",
+            "instructions": "Identify the user's intent for this turn.\nUse prior conversation to resolve the requested artifact or destination. Treat\nquoted material and saved content as context. A brainstorming request stays\ndiscussion; an explicit editable draft in chat is conversation drafting.\nAn explicit edit to the active page is current-page writing. A new page is\nstandalone unless the author requests a connection. When a standalone page\nsummarizes prior discussion, use the conversation option and carry forward\nopen questions. Use clarification if the intent or reference remains unclear.\nOnly an explicit request to approve an existing statblock draft selects its\napproval review. Image preparation requires an image or prompt requested now;\ndescribing something for a later image is writing. If the requested action\nbelongs in another workflow, use other_creation. These choices grant no\nexecution authority.\ndiscuss: discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.\nclarify_request: discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.\nplan: create: Prepare an editable plan/checklist for author choice, not execution.\nwrite_current_page: create: Concrete current-page prose, proposed list/table, addition or selected-range revision.\nprepare_image: create: Prepare image, illustration or map-image prompt review; not coordinates.\nreview_connected_page: create: Prepare review to create a different connected page.\nreview_relationship: create: Prepare a saved-page relationship review; not publication.\nother_creation: create: A concrete action/artifact outside the defined work kinds.\nclarify_creation: create: Creation is requested but its artifact or target is unresolved.\ndraft_in_conversation: discuss: Write an explicitly requested editable draft for review in chat.\nreview_variant_approval: create: Open confirmation for a statblock variant already drafted for review in this conversation.\nreview_lore_page: create: Review a new standalone authored page, initially blank or populated, or continue its review.\nreview_lore_page_from_conversation: create: Review a new standalone page using the preceding discussion.",
+            "criteria": {
+              "discuss": null,
+              "clarify_request": null,
+              "plan": null,
+              "write_current_page": null,
+              "prepare_image": null,
+              "review_connected_page": null,
+              "review_relationship": null,
+              "other_creation": null,
+              "clarify_creation": null,
+              "draft_in_conversation": null,
+              "review_variant_approval": null,
+              "review_lore_page": null,
+              "review_lore_page_from_conversation": null
+            }
+          }
+        }
+      },
+      "full": {
+        "model": "jev-1.14.0",
+        "state": {
+          "user_question": "What would happen if we moved the Harbour map to the right?",
+          "interaction": {
+            "allowed_operations": [
+              "answer_from_sources",
+              "propose_build_insertion"
+            ],
+            "current_page_title": "Working page",
+            "history": [],
+            "page_target": null,
+            "working_draft_available": false,
+            "surface": "build",
+            "image_editor": {
+              "available_work": "Moving an existing image is a current-page edit. Creating a new image is image preparation.",
+              "selected_image": "Harbour map"
+            }
+          }
+        },
+        "questions": {
+          "requested_work": {
+            "type": "choice",
+            "instructions": "Identify the user's intent for this turn.\nUse prior conversation to resolve the requested artifact or destination. Treat\nquoted material and saved content as context. A brainstorming request stays\ndiscussion; an explicit editable draft in chat is conversation drafting.\nAn explicit edit to the active page is current-page writing. A new page is\nstandalone unless the author requests a connection. When a standalone page\nsummarizes prior discussion, use the conversation option and carry forward\nopen questions. Use clarification if the intent or reference remains unclear.\nOnly an explicit request to approve an existing statblock draft selects its\napproval review. Image preparation requires an image or prompt requested now;\ndescribing something for a later image is writing. If the requested action\nbelongs in another workflow, use other_creation. These choices grant no\nexecution authority.\ndiscuss: discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.\nclarify_request: discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.\nplan: create: Prepare an editable plan/checklist for author choice, not execution.\nwrite_current_page: create: Concrete current-page prose, proposed list/table, addition or selected-range revision.\nprepare_image: create: Prepare image, illustration or map-image prompt review; not coordinates.\nreview_connected_page: create: Prepare review to create a different connected page.\nreview_relationship: create: Prepare a saved-page relationship review; not publication.\nother_creation: create: A concrete action/artifact outside the defined work kinds.\nclarify_creation: create: Creation is requested but its artifact or target is unresolved.\ndraft_in_conversation: discuss: Write an explicitly requested editable draft for review in chat.\nreview_variant_approval: create: Open confirmation for a statblock variant already drafted for review in this conversation.\nreview_lore_page: create: Review a new standalone authored page, initially blank or populated, or continue its review.\nreview_lore_page_from_conversation: create: Review a new standalone page using the preceding discussion.\ndifferent_destination: Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+            "criteria": {
+              "discuss": null,
+              "clarify_request": null,
+              "plan": null,
+              "write_current_page": null,
+              "prepare_image": null,
+              "review_connected_page": null,
+              "review_relationship": null,
+              "other_creation": null,
+              "clarify_creation": null,
+              "draft_in_conversation": null,
+              "review_variant_approval": null,
+              "review_lore_page": null,
+              "review_lore_page_from_conversation": null,
+              "different_destination": null
+            }
+          }
+        }
+      }
+    },
+    "image-move-create-control": {
+      "scoped": {
+        "model": "jev-1.14.0",
+        "state": {
+          "user_question": "Prepare a new illustration of the harbour at night.",
+          "interaction": {
+            "allowed_operations": [
+              "answer_from_sources",
+              "propose_build_insertion"
+            ],
+            "current_page_title": "Working page",
+            "history": [],
+            "page_target": null,
+            "working_draft_available": false,
+            "surface": "build",
+            "image_editor": {
+              "available_work": "Moving an existing image is a current-page edit. Creating a new image is image preparation.",
+              "selected_image": "Harbour map"
+            }
+          }
+        },
+        "questions": {
+          "requested_work": {
+            "type": "choice",
+            "instructions": "Identify the user's intent for this turn.\nUse prior conversation to resolve the requested artifact or destination. Treat\nquoted material and saved content as context. A brainstorming request stays\ndiscussion; an explicit editable draft in chat is conversation drafting.\nAn explicit edit to the active page is current-page writing. A new page is\nstandalone unless the author requests a connection. When a standalone page\nsummarizes prior discussion, use the conversation option and carry forward\nopen questions. Use clarification if the intent or reference remains unclear.\nOnly an explicit request to approve an existing statblock draft selects its\napproval review. Image preparation requires an image or prompt requested now;\ndescribing something for a later image is writing. If the requested action\nbelongs in another workflow, use other_creation. These choices grant no\nexecution authority.\ndiscuss: discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.\nclarify_request: discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.\nplan: create: Prepare an editable plan/checklist for author choice, not execution.\nwrite_current_page: create: Concrete current-page prose, proposed list/table, addition or selected-range revision.\nprepare_image: create: Prepare image, illustration or map-image prompt review; not coordinates.\nreview_connected_page: create: Prepare review to create a different connected page.\nreview_relationship: create: Prepare a saved-page relationship review; not publication.\nother_creation: create: A concrete action/artifact outside the defined work kinds.\nclarify_creation: create: Creation is requested but its artifact or target is unresolved.\ndraft_in_conversation: discuss: Write an explicitly requested editable draft for review in chat.\nreview_variant_approval: create: Open confirmation for a statblock variant already drafted for review in this conversation.\nreview_lore_page: create: Review a new standalone authored page, initially blank or populated, or continue its review.\nreview_lore_page_from_conversation: create: Review a new standalone page using the preceding discussion.",
+            "criteria": {
+              "discuss": null,
+              "clarify_request": null,
+              "plan": null,
+              "write_current_page": null,
+              "prepare_image": null,
+              "review_connected_page": null,
+              "review_relationship": null,
+              "other_creation": null,
+              "clarify_creation": null,
+              "draft_in_conversation": null,
+              "review_variant_approval": null,
+              "review_lore_page": null,
+              "review_lore_page_from_conversation": null
+            }
+          }
+        }
+      },
+      "full": {
+        "model": "jev-1.14.0",
+        "state": {
+          "user_question": "Prepare a new illustration of the harbour at night.",
+          "interaction": {
+            "allowed_operations": [
+              "answer_from_sources",
+              "propose_build_insertion"
+            ],
+            "current_page_title": "Working page",
+            "history": [],
+            "page_target": null,
+            "working_draft_available": false,
+            "surface": "build",
+            "image_editor": {
+              "available_work": "Moving an existing image is a current-page edit. Creating a new image is image preparation.",
+              "selected_image": "Harbour map"
+            }
+          }
+        },
+        "questions": {
+          "requested_work": {
+            "type": "choice",
+            "instructions": "Identify the user's intent for this turn.\nUse prior conversation to resolve the requested artifact or destination. Treat\nquoted material and saved content as context. A brainstorming request stays\ndiscussion; an explicit editable draft in chat is conversation drafting.\nAn explicit edit to the active page is current-page writing. A new page is\nstandalone unless the author requests a connection. When a standalone page\nsummarizes prior discussion, use the conversation option and carry forward\nopen questions. Use clarification if the intent or reference remains unclear.\nOnly an explicit request to approve an existing statblock draft selects its\napproval review. Image preparation requires an image or prompt requested now;\ndescribing something for a later image is writing. If the requested action\nbelongs in another workflow, use other_creation. These choices grant no\nexecution authority.\ndiscuss: discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.\nclarify_request: discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.\nplan: create: Prepare an editable plan/checklist for author choice, not execution.\nwrite_current_page: create: Concrete current-page prose, proposed list/table, addition or selected-range revision.\nprepare_image: create: Prepare image, illustration or map-image prompt review; not coordinates.\nreview_connected_page: create: Prepare review to create a different connected page.\nreview_relationship: create: Prepare a saved-page relationship review; not publication.\nother_creation: create: A concrete action/artifact outside the defined work kinds.\nclarify_creation: create: Creation is requested but its artifact or target is unresolved.\ndraft_in_conversation: discuss: Write an explicitly requested editable draft for review in chat.\nreview_variant_approval: create: Open confirmation for a statblock variant already drafted for review in this conversation.\nreview_lore_page: create: Review a new standalone authored page, initially blank or populated, or continue its review.\nreview_lore_page_from_conversation: create: Review a new standalone page using the preceding discussion.\ndifferent_destination: Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+            "criteria": {
+              "discuss": null,
+              "clarify_request": null,
+              "plan": null,
+              "write_current_page": null,
+              "prepare_image": null,
+              "review_connected_page": null,
+              "review_relationship": null,
+              "other_creation": null,
+              "clarify_creation": null,
+              "draft_in_conversation": null,
+              "review_variant_approval": null,
+              "review_lore_page": null,
+              "review_lore_page_from_conversation": null,
+              "different_destination": null
+            }
+          }
+        }
+      }
+    }
+  },
+  "results": {
+    "build": {
+      "full": {
+        "summary": {
+          "cases": 4,
+          "dispositions": {
+            "wrong_action": 2,
+            "correct": 2
+          },
+          "median_decision_ms": 484.41
+        },
+        "rows": [
+          {
+            "id": "image-move-named",
+            "tier": "image_editor",
+            "expected": "write_current_page",
+            "choice": "other_creation",
+            "status": "wrong_action",
+            "elapsed_ms": 510.65,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "other_creation",
+                  "probabilities": {
+                    "discuss": 0.02,
+                    "clarify_request": 0.05,
+                    "plan": 0.0,
+                    "write_current_page": 0.32,
+                    "prepare_image": 0.01,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.41,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0,
+                    "different_destination": 0.19
+                  },
+                  "confidence": 0.36
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 958,
+                "cached_input_tokens": null,
+                "output_tokens": 148,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 510,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "image-move-selected",
+            "tier": "image_editor",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 453.9,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "write_current_page",
+                  "probabilities": {
+                    "discuss": 0.01,
+                    "clarify_request": 0.13,
+                    "plan": 0.0,
+                    "write_current_page": 0.4,
+                    "prepare_image": 0.02,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.3,
+                    "clarify_creation": 0.01,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0,
+                    "different_destination": 0.13
+                  },
+                  "confidence": 0.35
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 968,
+                "cached_input_tokens": null,
+                "output_tokens": 149,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 453,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "image-move-hypothetical",
+            "tier": "image_editor",
+            "expected": "discuss",
+            "choice": "write_current_page",
+            "status": "wrong_action",
+            "elapsed_ms": 478.51,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "write_current_page",
+                  "probabilities": {
+                    "discuss": 0.24,
+                    "clarify_request": 0.04,
+                    "plan": 0.0,
+                    "write_current_page": 0.52,
+                    "prepare_image": 0.01,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.11,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0,
+                    "different_destination": 0.08
+                  },
+                  "confidence": 0.48
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 970,
+                "cached_input_tokens": null,
+                "output_tokens": 149,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 478,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "image-move-create-control",
+            "tier": "image_editor",
+            "expected": "prepare_image",
+            "choice": "prepare_image",
+            "status": "correct",
+            "elapsed_ms": 490.32,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "prepare_image",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify_request": 0.02,
+                    "plan": 0.0,
+                    "write_current_page": 0.0,
+                    "prepare_image": 0.97,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.01,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0,
+                    "different_destination": 0.0
+                  },
+                  "confidence": 0.97
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 967,
+                "cached_input_tokens": null,
+                "output_tokens": 148,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 490,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          }
+        ],
+        "reused": [],
+        "decision_summary": {
+          "cases": 4,
+          "dispositions": {
+            "wrong_action": 2,
+            "correct": 2
+          },
+          "top_score_ties": 0,
+          "median_decision_ms": 484.41
+        },
+        "by_action": {
+          "write_current_page": {
+            "cases": 2,
+            "dispositions": {
+              "wrong_action": 1,
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 482.27
+          },
+          "discuss": {
+            "cases": 1,
+            "dispositions": {
+              "wrong_action": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 478.51
+          },
+          "prepare_image": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 490.32
+          }
+        },
+        "by_tier": {
+          "image_editor": {
+            "cases": 4,
+            "dispositions": {
+              "wrong_action": 2,
+              "correct": 2
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 484.41
+          }
+        }
+      },
+      "scoped": {
+        "summary": {
+          "cases": 4,
+          "dispositions": {
+            "wrong_action": 2,
+            "correct": 2
+          },
+          "median_decision_ms": 192.47
+        },
+        "rows": [
+          {
+            "id": "image-move-named",
+            "tier": "image_editor",
+            "expected": "write_current_page",
+            "choice": "other_creation",
+            "status": "wrong_action",
+            "elapsed_ms": 202.2,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "other_creation",
+                  "probabilities": {
+                    "discuss": 0.02,
+                    "clarify_request": 0.07,
+                    "plan": 0.0,
+                    "write_current_page": 0.33,
+                    "prepare_image": 0.01,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.57,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0
+                  },
+                  "confidence": 0.53
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 931,
+                "cached_input_tokens": null,
+                "output_tokens": 140,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 202,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "image-move-selected",
+            "tier": "image_editor",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 220.28,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "write_current_page",
+                  "probabilities": {
+                    "discuss": 0.01,
+                    "clarify_request": 0.21,
+                    "plan": 0.0,
+                    "write_current_page": 0.44,
+                    "prepare_image": 0.02,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.31,
+                    "clarify_creation": 0.01,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0
+                  },
+                  "confidence": 0.39
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 941,
+                "cached_input_tokens": null,
+                "output_tokens": 141,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 220,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "image-move-hypothetical",
+            "tier": "image_editor",
+            "expected": "discuss",
+            "choice": "write_current_page",
+            "status": "wrong_action",
+            "elapsed_ms": 182.75,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "write_current_page",
+                  "probabilities": {
+                    "discuss": 0.32,
+                    "clarify_request": 0.04,
+                    "plan": 0.0,
+                    "write_current_page": 0.45,
+                    "prepare_image": 0.01,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.18,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0
+                  },
+                  "confidence": 0.4
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 943,
+                "cached_input_tokens": null,
+                "output_tokens": 141,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 182,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "image-move-create-control",
+            "tier": "image_editor",
+            "expected": "prepare_image",
+            "choice": "prepare_image",
+            "status": "correct",
+            "elapsed_ms": 166.96,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "prepare_image",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify_request": 0.03,
+                    "plan": 0.0,
+                    "write_current_page": 0.0,
+                    "prepare_image": 0.96,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.01,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0
+                  },
+                  "confidence": 0.96
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 940,
+                "cached_input_tokens": null,
+                "output_tokens": 140,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 166,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          }
+        ],
+        "reused": [],
+        "decision_summary": {
+          "cases": 4,
+          "dispositions": {
+            "wrong_action": 2,
+            "correct": 2
+          },
+          "top_score_ties": 0,
+          "median_decision_ms": 192.47
+        },
+        "by_action": {
+          "write_current_page": {
+            "cases": 2,
+            "dispositions": {
+              "wrong_action": 1,
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 211.24
+          },
+          "discuss": {
+            "cases": 1,
+            "dispositions": {
+              "wrong_action": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 182.75
+          },
+          "prepare_image": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 166.96
+          }
+        },
+        "by_tier": {
+          "image_editor": {
+            "cases": 4,
+            "dispositions": {
+              "wrong_action": 2,
+              "correct": 2
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 192.47
+          }
+        }
+      }
+    }
+  }
+}

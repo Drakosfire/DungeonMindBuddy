@@ -27,7 +27,7 @@ def prepare(path):
     for case in cases:
         state = case["input"]
         if set(state) - {"surface", "user_utterance", "page_title", "page_markdown",
-                         "selected_text", "prior_dialogue", "current_scene_title"}:
+                         "selected_text", "prior_dialogue", "current_scene_title", "image_editor"}:
             raise ValueError(f"Invalid model input fields in {case['id']}")
         if not state["user_utterance"].strip() or not case["reason"].strip():
             raise ValueError(f"Missing utterance or expected-action rationale in {case['id']}")
@@ -38,6 +38,11 @@ def prepare(path):
         ):
             raise ValueError(f"Selection must resolve exactly once in {case['id']}")
         surface = state["surface"]
+        if "image_editor" in state:
+            editor = state["image_editor"]
+            if (surface != "build" or not isinstance(editor, dict) or set(editor) - {"selected_image"}
+                    or ("selected_image" in editor and not editor["selected_image"].strip())):
+                raise ValueError(f"Invalid image editor fixture in {case['id']}")
         if "current_scene_title" in state and (
             surface != "play" or not state["current_scene_title"].strip()
         ):
@@ -123,12 +128,17 @@ def build_wire(state, menu, model, *, intent_only=False, explicit_surface=False)
         "page_target": {"kind": "replace_selection", "text": selection} if selection else None,
         "working_draft": None,
     }
+    visible = semantic_routing_state(
+        state["user_utterance"], interaction, None, include_paragraph_catalog=not intent_only,
+        include_surface=explicit_surface,
+    )
+    if "image_editor" in state:
+        from application_state.build_proposal.image_move_decision import image_editor_intent_context
+
+        visible["interaction"]["image_editor"] = image_editor_intent_context(**state["image_editor"])
     return {
         "model": model,
-        "state": semantic_routing_state(
-            state["user_utterance"], interaction, None, include_paragraph_catalog=not intent_only,
-            include_surface=explicit_surface,
-        ),
+        "state": visible,
         "questions": {
             "requested_work": work,
             **({} if intent_only else {"source_need": source_need_question()}),

@@ -468,3 +468,14 @@ The intent classifier needs offered choices that distinguish these reviews
 from preparing new artwork and writing prose. “Discussion” is already an
 offered choice. Include the matching controls when the review choices are
 available, and let downstream ballots resolve the exact slot or paragraph.
+
+### Build image intent pilot
+
+The [image fixture set](right_action_intent/surface-image-intent.json) pins
+the Build page and any selected image label. The [four paired cases](right_action_intent/build-image-intent-paired-jev.json)
+use the runtime affordance projection and the intent-only Build request.
+Both arms scored 2/4. Jev classified the selected-image move and the
+new-art request correctly. It sent the named-image move to other creation
+and treated a hypothetical move as a page edit in both arms.
+Keep this pilot separate from the 60-case frozen cohort. The ordinary
+image tests establish downstream review behavior with simulated choices.
