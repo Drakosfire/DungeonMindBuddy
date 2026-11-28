@@ -479,3 +479,11 @@ new-art request correctly. It sent the named-image move to other creation
 and treated a hypothetical move as a page edit in both arms.
 Keep this pilot separate from the 60-case frozen cohort. The ordinary
 image tests establish downstream review behavior with simulated choices.
+
+The [direct-action wording test](right_action_intent/build-image-direct-action-jev.json)
+holds the offered actions and visible state fixed and changes only the image
+affordance description. Both menus improved from 2/4 to 3/4 on development
+by classifying the hypothetical as discussion. The exact named Harbour map
+move still chose other creation. On the four held-out cases, both arms
+scored 4/4 with either wording. Keep the production wording pinned. This
+pilot shows a development improvement without a held-out gain.

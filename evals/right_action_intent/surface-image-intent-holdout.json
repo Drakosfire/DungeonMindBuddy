@@ -1,0 +1,210 @@
+{
+  "schema": "buddy.right-action-surface-probe.v1",
+  "cases": [
+    {
+      "id": "build-selection",
+      "tier": "build",
+      "expected": "write_current_page",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Replace the highlighted sentence with “The lantern was already burning.” Show me the proposed edit first.",
+        "page_title": "The Lantern Keeper",
+        "selected_text": "The lantern at the top of the hill was already burning when she arrived.",
+        "page_markdown": "# The Lantern Keeper\n\nThe lantern at the top of the hill was already burning when she arrived.\n"
+      },
+      "reason": "The selected sentence in Build is the requested destination."
+    },
+    {
+      "id": "build-chat-draft",
+      "tier": "build",
+      "expected": "draft_in_conversation",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Write an editable two-sentence welcome here in chat for me to review."
+      },
+      "reason": "The user requests an editable draft in conversation."
+    },
+    {
+      "id": "build-clarify",
+      "tier": "build",
+      "expected": "clarify_request",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Before you draft anything, ask me whether the welcome should sound solemn or playful."
+      },
+      "reason": "The user explicitly asks a question before any draft."
+    },
+    {
+      "id": "build-discuss",
+      "tier": "build",
+      "expected": "discuss",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Let's brainstorm why the shopkeeper wants to apologize. Just talk it through with me."
+      },
+      "reason": "The user requests brainstorming without a concrete artifact."
+    },
+    {
+      "id": "plan-edit",
+      "tier": "plan",
+      "expected": "write_current_page",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Propose replacing the highlighted paragraph in this Plan with a quieter scene opening.",
+        "page_title": "Arrive in Hempholm",
+        "selected_text": "The villagers rush out to greet the party.",
+        "page_markdown": "# Arrive in Hempholm\n\nThe villagers rush out to greet the party.\n"
+      },
+      "reason": "The selected paragraph is in the active Plan."
+    },
+    {
+      "id": "plan-clarify",
+      "tier": "plan",
+      "expected": "clarify",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Ask me which of the two possible endings I want before preparing the scene."
+      },
+      "reason": "The requested next action is to ask which ending to use."
+    },
+    {
+      "id": "plan-discuss",
+      "tier": "plan",
+      "expected": "discuss",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Talk me through what might happen if the party ignores the tree. Keep it in chat."
+      },
+      "reason": "The user wants to discuss an outcome in conversation."
+    },
+    {
+      "id": "plan-other-destination",
+      "tier": "plan",
+      "expected": "different_destination",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Please update the existing Corrupted Edge worldbuilding page, rather than editing this Plan.",
+        "page_title": "Arrive in Hempholm"
+      },
+      "reason": "The requested Worldbuilding page is outside the current Plan."
+    },
+    {
+      "id": "plan-connected-page",
+      "tier": "plan",
+      "expected": "review_connected_page",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Prepare a new location page for the cellar linked from the saved Jove home page. Let me review it first."
+      },
+      "reason": "The user wants to review a new location tied to a saved origin."
+    },
+    {
+      "id": "image-move-named",
+      "tier": "image_editor",
+      "expected": "write_current_page",
+      "reason": "An explicit move of an existing image is an edit to the open page.",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Move the Harbour map to the empty slot on its right.",
+        "page_title": "Working page",
+        "image_editor": {}
+      }
+    },
+    {
+      "id": "image-move-selected",
+      "tier": "image_editor",
+      "expected": "write_current_page",
+      "reason": "The active selection identifies an existing image on the open page.",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Move this to the empty slot just to its right.",
+        "page_title": "Working page",
+        "image_editor": {
+          "selected_image": "Harbour map"
+        }
+      }
+    },
+    {
+      "id": "image-move-hypothetical",
+      "tier": "image_editor",
+      "expected": "discuss",
+      "reason": "The user asks to discuss a hypothetical, with no requested edit.",
+      "input": {
+        "surface": "build",
+        "user_utterance": "What would happen if we moved the Harbour map to the right?",
+        "page_title": "Working page",
+        "image_editor": {
+          "selected_image": "Harbour map"
+        }
+      }
+    },
+    {
+      "id": "image-move-create-control",
+      "tier": "image_editor",
+      "expected": "prepare_image",
+      "reason": "The request is for new artwork, even with an existing image selected.",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Prepare a new illustration of the harbour at night.",
+        "page_title": "Working page",
+        "image_editor": {
+          "selected_image": "Harbour map"
+        }
+      }
+    },
+    {
+      "id": "image-holdout-move-label",
+      "tier": "image_heldout",
+      "expected": "write_current_page",
+      "reason": "The user directs a move of existing artwork by name.",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Shift the ferry sketch one column right on this page.",
+        "page_title": "Harbour layout",
+        "image_editor": {}
+      }
+    },
+    {
+      "id": "image-holdout-move-selected",
+      "tier": "image_heldout",
+      "expected": "write_current_page",
+      "reason": "The active editor selection supplies the image.",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Put the selected picture in the vacant slot beside it.",
+        "page_title": "Harbour layout",
+        "image_editor": {
+          "selected_image": "Ferry sketch"
+        }
+      }
+    },
+    {
+      "id": "image-holdout-advice",
+      "tier": "image_heldout",
+      "expected": "discuss",
+      "reason": "The user requests an opinion.",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Would the layout read better if the ferry sketch were on the right?",
+        "page_title": "Harbour layout",
+        "image_editor": {
+          "selected_image": "Ferry sketch"
+        }
+      }
+    },
+    {
+      "id": "image-holdout-new-variant",
+      "tier": "image_heldout",
+      "expected": "prepare_image",
+      "reason": "The user wants a new illustration, not movement.",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Prepare a new map illustration in a woodcut style.",
+        "page_title": "Harbour layout",
+        "image_editor": {
+          "selected_image": "Ferry sketch"
+        }
+      }
+    }
+  ]
+}

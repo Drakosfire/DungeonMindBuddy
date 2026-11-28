@@ -110,7 +110,14 @@ def with_menu(request, menu):
     }),)})
 
 
-def build_wire(state, menu, model, *, intent_only=False, explicit_surface=False):
+IMAGE_DIRECT_ACTION_GUIDANCE = (
+    "An explicit request to move existing artwork on the current page is a current-page edit, "
+    "whether it names the artwork or refers to a selection. A question about what a possible "
+    "move would look like is discussion. A request to create new artwork is image preparation."
+)
+
+
+def build_wire(state, menu, model, *, intent_only=False, explicit_surface=False, image_direct_action=False):
     from application_state.agent_conversation.build_intentional_response import (
         SCOPED_BUILD_MENU_DIGEST, opening_work_question, semantic_routing_state, source_need_question,
     )
@@ -136,6 +143,8 @@ def build_wire(state, menu, model, *, intent_only=False, explicit_surface=False)
         from application_state.build_proposal.image_move_decision import image_editor_intent_context
 
         visible["interaction"]["image_editor"] = image_editor_intent_context(**state["image_editor"])
+        if image_direct_action:
+            visible["interaction"]["image_editor"]["available_work"] = IMAGE_DIRECT_ACTION_GUIDANCE
     return {
         "model": model,
         "state": visible,
@@ -349,7 +358,11 @@ async def main():
                         help="Ablate the source-need question from the scoped ordinary Build request")
     parser.add_argument("--verify-build-followup", type=Path,
                         help="Validate the retained Build follow-up capture without calling a provider")
+    parser.add_argument("--image-direct-action", action="store_true",
+                        help="Test explicit edit versus hypothetical wording in the image intent context")
     args = parser.parse_args()
+    if args.image_direct_action and not args.build_intent_only:
+        parser.error("--image-direct-action requires an intent-only Build request")
     if args.verify_build_followup:
         print(json.dumps(verify_build_followup_capture(args.verify_build_followup), indent=2))
         return
@@ -420,7 +433,7 @@ async def main():
     if args.build_wire_shape:
         frozen["build_wire_by_case"] = {
             row["id"]: {arm: build_wire(row["input"], menu, model, intent_only=args.build_intent_only,
-                    explicit_surface=args.build_intent_only)
+                    explicit_surface=args.build_intent_only, image_direct_action=args.image_direct_action)
                         for arm, menu in menus["build"].items()}
             for row in groups["build"]
         }
@@ -460,7 +473,7 @@ async def main():
             "question": body["instructions"], "options": list(menu), "option_descriptions": menu}}}
         if args.build_wire_shape:
             request = DecisionRequest.model_validate(sdk_request(build_wire(body["state"], menu, model, intent_only=args.build_intent_only,
-                    explicit_surface=args.build_intent_only)))
+                    explicit_surface=args.build_intent_only, image_direct_action=args.image_direct_action)))
         elif args.plan_intent_only:
             request = with_menu(plan_request(body["state"]), menu)
         else:
