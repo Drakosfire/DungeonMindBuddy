@@ -17,7 +17,9 @@ from dungeonmind.contracts.vnext.native_source import (
 from worldkeeper.application import contracts as wk
 
 from application_state.mechanics_revisions import service as revision_operations
-from .native_pdf_evidence import register_pdf_regions, reviewed_pdf_regions
+from .native_pdf_evidence import (
+    pdf_region_text_evidence_id, register_pdf_regions, register_reviewed_region_text, reviewed_pdf_regions,
+)
 from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
 from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
 from apps.live_control_server.integrations.dungeonmind import native_registry_source as native
@@ -92,7 +94,9 @@ def intent(review):
     metadata = wk.AssertionMetadata(
         scope=(), visibility=wk.Visibility("labels_any", (GM_LABEL,)),
         epistemic_basis="asserted", claim_mode="dungeonbuddy.claim:plan", standing="provisional",
-        temporal_scope=wk.TemporalScope(kind="unknown"), evidence_ref_ids=(review.source_evidence_id, *review.pdf_evidence_ids))
+        temporal_scope=wk.TemporalScope(kind="unknown"), evidence_ref_ids=(
+            review.source_evidence_id, *review.pdf_evidence_ids, *review.stored_region_evidence_ids,
+        ))
     return wk.WorldChangeIntent(review.binding["native_world_id"], PRODUCER, (
         wk.CreateObject("creature", (
             wk.CreateFact("creature.name", "dnd5e:name", wk.LiteralFactValue(review.label), metadata),
@@ -109,10 +113,18 @@ def source_matches(access, review):
             and opened.span_end_byte == len(opened.body_text.encode()),
             "The exact proposed creature source is unavailable")
 
+    expected = {
+        pdf_region_text_evidence_id(review.binding["native_world_id"], region)
+        for region in review.pdf_regions
+    }
+    for evidence_id in review.stored_region_evidence_ids:
+        require(evidence_id in expected and open_admitted_native_text(access, evidence_id).status == "available",
+                "The exact reviewed PDF passage is unavailable")
+
 
 def review_payload(review):
     # Text-only reviews retain their original signed representation.
-    excluded = {field for field in ("pdf_evidence_ids", "pdf_regions", "mechanics_locator") if not getattr(review, field)}
+    excluded = {field for field in ("pdf_evidence_ids", "pdf_regions", "stored_region_evidence_ids", "mechanics_locator") if not getattr(review, field)}
     return review.model_dump(mode="json", by_alias=True, exclude=excluded)
 
 
@@ -180,6 +192,10 @@ def prepare(root, draft_id, request, principal, *, authorize_write=None):
             repo, bound["native_world_id"], regions, context, access,
             datetime.fromisoformat(draft.updated_at), authorize_write=authorize_write,
         )
+        context, access, stored_region_evidence_ids = register_reviewed_region_text(
+            repo, bound["native_world_id"], pdf_regions, context, access,
+            datetime.fromisoformat(draft.updated_at), authorize_write=authorize_write,
+        )
         domain, profile = native.descriptors(repo, bound["native_world_id"], context["revision_id"])
         now = datetime.now(UTC)
         review = NativeThreatReview(world_id=draft.world_id, draft_id=draft_id, draft_version=draft.version,
@@ -187,6 +203,7 @@ def prepare(root, draft_id, request, principal, *, authorize_write=None):
             source_evidence_id=admitted.bindings[0].evidence_ref_id,
             source_artifact_id=admitted.source_artifact_id, source_revision_id=admitted.source_revision_id,
             pdf_evidence_ids=pdf_evidence_ids, pdf_regions=pdf_regions,
+            stored_region_evidence_ids=stored_region_evidence_ids,
             mechanics_locator=request.mechanics_locator,
             prepared_digest="0" * 64, principal=principal.subject, expires_at=now + timedelta(hours=1))
         source_matches(access, review)

@@ -149,3 +149,52 @@ it('exposes a lore-page review descriptor only for its completed Build owner',as
   await expect(readConversationTurns('world',cid)).rejects.toThrow();
  }
 });
+
+it('accepts only bounded display lineage in the versioned active-message projection',async()=>{
+ const next='33333333-3333-4333-8333-333333333333';
+ const lineage={root_id:tid,predecessor_id:null,successor_id:next,ordinal:0};
+ const row={turn_id:tid,idempotency_key:tid,revision:2,sequence:1,status:'interrupted',user_text:'Question',assistant_text:null,citation_preview:null,reply_object:null,authored_references:null,provenance:{world_id:'world',surface_id:'build',primary_work:{kind:'build'}},retry_lineage:lineage};
+ const v={schema:'dmb_active_conversation_messages_v5',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:1,messages:[row],next_before_sequence:null};
+ response(v);expect((await readActiveConversationMessages('world')).messages[0].retry_lineage).toEqual(lineage);
+ for(const bad of [{...lineage,eligible:true},{...lineage,root_id:next},{...lineage,successor_id:tid},{...lineage,ordinal:-1},{...lineage,successor_id:null}]){
+  response({...v,messages:[{...row,retry_lineage:bad}]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+ }
+ response({...v,schema:'dmb_active_conversation_messages_v4'});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+ response({...v,messages:[{...row,provenance:{...row.provenance,world_id:'foreign'}}]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+ const child={...row,turn_id:next,idempotency_key:next,sequence:2,retry_lineage:{root_id:tid,predecessor_id:tid,successor_id:null,ordinal:1}};
+ response({...v,messages:[row,child]});expect((await readActiveConversationMessages('world')).messages).toHaveLength(2);
+ response({...v,messages:[{...row,retry_lineage:{...lineage,successor_id:'44444444-4444-4444-8444-444444444444'}},child]});await expect(readActiveConversationMessages('world')).rejects.toThrow('predecessor');
+ response({...v,messages:[row,{...child,retry_lineage:{...child.retry_lineage,root_id:next}}]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+ response({...v,messages:[row,{...child,turn_id:tid}]});await expect(readActiveConversationMessages('world')).rejects.toThrow();
+});
+
+it('opens the v4 transcript after the exact unsupported-selector response on rollback',async()=>{
+ const v={schema:'dmb_active_conversation_messages_v4',world_id:'world',conversation_state:'active',conversation_id:cid,active_conversation_id:cid,pointer_revision:4,
+  messages:[{turn_id:tid,idempotency_key:tid,revision:2,sequence:3,status:'completed',user_text:'Question',assistant_text:'Answer',citation_preview:null,reply_object:null,authored_references:null,provenance:{world_id:'world',surface_id:'build'}}],next_before_sequence:null};
+ const fetch=vi.mocked(authenticatedApiFetch),signal=new AbortController().signal;
+ fetch.mockResolvedValueOnce({response:Response.json({detail:'Unexpected or repeated conversation selector'},{status:422})} as Awaited<ReturnType<typeof authenticatedApiFetch>>)
+  .mockResolvedValueOnce({response:Response.json(v)} as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ expect((await readActiveConversationMessages('world',9,signal)).messages[0].assistant_text).toBe('Answer');
+ expect(fetch).toHaveBeenCalledTimes(2);
+ expect(String(fetch.mock.calls[0][0])).toContain('retry_lineage=true');
+ expect(String(fetch.mock.calls[1][0])).not.toContain('retry_lineage');
+ expect(String(fetch.mock.calls[1][0])).toContain('before_sequence=9');
+ expect(fetch.mock.calls[1][1]?.signal).toBe(signal);
+});
+it.each([[403,'Forbidden'],[422,'Different invalid selector']] as const)('does not fall back on unrelated error %s',async(status,detail)=>{
+ vi.mocked(authenticatedApiFetch).mockResolvedValueOnce({response:Response.json({detail},{status})} as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ await expect(readActiveConversationMessages('world')).rejects.toThrow();
+ expect(authenticatedApiFetch).toHaveBeenCalledTimes(1);
+});
+it('does not fall back when the request was aborted',async()=>{
+ const controller=new AbortController();controller.abort();
+ vi.mocked(authenticatedApiFetch).mockRejectedValueOnce(new DOMException('Aborted','AbortError'));
+ await expect(readActiveConversationMessages('world',undefined,controller.signal)).rejects.toThrow();
+ expect(authenticatedApiFetch).toHaveBeenCalledTimes(1);
+});
+it('does not retry an unsupported selector after cancellation',async()=>{
+ const controller=new AbortController();controller.abort();
+ vi.mocked(authenticatedApiFetch).mockResolvedValueOnce({response:Response.json({detail:'Unexpected or repeated conversation selector'},{status:422})} as Awaited<ReturnType<typeof authenticatedApiFetch>>);
+ await expect(readActiveConversationMessages('world',undefined,controller.signal)).rejects.toThrow();
+ expect(authenticatedApiFetch).toHaveBeenCalledTimes(1);
+});
