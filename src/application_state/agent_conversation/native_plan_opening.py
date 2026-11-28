@@ -89,6 +89,8 @@ class NativePlanIntentInputV1(Strict):
     dialogue: tuple[RetrievalDialogue, ...] = ()
     requested_operation: Literal["discuss", "write_current_page"] | None = None
 
+    source_use_version: Literal["v1"] | None = Field(default=None, exclude_if=lambda value: value is None)
+
     def prepare(self):
         from .surface_action_catalog import prepare_opening_intent
 
@@ -101,7 +103,21 @@ class NativePlanIntentInputV1(Strict):
             state["prior_dialogue"] = [row.model_dump() for row in self.dialogue]
         if self.requested_operation is not None:
             state["explicit_editor_operation"] = self.requested_operation
-        return prepare_opening_intent("plan", state, plan_operation=self.requested_operation)
+        request = prepare_opening_intent("plan", state, plan_operation=self.requested_operation)
+        if self.source_use_version is None:
+            return request
+        from generationengine.types import ChoiceDecisionQuestion
+        source_use = ChoiceDecisionQuestion(
+            name="source_use",
+            options=("conversation_only", "source_needed", "uncertain"),
+            option_descriptions={
+                "conversation_only": "Use only the supplied conversation and current Plan, or draft original material without lookup. Respect an explicit request to avoid search.",
+                "source_needed": "The request needs facts from a saved source, World evidence or Rules beyond the supplied context.",
+                "uncertain": "The supplied request does not establish which context should be used.",
+            },
+            question="Does satisfying this request require consulting sources outside the supplied conversation and current Plan?",
+        )
+        return request.model_copy(update={"questions": (*request.questions, source_use)})
 
 
 class NativePlanAuthorScopeInputV1(Strict):
@@ -127,6 +143,7 @@ class NativePlanAuthorScopeObservationV1(Strict):
     """Interpretation evidence alone, with no source or placement authority."""
 
     requested_work: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    source_use: Literal["conversation_only", "source_needed", "uncertain"] | None = Field(default=None, exclude_if=lambda value: value is None)
     relation: str
     selected_alias: str
     scope: ScopeExpression
@@ -319,7 +336,7 @@ class NativePlanAuthorScopeParentV1(NativePlanAuthorScopeInputV1):
         return t.canonical_sha256(self.model_dump(mode='json', by_alias=True))
 
 
-def plan_intent_input(action, dialogue):
+def plan_intent_input(action, dialogue, *, source_use_version=None):
     capture = action.authoring_capture
     selected = (getattr(capture, "selection_witness_text", None)
                 or (getattr(capture, "selected_text", None) if author_editor_focus(action) == "text_selection" else None))
@@ -327,6 +344,7 @@ def plan_intent_input(action, dialogue):
         question=action.intent.message, page_title=getattr(action, "document_title", None),
         selected_text=selected or None, dialogue=tuple(dialogue),
         requested_operation=getattr(action.intent, "plan_requested_operation", None),
+        source_use_version=source_use_version,
     )
 
 
@@ -567,7 +585,9 @@ def validate_author_scope_parent(context, execution, parent, authorization):
     if bool(authorization.intent_opening) != is_intent_opening:
         raise ValueError("Plan intent authorization differs from its exact producer")
     if is_intent_opening and (
-        parent.intent_opening != plan_intent_input(execution.policy.action, parent.dialogue)
+        parent.intent_opening != plan_intent_input(
+            execution.policy.action, parent.dialogue, source_use_version=parent.intent_opening.source_use_version
+        )
         or parent.prior_scope_event_id is not None or parent.scope_review is not None
     ):
         raise ValueError("Plan intent must be bound to the exact editor state")
@@ -600,11 +620,16 @@ def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
     if intent_input is not None:
         from .surface_action_catalog import opening_action_menu
 
-        choice = validated_choice_answers(result, {"requested_work"})["requested_work"]
+        questions = {"requested_work"}
+        if intent_input.source_use_version is not None:
+            questions.add("source_use")
+        answers = validated_choice_answers(result, questions)
+        choice = answers["requested_work"]
         if choice not in opening_action_menu("plan", plan_operation=intent_input.requested_operation):
             raise ValueError("Plan did not offer this requested work")
         return NativePlanAuthorScopeObservationV1(
-            requested_work=choice, relation="unresolved", selected_alias="none",
+            requested_work=choice, source_use=answers.get("source_use"),
+            relation="unresolved", selected_alias="none",
             scope=UnscopedLocation(),
         )
     expected = {'location_relation', 'existing_scope'}
