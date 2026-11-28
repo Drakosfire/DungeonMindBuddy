@@ -940,7 +940,7 @@ def test_exact_selected_play_source_admits_no_aggregate_token_ceiling(source_cas
     assert updated.graph_context_execution.policy.max_provider_attempts > 0
 
 
-@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","object","mixed","unknown","writer_failure","source_failure","forged_work"])
+@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","object","mixed","unknown","writer_failure","source_failure","forged_work","forged_choice"])
 def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answer(
     application_state_dsn,monkeypatch,tmp_path,source_case,mode,request,
 ):
@@ -1110,7 +1110,18 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
             proof['source_frame']=play_source_frame(tuple(frames)).model_dump(mode='json',by_alias=True)
             return proof
         monkeypatch.setattr(plan_source_turn,'play_work_proof',forged)
-    if mode in {'unknown','writer_failure','source_failure','forged_work'}:
+    if mode == "forged_choice":
+        from application_state.agent_conversation import native_retrieval
+
+        original = native_retrieval.verify_selection
+
+        def verify_forged_choice(turn, event, proof, trace):
+            if type(event) is native_retrieval.NativePlayIntentSelectedV1:
+                event = event.model_copy(update={"requested_work": "different_destination"})
+            return original(turn, event, proof, trace)
+
+        monkeypatch.setattr(native_retrieval, "verify_selection", verify_forged_choice)
+    if mode in {'unknown','writer_failure','source_failure','forged_work','forged_choice'}:
         from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
         with pytest.raises(AgentTurnServiceError):execute_agent_turn(request,**kwargs)
         kept=service.list_turns(world,wire.adapter.fence.turn.conversation_id)[-1]
@@ -1118,6 +1129,9 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         assert len(decisions.calls)==(0 if mode in {'source_failure','forged_work'} else 1)
         assert len(wire.calls)==(1 if mode=='writer_failure' else 0)
         if mode=='unknown':assert any(getattr(e,'outcome',None)=='outcome_unknown' for e in kept.graph_context_execution.events)
+        if mode == "forged_choice":
+            assert not any(e.kind == "native_play_intent_selected_v1"
+                           for e in kept.graph_context_execution.events)
         trace=service.list_context_trace_attempts(world_id=world,turn_id=kept.turn_id)[-1]
         assert trace.capture_status!='recording'
         before=(len(decisions.calls),len(wire.calls))
@@ -1135,6 +1149,8 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     assert len(openings)==(0 if references else 1)
     if openings:
         assert set(openings[0]['questions'])=={'requested_work'}
+        from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+        assert openings[0]["questions"]["requested_work"]["criteria"] == opening_action_menu("play")
         assert 'candidates' not in openings[0]['state']
     for call in [*decisions.calls,*wire.calls]:
         assert 'max_output_tokens' not in json.loads(call.content)
