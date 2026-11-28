@@ -335,6 +335,26 @@ def validate_request_source_search(execution, grant):
     prefix = execution.events[:grant.sequence]
     action = execution.policy.action
     prior_attempts = [event for event in prefix if isinstance(event, t.ProviderAttemptAuthorizedEventV1)]
+    from .native_plan_graph_need import (
+        NativePlanGraphNeedObservedV1, NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1,
+        validate_graph_need_intent_prefix,
+    )
+    from .native_retrieval import NativePlanGraphNeedAuthorizedV1
+
+    graph_attempts = [event for event in prior_attempts if type(event) is NativePlanGraphNeedAuthorizedV1]
+    if graph_attempts:
+        graph = graph_attempts[0]
+        decisions = [event for event in prefix if type(event) is NativePlanGraphNeedObservedV1
+                     and event.controller_attempt_id == graph.provider_attempt_id]
+        terminal = [event for event in prefix if type(event) in
+                    (NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)]
+        if (len(graph_attempts) != 1 or len(decisions) != 1 or len(terminal) != 1
+                or (type(terminal[0]) is NativePlanGraphQueryClosedV1
+                    and terminal[0].need_event_id != decisions[0].event_id)
+                or not graph.sequence < decisions[0].sequence < terminal[0].sequence):
+            raise ValueError('Request discovery requires settled Plan Graph work')
+        validate_graph_need_intent_prefix(execution, prefix[:graph.sequence])
+        prior_attempts = [event for event in prior_attempts if event is not graph]
     scope_attempt_ids = [event.controller_attempt_id for event in prefix
                          if type(event) is NativePlanAuthorScopeObservedV1]
     after_author_scope = (
