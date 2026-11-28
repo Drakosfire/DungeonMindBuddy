@@ -282,6 +282,7 @@ def validate_pending_graph(context, execution):
     settled = settlements[0] if settlements else None
     authorized_parent = None
     if need_auth:
+        validate_graph_need_intent_prefix(execution, events[:need_auth.sequence])
         strict_json(need_auth.parent_json)
         authorized_parent = NativePlanGraphNeedInputV1.model_validate_json(need_auth.parent_json)
         if authorized_parent.model_dump_json(by_alias=True) != need_auth.parent_json:
