@@ -547,12 +547,16 @@ class BuildJevDriver:
         self._boundary_catalog = catalog_for_build_capability(a.request.build_write_capability)
         if self._boundary_catalog is not None and not fresh:
             raise ValueError("A reviewed Build action cannot acquire a contextual paragraph offer")
+        capture = a.request.build_image_move_capture
+        pending = getattr(a, "pending_build_source_observation", None) is not None
+        if pending and "related_page_catalog" in self._interaction:
+            raise ValueError("Pending Build discovers related pages only after selecting work")
+        self.split_opening = fresh and pending and capture is None
         if fresh:
             from application_state.agent_conversation.build_intentional_response import semantic_routing_state
             state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references,
-                write_capability=a.request.build_write_capability)
+                write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening)
         questions = (DecisionQuestion(name='requested_work',kind='choice',question=work_question["instructions"],options=tuple(work_question["criteria"])),)
-        capture = a.request.build_image_move_capture
         if capture is not None:
             from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
             from .agent_turn_service import AgentTurnServiceError
@@ -572,11 +576,6 @@ class BuildJevDriver:
             state["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
             questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
                                for q in self.image_move.questions())
-        self.split_opening = (
-            fresh and getattr(a, "pending_build_source_observation", None) is not None
-            and self._boundary_catalog is None and capture is None
-            and "related_page_catalog" not in self._interaction
-        )
         if fresh and not self.split_opening:
             from application_state.agent_conversation.build_intentional_response import source_need_question
 
@@ -584,7 +583,7 @@ class BuildJevDriver:
             questions += (DecisionQuestion(name="source_need", kind=source_question["type"],
                                            question=source_question["instructions"],
                                            options=tuple(source_question["criteria"])),)
-        if self._boundary_catalog is not None:
+        if self._boundary_catalog is not None and not self.split_opening:
             _, placement_questions = build_boundary_opening(
                 a.request.message, self._interaction["current_page"]["title"], self._boundary_catalog,
                 caret=a.request.build_write_capability.basis.caret,
@@ -1164,7 +1163,7 @@ class BuildJevDriver:
                 from application_state.agent_conversation.build_intentional_response import semantic_routing_state,semantic_request_id
                 from .agent_turn_service import _turn_idempotency_key
                 expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references,
-                    write_capability=a.request.build_write_capability)
+                    write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening)
                 if self.image_move is not None:
                     from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
                     expected["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
@@ -1354,7 +1353,12 @@ class BuildJevDriver:
                     ) from exc
                 _require_guest_build_discussion(a, label=label, graph_reference=graph_reference, image_move=image_move)
                 resolution = resolution_for(execution.policy, label, source_scope=source_scope)
-                placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
+                placement = None
+                if split_proof is None:
+                    placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
+                elif label == "write_current_page":
+                    placement = paragraph_placement_for(execution.policy, json.loads(prepared.body),
+                        DecisionResult.model_validate_json(split_proof["response"]), a.request.message, label)
                 _, _, menu, resolver = _captured_semantics(execution.policy)
                 selected = resolution['operation']
                 authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == a.last_provider_attempt_id)

@@ -508,3 +508,25 @@ def test_opening_intent_requires_the_acknowledged_response(monkeypatch):
     ):
         with pytest.raises(ValueError, match="acknowledged controller"):
             c.validate_native_action_events(SimpleNamespace(policy=policy, events=events))
+
+
+def test_build_followup_offers_paragraph_placement_only_for_page_edit(monkeypatch):
+    from types import SimpleNamespace
+
+    from application_state.build_proposal import prose_catalog, prose_decision
+
+    capability = SimpleNamespace(basis=SimpleNamespace(caret=4))
+    catalog = object()
+    monkeypatch.setattr(prose_catalog, "catalog_for_build_capability", lambda cap: catalog if cap is capability else None)
+
+    def opening(question, title, captured, *, caret):
+        assert (question, title, captured, caret) == ("Add a line.", "Edge", catalog, 4)
+        return {}, (SimpleNamespace(name="paragraph_work", question="Place text?", options=("place", "skip")),)
+
+    monkeypatch.setattr(prose_decision, "build_boundary_opening", opening)
+    state = {"user_question": "Add a line.", "interaction": {"current_page_title": "Edge"}}
+    kwargs = {"menu_digest": c.SCOPED_BUILD_MENU_DIGEST, "write_capability": capability}
+    discussion = c.build_source_followup_wire(state, "discuss", **kwargs)
+    edit = c.build_source_followup_wire(state, "write_current_page", **kwargs)
+    assert set(discussion["questions"]) == {"source_need"}
+    assert edit["questions"]["paragraph_work"]["criteria"] == {"place": None, "skip": None}

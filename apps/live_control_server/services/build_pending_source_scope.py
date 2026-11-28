@@ -28,13 +28,14 @@ class PendingBuildSourceScopeDriver:
         self.menu = self.before.policy.action.requested_work_menu_sha256
         self.wire = build_source_followup_wire(
             self.opening_wire["state"], self.intent.requested_work, menu_digest=self.menu,
+            write_capability=self.before.policy.action.write_capability,
         )
-        ballot = self.wire["questions"]["source_need"]
         self.step = DecisionIntent(
             request_id="build-source-scope:" + digest(self.wire), phase="source_scope",
             state=self.wire["state"],
-            questions=(DecisionQuestion(name="source_need", kind="choice",
-                question=ballot["instructions"], options=tuple(ballot["criteria"])),),
+            questions=tuple(DecisionQuestion(name=name, kind="choice",
+                question=ballot["instructions"], options=tuple(ballot["criteria"]))
+                for name, ballot in self.wire["questions"].items()),
         )
         self.plan = self.prepared = self.result = self.response = None
 
@@ -86,6 +87,7 @@ class PendingBuildSourceScopeDriver:
         scope = verify_build_source_followup(
             self.opening_wire, self.opening_response, menu_digest=self.menu,
             wire=json.loads(self.prepared.body), response=actual_response.model_dump(mode="json"),
+            write_capability=self.before.policy.action.write_capability,
         )
         self.result = scope
         self.response = canonical(actual_response.model_dump(mode="json"))

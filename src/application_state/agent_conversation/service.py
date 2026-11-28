@@ -3602,7 +3602,8 @@ class AgentConversationService:
                     raise ValueError('Build source scope requires the saved opening intent')
                 opening = strict_json(initial_request_json)
                 expected = build_source_followup_wire(opening["state"], intent.requested_work,
-                    menu_digest=execution.policy.action.requested_work_menu_sha256)
+                    menu_digest=execution.policy.action.requested_work_menu_sha256,
+                    write_capability=execution.policy.action.write_capability)
                 validate_prepared(authorization, execution, request_json, host_phase="source_scope")
                 if strict_json(request_json) != expected:
                     raise ValueError('Build source scope differs from the admitted opening')

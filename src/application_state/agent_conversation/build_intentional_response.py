@@ -250,7 +250,7 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
     )
 
 
-def build_source_followup_wire(state, requested_work, *, menu_digest):
+def build_source_followup_wire(state, requested_work, *, menu_digest, write_capability=None):
     """Offer source scope for an already selected action, without offering reads."""
     from .jev_retrieval_contract import MODEL
 
@@ -260,10 +260,27 @@ def build_source_followup_wire(state, requested_work, *, menu_digest):
         raise ValueError("Build clarification requires no source-scope decision")
     if set(state) != {"user_question", "interaction"}:
         raise ValueError("Build source scope requires the opening semantic state")
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+    from application_state.build_proposal.prose_decision import OPENING_STATE_KEY, build_boundary_opening
+
+    followup_state = deepcopy(state) | {"selected_work": requested_work}
+    questions = {"source_need": source_need_question()}
+    catalog = catalog_for_build_capability(write_capability)
+    if requested_work == "write_current_page" and catalog is not None:
+        placement_state, placement = build_boundary_opening(
+            state["user_question"], state["interaction"]["current_page_title"], catalog,
+            caret=write_capability.basis.caret,
+        )
+        followup_state["interaction"][OPENING_STATE_KEY] = placement_state
+        questions.update({
+            choice.name: {"type": "choice", "instructions": choice.question,
+                          "criteria": dict.fromkeys(choice.options)}
+            for choice in placement
+        })
     return {
         "model": MODEL,
-        "state": deepcopy(state) | {"selected_work": requested_work},
-        "questions": {"source_need": source_need_question()},
+        "state": followup_state,
+        "questions": questions,
     }
 
 
@@ -289,15 +306,16 @@ def verify_build_intent_opening(opening_wire, opening_response, *, menu_digest):
     return selected(opening_response, menu=menu_digest)
 
 
-def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response):
+def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response, write_capability=None):
     from generationengine.types import DecisionResult
     from .jev_retrieval_contract import validated_choice_answers
 
     requested_work = verify_build_intent_opening(opening_wire, opening_response, menu_digest=menu_digest)
-    expected = build_source_followup_wire(opening_wire["state"], requested_work, menu_digest=menu_digest)
+    expected = build_source_followup_wire(opening_wire["state"], requested_work, menu_digest=menu_digest,
+        write_capability=write_capability)
     if wire != expected or tuple(wire["questions"]["source_need"]["criteria"]) != SOURCE_NEED_OPTIONS:
         raise ValueError("Build source-scope request differs from the verified intent context")
-    validated_choice_answers(DecisionResult.model_validate(response), {"source_need"})
+    validated_choice_answers(DecisionResult.model_validate(response), set(expected["questions"]))
     return source_need(wire, response, clarify_uncertain_tie=requested_work == "discuss")
 
 
@@ -946,7 +964,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
             if len(source_auth) != 1 or source_auth[0].opening_intent_event_id != split.event_id:
                 raise ValueError("Build resolution requires its authorized source ballot")
             source_scope = verify_build_source_followup(request, raw_response, menu_digest=menu,
-                wire=produced_request, response=produced_response)
+                wire=produced_request, response=produced_response, write_capability=policy.action.write_capability)
         elif label in {"clarify_request", "clarify_creation"}:
             source_scope = "anchored"
         else:
@@ -1009,7 +1027,14 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     if split is None:
         label, source_scope = opening_work(policy, request, raw_response, event.typed_image_move)
     resolution = resolution_for(policy, label, source_scope=source_scope)
-    if event.paragraph_placement != paragraph_placement_for(policy, request, response, user_text, label):
+    placement = None
+    if split is None:
+        placement = paragraph_placement_for(policy, request, response, user_text, label)
+    elif followup and label == "write_current_page":
+        placement = paragraph_placement_for(
+            policy, produced_request, DecisionResult.model_validate(produced_response), user_text, label,
+        )
+    if event.paragraph_placement != placement:
         raise ValueError("Build paragraph placement differs from its actual opening selection")
     prior = [
         e
@@ -1584,7 +1609,7 @@ def semantic_collaboration(card):
     return {key: deepcopy(card[key]) for key in card if key in fields}
 
 
-def semantic_routing_state(question, interaction, references, *, write_capability=None):
+def semantic_routing_state(question, interaction, references, *, write_capability=None, include_paragraph_catalog=True):
     """Project typed parent context, never scrub arbitrary user/source strings."""
     from .dialogue_projection import expand_dialogue
     from .authored_graph_references import AuthoredSourceReferenceV1
@@ -1609,8 +1634,9 @@ def semantic_routing_state(question, interaction, references, *, write_capabilit
 
     catalog = catalog_for_build_capability(write_capability)
     if catalog is not None:
-        context[OPENING_STATE_KEY], _ = build_boundary_opening(
-            question, context["current_page_title"], catalog, caret=write_capability.basis.caret)
+        if include_paragraph_catalog:
+            context[OPENING_STATE_KEY], _ = build_boundary_opening(
+                question, context["current_page_title"], catalog, caret=write_capability.basis.caret)
         context["page_target"] = {"kind": "contextual_paragraph"}
     return {"user_question": question, "interaction": context}
 
