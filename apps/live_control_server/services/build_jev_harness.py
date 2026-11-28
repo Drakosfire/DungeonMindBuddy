@@ -682,6 +682,10 @@ class BuildJevHarness:
             # Starting Graph while that decision is in flight violates anchored
             # discussion even when its writer later chooses retained context.
             wait_for_work = wait_for_work or any(q.name == "source_need" for q in intent.questions)
+            # Pending intent-only Build cannot start Graph preparation while
+            # the opening ballot is still deciding what the user wants.
+            if getattr(adapter, "pending_build_source_observation", None) is not None:
+                wait_for_work = wait_for_work or any(q.name == "requested_work" for q in intent.questions)
 
         def dispatch_started():
             nonlocal pending_query, opening_dispatched
