@@ -12,3 +12,11 @@ it('groups explicit lineage through proposal events and gaps without mutating ro
 });
 it('marks an ancestor historical when its successor is outside the page',()=>{expect(project([row(1,'turn-1',0,'turn-8')])[0].historical).toBe(true);});
 it('keeps another root separate',()=>{expect(project([row(1,'turn-1',0,'turn-2'),row(2,'turn-1',1),row(3,'turn-3')])).toHaveLength(2);});
+it('uses scoped display lineage without granting retry authority',()=>{
+ const rows=[row(1),row(2)] as Item[];
+ const links=new Map([[1,{world_id:'world',conversation_id:'conversation',root_id:'turn-1',ordinal:0,successor_id:'turn-2'}],
+  [2,{world_id:'world',conversation_id:'conversation',root_id:'turn-1',ordinal:1,successor_id:null}]]);
+ const grouped=groupConversationAttempts(rows,x=>'turn' in x?x.turn:null,new Set(),x=>'turn' in x?links.get(x.turn.sequence):null);
+ expect(grouped).toEqual([{item:rows[1],previous:[rows[0]],historical:false}]);
+ expect(('turn' in rows[1]!) && rows[1].turn.retry_context).toBeUndefined();
+});

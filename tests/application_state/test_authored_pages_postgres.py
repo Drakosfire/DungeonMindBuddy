@@ -1211,6 +1211,45 @@ def test_existing_schema_upgrade_with_restricted_migration_role(
             admin.execute(sql.SQL("DROP ROLE {}").format(role_name))
 
 
+
+def test_stored_statblock_fence_only_requires_schema_version_access(
+    application_state_dsn, monkeypatch,
+):
+    from urllib.parse import urlsplit, urlunsplit
+
+    from psycopg import sql
+
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+
+    role = "buddy_reader_fence_" + uuid4().hex[:12]
+    role_name = sql.Identifier(role)
+    parsed = urlsplit(application_state_dsn)
+    endpoint = f"{role}:synthetic-only@{parsed.hostname}:{parsed.port}"
+    migration_dsn = urlunsplit(parsed._replace(netloc=endpoint))
+    previous, expected = "20261128_0218", "20261128_0219"
+    assert cli._alembic_head() == expected
+
+    with psycopg.connect(application_state_dsn, autocommit=True) as admin:
+        admin.execute(sql.SQL("CREATE ROLE {} LOGIN PASSWORD 'synthetic-only'").format(role_name))
+        try:
+            assert not admin.execute(
+                "SELECT has_database_privilege(%s, current_database(), 'CREATE')", (role,),
+            ).fetchone()[0]
+            admin.execute(sql.SQL("GRANT USAGE ON SCHEMA application_state TO {}").format(role_name))
+            admin.execute(sql.SQL(
+                "GRANT SELECT, UPDATE ON application_state.schema_migrations TO {}",
+            ).format(role_name))
+            # APP0216 changes only the version marker. Both fixtures share the
+            # same schema contents, so rewind only that marker in this clone.
+            admin.execute("UPDATE application_state.schema_migrations SET version_num = %s", (previous,))
+            monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, migration_dsn)
+            assert cli.upgrade_to_head() == (expected, expected)
+            assert admin.execute("SELECT version_num FROM application_state.schema_migrations").fetchall() == [(expected,)]
+        finally:
+            admin.execute(sql.SQL("DROP OWNED BY {}").format(role_name))
+            admin.execute(sql.SQL("DROP ROLE {}").format(role_name))
+
+
 def test_working_copy_revision_projection_excludes_draft_text():
     """The committed read retrieves the CAS number without draft contents."""
 

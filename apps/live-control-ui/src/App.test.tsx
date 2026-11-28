@@ -595,7 +595,8 @@ describe("App inspector integration", () => {
       expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(0);
     });
 
-    expect(page).toHaveBeenCalledWith(buildDocId);
+    expect(snapshotRead).toHaveBeenCalledWith(buildDocId);
+    expect(page).not.toHaveBeenCalled();
     expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent("Faction Notes");
     unmountBuild();
     expect(document.querySelectorAll('[data-testid="surface-tool-host"], [data-testid="surface-edit-host"], [data-testid="agent-interaction-chrome"], .plan-conversation-dock')).toHaveLength(0);
@@ -635,7 +636,8 @@ describe("App inspector integration", () => {
       expect(document.querySelectorAll('[data-testid="agent-interaction-chrome"]')).toHaveLength(0);
     });
     expect(screen.getByTestId("build-markdown-editor")).toHaveTextContent("Faction Notes");
-    expect(page).toHaveBeenCalledTimes(2);
+    expect(snapshotRead).toHaveBeenCalledTimes(2);
+    expect(page).not.toHaveBeenCalled();
     } finally {
       history.mockRestore(); committed.mockRestore(); planSnapshot.mockRestore();
       plans.mockRestore(); context.mockRestore(); inventory.mockRestore();

@@ -15,8 +15,7 @@ from dungeonmind.application.vnext.native_source_access import NativeParsedRevis
 from dungeonmind.infrastructure.postgres.vnext_knowledge import VerifiedKnowledgeRevisionCache
 from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import _repository
 from fastapi.encoders import jsonable_encoder
-from apps.live_control_server.services.native_pdf_evidence import open_admitted_pdf_evidence, render_admitted_pdf_evidence
-from apps.live_control_server.services.build_pdf_region_render import read_region_text
+from apps.live_control_server.services.native_pdf_evidence import pdf_region_text_evidence_id, render_admitted_pdf_evidence
 from apps.live_control_server.integrations.dungeonmind import (
     native_registry_source as native,
 )
@@ -340,7 +339,7 @@ def inspect(
 
 
 def statblock_pdf_support(reference, regions, principal, *, expected_source_epoch=None):
-    """Resolve reviewed crops through the referenced creature's admitted assertions."""
+    """Resolve exact stored passages for reviewed regions through admitted assertions."""
     scope = InspectionPin(
         managed_world_id=reference.managed_world_id,
         native_world_id=reference.native_world_id,
@@ -348,15 +347,16 @@ def statblock_pdf_support(reference, regions, principal, *, expected_source_epoc
         revision_id=reference.graph_revision,
     )
     bound, read, access, pin, _ = _pinned(scope, principal)
-    if expected_source_epoch is not None and access.source_view.epoch != expected_source_epoch:
+    opened_epoch = access.source_view.epoch
+    if expected_source_epoch is not None and opened_epoch != expected_source_epoch:
         raise InspectionUnavailable("statblock_pdf_source_epoch_changed")
     entity = EntityReadService().get_complete_entity(read, reference.node_id)
     if not entity.found or entity.completeness.status != "complete":
         if expected_source_epoch is not None:
             raise InspectionUnavailable("statblock_pdf_review_incomplete")
         return _response(bound, pin, support=[])
+    reviewed_ids = {pdf_region_text_evidence_id(pin.native_world_id, region) for region in regions}
     support = {}
-    matched_regions = []
     repository = _repository()
     for assertion in entity.assertions:
         if assertion.subject_entity_id != reference.node_id:
@@ -366,29 +366,25 @@ def statblock_pdf_support(reference, regions, principal, *, expected_source_epoc
             continue
         for item in result.evidence:
             ref_id = item.evidence_ref_id
-            if item.evidence_role != "support" or not ref_id.startswith("pdf-region:") or ref_id in support:
+            if item.evidence_role != "support" or ref_id not in reviewed_ids or ref_id in support:
                 continue
-            evidence = access.parsed.get_evidence(ref_id)
-            if evidence is None:
+            opened = open_admitted_native_text(access, ref_id)
+            if opened.status != "available":
                 continue
-            try:
-                region, pdf = open_admitted_pdf_evidence(
-                    evidence, space_id=pin.native_world_id, load=repository.get_native_pdf_source,
-                )
-            except ValueError:
+            text = opened.body_text.encode("utf-8")[
+                opened.span_start_byte : opened.span_end_byte
+            ].decode("utf-8")
+            if not text.strip():
                 continue
-            if region in regions:
-                matched_regions.append(region)
-                support[ref_id] = {
-                    "assertion_id": assertion.assertion_id,
-                    "evidence_ref_id": ref_id,
-                    "text": read_region_text(pdf, region),
-                }
-    if expected_source_epoch is not None:
-        if repository.open_native_source_view(pin.native_world_id).epoch != expected_source_epoch:
-            raise InspectionUnavailable("statblock_pdf_source_epoch_changed")
-        if any(region not in matched_regions for region in regions):
-            raise InspectionUnavailable("statblock_pdf_review_incomplete")
+            support[ref_id] = {
+                "assertion_id": assertion.assertion_id,
+                "evidence_ref_id": ref_id,
+                "text": text,
+            }
+    if support and repository.open_native_source_view(pin.native_world_id).epoch != opened_epoch:
+        raise InspectionUnavailable("statblock_pdf_source_epoch_changed")
+    if expected_source_epoch is not None and support.keys() != reviewed_ids:
+        raise InspectionUnavailable("statblock_pdf_review_incomplete")
     return _response(bound, pin, support=list(support.values()))
 
 
