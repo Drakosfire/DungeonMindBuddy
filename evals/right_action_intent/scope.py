@@ -92,11 +92,21 @@ async def main():
     parser.add_argument("--reuse", type=Path, help="Reuse exact fixtures and menus from this capture")
     parser.add_argument("--validate-only", action="store_true")
     parser.add_argument("--surface", choices=("build", "plan", "play"))
+    parser.add_argument("--play-destination-wording", action="store_true",
+                        help="Compare explicit edit destinations in the Play ballot")
     args = parser.parse_args()
+    if args.play_destination_wording and args.surface != "play":
+        parser.error("--play-destination-wording requires --surface play")
     digest, groups, menus = prepare(args.fixtures)
     if args.surface:
         groups = {args.surface: groups[args.surface]}
         menus = {args.surface: menus[args.surface]}
+    if args.play_destination_wording:
+        for menu in menus["play"].values():
+            menu.update({
+                "play_edit": "Request a change to the current live session scene in Play.",
+                "different_destination": "Request work on a different surface or target, such as editing a saved page outside the live scene, or using a separate operator control.",
+            })
     if args.validate_only:
         print(digest, {surface: len(rows) for surface, rows in groups.items()})
         return

@@ -153,3 +153,17 @@ Both arms again passed 6/7 and misclassified the explicit Build edit as a
 current-scene edit. The mismatch persists with the actual Play instructions.
 Median decision wall time was 278.32 ms combined and 179.78 ms scoped on
 these seven pairs. This small sample measures provider decisions only.
+
+#### Play destination wording experiment
+
+The [treatment record](right_action_intent/surface-cohort-play-destination-jev.json)
+keeps the seven development fixtures, model, question, labels and option order
+fixed. It changes only two descriptions. A Play edit targets the current live
+scene. Work targeting another surface or a separate operator control is a
+handoff. Reproduce with the scope runner using `--surface play --play-destination-wording`.
+
+Both arms improved from 6/7 to 7/7. Both recovered the explicit Build edit
+handoff, and both retained the current-scene edit choice. Median decision
+time was 311.78 ms combined and 177.90 ms scoped. The treatment was designed
+after observing the Build handoff miss. It needs fresh destination contrasts
+before a runtime adoption decision.
