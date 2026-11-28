@@ -1917,6 +1917,19 @@ class AgentConversationService:
         _connection=None,
         _measure=None,
     ) -> tuple[Turn, bool]:
+        # Reader-first rollout: no generic APP append may produce the new Plan
+        # Graph decision or query events until their trusted producer exists.
+        from .native_retrieval import NativePlanGraphNeedAuthorizedV1
+        from .native_plan_graph_need import (
+            NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1, NativePlanGraphQueryAuthorizedV1,
+            NativePlanGraphQueryStartedV1, NativePlanGraphQueryClosedV1,
+            NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1,
+        )
+        reader_only_events = (NativePlanGraphNeedAuthorizedV1, NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1,
+            NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+            NativePlanGraphQueryClosedV1, NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1)
+        if type(event) in reader_only_events:
+            raise ApplicationStateValidationError('Plan Graph-need producer is not active')
         world_id = _world_id(world_id)
         from .plan_authoring import lock_authoring_writer,validate_authoring_writer
         measure = _measure or (lambda _name: nullcontext())

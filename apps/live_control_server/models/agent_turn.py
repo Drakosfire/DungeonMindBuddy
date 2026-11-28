@@ -15,6 +15,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from application_state.agent_conversation.native_completion import SurfaceNativeCompletionV1
+from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphClarificationCompletionV1
 from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -853,7 +854,7 @@ class AgentSurfaceNativeContextResponseV1(BaseModel):
     schema_: Literal['dmb_agent_surface_native_context_response_v1'] = Field(
         default='dmb_agent_surface_native_context_response_v1',alias='schema')
     receipt: SurfaceNativeContextReceiptV1
-    completion: SurfaceNativeCompletionV1 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | BuildGraphReferenceCompletionV1 | BuildImageMoveCompletionV1 | None
+    completion: SurfaceNativeCompletionV1 | NativePlanGraphClarificationCompletionV1 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1 | BuildGraphReferenceCompletionV1 | BuildImageMoveCompletionV1 | None
     execution: AgentPlanWorldGraphExecutionProjectionV1 | None
     delivery_replay: bool
     deferred_build_citations: DeferredBuildCitationMembership | None = Field(
