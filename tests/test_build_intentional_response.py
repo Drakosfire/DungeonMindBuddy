@@ -502,7 +502,7 @@ def test_opening_intent_requires_the_acknowledged_response(monkeypatch):
 
     for events in (
         [attempt, intent],
-        [attempt, response, intent.model_copy(update={"controller_response_sha256": "c" * 64})],
+        [attempt, response, intent.model_copy(update={"controller_envelope_sha256": "c" * 64})],
         [attempt, response, intent, intent],
         [attempt, response, intent.model_copy(update={"requested_work": "not_offered"})],
     ):

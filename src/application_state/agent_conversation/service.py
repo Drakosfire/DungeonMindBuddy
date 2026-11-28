@@ -3530,6 +3530,50 @@ class AgentConversationService:
             raise ApplicationStateValidationError('Pending page selection has no matching initial controller')
         self._validate_pending_prompt(conn, turn, first, initial_request_json)
 
+    def record_pending_build_opening_intent(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, decision, request_json, response_json,
+            authorize_current_access):
+        """Persist the intent from the exact acknowledged opening ballot."""
+        from .build_intentional_response import verify_build_intent_opening
+        from .source_writer_output import strict_json
+        from .types import BuildOpeningIntentSelectedV1
+
+        world_id = _world_id(world_id)
+        if (type(decision) is not BuildOpeningIntentSelectedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not isinstance(request_json, str) or not isinstance(response_json, str)
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Build opening intent requires its exact request and response')
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            self._validate_pending_initial_prompt(conn, turn, request_json)
+            try:
+                decision = BuildOpeningIntentSelectedV1.model_validate_json(decision.model_dump_json())
+                if hashlib.sha256(response_json.encode()).hexdigest() != decision.controller_response_sha256:
+                    raise ValueError('Build opening response differs from its intent commitment')
+                menu = turn.graph_context_execution.policy.action.requested_work_menu_sha256
+                work = verify_build_intent_opening(strict_json(request_json), strict_json(response_json),
+                    menu_digest=menu)
+                if work != decision.requested_work:
+                    raise ValueError('Build opening intent differs from the actual vote')
+                row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                    (turn.turn_id, turn.attempt)).fetchone()
+                trace = row[0] if row else {}
+                receipt = turn.graph_context_receipt.context_receipt_sha256
+                item_id = f'unvalidated-controller-decision:{decision.controller_attempt_id}:{receipt}'
+                captured = [material for observation in trace.get('observations', [])
+                    if observation.get('kind') == 'context_snapshot'
+                    for material in observation.get('materials', []) if material.get('item_id') == item_id]
+                if len(captured) != 1 or captured[0].get('text') != response_json:
+                    raise ValueError('Build opening intent requires its exact captured controller response')
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize the opening intent')
+            return self._append_pending_checked(conn, turn, decision, expected_revision)
+
     def authorize_pending_app_coverage(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, prepared_request_json,
             initial_request_json, authorize_current_access):

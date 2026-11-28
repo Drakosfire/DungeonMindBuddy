@@ -856,7 +856,7 @@ def validate_native_action_events(execution):
     """
     from . import types as t
     caps,capability,menu,_=_captured_semantics(execution.policy)
-    latest=outcome=selection=opening_intent=response_digest=None
+    latest=outcome=selection=opening_intent=None
     for event in execution.events:
         if isinstance(event,t.BuildReviewedActionSelectionV1):
             if (selection is not None or latest is not None or event.capability_sha256!=capability
@@ -870,7 +870,6 @@ def validate_native_action_events(execution):
                 or latest.context_phase != "select" or outcome != "response_received"
                 or latest.provider_attempt_id != event.controller_attempt_id
                 or latest.envelope_sha256 != event.controller_envelope_sha256
-                or response_digest != event.controller_response_sha256
                 or (latest.provider, latest.model, latest.api_mode)
                 != execution.policy.provider_roles.controller.identity()
                 or event.requested_work not in _menu_work(menu)
@@ -895,10 +894,9 @@ def validate_native_action_events(execution):
                     raise ValueError('Build writer requires its unique retained semantic resolution')
                 if getattr(selection, "typed_graph_reference", None) == "place_existing_reference":
                     raise ValueError("Typed Graph reference placement cannot authorize a writer")
-            latest,outcome,response_digest=event,None,None
+            latest,outcome=event,None
         elif isinstance(event,t.ProviderOutcomeEventV1) and latest is not None and event.provider_attempt_id==latest.provider_attempt_id:
             outcome=event.outcome
-            response_digest=event.response_sha256
 
 
 def validate_selection(turn, event, proof, trace):
