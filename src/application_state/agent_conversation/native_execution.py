@@ -557,7 +557,16 @@ def effective_native_query(context, execution):
         raise ValueError("Build can settle its pending Graph query only once")
     settlement = settlements[0] if settlements else None
     conversation_work = prior_conversation_work(execution.events, allow_discussion=True)
-    if settlement is None and conversation_work is not None:
+    image_work = next((event for event in execution.events
+        if type(event) is t.BuildRequestedWorkResolutionV1
+        and event.typed_image_move in {"move_existing", "unresolved"}), None)
+    if settlement is None and image_work is not None:
+        tail = execution.events[image_work.sequence + 1:]
+        if tail and (len(tail) != 1 or type(tail[0]) is not t.BuildImageMoveCompletionBindingV1
+                or tail[0].opening_event_id != image_work.event_id):
+            raise ValueError("A local image review cannot acquire additional work or evidence")
+        events = execution.events[:image_work.sequence]
+    elif settlement is None and conversation_work is not None:
         from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2
 
         if any(isinstance(event, (*t.NATIVE_BODY_EVENTS, NativeRetrievalAuthorizedV1,

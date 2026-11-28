@@ -252,7 +252,7 @@ class BuildJevHarness:
                 from application_state.errors import ApplicationStateConflictError
                 from .agent_turn_service import AgentTurnServiceError
 
-                principal = getattr(adapter.native_query_context, "principal", None)
+                principal = adapter.native_principal
                 if principal is None or principal.role != "gm":
                     raise AgentTurnServiceError("Image movement requires World edit access.",
                                                 code="build_image_move_forbidden", status_code=403)
@@ -757,8 +757,9 @@ class BuildJevHarness:
                                      if getattr(driver, "image_move", None) is not None else None)
                     policy = adapter._broker_execution().policy
                     image_choice = opening_image_choice(policy, response, image_opening, adapter.request.message)
-                    if (image_choice not in {"move_existing", "unresolved"}
-                            and resolve_graph_reference_opening(request, result) != "place_existing_reference"):
+                    if image_choice in {"move_existing", "unresolved"}:
+                        conversation_only = True
+                    elif resolve_graph_reference_opening(request, result) != "place_existing_reference":
                         try:
                             conversation_only = is_prior_conversation_work(
                                 *opening_work(policy, request, response, image_choice), allow_discussion=True,

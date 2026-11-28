@@ -1507,6 +1507,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert opening["state"]["interaction"]["surface"] == "build"
         turn_id = writer.adapter.turn.turn_id
         if expected == "ready":
+            assert not any(event.kind == "native_build_query_settled_v1"
+                           for event in writer.adapter.turn.graph_context_execution.events)
             review = BuildImageMoveReviewService().get(world, turn_id)
             assert completion["action_id"] == str(turn_id) and review.state == "editing"
             assert review.placement.image_block_id == "map-block"
