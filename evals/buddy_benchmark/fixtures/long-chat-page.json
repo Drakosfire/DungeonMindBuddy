@@ -1,7 +1,7 @@
 {
   "id": "LONG-CHAT-PAGE-1",
   "title": "Glassmere Ferry Notes",
-  "question": "Create a new standalone lore page titled Glassmere Ferry Notes using only our conversation. Preserve the early ferry details, the lantern correction, the proposed fare, the ledger and unresolved questions. Do not search the World, open any other sources, or edit the current page.",
+  "question": "Create a new standalone lore page titled \"Glassmere Ferry Notes\". Use only our conversation. Preserve the early ferry details, the lantern correction, the proposed fare, the ledger and unresolved questions. Do not search the World, open any other sources, or edit the current page.",
   "required_text": [
     "bronze moth",
     "three stone bridges",

@@ -196,3 +196,25 @@ def test_long_chat_fixture_requires_retained_history_instead_of_selection(tmp_pa
     manifest["browser_capture"]["selection_text"] = "An unrelated page selection"
     with pytest.raises(ValueError, match="standalone Build"):
         browser_capture.browser_inputs(manifest, tmp_path, build_fixture=True)
+
+
+def test_registered_long_chat_prompt_binds_the_requested_title():
+    import json
+    from pathlib import Path
+
+    from application_state.agent_conversation.lore_page_review import explicit_lore_page_witness
+
+    root = Path(__file__).resolve().parents[2]
+    case = json.loads((root / "evals/buddy_benchmark/fixtures/long-chat-page.json").read_bytes())
+    assert explicit_lore_page_witness(case["question"], conversational=True).title == case["title"]
+
+
+def test_long_chat_rejects_details_in_a_divergent_working_draft():
+    request, controls = fixture()
+    controls["selection_text"] = None
+    request.pop("build_write_capability")
+    snapshot = request["build_draft_context"]["snapshot"]
+    snapshot["draft_markdown"] += "\nA bronze moth sits in the landing."
+    snapshot["draft_sha256"] = sha256(snapshot["draft_markdown"].encode()).hexdigest()
+    with pytest.raises(ValueError, match="unrelated committed editor"):
+        validate_build_browser_request(request, **controls)

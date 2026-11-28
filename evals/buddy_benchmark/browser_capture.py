@@ -1411,6 +1411,13 @@ def validate_build_browser_request(request, *, world, work, question, selection_
                 or context.expected_pointer_revision != pointer_revision
                 or (capability is not None and capability.basis.selection is not None)):
             raise ValueError("Long-chat page request must bind the active conversation without a selection")
+        snapshot = context.snapshot
+        if (parsed.authored_references is not None or parsed.build_authored_references is not None
+                or snapshot.world_id != world or str(snapshot.document_id) != work["object_id"]
+                or snapshot.registry_revision != work["expected_revision"]
+                or snapshot.content_sha256 != work["expected_content_sha256"]
+                or sha256(snapshot.draft_markdown.encode("utf-8")).hexdigest() != work["expected_content_sha256"]):
+            raise ValueError("Long-chat page request must use the unrelated committed editor without source references")
         return parsed
     if capability is None or context is None or capability.basis.selection is None:
         raise ValueError("Build browser request lacks its actual selected editor capability")
