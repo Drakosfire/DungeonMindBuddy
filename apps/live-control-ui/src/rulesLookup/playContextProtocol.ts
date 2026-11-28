@@ -94,7 +94,7 @@ export function sharedPlayGraphResponseMatches(receipt:unknown,graph:unknown):bo
     ||graph.focus.kind!=='none'||graph.focus.session_id!==null||graph.focus.campaign_id!==null)return false;
   const query=receipt.native_query;
   return query.schema==='dmb_native_plan_query_unavailable_v1'?graph.world_id===null&&graph.revision_id===null
-    :graph.world_id===query.authority.native_world_id&&graph.revision_id===query.authority.revision_id;
+    :query.schema!=='dmb_native_plan_graph_query_pending_v1'&&graph.world_id===query.authority.native_world_id&&graph.revision_id===query.authority.revision_id;
 }
 
 /** Pure, bounded native Play metadata admission. No source retrieval or Plan conversion. */

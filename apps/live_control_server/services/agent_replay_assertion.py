@@ -56,7 +56,12 @@ def _load_mixed_native_replay_read(*, service, world_id, turn_id, trace_id, sequ
         turn = turn.base_projection.turn
     if (turn.world_id, turn.turn_id, turn.conversation_id) != (world_id, turn_id, trace.conversation_id):
         raise InspectionUnavailable("replay_trace_unavailable")
-    query = turn.graph_context_receipt.native_query
+    from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1
+    from application_state.agent_conversation.native_execution import effective_native_query
+
+    receipt = turn.graph_context_receipt
+    query = (effective_native_query(receipt, turn.graph_context_execution)
+            if type(receipt) is SurfaceNativeContextReceiptV1 else receipt.native_query)
     authority = query.authority
     if authority.managed_world_id != world_id:
         raise ValueError("Recorded query belongs to a different World")

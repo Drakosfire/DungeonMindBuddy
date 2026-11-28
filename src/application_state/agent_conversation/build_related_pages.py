@@ -26,6 +26,14 @@ class PageReference(PagePointer):
     content_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class PlanPageCatalogObservedV1(Frozen):
+    kind: Literal["plan_page_catalog_observed_v1"] = "plan_page_catalog_observed_v1"
+    event_id: UUID
+    sequence: int = Field(strict=True, ge=0)
+    source_decision_event_id: UUID
+    pages: tuple[PagePointer, ...]
+
+
 class RelatedPagesSelection(Frozen):
     kind: Literal["build_related_pages_selected_v1"] = "build_related_pages_selected_v1"
     event_id: UUID
@@ -110,6 +118,9 @@ def effective_catalog(execution):
                   if type(event) is BuildSourceScopeAuthorizedV1 and event.discovered_pages is not None]
     if discovered:
         return discovered[0]
+    observed = [event.pages for event in execution.events if type(event) is PlanPageCatalogObservedV1]
+    if observed:
+        return observed[0]
     return catalog(execution.policy)
 
 
@@ -241,7 +252,7 @@ def _validate_plan_reads(execution):
     """Use the admitted native selection; never create a second vote ledger."""
     from .native_retrieval import NativeRetrievalSelectedV1
     from . import types as t
-    offered = {p.document_id: p for p in effective_catalog(execution)}
+    offered = {p.document_id: p for p in (effective_catalog(execution) or ())}
     seen, read_ids = set(), set()
     for event in execution.events:
         if isinstance(event, (RelatedPagesSelection, RelatedPageInclusion)):

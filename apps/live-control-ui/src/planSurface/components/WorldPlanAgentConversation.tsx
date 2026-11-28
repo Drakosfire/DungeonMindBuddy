@@ -1586,7 +1586,7 @@ function buildReceiptMatchesGraph(receipt:WorldBuildGraphReceiptV1|import('../..
   if(receipt.schema==='dmb_build_pending_context_receipt_v1')return isRecord(graph)&&graph.status==='not_requested'
     &&Object.entries(graph).every(([key,value])=>key==='status'||value===null);
   if(receipt.schema==='dmb_surface_native_context_receipt_v1')return receipt.native_query.schema!=='dmb_native_plan_query_unavailable_v1'
-    &&receipt.native_query.authority.native_world_id===graph.world_id&&receipt.native_query.authority.revision_id===graph.revision_id;
+    &&receipt.native_query.authority?.native_world_id===graph.world_id&&receipt.native_query.authority?.revision_id===graph.revision_id;
   return receipt.graph_authority.native_world_id===graph.world_id&&receipt.graph_authority.graph_revision===graph.revision_id;
 }
 function isSharedBuildReceipt(value:unknown,worldId:string):value is import('../../api/types').BuildSurfaceNativeContextResponseV1['receipt']|import('../../api/types').BuildPendingContextReceiptV1 {
@@ -6825,7 +6825,8 @@ export function WorldPlanAgentConversation({
     const replyText = turn.assistant_text ?? '';
     const completed=graphContextForTurn(turn)?.completion;
     const sourcedCompletion = completed?.schema === 'dmb_build_graph_reference_completion_v1'
-      || completed?.schema === 'dmb_build_image_move_completion_v1' ? null : completed;
+      || completed?.schema === 'dmb_build_image_move_completion_v1'
+      || completed?.schema === 'dmb_plan_graph_need_clarification_v1' ? null : completed;
     const collaboration=completed&&'collaboration' in completed?completed.collaboration:undefined;
     const loreTitle = collaboration?.kind === 'lore_page' ? collaboration.destination.title : null;
     const loreDraftSuperseded = loreTitle !== null && history?.turns.some((later) => {
@@ -6852,7 +6853,7 @@ export function WorldPlanAgentConversation({
     const hasSurfaceEvidence = !pageProposalAcknowledgment&&(graphContextForTurn(turn)?.completion?.schema === 'dmb_surface_native_completion_v1' || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v1" || graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v2" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v3" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v4" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v5" || (graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v6"||graphContextForTurn(turn)?.completion?.schema === "dmb_surface_evidence_completion_v7")))));
     const renderSurfaceEvidence = (citationsOnly = false) => <SurfaceEvidenceAnswer citationsOnly={citationsOnly} completion={graphContextForTurn(turn)!.completion as import("../../api/types").SurfaceEvidenceCompletion|import("../../api/types").SurfaceNativeCompletionV1} buildSourceBasis={buildSource??undefined} nativeScope={(() => {
                   const receipt = graphContextForTurn(turn)?.receipt;
-                  if (!receipt || !("native_query" in receipt) || !("authority" in receipt.native_query)) return undefined;
+                  if (!receipt || !("native_query" in receipt) || !("authority" in receipt.native_query) || !receipt.native_query.authority) return undefined;
                   const {managed_world_id, native_world_id, binding_version, revision_id, scope_mode, campaign_id} = receipt.native_query.authority;
                   return {managed_world_id, native_world_id, binding_version, revision_id, scope_mode, campaign_id};
                 })()}

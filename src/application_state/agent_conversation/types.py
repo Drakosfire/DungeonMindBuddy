@@ -2674,7 +2674,7 @@ class LoreSaveReviewReference(StrictModel):
         return f"Review and confirm the existing draft for {self.title} to create the page."
 
 
-GraphTurnCompletion = Union[LoreSaveReviewReference | BuildGraphReferenceCompletionV1 | BuildImageMoveCompletionV1 | SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1"]
+GraphTurnCompletion = Union[LoreSaveReviewReference | BuildGraphReferenceCompletionV1 | BuildImageMoveCompletionV1 | SurfaceEvidenceCompletionV7 | SurfaceEvidenceCompletionV6 | SurfaceEvidenceCompletionV5 | NativeStatementCompletionV1 | BuildIntentionalResponseCompletionV3 | BuildRelationshipReviewCompletionV3 | BuildIntentionalResponseCompletionV2 | BuildRelationshipReviewCompletionV2 | BuildIntentionalResponseCompletionV1 | BuildRelationshipReviewCompletionV1 | BuildConnectedPageReviewCompletionV1 | BuildCollaborationCompletionV1 | BuildRelatedPageCompletionV1 | BuildDraftContextCompletionV1 | BuildNamedGraphCompletionV3 | SurfaceEvidenceCompletionV4 | SurfaceEvidenceCompletionV3 | SurfaceEvidenceCompletionV2 | SurfaceEvidenceCompletionV1 | SurfaceSourceCompletionV1 | PlayWorldGraphCompletionV1 | PlanWorldGraphCompletion | BuildGraphCompletionV1 | BuildGraphCompletionV2 | BuildAuthoringCompletionV1 | BuildImagePreparationCompletionV1, "SurfaceNativeCompletionV1", "NativePlanGraphClarificationCompletionV1"]
 
 
 class GraphCompletionRejectionCode(str, Enum):
@@ -5707,8 +5707,10 @@ def validate_provider_envelope_accounting(assembled, execution, event) -> None:
     if not previous_attempts:
         from .native_context import NativePlanRequestAdmissionV1
         if type(assembled) is NativePlanRequestAdmissionV1:
-            from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
-            if (type(event) not in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1)
+            from .native_retrieval import (NativePlanAuthorScopeAuthorizedV1,
+                NativePlanOpeningAuthorizedV1, NativePlanGraphNeedAuthorizedV1)
+            if (type(event) not in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1,
+                                    NativePlanGraphNeedAuthorizedV1)
                     or (event.provider, event.model, event.api_mode) != execution.policy.provider_roles.controller.identity()
                     or event.input_accounting_kind != execution.policy.provider_input_accounting.kind
                     or event.input_estimator != assembled.tokenizer_name
@@ -7302,6 +7304,10 @@ class TurnResult(StrictModel):
                 self.assistant_text != "\n".join(segment.text for segment in self.completion.answer_segments)
                 or self.producing_provider_attempt_id is None or self.claim_graph_event_ids is None):
             raise ValueError("Native Play result requires exact answer text and explicit producer bindings")
+        if isinstance(self.completion, NativePlanGraphClarificationCompletionV1) and (
+                self.assistant_text != self.completion.answer_segments[0].text
+                or self.producing_provider_attempt_id is not None or self.claim_graph_event_ids is not None):
+            raise ValueError('Host clarification requires its exact question without writer bindings')
         if self.build_section_bindings and not isinstance(self.completion, (BuildGraphCompletionV1, BuildGraphCompletionV2, BuildIntentionalResponseCompletionV1)):
             raise ValueError("Saved section bindings require a typed Build completion")
         if not self.assistant_text.strip() and not (self.assistant_text == '' and isinstance(self.completion, (SurfaceNativeCompletionV1, BuildIntentionalResponseCompletionV1)) and not self.completion.answer_segments and self.completion.collaboration is not None):
@@ -7536,6 +7542,7 @@ from .native_context import SurfaceNativeContextReceiptV1, BuildPendingContextRe
 from .native_execution import SurfaceNativeExecutionV1, BuildPendingExecutionV1  # noqa: E402
 from .native_retrieval import NativeRetrievalAuthorizedV1 as NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1 as NativeRetrievalSelectedV1, NativeRetrievalSelectedV2 as NativeRetrievalSelectedV2, NativeReadBatchConcludedV1 as NativeReadBatchConcludedV1  # noqa: E402
 from .native_completion import SurfaceNativeCompletionV1  # noqa: E402
+from .native_plan_graph_need import NativePlanGraphClarificationCompletionV1  # noqa: E402
 TurnSubmission.model_rebuild()
 Turn.model_rebuild()
 TurnResult.model_rebuild()

@@ -45,7 +45,8 @@ def read_source_authority(receipt, execution):
     """Resolve the prepared pending source; legacy owners keep their own fields."""
     if type(receipt) is BuildPendingContextReceiptV1:
         return prepared_pending_source(receipt, execution)[0]
-    return receipt.source_authority
+    from .native_plan_graph_need import effective_plan_source_authority
+    return effective_plan_source_authority(receipt, execution.events)
 
 
 def pending_citation_identity(receipt, execution):

@@ -496,13 +496,16 @@ def contextual_work_choice(request, intent, answers):
         locator = votes('locator_passage', inventory['passages']) if paragraph_locator(request) is not None else None
         return dict(author_scope_binding=binding, scope_document_title=request.page_title or None,
             source_placement_relation=relation,
+            **({"captured_selection_version": request.captured_selection_version}
+               if request.captured_selection_version is not None else {}),
             **({'scope_description_matches': descriptions} if descriptions is not None else {}),
             **({'excluded_scope_description_matches': excluded} if excluded is not None else {}),
             **resolve_author_scope_targets(request.original_capture, request.placement_catalog,
                 intent, relation, binding.observation, direct, passages, document_title=request.page_title or None,
                 description_matches=descriptions, excluded_description_matches=excluded,
                 locator_passages=locator, literal_excerpt=literal_paragraph_locator(request), scope_refused=scope_refused,
-                page_edit_intent=page_edit_intent))
+                page_edit_intent=page_edit_intent,
+                captured_selection_version=request.captured_selection_version))
     return resolve_component_targets(request.original_capture, request.placement_catalog, intent, relation,
         answers['paragraph_scope'], direct, passages, sections, answers['scope_qualifier'], ancestors)
 
@@ -554,7 +557,8 @@ def resolve_component_targets(capture, catalog, intent, relation, scope, direct,
 
 def resolve_author_scope_targets(capture, catalog, intent, relation, observation, direct, passages, *,
         document_title, description_matches=None, excluded_description_matches=None, locator_passages=None,
-        literal_excerpt=None, scope_refused=False, page_edit_intent=None):
+        literal_excerpt=None, scope_refused=False, page_edit_intent=None,
+        captured_selection_version=None):
     """Join independent author scope to source nominations at their exact editor geometry."""
     from .native_plan_opening import NativePlanAuthorScopeObservationV1
     from .plan_author_location import (
@@ -602,6 +606,15 @@ def resolve_author_scope_targets(capture, catalog, intent, relation, observation
             and not passage_ids and locator_passages is None)
         return evidence | resolve_anchor_targets(capture, catalog, intent,
             'captured' if compatible else 'unresolved', captures if compatible else ())
+    if (captured_selection_version == "v1" and intent == "write_current_page"
+            and page_edit_intent == "page_edit" and relation == "unresolved"
+            and author_relation == "replace_explicit_selection" and capture.target_kind == "replace_selection"
+            and isinstance(scope, UnscopedLocation) and not passage_ids and locator_passages is None):
+        nominated = tuple(anchor for row in direct_rows for anchor in row["anchors"])
+        captured = tuple(row["selector"] for row, entries in inventory["all"]
+                         if any(entry.kind == "captured_target" for entry in entries))
+        if len(captured) == 1 and nominated == captured:
+            relation = "captured"
     capture_kind = AUTHOR_CAPTURE_KINDS.get(author_relation)
     if capture_kind is not None:
         author_relation = 'captured' if capture.target_kind == capture_kind else 'unresolved'

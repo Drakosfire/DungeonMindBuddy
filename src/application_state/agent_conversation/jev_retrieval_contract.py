@@ -410,15 +410,15 @@ def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=N
         max_transport_retries=0)
 
 
-def validated_choice_answers(result: DecisionResult, expected) -> dict[str, str]:
+def validated_choice_answers(result: DecisionResult, expected, *, expected_model=MODEL) -> dict[str, str]:
     """Validate one real Jev result once, before any semantic projection."""
     if not isinstance(result, DecisionResult):
         raise ValueError("Typed decision result required")
     observation = result.observation
     if (observation.state.value != "completed" or observation.retry_count != 0
             or observation.provider_attempt_count != 1
-            or observation.provider != PROVIDER or observation.resolved_model != MODEL
-            or observation.response_model != MODEL):
+            or observation.provider != PROVIDER or observation.resolved_model != expected_model
+            or observation.response_model != expected_model):
         raise ValueError("Decision provider/model differs")
     if set(result.answers) != expected:
         raise ValueError("Missing or unexpected decision answers")
