@@ -176,7 +176,16 @@ def name(world_id: str, conversation_id: UUID, request: Request):
 def rename(
     world_id: str, conversation_id: UUID, body: library.NameChange, request: Request
 ):
-    return call(library.rename, scope(request, world_id, ()), conversation_id, body)
+    world = scope(request, world_id, ())
+    from apps.live_control_server.services import hosted_auth
+
+    if hosted_auth.deployment_environment() in hosted_auth.LOCAL_ENVIRONMENTS:
+        return call(library.rename, world, conversation_id, body)
+
+    def recheck_owner():
+        require_conversation_access(request, world, authorize_local=enforce_native_graph_gm)
+
+    return call(library.rename, world, conversation_id, body, authorize_write=recheck_owner)
 
 
 @router.get("/{conversation_id}/retry-context")

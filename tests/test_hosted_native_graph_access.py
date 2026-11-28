@@ -4384,6 +4384,50 @@ def test_hosted_conversation_name_read_requires_world_owner(hosted, monkeypatch)
     read.assert_called_once_with("managed", conversation)
 
 
+def test_hosted_conversation_rename_requires_current_world_owner_and_name_revision(
+    hosted, application_state_dsn, monkeypatch,
+):
+    from fastapi import HTTPException
+    from apps.live_control_server.routes import agent, conversation_library
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world: world)
+    base = "/api/live/agent/worlds/managed/conversation"
+    created = hosted.client.request("POST", base + "/new", json={
+        "command_id": str(uuid4()), "expected_pointer_revision": 0,
+        "expected_active_conversation_id": None,
+    })
+    assert created.status_code == 200, created.text
+    path = f"{base}s/{created.json()['conversation_id']}/name"
+    change = {"title": "A visible title", "expected_revision": 0}
+    assert hosted.client.request("PUT", path, json=change, session="other-session").status_code == 403
+    assert hosted.client.request("PUT", path, json=change, origin=None).status_code == 403
+
+    require_access = conversation_library.require_conversation_access
+    checks = 0
+
+    def revoke_before_write(*args, **kwargs):
+        nonlocal checks
+        checks += 1
+        if checks == 2:
+            raise HTTPException(403)
+        return require_access(*args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(conversation_library, "require_conversation_access", revoke_before_write)
+        assert hosted.client.request("PUT", path, json=change).status_code == 403
+    assert checks == 2
+    assert hosted.client.request("GET", path).json()["name_revision"] == 0
+
+    renamed = hosted.client.request("PUT", path, json=change)
+    assert renamed.status_code == 200, renamed.text
+    assert renamed.headers["cache-control"] == "no-store"
+    assert renamed.json()["name_revision"] == 1
+    assert hosted.client.request("GET", path).json()["title"] == change["title"]
+    assert hosted.client.request("PUT", path, json=change | {"title": "Stale write"}).status_code == 409
+    assert hosted.client.request("GET", path).json()["title"] == change["title"]
+
+
 def test_hosted_prepared_image_association_uses_world_asset_owner(hosted, monkeypatch):
     from unittest.mock import ANY, Mock
 
