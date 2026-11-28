@@ -71,9 +71,12 @@ class PendingBuildSourceScopeDriver:
             max_question_input_tokens=view["maxQuestionInputTokens"], dispatch_identity_sha256=view["dispatchIdentitySha256"],
             opening_intent_event_id=self.intent.event_id,
         )
+        access = getattr(adapter, "build_intent_access", None) or adapter.pending_build_access
+        if not callable(access):
+            raise ValueError("Build source scope requires its current World access owner")
         _commit(adapter, "authorize_pending_build_source_scope", authorization=auth,
             request_json=prepared.body.decode(), initial_request_json=self.opening_request,
-            authorize_current_access=adapter.pending_build_access)
+            authorize_current_access=access)
         adapter.last_provider_attempt_id = auth.provider_attempt_id
         adapter._prepared_build_decision = prepared
         adapter._capture_prepared_prompt(view, auth)

@@ -817,7 +817,7 @@ class BuildJevHarness:
         from hashlib import sha256
         from uuid import UUID, uuid4
         from application_state.agent_conversation.build_intentional_response import verify_build_intent_opening
-        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1
         from application_state.agent_conversation.types import BuildOpeningIntentSelectedV1
         from .agent_turn_service import _require_fresh_execution_append
 
@@ -827,8 +827,11 @@ class BuildJevHarness:
             raw, producing_provider_attempt_id=adapter.last_provider_attempt_id,
         )
         if (projection.host_phase != "select" or set(projection.questions()) != {"requested_work"}
-                or type(adapter._broker_receipt()) is not BuildPendingContextReceiptV1):
+                or type(adapter._broker_receipt()) not in (BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1)):
             return
+        access = getattr(adapter, "build_intent_access", None) or adapter.pending_build_access
+        if not callable(access):
+            raise ValueError("Build intent requires its current World access owner")
         prepared = adapter._prepared_build_decision
         execution = adapter._broker_execution()
         request = prepared.body.decode()
@@ -841,7 +844,7 @@ class BuildJevHarness:
         )
         adapter.turn = _require_fresh_execution_append(adapter.fence.commit(
             "record_pending_build_opening_intent", decision=event, request_json=request,
-            response_json=raw, authorize_current_access=adapter.pending_build_access,
+            response_json=raw, authorize_current_access=access,
         ))
 
     @staticmethod
