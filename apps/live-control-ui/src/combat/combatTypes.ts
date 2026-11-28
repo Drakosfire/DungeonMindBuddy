@@ -82,6 +82,7 @@ export interface CombatEntity {
   source: "corpus" | "generated_pending" | "manual" | "imported";
   world_identity?: CombatWorldIdentity | null;
   mechanics_snapshot?: CombatMechanicsSnapshot | null;
+  deleted_mechanics?: { statblock_id: string; revision_id: string } | null;
   provenance: CombatEntityProvenance[];
 }
 
