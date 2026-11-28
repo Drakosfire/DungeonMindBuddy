@@ -132,7 +132,7 @@ def _contextual_document_title(basis, composed_capture=None):
     return obj.title
 
 
-def _native_plan_action(request, basis, submitted_intent, *, related_page_catalog):
+def _native_plan_action_fields(request, basis, submitted_intent):
     from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
     from application_state.agent_conversation.plan_composed_targeting import ComposedPlanPlacementCatalogV1
@@ -147,26 +147,24 @@ def _native_plan_action(request, basis, submitted_intent, *, related_page_catalo
         )
     elif contextual_capture:
         contextual["document_title"] = _contextual_document_title(basis)
-    return action_type(
-        intent=submitted_intent,
-        authoring_capture=request.plan_authoring_capture,
-        placement_catalog=request.plan_placement_catalog,
-        related_page_catalog=related_page_catalog,
+    return action_type, {
+        "intent": submitted_intent,
+        "authoring_capture": request.plan_authoring_capture,
+        "placement_catalog": request.plan_placement_catalog,
         **contextual,
-    )
+    }
 
 
 def _native_plan_parts(request, basis, playable_target, submitted_intent):
     from application_state.agent_conversation.native_context import PlanWorkContextV1
     from .build_related_pages import discover
 
-    action = _native_plan_action(
-        request, basis, submitted_intent, related_page_catalog=discover(request)
-    )
-    return PlanWorkContextV1(
+    action_type, fields = _native_plan_action_fields(request, basis, submitted_intent)
+    work_context = PlanWorkContextV1(
         plan_basis=basis, plan_context_policy=request.plan_context_policy,
         playable_target=playable_target,
-    ), action
+    )
+    return work_context, action_type(related_page_catalog=discover(request), **fields)
 
 
 def freeze_plan_request(request, work, playable_target, budget, *, authority, native_query,
