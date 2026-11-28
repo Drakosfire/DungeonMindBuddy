@@ -1,6 +1,6 @@
 import type {BuildPendingContextReceiptV1,SurfaceNativeContextReceiptV1,SurfaceNativeCompletionV1,SurfaceNativeWorkContextV1,PlanSourceContextReceiptV1,NativePlanRequestAdmissionV1} from '../api/types';
 import {exact,canonical,isCollaboration,isDraftReferenceClaim,isRelatedPageClaim,isSavedSourceClaim} from './sourcePassageProtocol';
-import {isNativeGraphQuery,isNativeBuildQueryPending,isNativeClauseCitation} from './nativeStatementAnswerProtocol';
+import {isNativeGraphQuery,isNativeBuildQueryPending,isNativePlanGraphQueryPending,isNativeClauseCitation} from './nativeStatementAnswerProtocol';
 import {isNativeAssertionClaim,isNativeAssertionCitation} from './nativeAssertionProtocol';
 import {isNativeBodyCitation} from './nativeSourceCitationProtocol';
 import {isAuthoredExcerpt,isSessionSummary} from './surfaceEvidenceProtocol';
@@ -49,8 +49,11 @@ export function isSurfaceNativeReceipt(v:unknown,validateWork:(work:unknown)=>wo
   if(isNativeBuildQueryPending(q,world)) {
     if(v.work_context.surface_id!=='build'||!('schema_version' in a)
       ||!isNativeProviderInput(v.assembled_input,'native_build_semantic_initial_v2'))return false;
+  } else if(isNativePlanGraphQueryPending(q,world)) {
+    if(v.work_context.surface_id!=='plan'||!isNativePlanRequestAdmission(v.assembled_input))return false;
   } else if(!isNativeGraphQuery(q,world))return false;
-  if(q.schema!=='dmb_native_plan_query_unavailable_v1'&&'schema_version' in a&&['native_world_id','binding_version','revision_id','domain_ref','profile_ref','acquisition_epoch'].some(k=>canonical(a[k as keyof typeof a])!==canonical(q.authority[k as keyof typeof q.authority])))return false;
+  const authority = 'authority' in q ? q.authority : undefined;
+  if(authority&&'schema_version' in a&&['native_world_id','binding_version','revision_id','domain_ref','profile_ref','acquisition_epoch'].some(k=>canonical(a[k as keyof typeof a])!==canonical(authority[k as keyof typeof authority])))return false;
   return isNativeProviderInput(v.assembled_input,'surface_native_initial_v1')
     ||v.work_context.surface_id==='plan'&&isNativePlanRequestAdmission(v.assembled_input)
     ||v.work_context.surface_id==='build'&&isNativeProviderInput(v.assembled_input,'native_build_semantic_initial_v2')
@@ -151,7 +154,7 @@ export function isSurfaceNativeCompletion(
         if(!observed?.binding||c.managed_world_id!==observed.managed_world_id
           ||c.native_world_id!==observed.binding.native_world_id
           ||c.read_revision_id!==(deferredHead?settledRevision:observed.requested_revision_id??observed.observed_head_revision_id))return false;
-      } else if(q.schema==='dmb_native_plan_query_unavailable_v1'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
+      } else if(q.schema==='dmb_native_plan_query_unavailable_v1'||q.schema==='dmb_native_plan_graph_query_pending_v1'||c.managed_world_id!==q.authority.managed_world_id||c.native_world_id!==q.authority.native_world_id||c.read_revision_id!==q.authority.revision_id)return false;
       if(family==='native_clause_citations') {
         const key=canonical([c.statement_id,c.campaign_id]);
         const matches=q===null||q.schema==='dmb_native_build_query_pending_v1'?projected.statements.has(key)
