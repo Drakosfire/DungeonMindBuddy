@@ -177,19 +177,70 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
 
 
 @pytest.mark.parametrize("source_scope", ["anchored", "source_lookup"])
-def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, monkeypatch, source_scope):
+@pytest.mark.parametrize("contextual", [False, "unique"])
+def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, monkeypatch, source_scope, contextual):
     from evals.negative_retrieval.related_page_probe import observe_related_page_owners
 
     with observe_related_page_owners() as observations:
         _fresh_case(
             lane, tmp_path, monkeypatch, None, True, False, True,
-            message="Add a copper lamp here for review.",
+            message=("Add a copper lamp for review after the orchid paragraph in East."
+                     if contextual else "Add a copper lamp here for review."),
+            contextual=contextual,
             requested_work="write_current_page",
             source_need=source_scope,
             read_optional_page=True,
         )
     opened = any(row["owner"] == "related_page_materialization" for row in observations)
     assert opened == (source_scope == "source_lookup")
+
+
+@pytest.mark.parametrize("interrupted", [False, True], ids=["ordinary", "recovered"])
+def test_contextual_build_reopens_deferred_page_citation(lane, tmp_path, monkeypatch, interrupted):
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    from application_state.agent_conversation.native_execution import BuildSourceScopeAuthorizedV1
+    from application_state.build_proposal.service import BuildProposalService
+
+    def dispatch(client, world, body, decisions):
+        def stop_before_completion(*_args, **_kwargs):
+            raise RuntimeError("Synthetic interruption after durable proposal")
+
+        with monkeypatch.context() as cut:
+            cut.setattr(AgentConversationService, "complete_native_base_turn", stop_before_completion)
+            first = client.post("/api/live/agent/turn", json=body)
+        assert first.status_code == 503, first.text
+        key = UUID(body["build_write_capability"]["idempotency_key"])
+        saved = BuildProposalService().get(world, key)
+        assert saved.state == "proposed" and len(saved.proposal.citations) == 1
+        attempts = len(decisions.calls)
+        recovered = client.post("/api/live/agent/turn", json=body)
+        assert len(decisions.calls) == attempts
+        assert recovered.status_code == 200, recovered.text
+        assert recovered.json()["knowledge_context"]["delivery_replay"] is True
+        assert BuildProposalService().get(world, key) == saved
+        return recovered
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, True,
+        contextual="unique", requested_work="write_current_page", source_need="source_lookup",
+        message="After the orchid paragraph in East, add a supply note and cite the towel count from Optional lore.",
+        proposal_markdown="Set out six towels.",
+        capture_pending=True, read_optional_page=True, cite_optional_page=True,
+        dispatch=dispatch if interrupted else None,
+    )
+    assert case.response.status_code == 200, case.response.text
+    assert len(case.writer.calls) == 1
+    execution = case.turn.graph_context_execution
+    ballot, = [event for event in execution.events if type(event) is BuildSourceScopeAuthorizedV1]
+    proposed, = BuildProposalService().list(case.world, case.turn.conversation_id)
+    citation, = proposed.proposal.citations
+    pointer = PagePointer.model_validate(citation.page.model_dump(exclude={"content_sha256"}))
+    assert pointer in ballot.discovered_pages
+    route = f"/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/related-pages"
+    opened = case.client.get(f"{route}/{citation.read_id}")
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["markdown"] == citation.quote == "The linen inventory lists six towels."
+    assert opened.json()["page"] == citation.page.model_dump(mode="json")
 
 
 @pytest.mark.parametrize("work", ["write_current_page", "clarify_request"])
@@ -792,6 +843,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                         probabilities={key: float(key == chosen) for key in choices})
                     continue
+                if cite_optional_page and name.startswith("related_page_"):
+                    chosen = "read" if "Optional lore" in question["instructions"] else "skip"
+                    answers[name] = dict(type="choice", choice=chosen, confidence=1,
+                        probabilities={key: float(key == chosen) for key in choices})
+                    continue
                 if name == "source_need" and failure == "discussion_source_tie":
                     answers[name] = dict(type="choice", choice="uncertain", confidence=.07,
                                          probabilities={"anchored": .24, "source_lookup": .38, "uncertain": .38})
@@ -1036,7 +1092,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     if cite_optional_page:
                         handle, = properties["citations"]["items"]["properties"]["source"]["enum"]
                         candidate["citations"].append({"source": handle,
-                            "quote": "The linen inventory lists six towels.", "supports": "| towels | 6 |"})
+                            "quote": "The linen inventory lists six towels.",
+                            "supports": proposal_markdown if contextual else "| towels | 6 |"})
                 if failure == 'target_unavailable' and len(self.calls) == 1:
                     candidate.update(target='unavailable', replacement_markdown='', summary='Untrusted provider summary.')
                 if mode=='image':
@@ -2017,11 +2074,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert context['receipt']['native_query']['reason']=='native_graph_binding_unavailable'
     else:
         assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
-    if authored_source!='source_only' and saved_statblock != 'by-name' and failure != 'deferred_graph_citation':
-        assert context['receipt']['native_query']['authored_targets'][0]['selection_revision_id'] == original_revision
     service = AgentConversationService()
     turn = service.inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
     assert turn.status == 'completed' and type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+    if authored_source!='source_only' and saved_statblock != 'by-name' and failure != 'deferred_graph_citation':
+        from application_state.agent_conversation.native_execution import effective_native_query
+
+        query = effective_native_query(turn.graph_context_receipt, turn.graph_context_execution)
+        assert query.authored_targets[0].selection_revision_id == original_revision
     if authored_source:
         from application_state.agent_conversation.native_corpus import NativeAuthoredSourceReadV1
         reads=[e for e in turn.graph_context_execution.events if isinstance(e,NativeAuthoredSourceReadV1)]
@@ -2062,8 +2122,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert captured.record.snapshot==draft.snapshot
         assert captured.sequence < next(e.sequence for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1))
         if contextual:
-            assert "unsaved orchid" in decisions.calls[0].content.decode()
-            assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[1:])
+            opening = json.loads(decisions.calls[0].content)
+            if set(opening["questions"]) == {"requested_work"}:
+                assert "unsaved orchid" not in decisions.calls[0].content.decode()
+                assert "unsaved orchid" in decisions.calls[1].content.decode()
+                assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[2:])
+            else:
+                assert "unsaved orchid" in decisions.calls[0].content.decode()
+                assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[1:])
             assert all("boundary_editor_json" not in req.content.decode() for req in decisions.calls)
         else:
             assert all('unsaved orchid' not in req.content.decode() for req in decisions.calls)

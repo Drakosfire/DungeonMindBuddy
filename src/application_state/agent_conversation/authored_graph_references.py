@@ -216,6 +216,10 @@ def validate_native_execution(execution):
     if (captured.sequence != 0 or captured.references != references
             or captured.submitted_intent_fingerprint != t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent)):
         raise ValueError('Native author input differs from its submitted intent')
+    from .native_execution import NativeBuildQuerySettledV1
+
+    settlement = next((event for event in execution.events if type(event) is NativeBuildQuerySettledV1), None)
+    query_sha256 = settlement.query.sha256 if settlement is not None else execution.policy.native_query_sha256
     grants, reads = {}, set()
     nodes = {ref.node_id for ref in object_selections(references)}
     for event in rows:
@@ -225,7 +229,8 @@ def validate_native_execution(execution):
             raise ValueError('Native authored read has no exact captured selection')
         if isinstance(event, BuildAuthoredReferenceAuthorizedV2):
             if (event.node_id in grants or event.sequence <= captured.sequence
-                    or event.query_sha256 != execution.policy.native_query_sha256
+                    or (settlement is not None and event.sequence <= settlement.sequence)
+                    or event.query_sha256 != query_sha256
                     or event.context_receipt_sha256 != execution.context_receipt_sha256
                     or event.execution_policy_sha256 != execution.execution_policy_sha256):
                 raise ValueError('Native human grant differs from its frozen context or is repeated')
@@ -333,14 +338,19 @@ def capture_native_input(turn, *, event_id):
 
 
 def authorize_native_reference(turn, *, event_id, node_id):
+    from .native_execution import effective_native_query
+    from .native_plan_assertions import NativeGraphQueryV3
     from .native_reads import _owner, validate_execution_binding
     receipt, execution = _owner(turn)
+    query = effective_native_query(receipt, execution)
+    if not isinstance(query, NativeGraphQueryV3):
+        raise ValueError("Native human grant requires its settled target query")
     captured = capture(execution)
     event = BuildAuthoredReferenceAuthorizedV2(event_id=event_id, sequence=len(execution.events),
         capture_event_id=captured.event_id, node_id=node_id,
         context_receipt_sha256=execution.context_receipt_sha256,
         execution_policy_sha256=execution.execution_policy_sha256,
-        query_sha256=execution.policy.native_query_sha256)
+        query_sha256=query.sha256)
     validate_execution_binding(receipt, execution.model_copy(update={'events': [*execution.events, event]}))
     return event
 
