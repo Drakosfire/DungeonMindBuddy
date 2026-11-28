@@ -63,8 +63,30 @@ class PlanJevHarness:
         return dispatch.selection_event
 
     def _interpret_opening_intent(self, adapter, dialogue, calls):
-        dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue, intent_opening=True)
-        intent = self._observe_author_scope(dispatch, calls)
+        from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+        from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
+        from .agent_turn_service import AgentTurnServiceError
+
+        events = adapter.fence.turn.graph_context_execution.events
+        authorizations = [
+            event for event in events
+            if type(event) is NativePlanAuthorScopeAuthorizedV1 and event.intent_opening
+        ]
+        if authorizations:
+            observations = [
+                event for event in events
+                if type(event) is NativePlanAuthorScopeObservedV1
+                and event.controller_attempt_id == authorizations[0].provider_attempt_id
+            ]
+            if len(authorizations) != 1 or len(observations) != 1:
+                raise AgentTurnServiceError(
+                    'The earlier Plan intent has no settled result and cannot be repeated.',
+                    code='plan_intent_outcome_uncertain', status_code=409, provider_dispatched=False,
+                )
+            intent = observations[0]
+        else:
+            dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue, intent_opening=True)
+            intent = self._observe_author_scope(dispatch, calls)
         if intent.scope_observation.requested_work == "different_destination":
             raise _destination_unavailable()
         return intent
