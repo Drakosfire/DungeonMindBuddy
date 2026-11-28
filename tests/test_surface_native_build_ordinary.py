@@ -1579,6 +1579,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert opening["state"]["interaction"]["surface"] == "build"
         turn = writer.adapter.turn
         assert turn.status == "completed"
+        selection, = [event for event in turn.graph_context_execution.events
+                      if type(event) is t.BuildRequestedWorkResolutionV1]
+        assert selection.typed_graph_reference == "place_existing_reference"
+        assert selection.paragraph_placement is None
         if graph_reference == "ready":
             review = store.get(world, turn.turn_id)
             assert completion["action_id"] == str(review.action_id)

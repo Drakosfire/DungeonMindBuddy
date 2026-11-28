@@ -786,7 +786,8 @@ def validate_resolution_metadata(event, policy):
         raise ValueError("Retained image move choice requires its exact Build capture")
     placement = event.paragraph_placement
     if ((placement is not None and catalog is None)
-            or (placement is None and catalog is not None and event.requested_work == "write_current_page")):
+            or (placement is None and catalog is not None and event.requested_work == "write_current_page"
+                and event.typed_graph_reference != "place_existing_reference")):
         raise ValueError("Build paragraph placement differs from its frozen capability")
     if placement is not None and placement.target is not None:
         alias, _, _ = placement.target.alias.partition(":")
@@ -1030,7 +1031,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         label, source_scope = opening_work(policy, request, raw_response, event.typed_image_move)
     resolution = resolution_for(policy, label, source_scope=source_scope)
     placement = None
-    if split is None:
+    if split is None and (graph_reference != "place_existing_reference" or event.paragraph_placement is not None):
         placement = paragraph_placement_for(policy, request, response, user_text, label)
     elif followup and label == "write_current_page":
         placement = paragraph_placement_for(

@@ -1356,9 +1356,9 @@ class BuildJevDriver:
                 _require_guest_build_discussion(a, label=label, graph_reference=graph_reference, image_move=image_move)
                 resolution = resolution_for(execution.policy, label, source_scope=source_scope)
                 placement = None
-                if split_proof is None:
+                if split_proof is None and graph_reference != "place_existing_reference":
                     placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
-                elif label == "write_current_page":
+                elif split_proof is not None and label == "write_current_page":
                     placement = paragraph_placement_for(execution.policy, json.loads(prepared.body),
                         DecisionResult.model_validate_json(split_proof["response"]), a.request.message, label)
                 _, _, menu, resolver = _captured_semantics(execution.policy)
