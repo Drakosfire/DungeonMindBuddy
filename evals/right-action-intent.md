@@ -237,3 +237,15 @@ from classification errors.
 The retained 50-case comparison includes four valid deferrals per Build arm,
 two per Plan arm, and one per Play arm. These are included in the correct
 totals in the earlier comparison tables.
+
+#### Build request parity
+
+The [ordinary attached-source Build request](right_action_intent/build-attached-source-opening.json)
+was captured at the SDK transport boundary with a simulated provider. It
+verifies that the 13 requested-work choices match the shared Build catalog.
+Buddy places the choice descriptions inside the question instructions and
+sends a separate source-need question. The state gives the current page,
+conversation and reference labels. Contextual edits can have further
+questions. The 36-case paired comparison measures the shared choices
+under a simpler single-question request. Use this capture when designing the
+full Build request comparison.
