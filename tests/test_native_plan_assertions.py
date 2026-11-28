@@ -1059,19 +1059,30 @@ def _ordinary_native_case(
     from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
     from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1
     from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
-    from application_state.agent_conversation.native_corpus import NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
+    from application_state.agent_conversation.native_corpus import (
+        NativeBodySearchObservedV1,
+        NativeInitialSourceSearchAuthorizedV1,
+        NativePlanRequestSearchAuthorizedV1,
+        controller_selected_source_discovery,
+    )
     assert type(turn.graph_context_receipt.assembled_input) is NativePlanRequestAdmissionV1
     opening_auths = [e for e in turn.graph_context_execution.events if type(e) is NativePlanOpeningAuthorizedV1]
     opening_choices = [e for e in turn.graph_context_execution.events if type(e) is NativePlanOpeningSelectedV1]
     assert len(opening_auths) == len(opening_choices) == 1
     assert opening_auths[0].provider_attempt_id == opening_choices[0].controller_attempt_id
     request_grants = [e for e in turn.graph_context_execution.events if type(e) is NativePlanRequestSearchAuthorizedV1]
-    assert len(request_grants) == 1
-    grant = request_grants[0]
-    search = next(e for e in turn.graph_context_execution.events if type(e) is NativeBodySearchObservedV1
-        and e.authorization_event_id == grant.event_id)
-    assert grant.sequence < search.sequence < opening_auths[0].sequence < opening_choices[0].sequence
-    assert grant.request_manifest_sha256 == turn.graph_context_receipt.assembled_input.manifest_sha256
+    if controller_selected_source_discovery(turn.graph_context_execution):
+        assert not request_grants
+        initial_grants = [e for e in turn.graph_context_execution.events
+            if type(e) is NativeInitialSourceSearchAuthorizedV1]
+        assert all(opening_choices[0].sequence < grant.sequence for grant in initial_grants)
+    else:
+        assert len(request_grants) == 1
+        grant = request_grants[0]
+        search = next(e for e in turn.graph_context_execution.events if type(e) is NativeBodySearchObservedV1
+            and e.authorization_event_id == grant.event_id)
+        assert grant.sequence < search.sequence < opening_auths[0].sequence < opening_choices[0].sequence
+        assert grant.request_manifest_sha256 == turn.graph_context_receipt.assembled_input.manifest_sha256
     if selected_references is not None:
         assert turn.graph_context_execution.events[0].kind == 'build_authored_references_captured_v1'
     if authoring:

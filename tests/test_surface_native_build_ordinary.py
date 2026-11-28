@@ -668,11 +668,6 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             expected_effort = ('medium' if (current_work == 'draft_in_conversation' and saved_statblock == 'associated'
                     or authored_source and (current_work == 'discuss' or current_work is None))
                 else 'none' if using_prior_citations and current_work == 'review_lore_page_from_conversation' else 'low')
-            if body.get('reasoning', {}).get('effort') != expected_effort:
-                return httpx.Response(400, request=req, json={'error': {
-                    'message': 'Unsupported reasoning effort for configured writer',
-                    'type': 'invalid_request_error', 'param': 'reasoning.effort',
-                    'code': 'unsupported_value'}})
             if reference_image in {'saved', 'saved_large'}:
                 from base64 import b64decode
                 from io import BytesIO
@@ -700,6 +695,20 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             from application_state.agent_conversation.native_evidence_view import is_semantic_frame
             frame = next(row for row in inputs if is_semantic_frame(row))
             work = next(row['build_work'] for row in inputs if 'build_work' in row)
+            selected_work = work.get('requested_work', {})
+            if (
+                expected_effort == 'low'
+                and selected_work.get('requested_work') == 'discuss'
+                and selected_work.get('operation') == 'answer_from_sources'
+                and 'barrier' in selected_work
+                and selected_work['barrier'] is None
+            ):
+                expected_effort = 'medium'
+            if body.get('reasoning', {}).get('effort') != expected_effort:
+                return httpx.Response(400, request=req, json={'error': {
+                    'message': 'Unsupported reasoning effort for configured writer',
+                    'type': 'invalid_request_error', 'param': 'reasoning.effort',
+                    'code': 'unsupported_value'}})
             if not mode:
                 if requested_work == "review_lore_page" and self.adapter.turn.sequence == 2:
                     assert len(inputs) == 5
