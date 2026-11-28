@@ -257,9 +257,12 @@ class BuildJevHarness:
                     raise AgentTurnServiceError("Image movement requires World edit access.",
                                                 code="build_image_move_forbidden", status_code=403)
                 turn = adapter.fence.turn
-                def admit_image_move(_conn, review):
-                    if review.placement.basis.world_id != adapter.native_source_authority.managed_world_id:
+                def admit_image_move(conn, review):
+                    if review.placement.basis.world_id != turn.world_id:
                         raise ApplicationStateConflictError("The image move changed the authorized World")
+                    access = adapter.pending_build_access
+                    if callable(access) and access(conn, turn, None) is not True:
+                        raise ApplicationStateConflictError("Current World access no longer permits image review")
 
                 try:
                     adapter.turn = adapter.service.complete_build_image_move_turn(

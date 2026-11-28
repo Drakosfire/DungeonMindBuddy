@@ -667,7 +667,8 @@ BuildPendingPrefixEventV1 = Annotated[
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
-    | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2 | t.CompletionBindingEventV1,
+    | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2 | t.CompletionBindingEventV1
+    | t.BuildImageMoveCompletionBindingV1,
     Field(discriminator="kind"),
 ]
 
@@ -701,7 +702,16 @@ class BuildPendingExecutionV1(Strict):
         app_catalog = page_controller = page_outcome = page_selection = None
         page_reads = set()
         writer = None
+        image_work = None
         for event in self.events:
+            if image_work is not None and (
+                    type(event) is not t.BuildImageMoveCompletionBindingV1
+                    or event.opening_event_id != image_work.event_id
+                    or event.sequence != image_work.sequence + 1
+                    or event.provider_attempt_id != image_work.controller_attempt_id):
+                raise ValueError("Local image review closes further acquisition and dispatch")
+            if type(event) is t.BuildImageMoveCompletionBindingV1 and image_work is None:
+                raise ValueError("Local image review requires its acknowledged image decision")
             if type(event) in (BuildAppPageCatalogObservedV1, BuildAppPageSelectionAuthorizedV1,
                     t.RelatedPagesSelection, t.RelatedPageRead) and any(
                     type(prior) is BuildAppCoverageAuthorizedV1 for prior in self.events[:event.sequence]):
@@ -753,6 +763,8 @@ class BuildPendingExecutionV1(Strict):
                 intent_selected = True
             elif type(event) is t.BuildRequestedWorkResolutionV1:
                 work_selected = True
+                if event.typed_image_move in {"move_existing", "unresolved"}:
+                    image_work = event
             elif type(event) is t.CompletionBindingEventV1:
                 from .build_source_free import validate_pending_completion_binding
                 validate_pending_completion_binding(self, event)

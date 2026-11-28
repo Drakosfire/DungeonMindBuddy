@@ -306,12 +306,16 @@ def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_p
 
 
 def test_native_image_clarification_uses_only_the_intent_ballot(lane, tmp_path, monkeypatch):
-    from apps.live_control_server.services import native_graph_reads
+    from apps.live_control_server.services import build_related_pages, native_graph_reads
 
     def unexpected_graph_preparation(*_args, **_kwargs):
         pytest.fail("Image clarification prepared a Graph query")
 
     monkeypatch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
+    def unexpected_page_discovery(*_args, **_kwargs):
+        pytest.fail("Image clarification discovered saved pages")
+
+    monkeypatch.setattr(build_related_pages, "discover", unexpected_page_discovery)
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, False, False, False,
         message="Can you do that to the picture?", requested_work="clarify_request",
@@ -325,6 +329,7 @@ def test_native_image_clarification_uses_only_the_intent_ballot(lane, tmp_path, 
     assert opening["state"]["interaction"]["surface"] == "build"
     assert opening["questions"]["requested_work"]["criteria"] == dict.fromkeys(opening_action_menu("build"))
     assert "related_page_labels" not in opening["state"]["interaction"]
+    assert case.turn.graph_context_receipt.schema_ == "dmb_build_pending_context_receipt_v1"
     assert case.turn.completion.collaboration.kind == "questions"
     assert not any(event.kind == "native_build_query_settled_v1"
                    for event in case.turn.graph_context_execution.events)
