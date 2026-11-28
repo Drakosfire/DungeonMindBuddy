@@ -1,11 +1,17 @@
 # RETRIEVAL: Plan Graph-need uncertainty continuation
 
-Status: ACTIVE under the user's over-retrieval goal and authorization to prepare
-releases in parallel. Existing draft [#4987](https://github.com/Drakosfire/DungeonMindBuddy/pull/4987)
-is the sole producer PR. Branch `codex/retrieval-plan-pending-graph-producer`,
-checkout `negative-current-main-eval`, based on merged reader `0a367b42dbd75d3e250f9f02db68ee7fff0f5bf3` (#5004).
-The reader is not live: producer merge, activation and acceptance remain held
-until its compatible reader deployment and all applicable checks and reviews.
+Status: ACTIVE under the user's goal to finish and merge the intent-first Plan
+port. [#4987](https://github.com/Drakosfire/DungeonMindBuddy/pull/4987) is the
+sole producer PR, targeting main. Its integrated tree includes the compatible
+reader, producer, and migration on main's App lineage.
+
+Merge requires exact-head review, isolated runtime qualification, and reader
+compatibility on main. Publishing and activating production images require a
+separate dispatch. Hosted producer emission and signed-in release acceptance
+remain gated on qualifying and deploying the compatible hosted reader, including
+the production migration, restore and forward-recovery checks. [#5008](https://github.com/Drakosfire/DungeonMindBuddy/pull/5008)
+is the reader candidate on the separate serving lineage. The main migration
+evidence does not qualify that cutover.
 
 Ordinary Plan question: when the controller cannot decide whether World Graph
 context is needed, retain the actual decision and complete the same turn with
@@ -17,14 +23,14 @@ or required-Graph choice continues through its existing path.
 The real-model creative control also exposed a work-choice failure in this same
 turn. For fresh V1 openings only, the harness emits the versioned guidance that
 #5003 can read; retained SDK openings and other versions keep their prior wire.
-The reader must be live before emission. This addition is part of making the
+For hosted turns, the compatible reader must be live before emission. This addition is part of making the
 producer turn usable, and needs creative, source-required, edit/follow-up and
 replay controls rather than treating a successful no-Graph choice as completion.
 
 The no-search edit control also revealed a `require_graph` decision before the
 opening. Fresh Graph-need dispatches emit the reader-compatible exclusion
 guidance from #5004. Retained decisions keep their original version and wire.
-The reader must be live first; the actual edit, source-required and held-out
+For hosted turns the compatible reader must be live first. The actual edit, source-required and held-out
 controls must establish behavior without treating a model vote as proof.
 
 Write scope: the existing producer PR's Graph-need dispatch, native producer,
