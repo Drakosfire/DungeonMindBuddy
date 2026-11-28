@@ -900,6 +900,26 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
         if len(observations) != 1 or observations[0].scope_observation.requested_work is None:
             raise ValueError("Plan intent requires its settled first response")
         intent = observations[0]
+        from .native_context import NativePlanGraphQueryPendingV1
+        from .native_plan_graph_need import (
+            NativePlanGraphNeedObservedV1, NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1,
+        )
+        from .native_retrieval import NativePlanGraphNeedAuthorizedV1
+
+        if type(context.native_query) is NativePlanGraphQueryPendingV1:
+            graph_attempts = [event for event in attempts if type(event) is NativePlanGraphNeedAuthorizedV1]
+            if graph_attempts:
+                graph_attempt = graph_attempts[0]
+                decisions = [event for event in prefix if type(event) is NativePlanGraphNeedObservedV1]
+                settlements = [event for event in prefix
+                               if type(event) in (NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)]
+                if (len(graph_attempts) != 1 or len(decisions) != 1 or len(settlements) != 1
+                        or decisions[0].controller_attempt_id != graph_attempt.provider_attempt_id
+                        or not intent.sequence < graph_attempt.sequence < decisions[0].sequence < settlements[0].sequence
+                        or any(event.sequence <= settlements[0].sequence
+                               for event in attempts if event is not first_intent and event is not graph_attempt)):
+                    raise ValueError('Plan opening requires Graph need to settle after intent')
+                attempts = [event for event in attempts if event is not graph_attempt]
         if author_scope_event_id == intent.event_id:
             if (author_scope_recheck or review_event_ids is not None or len(attempts) != 1
                     or intent.scope_observation.requested_work not in {"discuss", "clarify"}):
