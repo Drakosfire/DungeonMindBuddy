@@ -267,7 +267,8 @@ def build_source_followup_wire(state, requested_work, *, menu_digest):
     }
 
 
-def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response):
+def verify_build_intent_opening(opening_wire, opening_response, *, menu_digest):
+    """Validate the intent ballot before any downstream decision is needed."""
     from generationengine.types import DecisionResult
     from .jev_retrieval_contract import MODEL, validated_choice_answers
 
@@ -282,9 +283,18 @@ def verify_build_source_followup(opening_wire, opening_response, *, menu_digest,
         raise ValueError("Build opening request differs from the intent-only ballot")
 
     state = opening_wire["state"]
+    if not isinstance(state, dict) or set(state) != {"user_question", "interaction"}:
+        raise ValueError("Build opening request requires the semantic routing state")
     validated_choice_answers(DecisionResult.model_validate(opening_response), {"requested_work"})
-    requested_work = selected(opening_response, menu=menu_digest)
-    expected = build_source_followup_wire(state, requested_work, menu_digest=menu_digest)
+    return selected(opening_response, menu=menu_digest)
+
+
+def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response):
+    from generationengine.types import DecisionResult
+    from .jev_retrieval_contract import validated_choice_answers
+
+    requested_work = verify_build_intent_opening(opening_wire, opening_response, menu_digest=menu_digest)
+    expected = build_source_followup_wire(opening_wire["state"], requested_work, menu_digest=menu_digest)
     if wire != expected or tuple(wire["questions"]["source_need"]["criteria"]) != SOURCE_NEED_OPTIONS:
         raise ValueError("Build source-scope request differs from the verified intent context")
     validated_choice_answers(DecisionResult.model_validate(response), {"source_need"})
