@@ -1033,7 +1033,7 @@ def test_prepared_graph_authorization_binds_exact_wire_and_accounting():
         validate_prepared_authorization(context, active, auth, raw)
 
 
-@pytest.mark.parametrize('case', ['acknowledged', 'unsettled', 'foreign', 'clarify'])
+@pytest.mark.parametrize('case', ['acknowledged', 'unsettled', 'foreign', 'clarify', 'conversation_only', 'uncertain'])
 def test_prepared_graph_authorization_checks_intent_predecessor(monkeypatch, case):
     from types import SimpleNamespace
     from uuid import uuid4
@@ -1063,7 +1063,10 @@ def test_prepared_graph_authorization_checks_intent_predecessor(monkeypatch, cas
         parent_request_sha256=intent.parent_request_sha256,
         context_receipt_sha256='c' * 64 if case == 'foreign' else prefix.context_receipt_sha256,
         execution_policy_sha256=prefix.execution_policy_sha256,
-        scope_observation=SimpleNamespace(requested_work='clarify' if case == 'clarify' else 'discuss'),
+        scope_observation=SimpleNamespace(
+            requested_work='clarify' if case == 'clarify' else 'discuss',
+            source_use=case if case in ('conversation_only', 'uncertain') else None,
+        ),
     )
     events = [intent, *(event.model_copy(update={'provider_attempt_id': intent.provider_attempt_id})
                         for event in lifecycle), observed]
@@ -1075,11 +1078,11 @@ def test_prepared_graph_authorization_checks_intent_predecessor(monkeypatch, cas
         'input_tokens': len(raw) + 64 * (1 + json_container_count(strict_json(raw.decode()))),
     })
     turn = SimpleNamespace(status='running', graph_context_receipt=context, graph_context_execution=prefix)
-    assert safe_reclaimable_graph_need_prefix(turn) is (case == 'acknowledged')
+    assert safe_reclaimable_graph_need_prefix(turn) is (case in ('acknowledged', 'conversation_only', 'uncertain'))
     if case == 'acknowledged':
         assert validate_prepared_authorization(context, prefix, graph_auth, raw).events[-1] == graph_auth
     else:
-        with pytest.raises(ValueError, match='settled Plan intent|exact eligible Plan intent'):
+        with pytest.raises(ValueError, match='settled Plan intent|exact eligible Plan intent|did not authorize'):
             validate_prepared_authorization(context, prefix, graph_auth, raw)
 
 

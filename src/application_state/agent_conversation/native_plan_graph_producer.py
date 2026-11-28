@@ -150,7 +150,7 @@ def safe_reclaimable_graph_need_prefix(turn):
         if events and type(events[0]) is NativePlanAuthorScopeAuthorizedV1 and events[0].intent_opening:
             if len(events) < 4:
                 return False
-            validate_graph_need_intent_prefix(execution, events[:4])
+            validate_graph_need_intent_prefix(execution, events[:4], require_source_use=False)
             events = events[4:]
             if not events:
                 return True

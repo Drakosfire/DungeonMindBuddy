@@ -47,6 +47,8 @@ _CLARIFICATION = """
            AND graph_context_execution#>>'{events,3,kind}'='native_plan_author_scope_observed_v1'
            AND graph_context_execution#>>'{events,3,scope_observation,requested_work}'
                NOT IN ('clarify','different_destination')
+           AND COALESCE(graph_context_execution#>>'{events,3,scope_observation,source_use}', 'legacy')
+               IN ('legacy','source_needed')
            AND graph_context_execution#>>'{events,3,context_receipt_sha256}'=completion->>'context_receipt_sha256'
            AND graph_context_execution#>>'{events,3,execution_policy_sha256}'=graph_context_execution->>'execution_policy_sha256'
            AND graph_context_execution#>>'{events,1,provider_attempt_id}'=graph_context_execution#>>'{events,0,provider_attempt_id}'
