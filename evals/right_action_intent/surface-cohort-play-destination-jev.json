@@ -1,0 +1,904 @@
+{
+  "fixture_sha256": "7a2261fc6638576e40d38dfd3a816ba0b4a507d568a32b0361bee185a3f8aeca",
+  "model": "jev-1.14.0",
+  "prompt": "Identify the user's intent for this turn. Use the supplied dialogue where needed. If the available evidence leaves the intent unclear, choose needs_context_to_choose. Return one action family. Target binding, available tools, and execution are downstream.",
+  "menus": {
+    "play": {
+      "scoped": {
+        "discuss": "Discuss, explain, or brainstorm using the supplied conversation.",
+        "clarify_request": "Ask what the user wants when the action or referent remains unclear.",
+        "read_source": "Consult Rules or saved sources for facts the user needs.",
+        "play_edit": "Request a change to the current live session scene in Play.",
+        "different_destination": "Request work on a different surface or target, such as editing a saved page outside the live scene, or using a separate operator control."
+      },
+      "full": {
+        "discuss": "Discuss, explain, or brainstorm using the supplied conversation.",
+        "clarify_request": "Ask what the user wants when the action or referent remains unclear.",
+        "read_source": "Consult Rules or saved sources for facts the user needs.",
+        "play_edit": "Request a change to the current live session scene in Play.",
+        "different_destination": "Request work on a different surface or target, such as editing a saved page outside the live scene, or using a separate operator control.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion."
+      }
+    }
+  },
+  "cases": {
+    "play": [
+      {
+        "id": "play-discuss",
+        "tier": "surface_contrast",
+        "input": {
+          "surface": "play",
+          "user_utterance": "Let’s brainstorm how to introduce the guard between scenes. Keep it in chat."
+        },
+        "expected": "discuss",
+        "reason": "The request supplies a premise and asks for conversation."
+      },
+      {
+        "id": "play-scene-discuss",
+        "tier": "surface_contrast",
+        "input": {
+          "surface": "play",
+          "user_utterance": "What are a few fun directions this current scene could take? We’re just talking possibilities."
+        },
+        "expected": "discuss",
+        "reason": "The user asks for ideas without a new factual lookup or a Run edit."
+      },
+      {
+        "id": "play-rules-lookup",
+        "tier": "surface_contrast",
+        "input": {
+          "surface": "play",
+          "user_utterance": "Can I end my move in an occupied space? Check the published rules."
+        },
+        "expected": "read_source",
+        "reason": "The user explicitly requests rules evidence."
+      },
+      {
+        "id": "play-lore-lookup",
+        "tier": "surface_contrast",
+        "input": {
+          "surface": "play",
+          "user_utterance": "What did Torbin promise at the end of the previous session? Check the saved recap."
+        },
+        "expected": "read_source",
+        "reason": "The user explicitly requests evidence from an earlier recap."
+      },
+      {
+        "id": "play-clarify-current-request",
+        "tier": "surface_contrast",
+        "input": {
+          "surface": "play",
+          "user_utterance": "Can you do that now?",
+          "current_scene_title": "Arrival at Corrupted Edge"
+        },
+        "expected": "clarify_request",
+        "reason": "The scene is visible, but neither the task nor its target follows from the request."
+      },
+      {
+        "id": "play-to-build-handoff",
+        "tier": "surface_contrast",
+        "input": {
+          "surface": "play",
+          "user_utterance": "Revise the saved Corrupted Edge page in Build to add an opening paragraph about the swamp.",
+          "current_scene_title": "Arrival at Corrupted Edge"
+        },
+        "expected": "different_destination",
+        "reason": "The user names a saved Build page. Continue on that surface without changing the live scene."
+      },
+      {
+        "id": "play-scene-edit-handoff",
+        "tier": "surface_contrast",
+        "input": {
+          "surface": "play",
+          "user_utterance": "Change this scene so it begins after sunset.",
+          "current_scene_title": "Arrival at Corrupted Edge"
+        },
+        "expected": "play_edit",
+        "reason": "The current live scene supplies the target. Direct the user to the Play scene edit review control."
+      }
+    ]
+  },
+  "play_prompt": "Identify the user’s intent now. Use dialogue to resolve omitted references. Choose one action family. Target binding and execution are downstream.",
+  "play_question": "requested_work",
+  "results": {
+    "play": {
+      "full": {
+        "summary": {
+          "cases": 7,
+          "dispositions": {
+            "correct": 7
+          },
+          "median_decision_ms": 311.78
+        },
+        "rows": [
+          {
+            "id": "play-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 364.34,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "discuss",
+                  "probabilities": {
+                    "discuss": 0.89,
+                    "clarify_request": 0.03,
+                    "read_source": 0.0,
+                    "play_edit": 0.0,
+                    "different_destination": 0.0,
+                    "plan": 0.02,
+                    "write_current_page": 0.0,
+                    "prepare_image": 0.0,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.06,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0
+                  },
+                  "confidence": 0.88
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 792,
+                "cached_input_tokens": null,
+                "output_tokens": 164,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 364,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-scene-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 311.78,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "discuss",
+                  "probabilities": {
+                    "discuss": 0.87,
+                    "clarify_request": 0.04,
+                    "read_source": 0.0,
+                    "play_edit": 0.04,
+                    "different_destination": 0.0,
+                    "plan": 0.02,
+                    "write_current_page": 0.0,
+                    "prepare_image": 0.0,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.01,
+                    "draft_in_conversation": 0.02,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0
+                  },
+                  "confidence": 0.86
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 794,
+                "cached_input_tokens": null,
+                "output_tokens": 164,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 311,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-rules-lookup",
+            "tier": "surface_contrast",
+            "expected": "read_source",
+            "choice": "read_source",
+            "status": "correct",
+            "elapsed_ms": 368.05,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "read_source",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify_request": 0.0,
+                    "read_source": 1.0,
+                    "play_edit": 0.0,
+                    "different_destination": 0.0,
+                    "plan": 0.0,
+                    "write_current_page": 0.0,
+                    "prepare_image": 0.0,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0
+                  },
+                  "confidence": 1.0
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 791,
+                "cached_input_tokens": null,
+                "output_tokens": 164,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 367,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-lore-lookup",
+            "tier": "surface_contrast",
+            "expected": "read_source",
+            "choice": "read_source",
+            "status": "correct",
+            "elapsed_ms": 343.96,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "read_source",
+                  "probabilities": {
+                    "discuss": 0.01,
+                    "clarify_request": 0.01,
+                    "read_source": 0.93,
+                    "play_edit": 0.0,
+                    "different_destination": 0.04,
+                    "plan": 0.0,
+                    "write_current_page": 0.0,
+                    "prepare_image": 0.0,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.01
+                  },
+                  "confidence": 0.93
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 794,
+                "cached_input_tokens": null,
+                "output_tokens": 164,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 343,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-clarify-current-request",
+            "tier": "surface_contrast",
+            "expected": "clarify_request",
+            "choice": "clarify_request",
+            "status": "correct",
+            "elapsed_ms": 214.41,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "clarify_request",
+                  "probabilities": {
+                    "discuss": 0.01,
+                    "clarify_request": 0.67,
+                    "read_source": 0.0,
+                    "play_edit": 0.2,
+                    "different_destination": 0.0,
+                    "plan": 0.0,
+                    "write_current_page": 0.02,
+                    "prepare_image": 0.0,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.01,
+                    "clarify_creation": 0.08,
+                    "draft_in_conversation": 0.01,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0
+                  },
+                  "confidence": 0.65
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 798,
+                "cached_input_tokens": null,
+                "output_tokens": 165,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 214,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-to-build-handoff",
+            "tier": "surface_contrast",
+            "expected": "different_destination",
+            "choice": "different_destination",
+            "status": "correct",
+            "elapsed_ms": 192.52,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "different_destination",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify_request": 0.0,
+                    "read_source": 0.0,
+                    "play_edit": 0.02,
+                    "different_destination": 0.94,
+                    "plan": 0.0,
+                    "write_current_page": 0.02,
+                    "prepare_image": 0.0,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.01,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.01,
+                    "review_lore_page_from_conversation": 0.0
+                  },
+                  "confidence": 0.94
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 812,
+                "cached_input_tokens": null,
+                "output_tokens": 164,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 192,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-scene-edit-handoff",
+            "tier": "surface_contrast",
+            "expected": "play_edit",
+            "choice": "play_edit",
+            "status": "correct",
+            "elapsed_ms": 209.33,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "play_edit",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify_request": 0.0,
+                    "read_source": 0.0,
+                    "play_edit": 1.0,
+                    "different_destination": 0.0,
+                    "plan": 0.0,
+                    "write_current_page": 0.0,
+                    "prepare_image": 0.0,
+                    "review_connected_page": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0
+                  },
+                  "confidence": 1.0
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 801,
+                "cached_input_tokens": null,
+                "output_tokens": 164,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 209,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          }
+        ],
+        "reused": []
+      },
+      "scoped": {
+        "summary": {
+          "cases": 7,
+          "dispositions": {
+            "correct": 7
+          },
+          "median_decision_ms": 177.9
+        },
+        "rows": [
+          {
+            "id": "play-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 175.67,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "discuss",
+                  "probabilities": {
+                    "discuss": 0.9,
+                    "clarify_request": 0.06,
+                    "read_source": 0.0,
+                    "play_edit": 0.03,
+                    "different_destination": 0.01
+                  },
+                  "confidence": 0.87
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 474,
+                "cached_input_tokens": null,
+                "output_tokens": 60,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 175,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-scene-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 209.61,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "discuss",
+                  "probabilities": {
+                    "discuss": 0.85,
+                    "clarify_request": 0.07,
+                    "read_source": 0.0,
+                    "play_edit": 0.08,
+                    "different_destination": 0.0
+                  },
+                  "confidence": 0.81
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 476,
+                "cached_input_tokens": null,
+                "output_tokens": 60,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 209,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-rules-lookup",
+            "tier": "surface_contrast",
+            "expected": "read_source",
+            "choice": "read_source",
+            "status": "correct",
+            "elapsed_ms": 162.72,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "read_source",
+                  "probabilities": {
+                    "discuss": 0.01,
+                    "clarify_request": 0.0,
+                    "read_source": 0.99,
+                    "play_edit": 0.0,
+                    "different_destination": 0.0
+                  },
+                  "confidence": 0.99
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 473,
+                "cached_input_tokens": null,
+                "output_tokens": 60,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 162,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-lore-lookup",
+            "tier": "surface_contrast",
+            "expected": "read_source",
+            "choice": "read_source",
+            "status": "correct",
+            "elapsed_ms": 201.41,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "read_source",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify_request": 0.01,
+                    "read_source": 0.96,
+                    "play_edit": 0.0,
+                    "different_destination": 0.03
+                  },
+                  "confidence": 0.95
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 476,
+                "cached_input_tokens": null,
+                "output_tokens": 60,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 201,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-clarify-current-request",
+            "tier": "surface_contrast",
+            "expected": "clarify_request",
+            "choice": "clarify_request",
+            "status": "correct",
+            "elapsed_ms": 171.56,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "clarify_request",
+                  "probabilities": {
+                    "discuss": 0.02,
+                    "clarify_request": 0.6,
+                    "read_source": 0.0,
+                    "play_edit": 0.38,
+                    "different_destination": 0.0
+                  },
+                  "confidence": 0.5
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 480,
+                "cached_input_tokens": null,
+                "output_tokens": 61,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 171,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-to-build-handoff",
+            "tier": "surface_contrast",
+            "expected": "different_destination",
+            "choice": "different_destination",
+            "status": "correct",
+            "elapsed_ms": 207.86,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "different_destination",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify_request": 0.01,
+                    "read_source": 0.01,
+                    "play_edit": 0.08,
+                    "different_destination": 0.9
+                  },
+                  "confidence": 0.87
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 494,
+                "cached_input_tokens": null,
+                "output_tokens": 60,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 207,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "play-scene-edit-handoff",
+            "tier": "surface_contrast",
+            "expected": "play_edit",
+            "choice": "play_edit",
+            "status": "correct",
+            "elapsed_ms": 177.9,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "play_edit",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify_request": 0.0,
+                    "read_source": 0.0,
+                    "play_edit": 1.0,
+                    "different_destination": 0.0
+                  },
+                  "confidence": 1.0
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 483,
+                "cached_input_tokens": null,
+                "output_tokens": 60,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 177,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          }
+        ],
+        "reused": []
+      }
+    }
+  }
+}

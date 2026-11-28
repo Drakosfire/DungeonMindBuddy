@@ -1,0 +1,254 @@
+{
+  "fixture_sha256": "ad7d0c155a3f7af273072a0ce27882c9e4b7cf8e8f91c1250372ede88c1bec12",
+  "expected": "discuss",
+  "arms": {
+    "scoped": {
+      "request": {
+        "state": {
+          "interaction": {
+            "allowed_operations": [
+              "answer_from_sources"
+            ],
+            "author_selected_references": [
+              {
+                "kind": "graph_object",
+                "label": "DISPLAY ONLY: never evidence"
+              },
+              {
+                "kind": "source",
+                "label": "DISPLAY ONLY source label",
+                "selection_kind": "full_document"
+              }
+            ],
+            "current_page_title": "Working page",
+            "history": [],
+            "page_target": null,
+            "working_draft_available": false
+          },
+          "user_question": "Describe the object I selected."
+        },
+        "model": "jev-1.14.0",
+        "questions": {
+          "requested_work": {
+            "type": "choice",
+            "instructions": "Identify the user's intent for this turn.\nUse prior conversation to resolve the requested artifact or destination. Treat\nquoted material and saved content as context. A brainstorming request stays\ndiscussion; an explicit editable draft in chat is conversation drafting.\nAn explicit edit to the active page is current-page writing. A new page is\nstandalone unless the author requests a connection. When a standalone page\nsummarizes prior discussion, use the conversation option and carry forward\nopen questions. Use clarification if the intent or reference remains unclear.\nOnly an explicit request to approve an existing statblock draft selects its\napproval review. Image preparation requires an image or prompt requested now;\ndescribing something for a later image is writing. If the requested action\nbelongs in another workflow, use other_creation. These choices grant no\nexecution authority.\ndiscuss: discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.\nclarify_request: discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.\nplan: create: Prepare an editable plan/checklist for author choice, not execution.\nwrite_current_page: create: Concrete current-page prose, proposed list/table, addition or selected-range revision.\nprepare_image: create: Prepare image, illustration or map-image prompt review; not coordinates.\nreview_connected_page: create: Prepare review to create a different connected page.\nreview_relationship: create: Prepare a saved-page relationship review; not publication.\nother_creation: create: A concrete action/artifact outside the defined work kinds.\nclarify_creation: create: Creation is requested but its artifact or target is unresolved.\ndraft_in_conversation: discuss: Write an explicitly requested editable draft for review in chat.\nreview_variant_approval: create: Open confirmation for a statblock variant already drafted for review in this conversation.\nreview_lore_page: create: Review a new standalone authored page, initially blank or populated, or continue its review.\nreview_lore_page_from_conversation: create: Review a new standalone page using the preceding discussion.",
+            "criteria": {
+              "discuss": null,
+              "clarify_request": null,
+              "plan": null,
+              "write_current_page": null,
+              "prepare_image": null,
+              "review_connected_page": null,
+              "review_relationship": null,
+              "other_creation": null,
+              "clarify_creation": null,
+              "draft_in_conversation": null,
+              "review_variant_approval": null,
+              "review_lore_page": null,
+              "review_lore_page_from_conversation": null
+            }
+          },
+          "source_need": {
+            "type": "choice",
+            "instructions": "Does answering this turn require looking beyond the current page, explicitly referenced or carried material, and dialogue? Choose anchored for creative feedback on a supplied premise or brainstorming where the GM asks for no new world fact. Choose source_lookup for a factual lookup, citation, search in another source, or an explicit new reference that must be located. Choose uncertain if the request cannot safely be answered from the anchored material alone. When the user asks to turn existing material into a draft, choose anchored if the draft can faithfully record the known material and leave disagreements or questions open. A gap in the story is not by itself a request to investigate; choose source_lookup when the task calls for fresh evidence. A recap, comparison or discussion of material already discussed is anchored when the author requests reuse or no new search. Use the retained conversation and reads, preserving attribution, corrections and uncertainty. Unresolved questions do not require another search unless the author asks to resolve them using fresh evidence. An explicit fresh lookup remains source_lookup.",
+            "criteria": {
+              "anchored": null,
+              "source_lookup": null,
+              "uncertain": null
+            }
+          }
+        }
+      },
+      "response": {
+        "answers": {
+          "requested_work": {
+            "kind": "choice",
+            "selected": "discuss",
+            "probabilities": {
+              "discuss": 0.8,
+              "clarify_request": 0.2,
+              "plan": 0.0,
+              "write_current_page": 0.0,
+              "prepare_image": 0.0,
+              "review_connected_page": 0.0,
+              "review_relationship": 0.0,
+              "other_creation": 0.0,
+              "clarify_creation": 0.0,
+              "draft_in_conversation": 0.0,
+              "review_variant_approval": 0.0,
+              "review_lore_page": 0.0,
+              "review_lore_page_from_conversation": 0.0
+            },
+            "confidence": 0.78
+          },
+          "source_need": {
+            "kind": "choice",
+            "selected": "anchored",
+            "probabilities": {
+              "anchored": 0.43,
+              "source_lookup": 0.25,
+              "uncertain": 0.32
+            },
+            "confidence": 0.14
+          }
+        },
+        "observation": {
+          "provider": "typesafe",
+          "requested_profile": null,
+          "requested_model": "jev-1.14.0",
+          "resolved_model": "jev-1.14.0",
+          "response_model": "jev-1.14.0",
+          "provider_transport": "vercel_ai_gateway",
+          "provider_request_id": null,
+          "provider_response_id": null,
+          "input_tokens": 1176,
+          "cached_input_tokens": null,
+          "output_tokens": 181,
+          "reasoning_tokens": null,
+          "cost_usd": null,
+          "known_cost_usd": null,
+          "cost_status": "unavailable",
+          "latency_ms": 332,
+          "retry_count": 0,
+          "transport_retry_count": 0,
+          "conformance_retry_count": 0,
+          "provider_attempt_count": 1,
+          "state": "completed",
+          "failure_code": null,
+          "pricing_source": null
+        }
+      },
+      "choices": {
+        "requested_work": "discuss",
+        "source_need": "anchored"
+      }
+    },
+    "full": {
+      "request": {
+        "state": {
+          "interaction": {
+            "allowed_operations": [
+              "answer_from_sources"
+            ],
+            "author_selected_references": [
+              {
+                "kind": "graph_object",
+                "label": "DISPLAY ONLY: never evidence"
+              },
+              {
+                "kind": "source",
+                "label": "DISPLAY ONLY source label",
+                "selection_kind": "full_document"
+              }
+            ],
+            "current_page_title": "Working page",
+            "history": [],
+            "page_target": null,
+            "working_draft_available": false
+          },
+          "user_question": "Describe the object I selected."
+        },
+        "model": "jev-1.14.0",
+        "questions": {
+          "requested_work": {
+            "type": "choice",
+            "instructions": "Identify the user's intent for this turn.\nUse prior conversation to resolve the requested artifact or destination. Treat\nquoted material and saved content as context. A brainstorming request stays\ndiscussion; an explicit editable draft in chat is conversation drafting.\nAn explicit edit to the active page is current-page writing. A new page is\nstandalone unless the author requests a connection. When a standalone page\nsummarizes prior discussion, use the conversation option and carry forward\nopen questions. Use clarification if the intent or reference remains unclear.\nOnly an explicit request to approve an existing statblock draft selects its\napproval review. Image preparation requires an image or prompt requested now;\ndescribing something for a later image is writing. If the requested action\nbelongs in another workflow, use other_creation. These choices grant no\nexecution authority.\ndiscuss: discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.\nclarify_request: discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.\nplan: create: Prepare an editable plan/checklist for author choice, not execution.\nwrite_current_page: create: Concrete current-page prose, proposed list/table, addition or selected-range revision.\nprepare_image: create: Prepare image, illustration or map-image prompt review; not coordinates.\nreview_connected_page: create: Prepare review to create a different connected page.\nreview_relationship: create: Prepare a saved-page relationship review; not publication.\nother_creation: create: A concrete action/artifact outside the defined work kinds.\nclarify_creation: create: Creation is requested but its artifact or target is unresolved.\ndraft_in_conversation: discuss: Write an explicitly requested editable draft for review in chat.\nreview_variant_approval: create: Open confirmation for a statblock variant already drafted for review in this conversation.\nreview_lore_page: create: Review a new standalone authored page, initially blank or populated, or continue its review.\nreview_lore_page_from_conversation: create: Review a new standalone page using the preceding discussion.\ndifferent_destination: The request belongs to another surface or to an explicit operator control.\nread_source: Consult Rules or saved sources for facts the user needs.\nplay_edit: Prepare a reviewable change to the current session scene.",
+            "criteria": {
+              "discuss": null,
+              "clarify_request": null,
+              "plan": null,
+              "write_current_page": null,
+              "prepare_image": null,
+              "review_connected_page": null,
+              "review_relationship": null,
+              "other_creation": null,
+              "clarify_creation": null,
+              "draft_in_conversation": null,
+              "review_variant_approval": null,
+              "review_lore_page": null,
+              "review_lore_page_from_conversation": null,
+              "different_destination": null,
+              "read_source": null,
+              "play_edit": null
+            }
+          },
+          "source_need": {
+            "type": "choice",
+            "instructions": "Does answering this turn require looking beyond the current page, explicitly referenced or carried material, and dialogue? Choose anchored for creative feedback on a supplied premise or brainstorming where the GM asks for no new world fact. Choose source_lookup for a factual lookup, citation, search in another source, or an explicit new reference that must be located. Choose uncertain if the request cannot safely be answered from the anchored material alone. When the user asks to turn existing material into a draft, choose anchored if the draft can faithfully record the known material and leave disagreements or questions open. A gap in the story is not by itself a request to investigate; choose source_lookup when the task calls for fresh evidence. A recap, comparison or discussion of material already discussed is anchored when the author requests reuse or no new search. Use the retained conversation and reads, preserving attribution, corrections and uncertainty. Unresolved questions do not require another search unless the author asks to resolve them using fresh evidence. An explicit fresh lookup remains source_lookup.",
+            "criteria": {
+              "anchored": null,
+              "source_lookup": null,
+              "uncertain": null
+            }
+          }
+        }
+      },
+      "response": {
+        "answers": {
+          "requested_work": {
+            "kind": "choice",
+            "selected": "discuss",
+            "probabilities": {
+              "discuss": 0.5,
+              "clarify_request": 0.17,
+              "plan": 0.0,
+              "write_current_page": 0.0,
+              "prepare_image": 0.0,
+              "review_connected_page": 0.0,
+              "review_relationship": 0.0,
+              "other_creation": 0.0,
+              "clarify_creation": 0.0,
+              "draft_in_conversation": 0.0,
+              "review_variant_approval": 0.0,
+              "review_lore_page": 0.0,
+              "review_lore_page_from_conversation": 0.0,
+              "different_destination": 0.02,
+              "read_source": 0.31,
+              "play_edit": 0.0
+            },
+            "confidence": 0.47
+          },
+          "source_need": {
+            "kind": "choice",
+            "selected": "anchored",
+            "probabilities": {
+              "anchored": 0.45,
+              "source_lookup": 0.24,
+              "uncertain": 0.31
+            },
+            "confidence": 0.18
+          }
+        },
+        "observation": {
+          "provider": "typesafe",
+          "requested_profile": null,
+          "requested_model": "jev-1.14.0",
+          "resolved_model": "jev-1.14.0",
+          "response_model": "jev-1.14.0",
+          "provider_transport": "vercel_ai_gateway",
+          "provider_request_id": null,
+          "provider_response_id": null,
+          "input_tokens": 1242,
+          "cached_input_tokens": null,
+          "output_tokens": 205,
+          "reasoning_tokens": null,
+          "cost_usd": null,
+          "known_cost_usd": null,
+          "cost_status": "unavailable",
+          "latency_ms": 173,
+          "retry_count": 0,
+          "transport_retry_count": 0,
+          "conformance_retry_count": 0,
+          "provider_attempt_count": 1,
+          "state": "completed",
+          "failure_code": null,
+          "pricing_source": null
+        }
+      },
+      "choices": {
+        "requested_work": "discuss",
+        "source_need": "anchored"
+      }
+    }
+  }
+}

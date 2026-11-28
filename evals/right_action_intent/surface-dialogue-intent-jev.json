@@ -1,0 +1,490 @@
+{
+  "plan": {
+    "fixture_sha256": "83503e3bddb2be896b8bc084227edd675fe8646c2b7a2c2adac3d6f32f51b3dc",
+    "model": "jev-1.14.0",
+    "prompt": "Identify the user's intent for this turn. Use the supplied dialogue where needed. If the available evidence leaves the intent unclear, choose needs_context_to_choose. Return one action family. Target binding, available tools, and execution are downstream.",
+    "menus": {
+      "plan": {
+        "scoped": {
+          "discuss": "Answer, explain, critique or discuss in conversation without a requested page edit.",
+          "clarify": "The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.",
+          "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+          "different_destination": "Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+          "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred."
+        },
+        "full": {
+          "discuss": "Answer, explain, critique or discuss in conversation without a requested page edit.",
+          "clarify": "The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.",
+          "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+          "different_destination": "Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+          "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred.",
+          "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+          "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+          "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+          "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+          "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+          "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+          "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+          "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+          "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion.",
+          "read_source": "Consult Rules or saved sources for facts the user needs.",
+          "play_edit": "Prepare a reviewable change to the current session scene."
+        }
+      }
+    },
+    "cases": {
+      "plan": [
+        {
+          "id": "plan-follow-up-selected-edit",
+          "tier": "dialogue_followup",
+          "input": {
+            "surface": "plan",
+            "user_utterance": "Yes, use that wording.",
+            "page_title": "Ferry Crossing",
+            "selected_text": "The guard sees them.",
+            "page_markdown": "# Ferry Crossing\n\nThe guard sees them.",
+            "prior_dialogue": [
+              {
+                "role": "user",
+                "content": "Please replace the highlighted sentence in the Plan with a warning about the river."
+              },
+              {
+                "role": "assistant",
+                "content": "Shall I replace it with ‘The guard warns that the river is rising’?"
+              }
+            ]
+          },
+          "expected": "write_current_page",
+          "reason": "The reply confirms an exact proposed replacement on the open Plan."
+        }
+      ]
+    },
+    "plan_prompt": "Identify the user’s intent now. Use dialogue to resolve omitted references. Choose one action family. Target binding and execution are downstream.",
+    "plan_question": "requested_work",
+    "plan_wire_state_by_case": {
+      "plan-follow-up-selected-edit": {
+        "surface": "plan",
+        "user_utterance": "Yes, use that wording.",
+        "page_title": "Ferry Crossing",
+        "selected_text": "The guard sees them.",
+        "prior_dialogue": [
+          {
+            "role": "user",
+            "content": "Please replace the highlighted sentence in the Plan with a warning about the river."
+          },
+          {
+            "role": "assistant",
+            "content": "Shall I replace it with ‘The guard warns that the river is rising’?"
+          }
+        ]
+      }
+    },
+    "results": {
+      "plan": {
+        "full": {
+          "summary": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 855.12
+          },
+          "rows": [
+            {
+              "id": "plan-follow-up-selected-edit",
+              "tier": "dialogue_followup",
+              "expected": "write_current_page",
+              "choice": "write_current_page",
+              "status": "correct",
+              "elapsed_ms": 855.12,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "write_current_page",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify": 0.0,
+                      "write_current_page": 0.9,
+                      "different_destination": 0.0,
+                      "review_connected_page": 0.0,
+                      "plan": 0.0,
+                      "prepare_image": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.01,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0,
+                      "read_source": 0.0,
+                      "play_edit": 0.09
+                    },
+                    "confidence": 0.89
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 879,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 854,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            }
+          ],
+          "reused": [],
+          "decision_summary": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 855.12
+          },
+          "by_action": {
+            "write_current_page": {
+              "cases": 1,
+              "dispositions": {
+                "correct": 1
+              },
+              "top_score_ties": 0,
+              "median_decision_ms": 855.12
+            }
+          }
+        },
+        "scoped": {
+          "summary": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 185.43
+          },
+          "rows": [
+            {
+              "id": "plan-follow-up-selected-edit",
+              "tier": "dialogue_followup",
+              "expected": "write_current_page",
+              "choice": "write_current_page",
+              "status": "correct",
+              "elapsed_ms": 185.43,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "write_current_page",
+                    "probabilities": {
+                      "discuss": 0.01,
+                      "clarify": 0.0,
+                      "write_current_page": 0.99,
+                      "different_destination": 0.0,
+                      "review_connected_page": 0.0
+                    },
+                    "confidence": 0.99
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 577,
+                  "cached_input_tokens": null,
+                  "output_tokens": 62,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 185,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            }
+          ],
+          "reused": [],
+          "decision_summary": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 185.43
+          },
+          "by_action": {
+            "write_current_page": {
+              "cases": 1,
+              "dispositions": {
+                "correct": 1
+              },
+              "top_score_ties": 0,
+              "median_decision_ms": 185.43
+            }
+          }
+        }
+      }
+    }
+  },
+  "play": {
+    "fixture_sha256": "83503e3bddb2be896b8bc084227edd675fe8646c2b7a2c2adac3d6f32f51b3dc",
+    "model": "jev-1.14.0",
+    "prompt": "Identify the user's intent for this turn. Use the supplied dialogue where needed. If the available evidence leaves the intent unclear, choose needs_context_to_choose. Return one action family. Target binding, available tools, and execution are downstream.",
+    "menus": {
+      "play": {
+        "scoped": {
+          "discuss": "Discuss, explain, or brainstorm using the supplied conversation.",
+          "clarify_request": "Ask what the user wants when the action or referent remains unclear.",
+          "read_source": "Consult Rules or saved sources for facts the user needs.",
+          "play_edit": "Prepare a reviewable change to the current session scene.",
+          "different_destination": "The request belongs to another surface or to an explicit operator control."
+        },
+        "full": {
+          "discuss": "Discuss, explain, or brainstorm using the supplied conversation.",
+          "clarify_request": "Ask what the user wants when the action or referent remains unclear.",
+          "read_source": "Consult Rules or saved sources for facts the user needs.",
+          "play_edit": "Prepare a reviewable change to the current session scene.",
+          "different_destination": "The request belongs to another surface or to an explicit operator control.",
+          "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+          "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+          "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+          "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred.",
+          "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+          "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+          "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+          "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+          "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+          "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+          "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion."
+        }
+      }
+    },
+    "cases": {
+      "play": [
+        {
+          "id": "play-follow-up-discussion",
+          "tier": "dialogue_followup",
+          "input": {
+            "surface": "play",
+            "user_utterance": "What if he refuses?",
+            "current_scene_title": "Ferry Crossing",
+            "prior_dialogue": [
+              {
+                "role": "user",
+                "content": "Let's discuss how to handle the party negotiating with the ferryman. We are only brainstorming."
+              },
+              {
+                "role": "assistant",
+                "content": "They could offer to tell him a story in exchange for passage."
+              }
+            ]
+          },
+          "expected": "discuss",
+          "reason": "The previous turns establish a hypothetical negotiation to discuss."
+        }
+      ]
+    },
+    "play_prompt": "Identify the user’s intent now. Use dialogue to resolve omitted references. Choose one action family. Target binding and execution are downstream.",
+    "play_question": "requested_work",
+    "results": {
+      "play": {
+        "full": {
+          "summary": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 262.18
+          },
+          "rows": [
+            {
+              "id": "play-follow-up-discussion",
+              "tier": "dialogue_followup",
+              "expected": "discuss",
+              "choice": "discuss",
+              "status": "correct",
+              "elapsed_ms": 262.18,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "discuss",
+                    "probabilities": {
+                      "discuss": 0.98,
+                      "clarify_request": 0.0,
+                      "read_source": 0.0,
+                      "play_edit": 0.0,
+                      "different_destination": 0.0,
+                      "plan": 0.01,
+                      "write_current_page": 0.0,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.01,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.98
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 858,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 262,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            }
+          ],
+          "reused": [],
+          "decision_summary": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 262.18
+          },
+          "by_action": {
+            "discuss": {
+              "cases": 1,
+              "dispositions": {
+                "correct": 1
+              },
+              "top_score_ties": 0,
+              "median_decision_ms": 262.18
+            }
+          }
+        },
+        "scoped": {
+          "summary": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 169.74
+          },
+          "rows": [
+            {
+              "id": "play-follow-up-discussion",
+              "tier": "dialogue_followup",
+              "expected": "discuss",
+              "choice": "discuss",
+              "status": "correct",
+              "elapsed_ms": 169.74,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "discuss",
+                    "probabilities": {
+                      "discuss": 0.99,
+                      "clarify_request": 0.01,
+                      "read_source": 0.0,
+                      "play_edit": 0.0,
+                      "different_destination": 0.0
+                    },
+                    "confidence": 0.99
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 540,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 169,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            }
+          ],
+          "reused": [],
+          "decision_summary": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 169.74
+          },
+          "by_action": {
+            "discuss": {
+              "cases": 1,
+              "dispositions": {
+                "correct": 1
+              },
+              "top_score_ties": 0,
+              "median_decision_ms": 169.74
+            }
+          }
+        }
+      }
+    }
+  }
+}

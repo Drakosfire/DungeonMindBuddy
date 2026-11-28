@@ -1,0 +1,483 @@
+{
+  "v2_sha256": "658677f252e445dc005a7f8f631a737565f8601acf978a42b2d565e598ad1364",
+  "v2_revision": "09c682e732ac42875af70e592bc483019ed570fa",
+  "dispositions": [
+    {
+      "id": "discuss-direct",
+      "status": "scored",
+      "surface": "build",
+      "expected": "discuss"
+    },
+    {
+      "id": "discuss-paraphrase",
+      "status": "scored",
+      "surface": "build",
+      "expected": "discuss"
+    },
+    {
+      "id": "clarify_request-direct",
+      "status": "scored",
+      "surface": "build",
+      "expected": "clarify_request"
+    },
+    {
+      "id": "clarify_request-paraphrase",
+      "status": "scored",
+      "surface": "build",
+      "expected": "clarify_request"
+    },
+    {
+      "id": "draft_in_conversation-direct",
+      "status": "scored",
+      "surface": "build",
+      "expected": "draft_in_conversation"
+    },
+    {
+      "id": "draft_in_conversation-paraphrase",
+      "status": "scored",
+      "surface": "build",
+      "expected": "draft_in_conversation"
+    },
+    {
+      "id": "write_current_page-direct",
+      "status": "scored",
+      "surface": "build",
+      "expected": "write_current_page"
+    },
+    {
+      "id": "write_current_page-paraphrase",
+      "status": "scored",
+      "surface": "build",
+      "expected": "write_current_page"
+    },
+    {
+      "id": "read_source-direct",
+      "status": "parked",
+      "reason": "Current owner separates the intent ballot from source or Rules choice; a standalone read label has no exact match."
+    },
+    {
+      "id": "read_source-paraphrase",
+      "status": "parked",
+      "reason": "Current owner separates the intent ballot from source or Rules choice; a standalone read label has no exact match."
+    },
+    {
+      "id": "read_rules-direct",
+      "status": "parked",
+      "reason": "Current owner separates the intent ballot from source or Rules choice; a standalone read label has no exact match."
+    },
+    {
+      "id": "read_rules-paraphrase",
+      "status": "parked",
+      "reason": "Current owner separates the intent ballot from source or Rules choice; a standalone read label has no exact match."
+    },
+    {
+      "id": "review_lore_page-direct",
+      "status": "scored",
+      "surface": "build",
+      "expected": "review_lore_page"
+    },
+    {
+      "id": "review_lore_page-paraphrase",
+      "status": "scored",
+      "surface": "build",
+      "expected": "review_lore_page_from_conversation"
+    },
+    {
+      "id": "review_connected_page-direct",
+      "status": "scored",
+      "surface": "build",
+      "expected": "review_connected_page"
+    },
+    {
+      "id": "review_connected_page-paraphrase",
+      "status": "scored",
+      "surface": "build",
+      "expected": "review_connected_page"
+    },
+    {
+      "id": "save_page-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "save_page-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "plan-paraphrase",
+      "status": "scored",
+      "surface": "build",
+      "expected": "plan"
+    },
+    {
+      "id": "continue_work_plan-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "continue_work_plan-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "choice_option-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "choice_option-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "review_relationship-direct",
+      "status": "scored",
+      "surface": "build",
+      "expected": "review_relationship"
+    },
+    {
+      "id": "review_relationship-paraphrase",
+      "status": "scored",
+      "surface": "build",
+      "expected": "review_relationship"
+    },
+    {
+      "id": "publish_relationships-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "publish_relationships-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "change_mechanics-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "change_mechanics-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "review_variant_approval-direct",
+      "status": "scored",
+      "surface": "build",
+      "expected": "review_variant_approval"
+    },
+    {
+      "id": "review_variant_approval-paraphrase",
+      "status": "scored",
+      "surface": "build",
+      "expected": "review_variant_approval"
+    },
+    {
+      "id": "build_encounter-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "build_encounter-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "preview_encounter-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "preview_encounter-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "start_combat-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "start_combat-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "update_combat-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "update_combat-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "prepare_image-direct",
+      "status": "scored",
+      "surface": "build",
+      "expected": "prepare_image"
+    },
+    {
+      "id": "prepare_image-paraphrase",
+      "status": "scored",
+      "surface": "build",
+      "expected": "prepare_image"
+    },
+    {
+      "id": "generate_image-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "generate_image-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "save_image-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "save_image-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "place_image-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "place_image-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "map_navigation-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "map_navigation-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "name_correction-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "name_correction-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "identity_review-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "identity_review-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "publish_extraction-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "play_dispatch-direct",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "play_dispatch-paraphrase",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "play_edit-direct",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "play_edit-paraphrase",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "open_table-direct",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "open_table-paraphrase",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "record_roll-direct",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "record_roll-paraphrase",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "record_session_note-direct",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "record_session_note-paraphrase",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "played_recap-direct",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "played_recap-paraphrase",
+      "status": "parked",
+      "reason": "Play conversational intent admission is pending; Run operations stay with their existing owners."
+    },
+    {
+      "id": "recover_request-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "recover_request-paraphrase",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "operator_handoff-direct",
+      "status": "parked",
+      "reason": "This request depends on an owner-specific operator command or separate review route; the probe does not qualify a conversational choice."
+    },
+    {
+      "id": "DISCUSS-1-U",
+      "status": "scored",
+      "surface": "build",
+      "expected": "discuss"
+    },
+    {
+      "id": "CLARIFY-2-U",
+      "status": "scored",
+      "surface": "build",
+      "expected": "clarify_request"
+    },
+    {
+      "id": "PAGE-EDIT-2-U",
+      "status": "scored",
+      "surface": "build",
+      "expected": "write_current_page"
+    },
+    {
+      "id": "SOURCE-READ-1-U",
+      "status": "parked",
+      "reason": "Current owner separates the intent ballot from source or Rules choice; a standalone read label has no exact match."
+    },
+    {
+      "id": "CLARIFY-2-playful-U",
+      "status": "parked",
+      "reason": "Current runtime menus have clarification but no evaluator-style context deferral."
+    },
+    {
+      "id": "CLARIFY-2-playful-H",
+      "status": "scored",
+      "surface": "build",
+      "expected": "draft_in_conversation"
+    },
+    {
+      "id": "PAGE-EDIT-2-do-that-U",
+      "status": "parked",
+      "reason": "Current runtime menus have clarification but no evaluator-style context deferral."
+    },
+    {
+      "id": "PAGE-EDIT-2-do-that-H",
+      "status": "scored",
+      "surface": "build",
+      "expected": "write_current_page"
+    },
+    {
+      "id": "DISCUSS-1-do-that-U",
+      "status": "parked",
+      "reason": "Current runtime menus have clarification but no evaluator-style context deferral."
+    },
+    {
+      "id": "DISCUSS-1-do-that-H",
+      "status": "scored",
+      "surface": "build",
+      "expected": "discuss"
+    },
+    {
+      "id": "DISCUSS-1-distractor-U",
+      "status": "scored",
+      "surface": "build",
+      "expected": "discuss"
+    },
+    {
+      "id": "PAGE-EDIT-2-external-U",
+      "status": "scored",
+      "surface": "build",
+      "expected": "write_current_page"
+    },
+    {
+      "id": "read-no-edit",
+      "status": "parked",
+      "reason": "Current owner separates the intent ballot from source or Rules choice; a standalone read label has no exact match."
+    },
+    {
+      "id": "rules-not-lore",
+      "status": "parked",
+      "reason": "Current owner separates the intent ballot from source or Rules choice; a standalone read label has no exact match."
+    },
+    {
+      "id": "image-not-generate",
+      "status": "scored",
+      "surface": "build",
+      "expected": "discuss"
+    },
+    {
+      "id": "mechanics-as-text",
+      "status": "scored",
+      "surface": "build",
+      "expected": "draft_in_conversation"
+    },
+    {
+      "id": "no-combat-effect",
+      "status": "scored",
+      "surface": "build",
+      "expected": "discuss"
+    },
+    {
+      "id": "map-description",
+      "status": "scored",
+      "surface": "build",
+      "expected": "draft_in_conversation"
+    },
+    {
+      "id": "review-not-publish",
+      "status": "scored",
+      "surface": "build",
+      "expected": "review_relationship"
+    },
+    {
+      "id": "ambiguous-approval",
+      "status": "parked",
+      "reason": "Current runtime menus have clarification but no evaluator-style context deferral."
+    }
+  ]
+}

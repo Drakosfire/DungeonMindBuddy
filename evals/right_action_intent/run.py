@@ -21,14 +21,21 @@ def load_suite(path):
     raw = path.read_bytes()
     suite = json.loads(raw)
     actions, cases = suite["actions"], suite["cases"]
-    if suite["schema"] != "buddy.right-action-intent.v1":
+    if suite["schema"] not in {"buddy.right-action-intent.v1", "buddy.right-action-intent.v2"}:
         raise ValueError("Unexpected benchmark schema")
     if len({case["id"] for case in cases}) != len(cases) or set(actions) != {case["expected"] for case in cases}:
         raise ValueError("Each case needs a unique ID and every action needs Gold")
     for case in cases:
         if (not case["input"].get("user_utterance")
-                or set(case["input"]) - {"user_utterance", "dialogue", "history", "prior_dialogue", "prior_dialogue_and_pending_work"}):
+                or set(case["input"]) - {"user_utterance", "dialogue", "history", "prior_dialogue", "prior_dialogue_and_pending_work", "editor_context"}):
             raise ValueError(f"Unexpected model-visible input for {case['id']}")
+        editor = case["input"].get("editor_context")
+        if editor is not None and (
+            set(editor) != {"page_title", "page_markdown", "selected_text"}
+            or any(not isinstance(value, str) or not value.strip() for value in editor.values())
+            or editor["page_markdown"].count(editor["selected_text"]) != 1
+        ):
+            raise ValueError(f"Expected one exact selected sentence in {case['id']}")
     return sha256(raw).hexdigest(), actions, cases
 
 
@@ -37,6 +44,18 @@ def result_summary(rows):
     timings = [row["elapsed_ms"] for row in rows if row["status"] != "provider_error"]
     return {"cases": len(rows), "dispositions": dict(dispositions),
             "median_decision_ms": round(median(timings), 2) if timings else None}
+
+
+def grade_choice(choice, expected, actions):
+    if choice not in actions:
+        return "invalid_output"
+    if choice == expected:
+        return "correct"
+    if choice == "needs_context_to_choose":
+        return "unnecessary_deferral"
+    if expected == "needs_context_to_choose":
+        return "guessed_without_context"
+    return "wrong_action"
 
 
 async def evaluate_suite(cases, actions, decide, concurrency):
@@ -52,10 +71,7 @@ async def evaluate_suite(cases, actions, decide, concurrency):
                 choice, response = None, {"error": type(error).__name__}
                 status = "provider_error"
             else:
-                status = ("invalid_output" if choice not in actions else
-                          "correct" if choice == case["expected"] else
-                          "unnecessary_deferral" if choice == "needs_context_to_choose" else
-                          "guessed_without_context" if case["expected"] == "needs_context_to_choose" else "wrong_action")
+                status = grade_choice(choice, case["expected"], actions)
             elapsed = (monotonic() - started) * 1000
         return {"id": case["id"], "tier": case["tier"], "expected": case["expected"],
                 "choice": choice, "status": status, "elapsed_ms": round(elapsed, 2), "response": response}

@@ -1,0 +1,1034 @@
+{
+  "suite_sha256": "658677f252e445dc005a7f8f631a737565f8601acf978a42b2d565e598ad1364",
+  "provider": "typesafe",
+  "model": "jev-1.14.0",
+  "prompt": "Identify the user's intent for this turn. Use the supplied dialogue where needed. If the available evidence leaves the intent unclear, choose needs_context_to_choose. Return one action family. Target binding, available tools, and execution are downstream.",
+  "summary": {
+    "cases": 89,
+    "dispositions": {
+      "correct": 86,
+      "invalid_output": 1,
+      "wrong_action": 2
+    },
+    "median_decision_ms": 192.61
+  },
+  "breakdowns": {
+    "tier": {
+      "contrast": {
+        "cases": 8,
+        "dispositions": {
+          "correct": 8
+        },
+        "median_decision_ms": 212.38
+      },
+      "direct": {
+        "cases": 35,
+        "dispositions": {
+          "correct": 35
+        },
+        "median_decision_ms": 190.31
+      },
+      "paraphrase": {
+        "cases": 34,
+        "dispositions": {
+          "correct": 31,
+          "invalid_output": 1,
+          "wrong_action": 2
+        },
+        "median_decision_ms": 196.84
+      },
+      "retained_dialogue": {
+        "cases": 3,
+        "dispositions": {
+          "correct": 3
+        },
+        "median_decision_ms": 174.56
+      },
+      "retained_utterance": {
+        "cases": 9,
+        "dispositions": {
+          "correct": 9
+        },
+        "median_decision_ms": 184.52
+      }
+    },
+    "expected": {
+      "build_encounter": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 166.72
+      },
+      "change_mechanics": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 205.3
+      },
+      "choice_option": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 197.83
+      },
+      "clarify_request": {
+        "cases": 3,
+        "dispositions": {
+          "correct": 3
+        },
+        "median_decision_ms": 302.11
+      },
+      "continue_work_plan": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 186.45
+      },
+      "discuss": {
+        "cases": 7,
+        "dispositions": {
+          "correct": 7
+        },
+        "median_decision_ms": 248.24
+      },
+      "draft_in_conversation": {
+        "cases": 5,
+        "dispositions": {
+          "correct": 5
+        },
+        "median_decision_ms": 208.43
+      },
+      "generate_image": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 196.94
+      },
+      "identity_review": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 233.83
+      },
+      "map_navigation": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 174.78
+      },
+      "name_correction": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 1,
+          "wrong_action": 1
+        },
+        "median_decision_ms": 217.47
+      },
+      "needs_context_to_choose": {
+        "cases": 4,
+        "dispositions": {
+          "correct": 4
+        },
+        "median_decision_ms": 213.65
+      },
+      "open_table": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 213.81
+      },
+      "operator_handoff": {
+        "cases": 1,
+        "dispositions": {
+          "correct": 1
+        },
+        "median_decision_ms": 226.23
+      },
+      "place_image": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 196.78
+      },
+      "plan": {
+        "cases": 1,
+        "dispositions": {
+          "correct": 1
+        },
+        "median_decision_ms": 193.41
+      },
+      "play_dispatch": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 187.36
+      },
+      "play_edit": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 1,
+          "wrong_action": 1
+        },
+        "median_decision_ms": 227.44
+      },
+      "played_recap": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 261.91
+      },
+      "prepare_image": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 179.13
+      },
+      "preview_encounter": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 169.71
+      },
+      "publish_extraction": {
+        "cases": 1,
+        "dispositions": {
+          "correct": 1
+        },
+        "median_decision_ms": 184.6
+      },
+      "publish_relationships": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 205.85
+      },
+      "read_rules": {
+        "cases": 3,
+        "dispositions": {
+          "correct": 3
+        },
+        "median_decision_ms": 169.41
+      },
+      "read_source": {
+        "cases": 4,
+        "dispositions": {
+          "correct": 4
+        },
+        "median_decision_ms": 188.55
+      },
+      "record_roll": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 183.1
+      },
+      "record_session_note": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 198.99
+      },
+      "recover_request": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 183.53
+      },
+      "review_connected_page": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 211.31
+      },
+      "review_lore_page": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 191.83
+      },
+      "review_relationship": {
+        "cases": 3,
+        "dispositions": {
+          "correct": 3
+        },
+        "median_decision_ms": 200.72
+      },
+      "review_variant_approval": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 270.11
+      },
+      "save_image": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 190.72
+      },
+      "save_page": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 208.25
+      },
+      "start_combat": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 169.73
+      },
+      "update_combat": {
+        "cases": 2,
+        "dispositions": {
+          "correct": 2
+        },
+        "median_decision_ms": 165.06
+      },
+      "write_current_page": {
+        "cases": 5,
+        "dispositions": {
+          "correct": 4,
+          "invalid_output": 1
+        },
+        "median_decision_ms": 191.32
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "discuss-direct",
+      "tier": "direct",
+      "expected": "discuss",
+      "choice": "discuss",
+      "status": "correct",
+      "elapsed_ms": 332.76
+    },
+    {
+      "id": "discuss-paraphrase",
+      "tier": "paraphrase",
+      "expected": "discuss",
+      "choice": "discuss",
+      "status": "correct",
+      "elapsed_ms": 308.72
+    },
+    {
+      "id": "clarify_request-direct",
+      "tier": "direct",
+      "expected": "clarify_request",
+      "choice": "clarify_request",
+      "status": "correct",
+      "elapsed_ms": 322.04
+    },
+    {
+      "id": "clarify_request-paraphrase",
+      "tier": "paraphrase",
+      "expected": "clarify_request",
+      "choice": "clarify_request",
+      "status": "correct",
+      "elapsed_ms": 302.11
+    },
+    {
+      "id": "draft_in_conversation-direct",
+      "tier": "direct",
+      "expected": "draft_in_conversation",
+      "choice": "draft_in_conversation",
+      "status": "correct",
+      "elapsed_ms": 173.12
+    },
+    {
+      "id": "draft_in_conversation-paraphrase",
+      "tier": "paraphrase",
+      "expected": "draft_in_conversation",
+      "choice": "draft_in_conversation",
+      "status": "correct",
+      "elapsed_ms": 208.43
+    },
+    {
+      "id": "write_current_page-direct",
+      "tier": "direct",
+      "expected": "write_current_page",
+      "choice": "write_current_page",
+      "status": "correct",
+      "elapsed_ms": 191.32
+    },
+    {
+      "id": "write_current_page-paraphrase",
+      "tier": "paraphrase",
+      "expected": "write_current_page",
+      "choice": null,
+      "status": "invalid_output",
+      "elapsed_ms": 210.09
+    },
+    {
+      "id": "read_source-direct",
+      "tier": "direct",
+      "expected": "read_source",
+      "choice": "read_source",
+      "status": "correct",
+      "elapsed_ms": 194.37
+    },
+    {
+      "id": "read_source-paraphrase",
+      "tier": "paraphrase",
+      "expected": "read_source",
+      "choice": "read_source",
+      "status": "correct",
+      "elapsed_ms": 170.97
+    },
+    {
+      "id": "read_rules-direct",
+      "tier": "direct",
+      "expected": "read_rules",
+      "choice": "read_rules",
+      "status": "correct",
+      "elapsed_ms": 169.41
+    },
+    {
+      "id": "read_rules-paraphrase",
+      "tier": "paraphrase",
+      "expected": "read_rules",
+      "choice": "read_rules",
+      "status": "correct",
+      "elapsed_ms": 157.53
+    },
+    {
+      "id": "review_lore_page-direct",
+      "tier": "direct",
+      "expected": "review_lore_page",
+      "choice": "review_lore_page",
+      "status": "correct",
+      "elapsed_ms": 179.16
+    },
+    {
+      "id": "review_lore_page-paraphrase",
+      "tier": "paraphrase",
+      "expected": "review_lore_page",
+      "choice": "review_lore_page",
+      "status": "correct",
+      "elapsed_ms": 204.51
+    },
+    {
+      "id": "review_connected_page-direct",
+      "tier": "direct",
+      "expected": "review_connected_page",
+      "choice": "review_connected_page",
+      "status": "correct",
+      "elapsed_ms": 242.5
+    },
+    {
+      "id": "review_connected_page-paraphrase",
+      "tier": "paraphrase",
+      "expected": "review_connected_page",
+      "choice": "review_connected_page",
+      "status": "correct",
+      "elapsed_ms": 180.12
+    },
+    {
+      "id": "save_page-direct",
+      "tier": "direct",
+      "expected": "save_page",
+      "choice": "save_page",
+      "status": "correct",
+      "elapsed_ms": 235.31
+    },
+    {
+      "id": "save_page-paraphrase",
+      "tier": "paraphrase",
+      "expected": "save_page",
+      "choice": "save_page",
+      "status": "correct",
+      "elapsed_ms": 181.2
+    },
+    {
+      "id": "plan-paraphrase",
+      "tier": "paraphrase",
+      "expected": "plan",
+      "choice": "plan",
+      "status": "correct",
+      "elapsed_ms": 193.41
+    },
+    {
+      "id": "continue_work_plan-direct",
+      "tier": "direct",
+      "expected": "continue_work_plan",
+      "choice": "continue_work_plan",
+      "status": "correct",
+      "elapsed_ms": 163.04
+    },
+    {
+      "id": "continue_work_plan-paraphrase",
+      "tier": "paraphrase",
+      "expected": "continue_work_plan",
+      "choice": "continue_work_plan",
+      "status": "correct",
+      "elapsed_ms": 209.86
+    },
+    {
+      "id": "choice_option-direct",
+      "tier": "direct",
+      "expected": "choice_option",
+      "choice": "choice_option",
+      "status": "correct",
+      "elapsed_ms": 183.4
+    },
+    {
+      "id": "choice_option-paraphrase",
+      "tier": "paraphrase",
+      "expected": "choice_option",
+      "choice": "choice_option",
+      "status": "correct",
+      "elapsed_ms": 212.26
+    },
+    {
+      "id": "review_relationship-direct",
+      "tier": "direct",
+      "expected": "review_relationship",
+      "choice": "review_relationship",
+      "status": "correct",
+      "elapsed_ms": 200.72
+    },
+    {
+      "id": "review_relationship-paraphrase",
+      "tier": "paraphrase",
+      "expected": "review_relationship",
+      "choice": "review_relationship",
+      "status": "correct",
+      "elapsed_ms": 204.19
+    },
+    {
+      "id": "publish_relationships-direct",
+      "tier": "direct",
+      "expected": "publish_relationships",
+      "choice": "publish_relationships",
+      "status": "correct",
+      "elapsed_ms": 180.68
+    },
+    {
+      "id": "publish_relationships-paraphrase",
+      "tier": "paraphrase",
+      "expected": "publish_relationships",
+      "choice": "publish_relationships",
+      "status": "correct",
+      "elapsed_ms": 231.02
+    },
+    {
+      "id": "change_mechanics-direct",
+      "tier": "direct",
+      "expected": "change_mechanics",
+      "choice": "change_mechanics",
+      "status": "correct",
+      "elapsed_ms": 193.79
+    },
+    {
+      "id": "change_mechanics-paraphrase",
+      "tier": "paraphrase",
+      "expected": "change_mechanics",
+      "choice": "change_mechanics",
+      "status": "correct",
+      "elapsed_ms": 216.81
+    },
+    {
+      "id": "review_variant_approval-direct",
+      "tier": "direct",
+      "expected": "review_variant_approval",
+      "choice": "review_variant_approval",
+      "status": "correct",
+      "elapsed_ms": 302.84
+    },
+    {
+      "id": "review_variant_approval-paraphrase",
+      "tier": "paraphrase",
+      "expected": "review_variant_approval",
+      "choice": "review_variant_approval",
+      "status": "correct",
+      "elapsed_ms": 237.37
+    },
+    {
+      "id": "build_encounter-direct",
+      "tier": "direct",
+      "expected": "build_encounter",
+      "choice": "build_encounter",
+      "status": "correct",
+      "elapsed_ms": 190.31
+    },
+    {
+      "id": "build_encounter-paraphrase",
+      "tier": "paraphrase",
+      "expected": "build_encounter",
+      "choice": "build_encounter",
+      "status": "correct",
+      "elapsed_ms": 143.14
+    },
+    {
+      "id": "preview_encounter-direct",
+      "tier": "direct",
+      "expected": "preview_encounter",
+      "choice": "preview_encounter",
+      "status": "correct",
+      "elapsed_ms": 160.04
+    },
+    {
+      "id": "preview_encounter-paraphrase",
+      "tier": "paraphrase",
+      "expected": "preview_encounter",
+      "choice": "preview_encounter",
+      "status": "correct",
+      "elapsed_ms": 179.38
+    },
+    {
+      "id": "start_combat-direct",
+      "tier": "direct",
+      "expected": "start_combat",
+      "choice": "start_combat",
+      "status": "correct",
+      "elapsed_ms": 158.5
+    },
+    {
+      "id": "start_combat-paraphrase",
+      "tier": "paraphrase",
+      "expected": "start_combat",
+      "choice": "start_combat",
+      "status": "correct",
+      "elapsed_ms": 180.96
+    },
+    {
+      "id": "update_combat-direct",
+      "tier": "direct",
+      "expected": "update_combat",
+      "choice": "update_combat",
+      "status": "correct",
+      "elapsed_ms": 168.68
+    },
+    {
+      "id": "update_combat-paraphrase",
+      "tier": "paraphrase",
+      "expected": "update_combat",
+      "choice": "update_combat",
+      "status": "correct",
+      "elapsed_ms": 161.45
+    },
+    {
+      "id": "prepare_image-direct",
+      "tier": "direct",
+      "expected": "prepare_image",
+      "choice": "prepare_image",
+      "status": "correct",
+      "elapsed_ms": 170.81
+    },
+    {
+      "id": "prepare_image-paraphrase",
+      "tier": "paraphrase",
+      "expected": "prepare_image",
+      "choice": "prepare_image",
+      "status": "correct",
+      "elapsed_ms": 187.46
+    },
+    {
+      "id": "generate_image-direct",
+      "tier": "direct",
+      "expected": "generate_image",
+      "choice": "generate_image",
+      "status": "correct",
+      "elapsed_ms": 177.48
+    },
+    {
+      "id": "generate_image-paraphrase",
+      "tier": "paraphrase",
+      "expected": "generate_image",
+      "choice": "generate_image",
+      "status": "correct",
+      "elapsed_ms": 216.4
+    },
+    {
+      "id": "save_image-direct",
+      "tier": "direct",
+      "expected": "save_image",
+      "choice": "save_image",
+      "status": "correct",
+      "elapsed_ms": 226.86
+    },
+    {
+      "id": "save_image-paraphrase",
+      "tier": "paraphrase",
+      "expected": "save_image",
+      "choice": "save_image",
+      "status": "correct",
+      "elapsed_ms": 154.57
+    },
+    {
+      "id": "place_image-direct",
+      "tier": "direct",
+      "expected": "place_image",
+      "choice": "place_image",
+      "status": "correct",
+      "elapsed_ms": 193.28
+    },
+    {
+      "id": "place_image-paraphrase",
+      "tier": "paraphrase",
+      "expected": "place_image",
+      "choice": "place_image",
+      "status": "correct",
+      "elapsed_ms": 200.28
+    },
+    {
+      "id": "map_navigation-direct",
+      "tier": "direct",
+      "expected": "map_navigation",
+      "choice": "map_navigation",
+      "status": "correct",
+      "elapsed_ms": 179.1
+    },
+    {
+      "id": "map_navigation-paraphrase",
+      "tier": "paraphrase",
+      "expected": "map_navigation",
+      "choice": "map_navigation",
+      "status": "correct",
+      "elapsed_ms": 170.46
+    },
+    {
+      "id": "name_correction-direct",
+      "tier": "direct",
+      "expected": "name_correction",
+      "choice": "name_correction",
+      "status": "correct",
+      "elapsed_ms": 246.3
+    },
+    {
+      "id": "name_correction-paraphrase",
+      "tier": "paraphrase",
+      "expected": "name_correction",
+      "choice": "play_edit",
+      "status": "wrong_action",
+      "elapsed_ms": 188.64
+    },
+    {
+      "id": "identity_review-direct",
+      "tier": "direct",
+      "expected": "identity_review",
+      "choice": "identity_review",
+      "status": "correct",
+      "elapsed_ms": 219.61
+    },
+    {
+      "id": "identity_review-paraphrase",
+      "tier": "paraphrase",
+      "expected": "identity_review",
+      "choice": "identity_review",
+      "status": "correct",
+      "elapsed_ms": 248.05
+    },
+    {
+      "id": "publish_extraction-direct",
+      "tier": "direct",
+      "expected": "publish_extraction",
+      "choice": "publish_extraction",
+      "status": "correct",
+      "elapsed_ms": 184.6
+    },
+    {
+      "id": "play_dispatch-direct",
+      "tier": "direct",
+      "expected": "play_dispatch",
+      "choice": "play_dispatch",
+      "status": "correct",
+      "elapsed_ms": 197.78
+    },
+    {
+      "id": "play_dispatch-paraphrase",
+      "tier": "paraphrase",
+      "expected": "play_dispatch",
+      "choice": "play_dispatch",
+      "status": "correct",
+      "elapsed_ms": 176.94
+    },
+    {
+      "id": "play_edit-direct",
+      "tier": "direct",
+      "expected": "play_edit",
+      "choice": "play_edit",
+      "status": "correct",
+      "elapsed_ms": 168.94
+    },
+    {
+      "id": "play_edit-paraphrase",
+      "tier": "paraphrase",
+      "expected": "play_edit",
+      "choice": "draft_in_conversation",
+      "status": "wrong_action",
+      "elapsed_ms": 285.94
+    },
+    {
+      "id": "open_table-direct",
+      "tier": "direct",
+      "expected": "open_table",
+      "choice": "open_table",
+      "status": "correct",
+      "elapsed_ms": 212.1
+    },
+    {
+      "id": "open_table-paraphrase",
+      "tier": "paraphrase",
+      "expected": "open_table",
+      "choice": "open_table",
+      "status": "correct",
+      "elapsed_ms": 215.53
+    },
+    {
+      "id": "record_roll-direct",
+      "tier": "direct",
+      "expected": "record_roll",
+      "choice": "record_roll",
+      "status": "correct",
+      "elapsed_ms": 178.88
+    },
+    {
+      "id": "record_roll-paraphrase",
+      "tier": "paraphrase",
+      "expected": "record_roll",
+      "choice": "record_roll",
+      "status": "correct",
+      "elapsed_ms": 187.32
+    },
+    {
+      "id": "record_session_note-direct",
+      "tier": "direct",
+      "expected": "record_session_note",
+      "choice": "record_session_note",
+      "status": "correct",
+      "elapsed_ms": 187.85
+    },
+    {
+      "id": "record_session_note-paraphrase",
+      "tier": "paraphrase",
+      "expected": "record_session_note",
+      "choice": "record_session_note",
+      "status": "correct",
+      "elapsed_ms": 210.13
+    },
+    {
+      "id": "played_recap-direct",
+      "tier": "direct",
+      "expected": "played_recap",
+      "choice": "played_recap",
+      "status": "correct",
+      "elapsed_ms": 367.82
+    },
+    {
+      "id": "played_recap-paraphrase",
+      "tier": "paraphrase",
+      "expected": "played_recap",
+      "choice": "played_recap",
+      "status": "correct",
+      "elapsed_ms": 156.0
+    },
+    {
+      "id": "recover_request-direct",
+      "tier": "direct",
+      "expected": "recover_request",
+      "choice": "recover_request",
+      "status": "correct",
+      "elapsed_ms": 188.62
+    },
+    {
+      "id": "recover_request-paraphrase",
+      "tier": "paraphrase",
+      "expected": "recover_request",
+      "choice": "recover_request",
+      "status": "correct",
+      "elapsed_ms": 178.45
+    },
+    {
+      "id": "operator_handoff-direct",
+      "tier": "direct",
+      "expected": "operator_handoff",
+      "choice": "operator_handoff",
+      "status": "correct",
+      "elapsed_ms": 226.23
+    },
+    {
+      "id": "DISCUSS-1-U",
+      "tier": "retained_utterance",
+      "expected": "discuss",
+      "choice": "discuss",
+      "status": "correct",
+      "elapsed_ms": 166.62
+    },
+    {
+      "id": "CLARIFY-2-U",
+      "tier": "retained_utterance",
+      "expected": "clarify_request",
+      "choice": "clarify_request",
+      "status": "correct",
+      "elapsed_ms": 198.88
+    },
+    {
+      "id": "PAGE-EDIT-2-U",
+      "tier": "retained_utterance",
+      "expected": "write_current_page",
+      "choice": "write_current_page",
+      "status": "correct",
+      "elapsed_ms": 184.52
+    },
+    {
+      "id": "SOURCE-READ-1-U",
+      "tier": "retained_utterance",
+      "expected": "read_source",
+      "choice": "read_source",
+      "status": "correct",
+      "elapsed_ms": 184.48
+    },
+    {
+      "id": "CLARIFY-2-playful-U",
+      "tier": "retained_utterance",
+      "expected": "needs_context_to_choose",
+      "choice": "needs_context_to_choose",
+      "status": "correct",
+      "elapsed_ms": 205.96
+    },
+    {
+      "id": "CLARIFY-2-playful-H",
+      "tier": "retained_dialogue",
+      "expected": "draft_in_conversation",
+      "choice": "draft_in_conversation",
+      "status": "correct",
+      "elapsed_ms": 229.29
+    },
+    {
+      "id": "PAGE-EDIT-2-do-that-U",
+      "tier": "retained_utterance",
+      "expected": "needs_context_to_choose",
+      "choice": "needs_context_to_choose",
+      "status": "correct",
+      "elapsed_ms": 248.01
+    },
+    {
+      "id": "PAGE-EDIT-2-do-that-H",
+      "tier": "retained_dialogue",
+      "expected": "write_current_page",
+      "choice": "write_current_page",
+      "status": "correct",
+      "elapsed_ms": 160.37
+    },
+    {
+      "id": "DISCUSS-1-do-that-U",
+      "tier": "retained_utterance",
+      "expected": "needs_context_to_choose",
+      "choice": "needs_context_to_choose",
+      "status": "correct",
+      "elapsed_ms": 178.53
+    },
+    {
+      "id": "DISCUSS-1-do-that-H",
+      "tier": "retained_dialogue",
+      "expected": "discuss",
+      "choice": "discuss",
+      "status": "correct",
+      "elapsed_ms": 174.56
+    },
+    {
+      "id": "DISCUSS-1-distractor-U",
+      "tier": "retained_utterance",
+      "expected": "discuss",
+      "choice": "discuss",
+      "status": "correct",
+      "elapsed_ms": 163.36
+    },
+    {
+      "id": "PAGE-EDIT-2-external-U",
+      "tier": "retained_utterance",
+      "expected": "write_current_page",
+      "choice": "write_current_page",
+      "status": "correct",
+      "elapsed_ms": 201.13
+    },
+    {
+      "id": "read-no-edit",
+      "tier": "contrast",
+      "expected": "read_source",
+      "choice": "read_source",
+      "status": "correct",
+      "elapsed_ms": 192.61
+    },
+    {
+      "id": "rules-not-lore",
+      "tier": "contrast",
+      "expected": "read_rules",
+      "choice": "read_rules",
+      "status": "correct",
+      "elapsed_ms": 190.21
+    },
+    {
+      "id": "image-not-generate",
+      "tier": "contrast",
+      "expected": "discuss",
+      "choice": "discuss",
+      "status": "correct",
+      "elapsed_ms": 248.24
+    },
+    {
+      "id": "mechanics-as-text",
+      "tier": "contrast",
+      "expected": "draft_in_conversation",
+      "choice": "draft_in_conversation",
+      "status": "correct",
+      "elapsed_ms": 297.59
+    },
+    {
+      "id": "no-combat-effect",
+      "tier": "contrast",
+      "expected": "discuss",
+      "choice": "discuss",
+      "status": "correct",
+      "elapsed_ms": 281.66
+    },
+    {
+      "id": "map-description",
+      "tier": "contrast",
+      "expected": "draft_in_conversation",
+      "choice": "draft_in_conversation",
+      "status": "correct",
+      "elapsed_ms": 203.42
+    },
+    {
+      "id": "review-not-publish",
+      "tier": "contrast",
+      "expected": "review_relationship",
+      "choice": "review_relationship",
+      "status": "correct",
+      "elapsed_ms": 186.17
+    },
+    {
+      "id": "ambiguous-approval",
+      "tier": "contrast",
+      "expected": "needs_context_to_choose",
+      "choice": "needs_context_to_choose",
+      "status": "correct",
+      "elapsed_ms": 221.33
+    }
+  ]
+}

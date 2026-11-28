@@ -1,0 +1,34 @@
+{
+  "cases": [
+    {
+      "id": "build-selection",
+      "expected": "anchored",
+      "reason": "Literal replacement supplied by the user."
+    },
+    {
+      "id": "build-discuss",
+      "expected": "anchored",
+      "reason": "Brainstorming from the supplied premise."
+    },
+    {
+      "id": "review_lore_page-paraphrase",
+      "expected": "anchored",
+      "reason": "Draft from prior discussion."
+    },
+    {
+      "id": "PAGE-EDIT-2-U",
+      "expected": "anchored",
+      "reason": "All six rows are provided."
+    },
+    {
+      "id": "PAGE-EDIT-2-external-U",
+      "expected": "source_lookup",
+      "reason": "The user explicitly asks to verify a value in a saved ledger."
+    },
+    {
+      "id": "build-clarify",
+      "expected": "skip",
+      "reason": "The requested clarification requires no source decision."
+    }
+  ]
+}

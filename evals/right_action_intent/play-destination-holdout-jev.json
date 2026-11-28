@@ -1,0 +1,2062 @@
+{
+  "control": {
+    "fixture_sha256": "ad7d0c155a3f7af273072a0ce27882c9e4b7cf8e8f91c1250372ede88c1bec12",
+    "model": "jev-1.14.0",
+    "prompt": "Identify the user's intent for this turn. Use the supplied dialogue where needed. If the available evidence leaves the intent unclear, choose needs_context_to_choose. Return one action family. Target binding, available tools, and execution are downstream.",
+    "menus": {
+      "play": {
+        "scoped": {
+          "discuss": "Discuss, explain, or brainstorm using the supplied conversation.",
+          "clarify_request": "Ask what the user wants when the action or referent remains unclear.",
+          "read_source": "Consult Rules or saved sources for facts the user needs.",
+          "play_edit": "Prepare a reviewable change to the current session scene.",
+          "different_destination": "The request belongs to another surface or to an explicit operator control."
+        },
+        "full": {
+          "discuss": "Discuss, explain, or brainstorm using the supplied conversation.",
+          "clarify_request": "Ask what the user wants when the action or referent remains unclear.",
+          "read_source": "Consult Rules or saved sources for facts the user needs.",
+          "play_edit": "Prepare a reviewable change to the current session scene.",
+          "different_destination": "The request belongs to another surface or to an explicit operator control.",
+          "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+          "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+          "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+          "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred.",
+          "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+          "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+          "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+          "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+          "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+          "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+          "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion."
+        }
+      }
+    },
+    "cases": {
+      "play": [
+        {
+          "id": "play-heldout-plan-edit",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "In the Plan for tomorrow, change the opening so the ferry is already gone.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "different_destination",
+          "reason": "The edit targets tomorrow’s Plan."
+        },
+        {
+          "id": "play-heldout-build-edit",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Add the ferryman’s warning to the saved Ferry Crossing page in Build.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "different_destination",
+          "reason": "The target is a saved Build page."
+        },
+        {
+          "id": "play-heldout-combat",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Open the prepared ferry ambush in Combat.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "different_destination",
+          "reason": "The request requires the Combat control."
+        },
+        {
+          "id": "play-heldout-scene-weather",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Revise this live scene so the river is already rising when the party arrives.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "play_edit",
+          "reason": "The edit targets the active live scene."
+        },
+        {
+          "id": "play-heldout-scene-dialogue",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Change the guard’s opening line in the current scene to ‘The ferry left at dawn.’",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "play_edit",
+          "reason": "The user explicitly asks to revise dialogue in the current scene."
+        },
+        {
+          "id": "play-heldout-scene-discussion",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Would a rising river make this scene more interesting? Let’s just talk through the options.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "discuss",
+          "reason": "The user wants discussion in chat."
+        },
+        {
+          "id": "play-heldout-rules",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Check the published rules for whether a prone creature can stand in shallow water.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "read_source",
+          "reason": "The user requests a Rules lookup."
+        },
+        {
+          "id": "play-heldout-clarify",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Make the other one like this.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "clarify_request",
+          "reason": "The active scene is visible but there is no identifiable other target."
+        }
+      ]
+    },
+    "play_prompt": "Identify the user’s intent now. Use dialogue to resolve omitted references. Choose one action family. Target binding and execution are downstream.",
+    "play_question": "requested_work",
+    "results": {
+      "play": {
+        "full": {
+          "summary": {
+            "cases": 8,
+            "dispositions": {
+              "wrong_action": 2,
+              "correct": 6
+            },
+            "median_decision_ms": 253.7
+          },
+          "rows": [
+            {
+              "id": "play-heldout-plan-edit",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "play_edit",
+              "status": "wrong_action",
+              "elapsed_ms": 318.37,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.01,
+                      "read_source": 0.0,
+                      "play_edit": 0.39,
+                      "different_destination": 0.04,
+                      "plan": 0.21,
+                      "write_current_page": 0.35,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.35
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 793,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 318,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-build-edit",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "clarify_request",
+              "status": "wrong_action",
+              "elapsed_ms": 266.99,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "clarify_request",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.27,
+                      "read_source": 0.11,
+                      "play_edit": 0.21,
+                      "different_destination": 0.1,
+                      "plan": 0.0,
+                      "write_current_page": 0.16,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.02,
+                      "review_relationship": 0.03,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.06,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.04,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.22
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 793,
+                  "cached_input_tokens": null,
+                  "output_tokens": 165,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 266,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-combat",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "different_destination",
+              "status": "correct",
+              "elapsed_ms": 284.53,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "different_destination",
+                    "probabilities": {
+                      "discuss": 0.01,
+                      "clarify_request": 0.15,
+                      "read_source": 0.1,
+                      "play_edit": 0.1,
+                      "different_destination": 0.28,
+                      "plan": 0.07,
+                      "write_current_page": 0.05,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.05,
+                      "review_relationship": 0.01,
+                      "other_creation": 0.03,
+                      "clarify_creation": 0.04,
+                      "draft_in_conversation": 0.01,
+                      "review_variant_approval": 0.07,
+                      "review_lore_page": 0.02,
+                      "review_lore_page_from_conversation": 0.01
+                    },
+                    "confidence": 0.23
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 786,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 284,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-weather",
+              "tier": "play_destination_holdout",
+              "expected": "play_edit",
+              "choice": "play_edit",
+              "status": "correct",
+              "elapsed_ms": 290.5,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.0,
+                      "read_source": 0.0,
+                      "play_edit": 0.98,
+                      "different_destination": 0.0,
+                      "plan": 0.0,
+                      "write_current_page": 0.01,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.01,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.98
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 793,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 290,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-dialogue",
+              "tier": "play_destination_holdout",
+              "expected": "play_edit",
+              "choice": "play_edit",
+              "status": "correct",
+              "elapsed_ms": 190.65,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.02,
+                      "read_source": 0.0,
+                      "play_edit": 0.96,
+                      "different_destination": 0.0,
+                      "plan": 0.0,
+                      "write_current_page": 0.01,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.01,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.96
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 795,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 190,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-discussion",
+              "tier": "play_destination_holdout",
+              "expected": "discuss",
+              "choice": "discuss",
+              "status": "correct",
+              "elapsed_ms": 206.49,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "discuss",
+                    "probabilities": {
+                      "discuss": 0.91,
+                      "clarify_request": 0.01,
+                      "read_source": 0.0,
+                      "play_edit": 0.06,
+                      "different_destination": 0.0,
+                      "plan": 0.01,
+                      "write_current_page": 0.0,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.01,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.9
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 795,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 206,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-rules",
+              "tier": "play_destination_holdout",
+              "expected": "read_source",
+              "choice": "read_source",
+              "status": "correct",
+              "elapsed_ms": 240.41,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "read_source",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.0,
+                      "read_source": 1.0,
+                      "play_edit": 0.0,
+                      "different_destination": 0.0,
+                      "plan": 0.0,
+                      "write_current_page": 0.0,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 1.0
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 792,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 240,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-clarify",
+              "tier": "play_destination_holdout",
+              "expected": "clarify_request",
+              "choice": "clarify_request",
+              "status": "correct",
+              "elapsed_ms": 205.18,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "clarify_request",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.68,
+                      "read_source": 0.0,
+                      "play_edit": 0.15,
+                      "different_destination": 0.01,
+                      "plan": 0.0,
+                      "write_current_page": 0.01,
+                      "prepare_image": 0.01,
+                      "review_connected_page": 0.01,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.12,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.01,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.66
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 784,
+                  "cached_input_tokens": null,
+                  "output_tokens": 165,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 205,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            }
+          ],
+          "reused": []
+        },
+        "scoped": {
+          "summary": {
+            "cases": 8,
+            "dispositions": {
+              "wrong_action": 1,
+              "correct": 7
+            },
+            "median_decision_ms": 182.62
+          },
+          "rows": [
+            {
+              "id": "play-heldout-plan-edit",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "play_edit",
+              "status": "wrong_action",
+              "elapsed_ms": 189.77,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.02,
+                      "read_source": 0.01,
+                      "play_edit": 0.77,
+                      "different_destination": 0.2
+                    },
+                    "confidence": 0.71
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 475,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 189,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-build-edit",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "different_destination",
+              "status": "correct",
+              "elapsed_ms": 192.63,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "different_destination",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.19,
+                      "read_source": 0.16,
+                      "play_edit": 0.31,
+                      "different_destination": 0.34
+                    },
+                    "confidence": 0.18
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 475,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 192,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-combat",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "different_destination",
+              "status": "correct",
+              "elapsed_ms": 195.83,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "different_destination",
+                    "probabilities": {
+                      "discuss": 0.01,
+                      "clarify_request": 0.15,
+                      "read_source": 0.08,
+                      "play_edit": 0.28,
+                      "different_destination": 0.48
+                    },
+                    "confidence": 0.35
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 468,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 195,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-weather",
+              "tier": "play_destination_holdout",
+              "expected": "play_edit",
+              "choice": "play_edit",
+              "status": "correct",
+              "elapsed_ms": 174.86,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.01,
+                      "read_source": 0.0,
+                      "play_edit": 0.99,
+                      "different_destination": 0.0
+                    },
+                    "confidence": 0.99
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 475,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 174,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-dialogue",
+              "tier": "play_destination_holdout",
+              "expected": "play_edit",
+              "choice": "play_edit",
+              "status": "correct",
+              "elapsed_ms": 169.57,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.02,
+                      "read_source": 0.0,
+                      "play_edit": 0.97,
+                      "different_destination": 0.01
+                    },
+                    "confidence": 0.96
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 477,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 169,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-discussion",
+              "tier": "play_destination_holdout",
+              "expected": "discuss",
+              "choice": "discuss",
+              "status": "correct",
+              "elapsed_ms": 191.58,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "discuss",
+                    "probabilities": {
+                      "discuss": 0.86,
+                      "clarify_request": 0.02,
+                      "read_source": 0.0,
+                      "play_edit": 0.12,
+                      "different_destination": 0.0
+                    },
+                    "confidence": 0.82
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 477,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 191,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-rules",
+              "tier": "play_destination_holdout",
+              "expected": "read_source",
+              "choice": "read_source",
+              "status": "correct",
+              "elapsed_ms": 165.53,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "read_source",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.01,
+                      "read_source": 0.98,
+                      "play_edit": 0.0,
+                      "different_destination": 0.01
+                    },
+                    "confidence": 0.98
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 474,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 165,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-clarify",
+              "tier": "play_destination_holdout",
+              "expected": "clarify_request",
+              "choice": "clarify_request",
+              "status": "correct",
+              "elapsed_ms": 175.47,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "clarify_request",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.72,
+                      "read_source": 0.0,
+                      "play_edit": 0.27,
+                      "different_destination": 0.01
+                    },
+                    "confidence": 0.65
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 466,
+                  "cached_input_tokens": null,
+                  "output_tokens": 61,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 175,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            }
+          ],
+          "reused": []
+        }
+      }
+    }
+  },
+  "treatment": {
+    "fixture_sha256": "ad7d0c155a3f7af273072a0ce27882c9e4b7cf8e8f91c1250372ede88c1bec12",
+    "model": "jev-1.14.0",
+    "prompt": "Identify the user's intent for this turn. Use the supplied dialogue where needed. If the available evidence leaves the intent unclear, choose needs_context_to_choose. Return one action family. Target binding, available tools, and execution are downstream.",
+    "menus": {
+      "play": {
+        "scoped": {
+          "discuss": "Discuss, explain, or brainstorm using the supplied conversation.",
+          "clarify_request": "Ask what the user wants when the action or referent remains unclear.",
+          "read_source": "Consult Rules or saved sources for facts the user needs.",
+          "play_edit": "Request a change to the current live session scene in Play.",
+          "different_destination": "Request work on a different surface or target, such as editing a saved page outside the live scene, or using a separate operator control."
+        },
+        "full": {
+          "discuss": "Discuss, explain, or brainstorm using the supplied conversation.",
+          "clarify_request": "Ask what the user wants when the action or referent remains unclear.",
+          "read_source": "Consult Rules or saved sources for facts the user needs.",
+          "play_edit": "Request a change to the current live session scene in Play.",
+          "different_destination": "Request work on a different surface or target, such as editing a saved page outside the live scene, or using a separate operator control.",
+          "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+          "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+          "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+          "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred.",
+          "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+          "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+          "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+          "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+          "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+          "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+          "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion."
+        }
+      }
+    },
+    "cases": {
+      "play": [
+        {
+          "id": "play-heldout-plan-edit",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "In the Plan for tomorrow, change the opening so the ferry is already gone.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "different_destination",
+          "reason": "The edit targets tomorrow’s Plan."
+        },
+        {
+          "id": "play-heldout-build-edit",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Add the ferryman’s warning to the saved Ferry Crossing page in Build.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "different_destination",
+          "reason": "The target is a saved Build page."
+        },
+        {
+          "id": "play-heldout-combat",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Open the prepared ferry ambush in Combat.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "different_destination",
+          "reason": "The request requires the Combat control."
+        },
+        {
+          "id": "play-heldout-scene-weather",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Revise this live scene so the river is already rising when the party arrives.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "play_edit",
+          "reason": "The edit targets the active live scene."
+        },
+        {
+          "id": "play-heldout-scene-dialogue",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Change the guard’s opening line in the current scene to ‘The ferry left at dawn.’",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "play_edit",
+          "reason": "The user explicitly asks to revise dialogue in the current scene."
+        },
+        {
+          "id": "play-heldout-scene-discussion",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Would a rising river make this scene more interesting? Let’s just talk through the options.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "discuss",
+          "reason": "The user wants discussion in chat."
+        },
+        {
+          "id": "play-heldout-rules",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Check the published rules for whether a prone creature can stand in shallow water.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "read_source",
+          "reason": "The user requests a Rules lookup."
+        },
+        {
+          "id": "play-heldout-clarify",
+          "tier": "play_destination_holdout",
+          "input": {
+            "surface": "play",
+            "user_utterance": "Make the other one like this.",
+            "current_scene_title": "Ferry Crossing at Dusk"
+          },
+          "expected": "clarify_request",
+          "reason": "The active scene is visible but there is no identifiable other target."
+        }
+      ]
+    },
+    "play_prompt": "Identify the user’s intent now. Use dialogue to resolve omitted references. Choose one action family. Target binding and execution are downstream.",
+    "play_question": "requested_work",
+    "results": {
+      "play": {
+        "full": {
+          "summary": {
+            "cases": 8,
+            "dispositions": {
+              "wrong_action": 2,
+              "correct": 6
+            },
+            "median_decision_ms": 227.9
+          },
+          "rows": [
+            {
+              "id": "play-heldout-plan-edit",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "write_current_page",
+              "status": "wrong_action",
+              "elapsed_ms": 292.4,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "write_current_page",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.01,
+                      "read_source": 0.0,
+                      "play_edit": 0.29,
+                      "different_destination": 0.23,
+                      "plan": 0.1,
+                      "write_current_page": 0.37,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.33
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 807,
+                  "cached_input_tokens": null,
+                  "output_tokens": 165,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 292,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-build-edit",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "different_destination",
+              "status": "correct",
+              "elapsed_ms": 293.52,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "different_destination",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.08,
+                      "read_source": 0.02,
+                      "play_edit": 0.0,
+                      "different_destination": 0.87,
+                      "plan": 0.0,
+                      "write_current_page": 0.01,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.01,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.01,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.86
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 807,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 293,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-combat",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "play_edit",
+              "status": "wrong_action",
+              "elapsed_ms": 276.73,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.01,
+                      "clarify_request": 0.11,
+                      "read_source": 0.05,
+                      "play_edit": 0.45,
+                      "different_destination": 0.19,
+                      "plan": 0.06,
+                      "write_current_page": 0.02,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.02,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.02,
+                      "clarify_creation": 0.02,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.03,
+                      "review_lore_page": 0.01,
+                      "review_lore_page_from_conversation": 0.01
+                    },
+                    "confidence": 0.41
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 800,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 276,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-weather",
+              "tier": "play_destination_holdout",
+              "expected": "play_edit",
+              "choice": "play_edit",
+              "status": "correct",
+              "elapsed_ms": 265.16,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.0,
+                      "read_source": 0.0,
+                      "play_edit": 1.0,
+                      "different_destination": 0.0,
+                      "plan": 0.0,
+                      "write_current_page": 0.0,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 1.0
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 807,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 265,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-dialogue",
+              "tier": "play_destination_holdout",
+              "expected": "play_edit",
+              "choice": "play_edit",
+              "status": "correct",
+              "elapsed_ms": 178.5,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.0,
+                      "read_source": 0.0,
+                      "play_edit": 1.0,
+                      "different_destination": 0.0,
+                      "plan": 0.0,
+                      "write_current_page": 0.0,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 1.0
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 809,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 178,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-discussion",
+              "tier": "play_destination_holdout",
+              "expected": "discuss",
+              "choice": "discuss",
+              "status": "correct",
+              "elapsed_ms": 190.63,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "discuss",
+                    "probabilities": {
+                      "discuss": 0.87,
+                      "clarify_request": 0.01,
+                      "read_source": 0.0,
+                      "play_edit": 0.1,
+                      "different_destination": 0.0,
+                      "plan": 0.02,
+                      "write_current_page": 0.0,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.86
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 809,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 190,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-rules",
+              "tier": "play_destination_holdout",
+              "expected": "read_source",
+              "choice": "read_source",
+              "status": "correct",
+              "elapsed_ms": 188.96,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "read_source",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.0,
+                      "read_source": 1.0,
+                      "play_edit": 0.0,
+                      "different_destination": 0.0,
+                      "plan": 0.0,
+                      "write_current_page": 0.0,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.0,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.0,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.0,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 1.0
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 806,
+                  "cached_input_tokens": null,
+                  "output_tokens": 164,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 188,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-clarify",
+              "tier": "play_destination_holdout",
+              "expected": "clarify_request",
+              "choice": "clarify_request",
+              "status": "correct",
+              "elapsed_ms": 155.43,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "clarify_request",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.6,
+                      "read_source": 0.0,
+                      "play_edit": 0.26,
+                      "different_destination": 0.01,
+                      "plan": 0.0,
+                      "write_current_page": 0.01,
+                      "prepare_image": 0.0,
+                      "review_connected_page": 0.01,
+                      "review_relationship": 0.0,
+                      "other_creation": 0.0,
+                      "clarify_creation": 0.1,
+                      "draft_in_conversation": 0.0,
+                      "review_variant_approval": 0.01,
+                      "review_lore_page": 0.0,
+                      "review_lore_page_from_conversation": 0.0
+                    },
+                    "confidence": 0.57
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 798,
+                  "cached_input_tokens": null,
+                  "output_tokens": 165,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 155,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            }
+          ],
+          "reused": []
+        },
+        "scoped": {
+          "summary": {
+            "cases": 8,
+            "dispositions": {
+              "correct": 6,
+              "wrong_action": 2
+            },
+            "median_decision_ms": 217.86
+          },
+          "rows": [
+            {
+              "id": "play-heldout-plan-edit",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "different_destination",
+              "status": "correct",
+              "elapsed_ms": 219.24,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "different_destination",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.02,
+                      "read_source": 0.01,
+                      "play_edit": 0.41,
+                      "different_destination": 0.56
+                    },
+                    "confidence": 0.45
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 489,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 219,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-build-edit",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "different_destination",
+              "status": "correct",
+              "elapsed_ms": 248.44,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "different_destination",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.03,
+                      "read_source": 0.02,
+                      "play_edit": 0.01,
+                      "different_destination": 0.94
+                    },
+                    "confidence": 0.92
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 489,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 248,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-combat",
+              "tier": "play_destination_holdout",
+              "expected": "different_destination",
+              "choice": "play_edit",
+              "status": "wrong_action",
+              "elapsed_ms": 226.8,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.07,
+                      "read_source": 0.04,
+                      "play_edit": 0.61,
+                      "different_destination": 0.28
+                    },
+                    "confidence": 0.51
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 482,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 226,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-weather",
+              "tier": "play_destination_holdout",
+              "expected": "play_edit",
+              "choice": "play_edit",
+              "status": "correct",
+              "elapsed_ms": 248.5,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.0,
+                      "read_source": 0.0,
+                      "play_edit": 1.0,
+                      "different_destination": 0.0
+                    },
+                    "confidence": 1.0
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 489,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 248,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-dialogue",
+              "tier": "play_destination_holdout",
+              "expected": "play_edit",
+              "choice": "play_edit",
+              "status": "correct",
+              "elapsed_ms": 216.48,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.01,
+                      "read_source": 0.0,
+                      "play_edit": 0.99,
+                      "different_destination": 0.0
+                    },
+                    "confidence": 0.99
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 491,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 216,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-scene-discussion",
+              "tier": "play_destination_holdout",
+              "expected": "discuss",
+              "choice": "discuss",
+              "status": "correct",
+              "elapsed_ms": 197.74,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "discuss",
+                    "probabilities": {
+                      "discuss": 0.83,
+                      "clarify_request": 0.02,
+                      "read_source": 0.0,
+                      "play_edit": 0.15,
+                      "different_destination": 0.0
+                    },
+                    "confidence": 0.79
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 491,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 197,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-rules",
+              "tier": "play_destination_holdout",
+              "expected": "read_source",
+              "choice": "read_source",
+              "status": "correct",
+              "elapsed_ms": 174.86,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "read_source",
+                    "probabilities": {
+                      "discuss": 0.01,
+                      "clarify_request": 0.01,
+                      "read_source": 0.98,
+                      "play_edit": 0.0,
+                      "different_destination": 0.0
+                    },
+                    "confidence": 0.98
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 488,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 174,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            },
+            {
+              "id": "play-heldout-clarify",
+              "tier": "play_destination_holdout",
+              "expected": "clarify_request",
+              "choice": "play_edit",
+              "status": "wrong_action",
+              "elapsed_ms": 180.39,
+              "response": {
+                "answers": {
+                  "requested_work": {
+                    "kind": "choice",
+                    "selected": "play_edit",
+                    "probabilities": {
+                      "discuss": 0.0,
+                      "clarify_request": 0.48,
+                      "read_source": 0.0,
+                      "play_edit": 0.52,
+                      "different_destination": 0.0
+                    },
+                    "confidence": 0.4
+                  }
+                },
+                "observation": {
+                  "provider": "typesafe",
+                  "requested_profile": null,
+                  "requested_model": "jev-1.14.0",
+                  "resolved_model": "jev-1.14.0",
+                  "response_model": "jev-1.14.0",
+                  "provider_transport": "vercel_ai_gateway",
+                  "provider_request_id": null,
+                  "provider_response_id": null,
+                  "input_tokens": 480,
+                  "cached_input_tokens": null,
+                  "output_tokens": 60,
+                  "reasoning_tokens": null,
+                  "cost_usd": null,
+                  "known_cost_usd": null,
+                  "cost_status": "unavailable",
+                  "latency_ms": 180,
+                  "retry_count": 0,
+                  "transport_retry_count": 0,
+                  "conformance_retry_count": 0,
+                  "provider_attempt_count": 1,
+                  "state": "completed",
+                  "failure_code": null,
+                  "pricing_source": null
+                }
+              }
+            }
+          ],
+          "reused": []
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "fixture_sha256": "1a9a7a2f7a3aba5b0dbe832950e01e1c03355dd6a99fc12f602b2200ad2bbfea",
+  "model": "jev-1.14.0",
+  "prompt": "Identify the user's intent for this turn. Use the supplied dialogue where needed. If the available evidence leaves the intent unclear, choose needs_context_to_choose. Return one action family. Target binding, available tools, and execution are downstream.",
+  "menus": {
+    "build": {
+      "scoped": {
+        "discuss": "discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.",
+        "clarify_request": "discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "write_current_page": "create: Concrete current-page prose, proposed list/table, addition or selected-range revision.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_connected_page": "create: Prepare review to create a different connected page.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion."
+      },
+      "full": {
+        "discuss": "discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.",
+        "clarify_request": "discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "write_current_page": "create: Concrete current-page prose, proposed list/table, addition or selected-range revision.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_connected_page": "create: Prepare review to create a different connected page.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion.",
+        "different_destination": "Edit another existing page/object or create an unsupported object, rather than writing this Plan."
+      }
+    },
+    "plan": {
+      "scoped": {
+        "discuss": "Answer, explain, critique or discuss in conversation without a requested page edit.",
+        "clarify": "The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.",
+        "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+        "different_destination": "Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+        "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred."
+      },
+      "full": {
+        "discuss": "Answer, explain, critique or discuss in conversation without a requested page edit.",
+        "clarify": "The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.",
+        "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+        "different_destination": "Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+        "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion."
+      }
+    }
+  }
+}
