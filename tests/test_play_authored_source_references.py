@@ -1162,6 +1162,7 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     if openings:
         assert set(openings[0]['questions'])=={'requested_work'}
         from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+        assert openings[0]["state"]["surface"] == "play"
         assert openings[0]["questions"]["requested_work"]["criteria"] == opening_action_menu("play")
         assert 'candidates' not in openings[0]['state']
     for call in [*decisions.calls,*wire.calls]:

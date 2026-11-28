@@ -320,6 +320,11 @@ def test_native_image_clarification_uses_only_the_intent_ballot(lane, tmp_path, 
     assert case.response.status_code == 200, case.response.text
     opening, = [json.loads(call.content) for call in case.decisions.calls]
     assert set(opening["questions"]) == {"requested_work"}
+    from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+    assert opening["state"]["interaction"]["surface"] == "build"
+    assert opening["questions"]["requested_work"]["criteria"] == dict.fromkeys(opening_action_menu("build"))
+    assert "related_page_labels" not in opening["state"]["interaction"]
     assert case.turn.completion.collaboration.kind == "questions"
     assert not any(event.kind == "native_build_query_settled_v1"
                    for event in case.turn.graph_context_execution.events)
