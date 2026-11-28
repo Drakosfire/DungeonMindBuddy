@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Actions transport for one locally approved, sealed App-fence release packet."""
+"""Actions transport for one reviewed App-fence release using installed recovery code."""
 import fcntl
 import hashlib
 import json
@@ -13,7 +13,12 @@ import tempfile
 
 CONFIG_ROOT = Path('/etc/buddy-deploy')
 LOCK = Path('/run/lock/buddy-production-deploy.lock')
-FILES = {'operator.py', 'dogfood_engine_transport.py', 'release.json', 'qualification.json'}
+PROGRAMS = {'operator.py', 'dogfood_engine_transport.py'}
+DATA_FILES = {'manifest.json', 'release.json', 'qualification.json'}
+FILES = PROGRAMS | (DATA_FILES - {'manifest.json'})
+MAX_REQUEST_BYTES = 128 * 1024
+RELEASE_PINS = {'candidate_source', 'candidate_image', 'old_source', 'old_image',
+                'recovery_source', 'recovery_image', 'preflight'}
 SHA = r'[0-9a-f]{40}'
 DIGEST = r'sha256:[0-9a-f]{64}'
 HEX = r'[0-9a-f]{64}'
@@ -63,19 +68,31 @@ def object_json(data):
     return value
 
 
-def load_packet(args, *, root=CONFIG_ROOT, uid=0):
+def validate_pins(args):
     require(len(args) == 6, 'expected exact App-fence pins')
-    revision, digest, candidate, rollback_revision, rollback, packet_digest = args
+    revision, _, candidate, rollback_revision, rollback, _ = args
     for value, pattern in zip(args, [SHA, DIGEST, DIGEST, SHA, DIGEST, HEX]):
         require(re.fullmatch(pattern, value), 'invalid App-fence pin')
     require(revision != rollback_revision and candidate != rollback,
             'candidate and initial rollback must be distinct')
+    return revision
+
+
+def packet_root(root, uid):
     require(root.is_absolute() and root.resolve() == root, 'unexpected configuration path')
     trusted(root.parent, uid=uid, directory=True)
     trusted(root, uid=uid, directory=True)
-    packets = root / 'app-fence-packets'
+    return root / 'app-fence-packets'
+
+
+def load_packet(args, *, root=CONFIG_ROOT, uid=0):
+    packets = packet_root(root, uid)
     trusted(packets, uid=uid, directory=True)
-    directory = packets / revision
+    directory = packets / validate_pins(args)
+    return directory, validate_packet(directory, args, uid=uid)
+
+
+def validate_packet(directory, args, *, uid):
     trusted(directory, uid=uid, directory=True)
     # JSON journals may be created by the approved operator, but no unsealed
     # importable code or cache/package directory may shadow its sealed source.
@@ -85,7 +102,7 @@ def load_packet(args, *, root=CONFIG_ROOT, uid=0):
                 or entry.suffix.lower() not in {'.py', '.pyc', '.pyo', '.so'},
                 'unsealed packet code')
     data = read_bytes(directory / 'manifest.json', uid=uid)
-    require(hashlib.sha256(data).hexdigest() == packet_digest, 'packet digest differs')
+    require(hashlib.sha256(data).hexdigest() == args[-1], 'packet digest differs')
     manifest = object_json(data)
     expected_keys = {'schema', 'candidate_revision', 'registry_digest', 'candidate_id',
                      'rollback_revision', 'rollback_id', 'recovery_revision', 'recovery_id',
@@ -97,7 +114,7 @@ def load_packet(args, *, root=CONFIG_ROOT, uid=0):
     require(all(manifest[key] == value for key, value in expected.items()), 'packet release pins differ')
     require(re.fullmatch(SHA, manifest['recovery_revision'])
             and re.fullmatch(DIGEST, manifest['recovery_id']), 'invalid forward recovery pins')
-    require(manifest['recovery_id'] != rollback and manifest['recovery_revision'] != rollback_revision,
+    require(manifest['recovery_id'] != args[4] and manifest['recovery_revision'] != args[3],
             'forward recovery cannot reuse the incompatible initial rollback')
     require(all(type(manifest[key]) is str and re.fullmatch(r'[0-9]{8}_[0-9]{4}', manifest[key])
                 for key in ['source_schema', 'target_schema'])
@@ -124,7 +141,63 @@ def load_packet(args, *, root=CONFIG_ROOT, uid=0):
             and type(qualification['evidence_sha256']) is str
             and re.fullmatch(HEX, qualification['evidence_sha256']),
             'qualification is not accepted for this exact transition')
-    return directory, manifest
+    return manifest
+
+
+def stage_release_data(args, request, *, root=CONFIG_ROOT, uid=0):
+    revision = validate_pins(args)
+    packets = packet_root(root, uid)
+    require(0 < len(request) <= MAX_REQUEST_BYTES, 'reviewed release data exceeds bounds')
+    data = object_json(request)
+    require(set(data) == DATA_FILES and all(type(value) is str for value in data.values()),
+            'only the three reviewed JSON files are accepted')
+    payload = {name: value.encode() for name, value in data.items()}
+    require(hashlib.sha256(payload['manifest.json']).hexdigest() == args[-1],
+            'submitted manifest digest differs')
+    manifest = object_json(payload['manifest.json'])
+    files = manifest.get('files')
+    require(type(files) is dict and set(files) == FILES
+            and all(type(digest) is str and re.fullmatch(HEX, digest) for digest in files.values()),
+            'invalid release file digests')
+
+    programs = root / 'app-fence-programs'
+    trusted(programs, uid=uid, directory=True)
+    program = programs / files['operator.py']
+    trusted(program, uid=uid, directory=True)
+    policy = object_json(read_bytes(program / 'policy.json', uid=uid))
+    release = object_json(payload['release.json'])
+    require(not RELEASE_PINS.intersection(policy)
+            and {key: value for key, value in release.items() if key not in RELEASE_PINS} == policy,
+            'release changes the installed program policy')
+    payload.update({name: read_bytes(program / name, uid=uid) for name in PROGRAMS})
+
+    packets.mkdir(mode=0o700, exist_ok=True)
+    trusted(packets, uid=uid, directory=True)
+    directory = packets / revision
+    with tempfile.TemporaryDirectory(prefix='.stage-', dir=packets) as scratch:
+        staged = Path(scratch) / revision
+        staged.mkdir(mode=0o700)
+        for name, content in payload.items():
+            fd = os.open(staged / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, 'wb') as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+        validate_packet(staged, args, uid=uid)
+        if directory.exists() or directory.is_symlink():
+            load_packet(args, root=root, uid=uid)
+            return
+        sync_directory(staged)
+        staged.rename(directory)
+        sync_directory(packets)
+
+
+def sync_directory(path):
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def require_lock():
@@ -155,11 +228,14 @@ def identity():
     return raw
 
 
-def deploy(args):
+def deploy(args, request=b''):
     require_lock()
-    directory, manifest = load_packet(args)
-    expected = f"{manifest['rollback_revision']} {manifest['rollback_id']} healthy"
+    validate_pins(args)
+    expected = f"{args[3]} {args[4]} healthy"
     require(identity() == expected, 'healthy serving rollback changed')
+    if request:
+        stage_release_data(args, request)
+    directory, manifest = load_packet(args)
     ref = 'ghcr.io/drakosfire/dungeonmindbuddy@' + manifest['registry_digest']
     run(['/usr/bin/docker', '--context', 'default', 'pull', '--platform', 'linux/amd64', ref])
     image = object_json(run(['/usr/bin/docker', '--context', 'default', 'image', 'inspect',
@@ -208,7 +284,7 @@ def deploy(args):
 
 if __name__ == '__main__':
     try:
-        deploy(sys.argv[1:])
+        deploy(sys.argv[1:], sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1))
     except Exception as error:
         # Operator output/journal owns detailed recovery evidence; avoid dumping
         # commands or credential-bearing environment/configuration here.

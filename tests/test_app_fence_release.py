@@ -240,15 +240,18 @@ def test_workflow_uses_same_queue_and_pinned_receipts():
     import yaml
     workflow = yaml.load((ROOT / '.github/workflows/deploy-buddy-app-fence.yml').read_text(), Loader=yaml.BaseLoader)
     ordinary = yaml.load((ROOT / '.github/workflows/deploy-buddy.yml').read_text(), Loader=yaml.BaseLoader)
-    assert workflow['permissions'] == {}
+    assert workflow['permissions'] == {'contents': 'read'}
     assert workflow['concurrency'] == ordinary['concurrency']
     job = workflow['jobs']['deploy']
     assert job['environment'] == 'buddy-production' and job['if'] == "github.ref == 'refs/heads/main'"
-    run = job['steps'][0]['run']
+    run = job['steps'][1]['run']
+    assert 'persist-credentials' in job['steps'][0]['with']
+    assert 'app-fence-releases' in run and '< "$ssh_dir/release.json"' in run
+    assert 'ssh -n' not in run
     assert '${{ inputs.' not in run and 'StrictHostKeyChecking=yes' in run
     assert 'BUDDY_STAGED $REVISION $CANDIDATE_ID $REGISTRY_DIGEST' in run
     assert 'BUDDY_LIVE $REVISION $CANDIDATE_ID' in run
-    assert 'status" == 401' in job['steps'][1]['run']
+    assert 'status" == 401' in job['steps'][2]['run']
 
 
 def test_ordinary_image_dispatch_keeps_existing_protocol(tmp_path):
@@ -283,3 +286,58 @@ def test_docker_failure_preserves_diagnostics_and_bounds(helper, monkeypatch, ca
     with pytest.raises(subprocess.CalledProcessError):
         helper.run(['/usr/bin/docker', operation])
     assert 'Docker operation was denied' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize('change', [None, 'script', 'invalid_digest', 'policy', 'oversize', 'tampered_release'])
+def test_authenticated_release_staging(helper, packet, change):
+    root, directory, manifest, seal = packet
+    if change == 'policy':
+        path = directory / 'release.json'
+        release = json.loads(path.read_text())
+        path.write_text(json.dumps(release | {'backup_tool': 'untrusted-image'}))
+    args = seal()
+    program = root / 'app-fence-programs' / manifest['files']['operator.py']
+    program.mkdir(parents=True)
+    program.chmod(0o700)
+    program.parent.chmod(0o700)
+    for name in helper.PROGRAMS:
+        (program / name).write_bytes((directory / name).read_bytes())
+        (program / name).chmod(0o600)
+        (directory / name).unlink()
+    policy = program / 'policy.json'
+    policy.write_text('{}')
+    policy.chmod(0o600)
+    data = {name: (directory / name).read_text() for name in helper.DATA_FILES}
+    for name in data:
+        (directory / name).unlink()
+    directory.rmdir()
+    if change == 'script':
+        data['operator.py'] = 'assert False'
+    elif change == 'invalid_digest':
+        args[-1] = 'f' * 64
+    elif change == 'tampered_release':
+        data['release.json'] += ' '
+    elif change == 'oversize':
+        data['release.json'] += ' ' * helper.MAX_REQUEST_BYTES
+
+    request = json.dumps(data).encode()
+    if change:
+        message = {
+            'script': 'three reviewed JSON files',
+            'invalid_digest': 'submitted manifest digest differs',
+            'policy': 'installed program policy',
+            'oversize': 'exceeds bounds',
+            'tampered_release': 'packet file digest differs',
+        }[change]
+        with pytest.raises(ValueError, match=message):
+            helper.stage_release_data(args, request, root=root, uid=os.getuid())
+        assert not directory.exists()
+        return
+
+    helper.stage_release_data(args, request, root=root, uid=os.getuid())
+    assert helper.load_packet(args, root=root, uid=os.getuid()) == (directory, manifest)
+    journal = directory / 'journal.json'
+    journal.write_text('{"phase":"drained"}')
+    journal.chmod(0o600)
+    helper.stage_release_data(args, request, root=root, uid=os.getuid())
+    assert journal.read_text() == '{"phase":"drained"}'
