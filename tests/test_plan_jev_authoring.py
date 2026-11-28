@@ -1669,6 +1669,7 @@ def _shared_plan_authoring_case(
                         and type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2
                         else "answer")
                 assert payload["instructions"] == (compose_response_prompt(task=task, generic_reply_limits=payload["text"]["format"]["name"] != "plan_contextual_question_v1").instructions
+                    + "\n\nLocal campaign aliases identify scopes; they are not campaign names."
                     + ("\nRepresent reply-level evidence limitations with the supplied codes. "
                        "Do not return requested_detail_gaps or reproduce phrases from any user question. "
                        "A limitation may stand alone when the supplied evidence cannot support a useful fact."
