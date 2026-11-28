@@ -1,0 +1,891 @@
+{
+  "schema": "buddy.right-action-intent.v1",
+  "actions": {
+    "discuss": "Discuss or brainstorm without drafting",
+    "clarify_request": "Ask the user a focused question to resolve their request",
+    "draft_in_conversation": "Create or revise text for review in chat",
+    "write_current_page": "Stage a change to the active authored page",
+    "read_source": "Consult or find saved campaign sources",
+    "read_rules": "Consult the game rules",
+    "review_lore_page": "Prepare a new standalone page",
+    "review_connected_page": "Prepare a new page with a requested connection",
+    "save_page": "Commit an existing authored page change",
+    "plan": "Prepare a work plan for review",
+    "continue_work_plan": "Continue a selected step of an existing work plan",
+    "plan_cards": "Construct or revise runnable GM scene cards",
+    "choice_option": "Create or change a Plan branch or option",
+    "review_relationship": "Stage a relationship for review",
+    "publish_relationships": "Commit a reviewed relationship",
+    "change_mechanics": "Create or revise persistent statblock mechanics",
+    "review_variant_approval": "Confirm saving an existing conversation statblock draft",
+    "link_statblock": "Link an existing statblock to an authored page",
+    "build_encounter": "Prepare a runnable encounter or roster",
+    "preview_encounter": "Open the preview of a prepared encounter",
+    "start_combat": "Start a prepared combat encounter",
+    "update_combat": "Change the running combat state",
+    "prepare_image": "Prepare an image direction or prompt",
+    "generate_image": "Generate or regenerate artwork now",
+    "save_image": "Save existing generated artwork",
+    "place_image": "Insert, replace, or move an existing image",
+    "map_navigation": "Open or navigate a map or its linked location",
+    "place_map_coordinates": "Place a location marker on a map",
+    "reference_object": "Open or edit an Item or Table reference object",
+    "npc_art": "Find or attach art for a specific NPC identity",
+    "name_correction": "Review source wording or name corrections before extraction",
+    "identity_review": "Resolve competing existing identities before reconciliation",
+    "publish_extraction": "Verify and publish reviewed extraction or replace a published revision",
+    "play_dispatch": "Start or advance the prepared live session",
+    "play_edit": "Stage a change to the active session copy",
+    "open_table": "Open a prepared table without resolving a roll",
+    "record_roll": "Record a supplied result against the active table or check",
+    "record_session_note": "Record a played-session note",
+    "played_recap": "Draft a recap from recorded play",
+    "recover_request": "Recover a saved attempt or inspect its outcome",
+    "operator_handoff": "Open the owning surface or guide the user there",
+    "needs_context_to_choose": "Defer the decision because the available text does not resolve the intent."
+  },
+  "cases": [
+    {
+      "id": "discuss-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "What makes the Meat Mind sympathetic enough to negotiate with? Let's brainstorm."
+      },
+      "expected": "discuss"
+    },
+    {
+      "id": "discuss-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Suppose the shopkeeper recognizes them. Talk me through the possibilities before we write anything."
+      },
+      "expected": "discuss"
+    },
+    {
+      "id": "clarify_request-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Before drafting, ask me one question about the tone."
+      },
+      "expected": "clarify_request"
+    },
+    {
+      "id": "clarify_request-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "I want you to check with me about the intended audience first."
+      },
+      "expected": "clarify_request"
+    },
+    {
+      "id": "draft_in_conversation-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Write an editable welcome draft here in chat."
+      },
+      "expected": "draft_in_conversation"
+    },
+    {
+      "id": "draft_in_conversation-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Polish the paragraph we discussed and show the new copy here for feedback."
+      },
+      "expected": "draft_in_conversation"
+    },
+    {
+      "id": "write_current_page-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Add six NPCs as a table on this page."
+      },
+      "expected": "write_current_page"
+    },
+    {
+      "id": "write_current_page-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Replace the selected sentence with the shorter version for review."
+      },
+      "expected": "write_current_page"
+    },
+    {
+      "id": "read_source-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Reopen Edge and quote the line explaining its name."
+      },
+      "expected": "read_source"
+    },
+    {
+      "id": "read_source-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Which other saved sources describe the Wandering Forest moving?"
+      },
+      "expected": "read_source"
+    },
+    {
+      "id": "read_rules-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Look up the concentration rules when a caster takes damage."
+      },
+      "expected": "read_rules"
+    },
+    {
+      "id": "read_rules-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Can you verify in the rules how cover changes a Dexterity save?"
+      },
+      "expected": "read_rules"
+    },
+    {
+      "id": "review_lore_page-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Create a standalone page for Maelthor for review."
+      },
+      "expected": "review_lore_page"
+    },
+    {
+      "id": "review_lore_page-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Give that deity a page of its own to review, using what we just discussed."
+      },
+      "expected": "review_lore_page"
+    },
+    {
+      "id": "review_connected_page-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Draft a new Location page for the tannery and connect it to Edge."
+      },
+      "expected": "review_connected_page"
+    },
+    {
+      "id": "review_connected_page-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "The cellar should be its own page, branching from this saved shop."
+      },
+      "expected": "review_connected_page"
+    },
+    {
+      "id": "save_page-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Save the current page changes."
+      },
+      "expected": "save_page"
+    },
+    {
+      "id": "save_page-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "The insertion is already applied. Commit the page now."
+      },
+      "expected": "save_page"
+    },
+    {
+      "id": "plan-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Give me an editable checklist for finishing this adventure."
+      },
+      "expected": "plan"
+    },
+    {
+      "id": "plan-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Lay out the work in steps I can choose from before we start."
+      },
+      "expected": "plan"
+    },
+    {
+      "id": "continue_work_plan-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Continue the selected research step and leave the other steps deferred."
+      },
+      "expected": "continue_work_plan"
+    },
+    {
+      "id": "continue_work_plan-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Run step two of the reviewed work plan now."
+      },
+      "expected": "continue_work_plan"
+    },
+    {
+      "id": "plan_cards-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Turn this adventure into runnable GM cards with triggers and branches."
+      },
+      "expected": "plan_cards"
+    },
+    {
+      "id": "plan_cards-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Build the aftermath cards from the source so I can run that part at the table."
+      },
+      "expected": "plan_cards"
+    },
+    {
+      "id": "choice_option-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Add a choice to negotiate or fight at the end of this scene."
+      },
+      "expected": "choice_option"
+    },
+    {
+      "id": "choice_option-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Put running away under the existing escape choice as another option."
+      },
+      "expected": "choice_option"
+    },
+    {
+      "id": "review_relationship-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Stage a trade relationship between Edge and Bog Blossom Hill for my review."
+      },
+      "expected": "review_relationship"
+    },
+    {
+      "id": "review_relationship-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Show me a reviewable edge for their trade while leaving the Graph as-is."
+      },
+      "expected": "review_relationship"
+    },
+    {
+      "id": "publish_relationships-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "I confirm the reviewed trade edge. Publish it."
+      },
+      "expected": "publish_relationships"
+    },
+    {
+      "id": "publish_relationships-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "That staged relationship is approved. Make it live in the Graph."
+      },
+      "expected": "publish_relationships"
+    },
+    {
+      "id": "change_mechanics-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Create a new statblock version with higher armor class."
+      },
+      "expected": "change_mechanics"
+    },
+    {
+      "id": "change_mechanics-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Put these revised mechanics in a new version of the creature."
+      },
+      "expected": "change_mechanics"
+    },
+    {
+      "id": "review_variant_approval-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "I approve the existing Meat Mind draft. Open its save confirmation."
+      },
+      "expected": "review_variant_approval"
+    },
+    {
+      "id": "review_variant_approval-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Use the variant we just reviewed and get it ready for my final confirmation."
+      },
+      "expected": "review_variant_approval"
+    },
+    {
+      "id": "link_statblock-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Reference the saved variant on Corrupted Edge."
+      },
+      "expected": "link_statblock"
+    },
+    {
+      "id": "link_statblock-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Put a link from this scene to the statblock we already saved."
+      },
+      "expected": "link_statblock"
+    },
+    {
+      "id": "build_encounter-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Build a runnable encounter roster from these four saved creatures."
+      },
+      "expected": "build_encounter"
+    },
+    {
+      "id": "build_encounter-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Set up the shopkeeper fight with the party and two guards so I can preview it."
+      },
+      "expected": "build_encounter"
+    },
+    {
+      "id": "preview_encounter-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Open the prepared encounter preview."
+      },
+      "expected": "preview_encounter"
+    },
+    {
+      "id": "preview_encounter-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Let me inspect the existing roster before combat begins."
+      },
+      "expected": "preview_encounter"
+    },
+    {
+      "id": "start_combat-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Start combat with the prepared roster now."
+      },
+      "expected": "start_combat"
+    },
+    {
+      "id": "start_combat-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "We're done with parley. Launch this prepared encounter in Combat."
+      },
+      "expected": "start_combat"
+    },
+    {
+      "id": "update_combat-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Set the running guard’s HP to 8."
+      },
+      "expected": "update_combat"
+    },
+    {
+      "id": "update_combat-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Mark one spell slot spent for Calyx in this encounter."
+      },
+      "expected": "update_combat"
+    },
+    {
+      "id": "prepare_image-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Open an editable image prompt for the Old Bath House exterior."
+      },
+      "expected": "prepare_image"
+    },
+    {
+      "id": "prepare_image-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Let's review the portrait prompt before generating anything."
+      },
+      "expected": "prepare_image"
+    },
+    {
+      "id": "generate_image-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Generate the image from the reviewed Studio prompt."
+      },
+      "expected": "generate_image"
+    },
+    {
+      "id": "generate_image-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Try another rendering of this saved portrait with softer lighting."
+      },
+      "expected": "generate_image"
+    },
+    {
+      "id": "save_image-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Save the selected generated portrait to the World library."
+      },
+      "expected": "save_image"
+    },
+    {
+      "id": "save_image-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Keep that second image in the library."
+      },
+      "expected": "save_image"
+    },
+    {
+      "id": "place_image-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Move the existing portrait below the arrival paragraph."
+      },
+      "expected": "place_image"
+    },
+    {
+      "id": "place_image-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Use this saved artwork in the current page above the map."
+      },
+      "expected": "place_image"
+    },
+    {
+      "id": "map_navigation-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Open the village map and jump to the Jove home marker."
+      },
+      "expected": "map_navigation"
+    },
+    {
+      "id": "map_navigation-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Take me from this map to the location linked by the village-square pin."
+      },
+      "expected": "map_navigation"
+    },
+    {
+      "id": "place_map_coordinates-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Pin the Jove home at this map coordinate."
+      },
+      "expected": "place_map_coordinates"
+    },
+    {
+      "id": "place_map_coordinates-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Add a map node here linked to the village square."
+      },
+      "expected": "place_map_coordinates"
+    },
+    {
+      "id": "reference_object-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Open the editable name table from the appendix."
+      },
+      "expected": "reference_object"
+    },
+    {
+      "id": "reference_object-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Change the description in the linked Item record for the statue."
+      },
+      "expected": "reference_object"
+    },
+    {
+      "id": "npc_art-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Show the saved portrait for the NPC in this scene."
+      },
+      "expected": "npc_art"
+    },
+    {
+      "id": "npc_art-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Attach this existing image to Mark Jove so it appears when he's in scene."
+      },
+      "expected": "npc_art"
+    },
+    {
+      "id": "name_correction-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Show each Karesmine occurrence before extraction so I can accept the spelling corrections."
+      },
+      "expected": "name_correction"
+    },
+    {
+      "id": "name_correction-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Change only the reviewed Dustwalker occurrence to its possessive."
+      },
+      "expected": "name_correction"
+    },
+    {
+      "id": "identity_review-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Show me both Karsemine identities so I can choose which one to merge."
+      },
+      "expected": "identity_review"
+    },
+    {
+      "id": "identity_review-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Bind these recap mentions to the reviewed existing Karsemine rather than creating a new identity."
+      },
+      "expected": "identity_review"
+    },
+    {
+      "id": "publish_extraction-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Publish this reviewed extraction once its exact support is verified."
+      },
+      "expected": "publish_extraction"
+    },
+    {
+      "id": "publish_extraction-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Replace the published session with the reviewed re-ingestion candidate."
+      },
+      "expected": "publish_extraction"
+    },
+    {
+      "id": "play_dispatch-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Start the prepared session from this Plan."
+      },
+      "expected": "play_dispatch"
+    },
+    {
+      "id": "play_dispatch-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Use the selected branch for this live Run and leave the original Plan alone."
+      },
+      "expected": "play_dispatch"
+    },
+    {
+      "id": "play_edit-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Revise the current Play scene in the session copy only."
+      },
+      "expected": "play_edit"
+    },
+    {
+      "id": "play_edit-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Stage the shorter description in the running scene, leaving the saved Plan alone."
+      },
+      "expected": "play_edit"
+    },
+    {
+      "id": "open_table-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Show me the prepared name table without rolling."
+      },
+      "expected": "open_table"
+    },
+    {
+      "id": "open_table-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Bring the prepared rumor table into view for the GM to inspect."
+      },
+      "expected": "open_table"
+    },
+    {
+      "id": "record_roll-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Record my 14 on the active prepared table."
+      },
+      "expected": "record_roll"
+    },
+    {
+      "id": "record_roll-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "I rolled a 7 on the rumor table. Use that result."
+      },
+      "expected": "record_roll"
+    },
+    {
+      "id": "record_session_note-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Log that the party spared the guard in this session's notes."
+      },
+      "expected": "record_session_note"
+    },
+    {
+      "id": "record_session_note-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Add to the running session notes that Torbin left during the celebration."
+      },
+      "expected": "record_session_note"
+    },
+    {
+      "id": "played_recap-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Use the ended session notes to draft a recap in chat."
+      },
+      "expected": "played_recap"
+    },
+    {
+      "id": "played_recap-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Summarize what actually happened last session from the saved played notes."
+      },
+      "expected": "played_recap"
+    },
+    {
+      "id": "recover_request-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Recover the exact failed request and check whether it already saved."
+      },
+      "expected": "recover_request"
+    },
+    {
+      "id": "recover_request-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Save lost its acknowledgement. Reopen its receipt before trying again."
+      },
+      "expected": "recover_request"
+    },
+    {
+      "id": "operator_handoff-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Take me to Image Studio with the reviewed prompt so I can generate it myself."
+      },
+      "expected": "operator_handoff"
+    },
+    {
+      "id": "operator_handoff-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Open the existing statblock in Combat for me to inspect without starting a fight."
+      },
+      "expected": "operator_handoff"
+    },
+    {
+      "id": "DISCUSS-1-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Discussion only. A village ferryman refuses coins and accepts stories instead. Brainstorm why he does this and what might change his mind."
+      },
+      "expected": "discuss"
+    },
+    {
+      "id": "CLARIFY-2-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Draft a short welcome for a midsummer festival at Rowan’s Forge. The audience is the local apprentices, the length is two sentences, and the goal is to thank them. Our one undecided preference is whether it should be solemn or playful. Ask me about that before drafting."
+      },
+      "expected": "clarify_request"
+    },
+    {
+      "id": "PAGE-EDIT-2-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Stage a six-row supplies table for review immediately after the selected sentence. Use columns Supply and Quantity, with these six rows: towels 6, slippers 6, washcloths 12, soap 3, lanterns 2, buckets 2. Preserve the selected sentence and the text on both sides. Do not apply or save the change."
+      },
+      "expected": "write_current_page"
+    },
+    {
+      "id": "SOURCE-READ-1-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "On the saved current page, what is stacked on the reception counter? Quote the exact saved passage and cite it."
+      },
+      "expected": "read_source"
+    },
+    {
+      "id": "CLARIFY-2-playful-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Playful."
+      },
+      "expected": "needs_context_to_choose"
+    },
+    {
+      "id": "CLARIFY-2-playful-H",
+      "tier": "retained_dialogue",
+      "input": {
+        "user_utterance": "Playful.",
+        "prior_dialogue": [
+          {
+            "user": "Draft a two-sentence welcome for apprentices and keep it in chat. Ask me about tone first.",
+            "assistant": "Should the welcome be solemn or playful?"
+          }
+        ]
+      },
+      "expected": "draft_in_conversation"
+    },
+    {
+      "id": "PAGE-EDIT-2-do-that-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Do that."
+      },
+      "expected": "needs_context_to_choose"
+    },
+    {
+      "id": "PAGE-EDIT-2-do-that-H",
+      "tier": "retained_dialogue",
+      "input": {
+        "user_utterance": "Do that.",
+        "prior_dialogue": [
+          {
+            "user": "Stage a six-row supplies table for review immediately after the selected sentence. Use columns Supply and Quantity, with these six rows: towels 6, slippers 6, washcloths 12, soap 3, lanterns 2, buckets 2. Preserve the selected sentence and the text on both sides. Do not apply or save the change.",
+            "assistant": "I can stage that table after the selection for review. Shall I proceed?"
+          }
+        ]
+      },
+      "expected": "write_current_page"
+    },
+    {
+      "id": "DISCUSS-1-do-that-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Do that."
+      },
+      "expected": "needs_context_to_choose"
+    },
+    {
+      "id": "DISCUSS-1-do-that-H",
+      "tier": "retained_dialogue",
+      "input": {
+        "user_utterance": "Do that.",
+        "prior_dialogue": [
+          {
+            "user": "Discussion only. A village ferryman refuses coins and accepts stories instead. Brainstorm why he does this and what might change his mind.",
+            "assistant": "I can brainstorm several reasons here in chat. Shall I?"
+          }
+        ]
+      },
+      "expected": "discuss"
+    },
+    {
+      "id": "DISCUSS-1-distractor-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Discussion only. A village ferryman refuses coins and accepts stories instead. Brainstorm why he does this and what might change his mind."
+      },
+      "expected": "discuss"
+    },
+    {
+      "id": "PAGE-EDIT-2-external-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Stage a six-row supplies table for review immediately after the selected sentence. Use columns Supply and Quantity, with these six rows: towels (verify the quantity on the saved Bath House Supply Ledger), slippers 6, washcloths 12, soap 3, lanterns 2, buckets 2. Preserve the selected sentence and the text on both sides. Do not apply or save the change."
+      },
+      "expected": "write_current_page"
+    },
+    {
+      "id": "read-no-edit",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Use the saved Edge origin passage to answer my question. Leave the page alone."
+      },
+      "expected": "read_source"
+    },
+    {
+      "id": "rules-not-lore",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Check official rules for the restrained condition. Skip our campaign lore."
+      },
+      "expected": "read_rules"
+    },
+    {
+      "id": "image-not-generate",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Discuss what tone the portrait could convey. Do not draft a prompt yet."
+      },
+      "expected": "discuss"
+    },
+    {
+      "id": "mechanics-as-text",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Give me an editable statblock draft right here in chat. We can save a new version later."
+      },
+      "expected": "draft_in_conversation"
+    },
+    {
+      "id": "no-combat-effect",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Could this encounter work as a parley? Let’s talk through it before starting combat."
+      },
+      "expected": "discuss"
+    },
+    {
+      "id": "map-description",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Write a description of the map concept here so I can review it. Do not start an image request."
+      },
+      "expected": "draft_in_conversation"
+    },
+    {
+      "id": "review-not-publish",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Make the edge reviewable so I can inspect the support. Wait for my approval before publishing."
+      },
+      "expected": "review_relationship"
+    },
+    {
+      "id": "ambiguous-approval",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Yes, do it."
+      },
+      "expected": "needs_context_to_choose"
+    },
+    {
+      "id": "draft-then-save",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "The draft is in chat. Show me a proposed insertion in the current page for review first."
+      },
+      "expected": "write_current_page"
+    }
+  ]
+}
