@@ -247,6 +247,89 @@ def test_pending_receipt_and_empty_execution_bind_at_actual_native_boundary():
     assert type(record).model_validate_json(record.model_dump_json(by_alias=True)) == record
 
 
+"""Versioned Graph-need wire reconstruction without provider or database IO."""
+import json
+from hashlib import sha256
+
+import pytest
+from pydantic import ValidationError
+
+from application_state.agent_conversation.native_plan_graph_need import (
+    NativePlanGraphNeedInputV1, canonical_wire, prepare_decision, validate_wire,
+)
+
+
+def _exclusion_guidance_parent():
+    return NativePlanGraphNeedInputV1(pending_query_sha256='a' * 64,
+        admission_sha256='b' * 64,
+        question='Use only this conversation; do not search the World.',
+        dialogue=(), current_work='Synthetic Plan')
+
+
+def test_unmarked_parent_and_wire_preserve_historical_identity():
+    old = _exclusion_guidance_parent()
+    assert 'exclusion_guidance_version' not in old.model_dump(mode='json', by_alias=True)
+    assert old.digest == '66dc21f6b47a8fb1d2d035f836876a64a8c69e596a3a024491aa8d6f4fb3843e'
+    wire = canonical_wire(old)
+    assert sha256(wire).hexdigest() == '91f3a8aeeb039a5298c457bf53e439c087f77dc996aa816ab553e52c3c459892'
+    validate_wire(old, wire)
+
+
+def test_marked_wire_changes_only_descriptions_and_is_bound_to_its_parent():
+    old = _exclusion_guidance_parent()
+    marked = NativePlanGraphNeedInputV1.model_validate(
+        old.model_dump(mode='json', by_alias=True) | {'exclusion_guidance_version': 'v1'})
+    assert marked.digest != old.digest
+    assert NativePlanGraphNeedInputV1.model_validate_json(marked.model_dump_json(by_alias=True)) == marked
+    old_wire, new_wire = canonical_wire(old), canonical_wire(marked)
+    a, b = json.loads(old_wire), json.loads(new_wire)
+    assert a['state'] == b['state'] and a['model'] == b['model']
+    assert 'exclusion_guidance_version' not in new_wire.decode()
+    assert a['questions']['graph_need']['instructions'] == b['questions']['graph_need']['instructions']
+    assert a['questions']['graph_need']['criteria'].keys() == b['questions']['graph_need']['criteria'].keys()
+    assert a['questions']['graph_need']['criteria'] != b['questions']['graph_need']['criteria']
+    validate_wire(old, old_wire)
+    validate_wire(marked, new_wire)
+    for owner, wire in ((old, new_wire), (marked, old_wire)):
+        with pytest.raises(ValueError, match='wire differs'):
+            validate_wire(owner, wire)
+
+
+def test_unknown_guidance_version_is_rejected_even_after_model_copy():
+    old = _exclusion_guidance_parent()
+    with pytest.raises(ValidationError):
+        NativePlanGraphNeedInputV1.model_validate(
+            old.model_dump(mode='json', by_alias=True) | {'exclusion_guidance_version': 'v2'})
+    with pytest.raises(ValueError, match='Unsupported Plan Graph-need guidance version'):
+        prepare_decision(old.model_copy(update={'exclusion_guidance_version': 'v2'}))
+
+
+def test_marked_decision_reopens_through_actual_execution_binding():
+    from uuid import uuid4
+    from application_state.agent_conversation.native_execution import validate_context_binding
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQueryClosedV1
+    from tests.test_native_plan_graph_need import actual_need_execution
+    from tests.test_surface_native_execution import execution, outcomes
+
+    context, record, old_auth, _, old_observed = actual_need_execution()
+    marked = old_observed.parent.model_copy(update={'exclusion_guidance_version': 'v1'})
+    envelope = sha256(canonical_wire(marked, expected_model=old_auth.model)).hexdigest()
+    auth = old_auth.model_copy(update={'parent_json': marked.model_dump_json(by_alias=True),
+        'parent_request_sha256': marked.digest, 'envelope_sha256': envelope})
+    observed = old_observed.model_copy(update={'parent': marked, 'envelope_sha256': envelope})
+    closed = NativePlanGraphQueryClosedV1(event_id=uuid4(), sequence=4,
+        need_event_id=observed.event_id, pending_query_sha256=marked.pending_query_sha256)
+    retained = execution(context.context_receipt_sha256, record.policy,
+        [auth, *outcomes(auth, 1), observed, closed])
+    assert validate_context_binding(context, retained) == retained
+    reopened = type(retained).model_validate_json(retained.model_dump_json(by_alias=True))
+    assert validate_context_binding(context, reopened) == retained
+    forged = retained.model_copy(update={'events': [auth.model_copy(update={
+        'envelope_sha256': old_auth.envelope_sha256}), *outcomes(auth, 1), observed, closed]})
+    with pytest.raises(ValueError):
+        validate_context_binding(context, forged)
+
+
 def actual_need_execution(choice='no_graph'):
     from uuid import uuid4
     from application_state.agent_conversation import types as t
@@ -422,7 +505,7 @@ def test_pending_receipt_is_admitted_and_reopened_from_app_database(source_adapt
 @pytest.mark.parametrize('event_class', [
     'NativePlanGraphNeedAuthorizedV1', 'NativePlanGraphNeedObservedV1', 'NativePlanGraphQueryAuthorizedV1',
     'NativePlanGraphQueryStartedV1', 'NativePlanGraphQueryClosedV1', 'NativePlanGraphQueryFailedV1',
-    'NativePlanGraphQuerySettledV1',
+    'NativePlanGraphQuerySettledV1', 'NativePlanGraphClarificationEventV1',
 ])
 def test_materialized_plan_graph_events_are_refused_without_persistence(source_adapter, monkeypatch, event_class):
     from uuid import uuid4
@@ -744,7 +827,7 @@ def test_no_graph_current_plan_prose_reconstructs_from_actual_sdk_request():
 @pytest.mark.parametrize('event_class', [
     'NativePlanGraphNeedAuthorizedV1', 'NativePlanGraphNeedObservedV1', 'NativePlanGraphQueryAuthorizedV1',
     'NativePlanGraphQueryStartedV1', 'NativePlanGraphQueryClosedV1', 'NativePlanGraphQueryFailedV1',
-    'NativePlanGraphQuerySettledV1',
+    'NativePlanGraphQuerySettledV1', 'NativePlanGraphClarificationEventV1',
 ])
 def test_reader_only_generic_append_refuses_new_graph_events_before_database(event_class):
     from uuid import uuid4
@@ -888,3 +971,119 @@ def test_pending_plan_citation_projection_uses_only_exact_settled_query():
     forged = completed.model_copy(update={'native_assertion_citations': [SimpleNamespace(assertion_id='foreign', assertion_sha256='a'*64)]})
     with pytest.raises(ValueError, match='differ from their durable Graph settlement'):
         _pending_plan_citation_membership(context, retained, forged)
+
+
+def test_uncertain_graph_clarification_is_exact_bound_terminal():
+    from uuid import uuid4
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_execution import _join_turn_fields, validate_context_binding
+    from application_state.agent_conversation.native_plan_graph_need import (
+        GRAPH_NEED_CLARIFICATION_QUESTION, NativePlanGraphClarificationCompletionV1,
+        NativePlanGraphClarificationEventV1, NativePlanGraphQueryAuthorizedV1,
+    )
+    from tests.test_surface_native_execution import execution
+    context, record, auth, lifecycle, observed = actual_need_execution('uncertain')
+    completion = NativePlanGraphClarificationCompletionV1(context_receipt_sha256=context.context_receipt_sha256,
+        observation_event_id=observed.event_id)
+    terminal = NativePlanGraphClarificationEventV1(event_id=uuid4(), sequence=4,
+        observation_event_id=observed.event_id, completion_sha256=t.canonical_sha256(completion))
+    retained = execution(context.context_receipt_sha256, record.policy, [auth, *lifecycle, observed, terminal])
+    assert validate_context_binding(context, retained) == retained
+    reopened = type(retained).model_validate_json(retained.model_dump_json(by_alias=True))
+    _join_turn_fields(context, reopened, completion, GRAPH_NEED_CLARIFICATION_QUESTION)
+    with pytest.raises(ValueError, match='exact terminal binding'):
+        _join_turn_fields(context, reopened, completion.model_copy(update={'observation_event_id': uuid4()}), GRAPH_NEED_CLARIFICATION_QUESTION)
+    with pytest.raises(ValueError, match='exact terminal binding'):
+        _join_turn_fields(context, reopened, completion, 'A different question?')
+    with pytest.raises(ValueError, match='typed completion'):
+        _join_turn_fields(context, reopened, None, None)
+    with pytest.raises(ValueError):
+        NativePlanGraphClarificationCompletionV1.model_validate_json(completion.model_dump_json().replace(
+            GRAPH_NEED_CLARIFICATION_QUESTION, 'Please search my World?'))
+    for segments in ([], [completion.answer_segments[0].model_dump()] * 2):
+        malformed = completion.model_dump(mode='json', by_alias=True) | {'answer_segments': segments}
+        with pytest.raises(ValueError):
+            NativePlanGraphClarificationCompletionV1.model_validate(malformed)
+    grant = NativePlanGraphQueryAuthorizedV1(event_id=uuid4(), sequence=5,
+        need_event_id=observed.event_id, pending_query_sha256=observed.parent.pending_query_sha256)
+    with pytest.raises(ValueError):
+        invalid = execution(context.context_receipt_sha256, record.policy, [*retained.events, grant])
+        validate_context_binding(context, invalid)
+
+
+@pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
+def test_reader_reopens_fixture_only_host_clarification_from_app(source_adapter, monkeypatch, application_state_dsn):
+    import psycopg
+    from uuid import uuid4
+    from application_state.agent_conversation import repository as repo, types as t
+    from application_state.agent_conversation.native_plan_graph_need import (
+        GRAPH_NEED_CLARIFICATION_QUESTION, NativePlanGraphNeedInputV1, NativePlanGraphNeedObservedV1,
+        NativePlanGraphClarificationCompletionV1, NativePlanGraphClarificationEventV1, canonical_wire,
+    )
+    from application_state.agent_conversation.native_retrieval import NativePlanGraphNeedAuthorizedV1
+    from apps.live_control_server.services.agent_turn_service import project_plan_turn_context
+    from apps.live_control_server.models.agent_turn import AgentSurfaceNativeContextResponseV1
+    from tests.test_surface_native_execution import controller, execution, outcomes
+    service, created = _admitted_pending_turn(source_adapter, monkeypatch)
+    turn = service.claim_turn(created.world_id, created.conversation_id, created.turn_id,
+        expected_revision=created.revision).turn
+    context, policy = turn.graph_context_receipt, turn.graph_context_execution.policy
+    parent = NativePlanGraphNeedInputV1(pending_query_sha256=t.canonical_sha256(context.native_query),
+        admission_sha256=t.canonical_sha256(context.assembled_input), question=policy.action.intent.message,
+        dialogue=(), current_work=source_adapter.work.plan_markdown)
+    base = controller('plan', policy, semantic=True)
+    auth = NativePlanGraphNeedAuthorizedV1.model_validate(base.model_dump(mode='json') | {
+        'kind': 'native_plan_graph_need_authorized_v1', 'parent_request_sha256': parent.digest,
+        'parent_json': parent.model_dump_json(by_alias=True),
+        'envelope_sha256': sha256(canonical_wire(parent, expected_model=base.model)).hexdigest(),
+        'input_estimator': context.assembled_input.tokenizer_name,
+        'output_token_reserve': context.assembled_input.output_token_reserve})
+    typed = result(answers={'graph_need': ChoiceDecisionAnswer(selected='uncertain')})
+    typed = typed.model_copy(update={'observation': typed.observation.model_copy(update={
+        'resolved_model': auth.model, 'response_model': auth.model})})
+    raw = typed.model_dump_json()
+    prefix = execution(context.context_receipt_sha256, policy, [auth, *outcomes(auth, 1)])
+    observed = NativePlanGraphNeedObservedV1(event_id=uuid4(), sequence=3,
+        controller_attempt_id=auth.provider_attempt_id, decision_request_id=auth.decision_request_id,
+        context_receipt_sha256=context.context_receipt_sha256, execution_policy_sha256=prefix.execution_policy_sha256,
+        parent=parent, envelope_sha256=auth.envelope_sha256, result_json=raw,
+        result_sha256=sha256(raw.encode()).hexdigest(), choice='uncertain')
+    completion = NativePlanGraphClarificationCompletionV1(context_receipt_sha256=context.context_receipt_sha256,
+        observation_event_id=observed.event_id)
+    terminal = NativePlanGraphClarificationEventV1(event_id=uuid4(), sequence=4,
+        observation_event_id=observed.event_id, completion_sha256=t.canonical_sha256(completion))
+    retained = execution(context.context_receipt_sha256, policy, [*prefix.events, observed, terminal])
+    # Fixture-only persistence proves the reader; it does not enable a producer.
+    with psycopg.connect(application_state_dsn) as conn:
+        completed = repo.complete_claimed_turn(conn, world_id=turn.world_id, turn_id=turn.turn_id,
+            expected_revision=turn.revision, expected_attempt=turn.attempt, assistant_text=GRAPH_NEED_CLARIFICATION_QUESTION,
+            completion=completion, graph_context_execution=retained)
+        assert completed is not None
+    reopened = service.inspect_turn(world_id=turn.world_id, turn_id=turn.turn_id)
+    assert reopened.completion == completion and reopened.assistant_text == GRAPH_NEED_CLARIFICATION_QUESTION
+    projected = project_plan_turn_context(reopened, delivery_replay=True)
+    assert AgentSurfaceNativeContextResponseV1.model_validate_json(projected.model_dump_json(by_alias=True)) == projected
+    assert projected.completion == completion and projected.delivery_replay
+    # The storage constraint must reject malformed terminal records even when
+    # an internal caller bypasses the Pydantic reader.
+    from psycopg.errors import CheckViolation
+    with psycopg.connect(application_state_dsn) as conn:
+        for path, value in [('{surface_id}', '"build"'),
+                            ('{context_receipt_sha256}', '"' + 'f' * 64 + '"'),
+                            ('{observation_event_id}', '"' + str(uuid4()) + '"'),
+                            ('{answer_context_status}', '"grounded"')]:
+            with pytest.raises(CheckViolation), conn.transaction():
+                conn.execute("UPDATE agent.turn SET completion=jsonb_set(completion,%s,%s::jsonb) WHERE turn_id=%s",
+                    (path, value, turn.turn_id))
+        with pytest.raises(CheckViolation), conn.transaction():
+            conn.execute("UPDATE agent.turn SET graph_context_execution=jsonb_set(graph_context_execution,"
+                "'{events,-2,choice}', '\"no_graph\"'::jsonb) WHERE turn_id=%s", (turn.turn_id,))
+    tampered = reopened.model_dump(mode='json', by_alias=True)
+    tampered['completion']['observation_event_id'] = str(uuid4())
+    with pytest.raises(ValueError):
+        t.Turn.model_validate(tampered)
+    for segments in ([], [completion.answer_segments[0].model_dump()] * 2):
+        tampered = reopened.model_dump(mode='json', by_alias=True)
+        tampered['completion']['answer_segments'] = segments
+        with pytest.raises(ValueError):
+            t.Turn.model_validate(tampered)
