@@ -211,20 +211,30 @@ def list_saved_revisions(
 
     require_build_pdf_access(request, world_id)
     _require_undeleted_revision_target(world_id, draft_id)
-    return _revision_call(saved_versions.list_versions,world_id=world_id,draft_id=draft_id,limit=limit,offset=offset)
+    versions = _revision_call(saved_versions.list_versions,world_id=world_id,draft_id=draft_id,limit=limit,offset=offset)
+    require_build_pdf_access(request, world_id)
+    _require_undeleted_revision_target(world_id, draft_id)
+    return versions
 
 
 @router.get('/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}')
 def open_saved_revision(draft_id: str, revision_id: str, world_id: str, request: Request):
+    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
+
+    require_build_pdf_access(request, world_id)
+    _require_undeleted_revision_target(world_id, draft_id)
+    result = _open_saved_revision_with_portrait(draft_id, revision_id, world_id, request)
+    require_build_pdf_access(request, world_id)
+    _require_undeleted_revision_target(world_id, draft_id)
+    return result
+
+
+def _open_saved_revision_with_portrait(draft_id: str, revision_id: str, world_id: str, request: Request):
     from base64 import b64encode
     from application_state.config import APPLICATION_STATE_DSN_ENV
     from application_state.mechanics_revisions import pdf_portraits
     from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
     from apps.live_control_server.routes.agent import get_pdf_statblock_review
-    from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
-
-    require_build_pdf_access(request, world_id)
-    _require_undeleted_revision_target(world_id, draft_id)
     packet = _revision_call(saved_versions.open_version, world_id=world_id, draft_id=draft_id, revision_id=revision_id)
     resource = packet["resource"]
     accepted_through = (resource.get("provenance") or {}).get("accepted_through") or {}
@@ -244,7 +254,6 @@ def open_saved_revision(draft_id: str, revision_id: str, world_id: str, request:
         )
         if portrait is not None:
             packet["pdf_portrait"] = b64encode(portrait).decode("ascii")
-            require_build_pdf_access(request, world_id)
             return packet
     try:
         review = get_pdf_statblock_review(world_id, review_id, request)

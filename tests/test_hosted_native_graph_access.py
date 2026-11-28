@@ -3274,7 +3274,7 @@ def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hos
     from uuid import UUID
 
     from application_state.config import APPLICATION_STATE_DSN_ENV
-    from application_state.mechanics_revisions import pdf_portraits
+    from application_state.mechanics_revisions import pdf_portraits, purge
     from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
     from apps.live_control_server.routes import agent, statblock_candidates
     from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
@@ -3304,6 +3304,7 @@ def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hos
 
     monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, "fixture-only")
     monkeypatch.setattr(pdf_portraits, "read", read_owned)
+    monkeypatch.setattr(purge, "find_receipt", lambda **_: None)
     monkeypatch.setattr(statblock_candidates, "statblock_data_root", lambda root: root)
     monkeypatch.setattr(statblock_candidates.saved_versions, "open_version", read_exact)
     monkeypatch.setattr(agent, "get_pdf_statblock_review", read_review)
@@ -3317,6 +3318,28 @@ def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hos
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["pdf_portrait"] == ("b3duZWQgcG9ydHJhaXQ=" if owned_copy else "portrait")
     assert calls == [{"world_id": "managed", "draft_id": draft, "revision_id": revision}]
+
+
+@pytest.mark.parametrize("exact", [False, True])
+def test_hosted_statblock_read_rechecks_deletion_after_loading(hosted, monkeypatch, exact):
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from application_state.mechanics_revisions import purge
+    from apps.live_control_server.routes import statblock_candidates
+
+    target = "/rev_exact" if exact else ""
+    path = f"/api/live/threat-drafts/{uuid4()}/mechanics-revisions{target}?world_id=managed"
+    receipt = None
+    def read(*_args, **_kwargs):
+        nonlocal receipt
+        receipt = (object(), True)
+        return {"resource": {"definition": "must not escape"}}
+
+    monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, "fixture-only")
+    monkeypatch.setattr(purge, "find_receipt", lambda **_: receipt)
+    monkeypatch.setattr(statblock_candidates.saved_versions, "open_version" if exact else "list_versions", read)
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 410, response.text
+    assert "must not escape" not in response.text
 
 
 def test_hosted_ingest_lists_and_reopens_saved_source_in_owned_world(hosted, monkeypatch):
