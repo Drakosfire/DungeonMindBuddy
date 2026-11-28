@@ -1578,7 +1578,7 @@ def test_current_authorization_rejects_parent_contract_substitution(plan_adapter
 def _shared_plan_authoring_case(
     plan_adapter, tmp_path, monkeypatch, placement, mode, failure=None, *, routing=None, dsn=None,
     placement_factory=None, semantic_intent=None, semantic_compatible=None,
-    ordinary_caret=False, author_scope_calls=None,
+    ordinary_caret=False, author_scope_calls=None, first_intent=None,
 ):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_statements import (
@@ -1685,8 +1685,8 @@ def _shared_plan_authoring_case(
                 assert criteria == opening_action_menu("plan", plan_operation=plan_adapter.request.plan_requested_operation)
                 assert set(body["state"]) <= {"surface", "user_utterance", "page_title", "selected_text",
                                              "prior_dialogue", "explicit_editor_operation"}
-                choice = semantic_intent or (
-                    routing if routing in {"discuss", "different_destination"} else "write_current_page"
+                choice = first_intent or semantic_intent or (
+                    routing if routing in {"discuss", "clarify", "different_destination"} else "write_current_page"
                 )
                 return httpx2.Response(200, request=request, json={
                     "model": body["model"], "usage": {"input_tokens": 31, "output_tokens": 7},
@@ -1899,8 +1899,8 @@ def _shared_plan_authoring_case(
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
     if author_scope_calls is None:
         author_scope_calls = 2 if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2 else 0
-    if author_scope_calls:
-        author_scope_calls = 1 if routing == "discuss" else author_scope_calls + 1
+    contextual = bool(author_scope_calls)
+    author_scope_calls = 1 if routing == "discuss" else author_scope_calls + 1
     if routing is not None:
         from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
         from application_state.plan_action_dialogue.repository import get_authoring_for_turn
@@ -1960,7 +1960,8 @@ def _shared_plan_authoring_case(
                 if type(event) is NativePlanAuthorScopeObservedV1]
             assert len(scopes) == author_scope_calls
             assert scopes[0].scope_observation.requested_work is not None
-            assert selected[0].author_scope_binding.observation_event_id == scopes[-1].event_id
+            if contextual:
+                assert selected[0].author_scope_binding.observation_event_id == scopes[-1].event_id
         assert selected[0].requested_work == ("write_current_page" if routing == "write_without_capture" else routing)
         assert selected[0].original_capture_sha256 == (None if routing == "write_without_capture" else capture.sha256)
         action = PlanActionDialogueService().get_by_key(
@@ -2053,7 +2054,7 @@ def _shared_plan_authoring_case(
         )
         assert (
             action is None
-            if failure == "changed_capture"
+            if failure in {"changed_capture", "changed_opening_intent"}
             else action.status == "indeterminate"
         )
         assert (
@@ -2064,6 +2065,10 @@ def _shared_plan_authoring_case(
             if action
             else True
         )
+        if failure == "changed_opening_intent":
+            assert len(decisions.calls) == 2
+            assert not any(isinstance(event, t.PlanRequestedWorkSelectedV2)
+                           for event in retained.graph_context_execution.events)
         calls = (len(decisions.calls), len(writer.calls))
         with pytest.raises(AgentTurnServiceError):
             execute_agent_turn(plan_adapter.request, **kwargs)
@@ -2147,6 +2152,13 @@ def test_current_shared_plan_caller_reserves_and_delivers_its_actual_edit(
     plan_adapter, tmp_path, monkeypatch, placement, mode
 ):
     _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, placement, mode)
+
+
+def test_plain_plan_cannot_write_after_discussion_intent(plan_adapter, tmp_path, monkeypatch):
+    _shared_plan_authoring_case(
+        plan_adapter, tmp_path, monkeypatch, "captured", "base",
+        failure="changed_opening_intent", first_intent="discuss",
+    )
 
 
 @pytest.mark.parametrize(
