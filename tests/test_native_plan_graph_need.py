@@ -167,7 +167,7 @@ def pending_execution(choice):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_execution import NativePlanActionV2
     from application_state.agent_conversation.native_plan_graph_need import (
-        NativePlanGraphNeedInputV1, NativePlanGraphNeedObservedV1, canonical_wire,
+        MODEL, NativePlanGraphNeedInputV1, NativePlanGraphNeedObservedV1, canonical_wire,
     )
     from application_state.agent_conversation.native_retrieval import NativePlanGraphNeedAuthorizedV1
     from application_state.agent_conversation.rules_authority_types import canonical_sha256
@@ -182,13 +182,13 @@ def pending_execution(choice):
         current_work=WORK_MARKDOWN)
     action = NativePlanActionV2.model_construct(intent=SimpleNamespace(message=query.question,
         graph_request=SimpleNamespace(revision_pin=None)))
-    role = SimpleNamespace(identity=lambda: ('typesafe', 'typesafe-ai/jev-1.14.0', 'decision'))
+    role = SimpleNamespace(identity=lambda: ('typesafe', MODEL, 'decision'))
     execution = SimpleNamespace(policy=SimpleNamespace(action=action, provider_roles=SimpleNamespace(controller=role)),
         context_receipt_sha256='4'*64, execution_policy_sha256='5'*64, events=[])
     attempt, request_id = uuid4(), uuid4()
     auth = NativePlanGraphNeedAuthorizedV1.model_construct(event_id=uuid4(), sequence=0,
         provider_attempt_id=attempt, decision_request_id=request_id, provider='typesafe',
-        model='typesafe-ai/jev-1.14.0', api_mode='decision', parent_request_sha256=semantic.digest,
+        model=MODEL, api_mode='decision', parent_request_sha256=semantic.digest,
         parent_json=semantic.model_dump_json(by_alias=True),
         envelope_sha256=sha256(canonical_wire(semantic)).hexdigest())
     lifecycle = [t.ProviderOutcomeEventV1(kind='provider_outcome', event_id=uuid4(), sequence=n,

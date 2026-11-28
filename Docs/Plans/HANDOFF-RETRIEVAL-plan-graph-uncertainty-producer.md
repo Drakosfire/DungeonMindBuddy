@@ -79,3 +79,25 @@ left both branches unchanged. Resolve against main's shared intent-only Plan
 ballot and current trace storage. Integrate the required reader contracts
 without importing the unrelated serving overlay. Preserve #5008's separate
 serving qualification and its migration hold.
+
+### Required admission split on main
+
+The port at `df13f41bf8fa` retains the earlier dispatch order. The service
+prepares source authority before entering the harness. The harness claims a
+source-bound native receipt and runs Graph need before its intent ballot.
+Moving the two harness calls alone would still perform source preparation
+before dispatch.
+
+The first intent attempt needs durable admission based on the submitted
+request, editor basis and dialogue, before source authority exists. Bind
+its acknowledged choice to the subsequent native claim. Keep source
+preparation behind that choice and require an exact authorization before
+using any acquired entries. Retained source-bound turns continue through
+their original receipt and wire validators. An interrupted intent attempt
+must reconcile its durable outcome before retry or any source preparation.
+
+The ordinary HTTP controls must observe both Jev transport entry and the
+source owner. Require intent entry first, require no source preparation for
+a conversation-only answer, and require source preparation after intent for
+a citation request. Keep the captured placement and replay controls in the
+same qualification. Benchmark reruns remain gated on these checks.
