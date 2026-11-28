@@ -855,15 +855,31 @@ def validate_native_action_events(execution):
     steps additionally require their existing review/reservation admission.
     """
     from . import types as t
-    caps,capability,_,_=_captured_semantics(execution.policy)
-    latest=outcome=selection=None
+    caps,capability,menu,_=_captured_semantics(execution.policy)
+    latest=outcome=selection=opening_intent=response_digest=None
     for event in execution.events:
         if isinstance(event,t.BuildReviewedActionSelectionV1):
             if (selection is not None or latest is not None or event.capability_sha256!=capability
                     or event.operation not in caps.operations):
                 raise ValueError('Reviewed action lacks its unique pre-provider capability binding')
             selection=event
+        elif isinstance(event, t.BuildOpeningIntentSelectedV1):
+            if (
+                selection is not None or opening_intent is not None
+                or type(latest) is not t.ProviderAttemptAuthorizedEventV5
+                or latest.context_phase != "select" or outcome != "response_received"
+                or latest.provider_attempt_id != event.controller_attempt_id
+                or latest.envelope_sha256 != event.controller_envelope_sha256
+                or response_digest != event.controller_response_sha256
+                or (latest.provider, latest.model, latest.api_mode)
+                != execution.policy.provider_roles.controller.identity()
+                or event.requested_work not in _menu_work(menu)
+            ):
+                raise ValueError("Build opening intent differs from its acknowledged controller")
+            opening_intent = event
         elif isinstance(event,t.BuildRequestedWorkResolutionV1):
+            if opening_intent is not None and event.requested_work != opening_intent.requested_work:
+                raise ValueError("Build resolution cannot replace the retained opening intent")
             if (selection is not None or latest is None or outcome!='response_received'
                     or latest.provider_attempt_id!=event.controller_attempt_id
                     or latest.envelope_sha256!=event.controller_envelope_sha256
@@ -879,9 +895,10 @@ def validate_native_action_events(execution):
                     raise ValueError('Build writer requires its unique retained semantic resolution')
                 if getattr(selection, "typed_graph_reference", None) == "place_existing_reference":
                     raise ValueError("Typed Graph reference placement cannot authorize a writer")
-            latest,outcome=event,None
+            latest,outcome,response_digest=event,None,None
         elif isinstance(event,t.ProviderOutcomeEventV1) and latest is not None and event.provider_attempt_id==latest.provider_attempt_id:
             outcome=event.outcome
+            response_digest=event.response_sha256
 
 
 def validate_selection(turn, event, proof, trace):

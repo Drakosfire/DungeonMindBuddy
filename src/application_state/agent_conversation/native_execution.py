@@ -634,7 +634,7 @@ from .build_pending_app_coverage import (BuildAppCoverageAuthorizedV1, BuildAppC
 # is confined to its admitted retained closure and empty acquired catalog.
 BuildPendingPrefixEventV1 = Annotated[
     t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | BuildAppCoverageAuthorizedV1 | BuildAppCoverageDecidedV1 | t.ProviderOutcomeEventV1
-    | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
+    | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1 | t.BuildOpeningIntentSelectedV1
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
     | NativeRetrievalAuthorizedV1 | NativeRetrievalSelectedV1
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1

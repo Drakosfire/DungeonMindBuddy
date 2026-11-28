@@ -4882,6 +4882,14 @@ class BuildJevActionSelectionV1(GraphExecutionEventBaseV1):
     arguments_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
+class BuildOpeningIntentSelectedV1(GraphExecutionEventBaseV1):
+    kind: Literal["build_opening_intent_selected_v1"]
+    controller_attempt_id: UUID
+    controller_envelope_sha256: Digest
+    controller_response_sha256: Digest
+    requested_work: str = Field(min_length=1, max_length=64)
+
+
 class BuildRequestedWorkResolutionV1(BuildJevActionSelectionV1):
     kind: Literal['build_requested_work_resolved_v1']
     controller_response_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
