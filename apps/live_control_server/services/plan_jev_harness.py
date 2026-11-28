@@ -28,6 +28,15 @@ def _require_guest_discussion_selection(adapter, selected):
         )
 
 
+def _destination_unavailable():
+    from .agent_turn_service import AgentTurnServiceError
+
+    return AgentTurnServiceError(
+        "This request needs another page or object. The request is retained; choose that destination before generating.",
+        code="plan_authoring_destination_unavailable", status_code=409,
+    )
+
+
 class PlanJevHarness:
     descriptor = AgentRuntimeDescriptor('buddy-plan-jev','generationengine','plan-jev-one-writer','graph')
 
@@ -59,6 +68,8 @@ class PlanJevHarness:
             return dispatch.selection_event
 
         intent = observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, intent_opening=True))
+        if intent.scope_observation.requested_work == "different_destination":
+            raise _destination_unavailable()
         if intent.scope_observation.requested_work == "discuss":
             return intent
         first_dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue)
@@ -123,8 +134,7 @@ class PlanJevHarness:
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
             _require_guest_discussion_selection(adapter, selected)
             if selected == 'different_destination':
-                raise AgentTurnServiceError('This request needs another page or object. The request is retained; choose that destination before generating.',
-                    code='plan_authoring_destination_unavailable', status_code=409)
+                raise _destination_unavailable()
             if selected == 'write_current_page':
                 capture = adapter.request.plan_authoring_capture
                 selector = semantic.selection_event.placement_selector
