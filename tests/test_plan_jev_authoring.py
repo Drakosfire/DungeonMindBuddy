@@ -101,6 +101,8 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             expected_state |= {"candidates", "relevance_guidance", "conditional_read_plan_policy"}
             if self.expect_examined:
                 expected_state.add("examined_subjects")
+        if self.adapter.request.authored_references is not None:
+            expected_state.add("author_selected_references")
         if self.adapter.request.plan_requested_operation is not None:
             expected_state.add('plan_requested_operation')
         contextual = 'placement_relation' in body['questions']
