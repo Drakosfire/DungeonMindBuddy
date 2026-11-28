@@ -54,33 +54,64 @@ class PlanJevHarness:
     def run_with_provider_authorization(self, *args, **kwargs):
         raise ValueError('Plan Jev requires its trusted parent orchestration')
 
-    def _interpret_author_scope(self, adapter, dialogue, calls, *, contextual):
+    def _observe_author_scope(self, dispatch, calls):
+        try:
+            asyncio.run(dispatch.run(transport=self.decision_transport, api_key=self.decision_api_key))
+        finally:
+            if dispatch.call is not None:
+                calls.append(dispatch.call)
+        return dispatch.selection_event
+
+    def _interpret_opening_intent(self, adapter, dialogue, calls):
+        from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+        from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
+        from .agent_turn_service import AgentTurnServiceError
+
+        events = adapter.fence.turn.graph_context_execution.events
+        authorizations = [
+            event for event in events
+            if type(event) is NativePlanAuthorScopeAuthorizedV1 and event.intent_opening
+        ]
+        if authorizations:
+            observations = [
+                event for event in events
+                if type(event) is NativePlanAuthorScopeObservedV1
+                and event.controller_attempt_id == authorizations[0].provider_attempt_id
+            ]
+            if len(authorizations) != 1 or len(observations) != 1:
+                raise AgentTurnServiceError(
+                    'The earlier Plan intent has no settled result and cannot be repeated.',
+                    code='plan_intent_outcome_uncertain', status_code=409, provider_dispatched=False,
+                )
+            intent = observations[0]
+        else:
+            dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue, intent_opening=True)
+            intent = self._observe_author_scope(dispatch, calls)
+        if intent.scope_observation.requested_work == "different_destination":
+            raise _destination_unavailable()
+        return intent
+
+    def _interpret_author_scope(self, adapter, dialogue, calls, *, contextual=True):
         from application_state.agent_conversation.native_plan_opening import (
             author_scope_review_required, can_skip_author_scope_recheck,
         )
 
-        def observe(dispatch):
-            try:
-                asyncio.run(dispatch.run(transport=self.decision_transport, api_key=self.decision_api_key))
-            finally:
-                if dispatch.call is not None:
-                    calls.append(dispatch.call)
-            return dispatch.selection_event
-
-        intent = observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, intent_opening=True))
-        if intent.scope_observation.requested_work == "different_destination":
-            raise _destination_unavailable()
+        intent = self._interpret_opening_intent(adapter, dialogue, calls)
         if not contextual or intent.scope_observation.requested_work in {"discuss", "clarify"}:
             return intent
         first_dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue)
-        first = observe(first_dispatch)
+        first = self._observe_author_scope(first_dispatch, calls)
         if can_skip_author_scope_recheck(
             first_dispatch.parent, first.scope_observation, adapter.request.plan_authoring_capture
         ):
             return first
-        second = observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, prior_scope=first))
+        second = self._observe_author_scope(
+            PlanJevDispatch.author_scope(adapter, dialogue=dialogue, prior_scope=first), calls
+        )
         if author_scope_review_required(adapter.request.message, first.scope_observation, second.scope_observation):
-            return observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, review_scope=(first, second)))
+            return self._observe_author_scope(
+                PlanJevDispatch.author_scope(adapter, dialogue=dialogue, review_scope=(first, second)), calls
+            )
         return second
 
     def execute(self, adapter, *, dialogue=(), retained_navigation=()):
@@ -89,7 +120,7 @@ class PlanJevHarness:
         self.calls = []
         author_scope_calls = []
         page_title = next((line[2:].strip() for line in adapter.work.plan_markdown.splitlines() if line.startswith('# ') and line[2:].strip()), 'Current Plan')
-        semantic = None
+        semantic = graph_need = None
         rules = PlanRulesRuntime(adapter, rules_capability(graph=True))
         driver = writer = None
         primary_error = False
@@ -112,6 +143,67 @@ class PlanJevHarness:
                 if type(adapter.request.plan_context_policy) is not t.PlanContextPolicyV2:
                     raise ValueError('Current Plan orchestration requires the governed native request protocol')
                 adapter.claim_native_plan_request(dialogue=dialogue)
+                prepare_graph = getattr(adapter, 'prepare_deferred_plan_query', None)
+                if prepare_graph is not None:
+                    from .plan_graph_need_dispatch import PlanGraphNeedDispatch, settle_graph_need
+                    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphNeedObservedV1
+                    from application_state.agent_conversation.native_retrieval import NativePlanGraphNeedAuthorizedV1
+                    intent = self._interpret_opening_intent(adapter, dialogue, author_scope_calls)
+                    saved_page_only = (intent.scope_observation.requested_work != "clarify"
+                                       and intent.scope_observation.source_use == "saved_page_only")
+                    events = adapter.fence.turn.graph_context_execution.events
+                    observed_events = [event for event in events if type(event) is NativePlanGraphNeedObservedV1]
+                    if observed_events:
+                        observed = observed_events[0]
+                    elif any(type(event) is NativePlanGraphNeedAuthorizedV1 for event in events):
+                        raise AgentTurnServiceError('The earlier Graph decision has an uncertain outcome and cannot be repeated.',
+                            code='plan_graph_need_outcome_uncertain', status_code=409, provider_dispatched=False)
+                    else:
+                        observed = None
+                        if (intent.scope_observation.requested_work != 'clarify'
+                                and intent.scope_observation.source_use not in {'conversation_only', 'uncertain', 'saved_page_only'}):
+                            graph_need = PlanGraphNeedDispatch(adapter, dialogue=dialogue)
+                            try:
+                                observed = asyncio.run(graph_need.run(
+                                    transport=self.decision_transport, api_key=self.decision_api_key
+                                ))
+                            finally:
+                                if graph_need.call is not None:
+                                    author_scope_calls.append(graph_need.call)
+                    if observed is None:
+                        adapter.native_query_context = adapter.native_query = None
+                    else:
+                        from application_state.agent_conversation.native_context import NativePlanSourcePendingV1
+
+                        prepare_corpus = (type(adapter.native_source_authority) is NativePlanSourcePendingV1
+                                          and intent.scope_observation.source_use == "source_needed")
+                        clarification = settle_graph_need(adapter, observed, prepare_graph=prepare_graph,
+                            prepare_corpus=prepare_corpus)
+                        if clarification is not None:
+                            return clarification
+                    if saved_page_only or (observed is not None and (observed.choice == "require_graph"
+                            or intent.scope_observation.source_use == "source_needed")):
+                        from uuid import uuid4
+                        from .agent_turn_service import _require_fresh_execution_append
+                        from .build_related_pages import discover
+                        from application_state.agent_conversation.build_related_pages import PagePointer, PlanPageCatalogObservedV1
+                        from application_state.agent_conversation.native_plan_graph_need import (
+                            NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1,
+                        )
+
+                        execution = adapter.fence.turn.graph_context_execution
+                        if (execution.policy.action.related_page_catalog is None
+                                and not any(type(event) is PlanPageCatalogObservedV1 for event in execution.events)):
+                            source_decision = intent
+                            if not saved_page_only:
+                                source_decision, = [event for event in execution.events
+                                    if type(event) in (NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)]
+                            event = PlanPageCatalogObservedV1(
+                                event_id=uuid4(), sequence=len(execution.events), source_decision_event_id=source_decision.event_id,
+                                pages=tuple(PagePointer.model_validate(row) for row in discover(adapter.request)),
+                            )
+                            adapter.turn = _require_fresh_execution_append(
+                                adapter.fence.append("record_plan_page_catalog", "event", event))
                 from application_state.agent_conversation.native_execution import NativePlanActionV3
                 action = adapter.fence.turn.graph_context_execution.policy.action
                 if type(action) is NativePlanActionV3:
@@ -128,6 +220,10 @@ class PlanJevHarness:
                 with measure("plan_opening_candidate_preparation"):
                     semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title,
                         author_scope=author_scope, **driver.decision_arguments())
+                    from application_state.agent_conversation.native_plan_opening import NativePlanOpeningInputV1
+                    if type(semantic.parent) is NativePlanOpeningInputV1:
+                        semantic.parent = semantic.parent.model_copy(
+                            update={'work_choice_guidance_version': 'v1'})
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
             _require_guest_discussion_selection(adapter, selected)
             if selected == 'different_destination':

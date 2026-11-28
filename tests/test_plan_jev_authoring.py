@@ -1621,6 +1621,17 @@ def _shared_plan_authoring_case(
             reason="native_graph_head_unavailable",
         ),
     )
+    source_free = ordinary_caret or routing in {"discuss", "clarify"} or failure == "changed_opening_intent"
+    if source_free:
+        from apps.live_control_server.services import build_related_pages, plan_source_turn
+
+        def unexpected_source_preparation(*args, **kwargs):
+            pytest.fail("Source-free ordinary Plan prepared sources")
+
+        monkeypatch.setattr(plan_source_turn, "prepare", unexpected_source_preparation)
+        monkeypatch.setattr(build_related_pages, "discover", unexpected_source_preparation)
+        kwargs["native_graph_query_resolver"] = unexpected_source_preparation
+
     from application_state.content.service import commit_plan, snapshot_content
 
     def newer_plan():
@@ -1680,7 +1691,7 @@ def _shared_plan_authoring_case(
 
                 assert not self.calls
                 self.calls.append(request)
-                assert set(body["questions"]) == {"requested_work"}
+                assert set(body["questions"]) in ({"requested_work"}, {"requested_work", "source_use"})
                 criteria = body["questions"]["requested_work"]["criteria"]
                 assert criteria == opening_action_menu("plan", plan_operation=plan_adapter.request.plan_requested_operation)
                 assert set(body["state"]) <= {"surface", "user_utterance", "page_title", "selected_text",
@@ -1688,10 +1699,16 @@ def _shared_plan_authoring_case(
                 choice = first_intent or semantic_intent or (
                     routing if routing in {"discuss", "clarify", "different_destination"} else "write_current_page"
                 )
+                answers = {"requested_work": {"type": "choice", "choice": choice, "confidence": 1,
+                    "probabilities": {key: float(key == choice) for key in criteria}}}
+                if "source_use" in body["questions"]:
+                    source_use = "conversation_only" if source_free else "source_needed"
+                    answers["source_use"] = {"type": "choice", "choice": source_use, "confidence": 1,
+                        "probabilities": {key: float(key == source_use)
+                                          for key in body["questions"]["source_use"]["criteria"]}}
                 return httpx2.Response(200, request=request, json={
                     "model": body["model"], "usage": {"input_tokens": 31, "output_tokens": 7},
-                    "answers": {"requested_work": {"type": "choice", "choice": choice, "confidence": 1,
-                        "probabilities": {value: float(value == choice) for value in criteria}}},
+                    "answers": answers,
                 })
             if 'existing_scope' in body['questions']:
                 assert set(body["questions"]) == {"page_edit_intent", "location_relation", "existing_scope"}
@@ -1722,6 +1739,10 @@ def _shared_plan_authoring_case(
                 return httpx2.Response(200, request=request, json=dict(model=body['model'], answers=answers,
                     usage=dict(input_tokens=31, output_tokens=7)))
             if "requested_work" in body["questions"]:
+                if source_free:
+                    assert not body["state"].get("candidates")
+                    if "operation" in body["questions"]:
+                        assert "discover_more" not in body["questions"]["operation"]["criteria"]
                 if "conditional_read_plan_policy" in body["state"] and "author_page_edit_intent" in body["state"]:
                     from application_state.agent_conversation.surface_action_catalog import opening_action_menu
 
@@ -1733,6 +1754,7 @@ def _shared_plan_authoring_case(
                 return await SemanticWire(
                     wire.adapter, semantic_intent or (("write_current_page" if routing == "write_without_capture" else routing)
                     if routing else "write:" + placement), compatible_selectors=semantic_compatible,
+                    expect_examined=not source_free,
                 ).handle_async_request(request)
             if mode != "base":
                 self.calls.append(request)
@@ -2089,7 +2111,7 @@ def _shared_plan_authoring_case(
     if mode == "base":
         from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
         footer = "This answer uses partial retrieval and does not establish corpus completeness."
-        assert footer in response.answer.text
+        assert (footer in response.answer.text) == (not source_free)
         if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2:
             assert footer not in response.plan_proposal.replacement_markdown
         else:

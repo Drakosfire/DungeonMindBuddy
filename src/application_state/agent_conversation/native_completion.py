@@ -131,10 +131,15 @@ def require_object_only_completion(completion):
 
 def _pending_graph_identity(receipt, execution):
     from .build_pending_native import pending_citation_identity
-    from .native_context import BuildPendingContextReceiptV1
+    from .native_context import BuildPendingContextReceiptV1, NativePlanGraphQueryPendingV1
 
     if type(receipt) is BuildPendingContextReceiptV1:
         return pending_citation_identity(receipt, execution)
+    if type(receipt.native_query) is NativePlanGraphQueryPendingV1 and receipt.native_query.authority is None:
+        from .native_execution import effective_native_query
+
+        authority = effective_native_query(receipt, execution).authority
+        return authority.managed_world_id, authority.native_world_id, authority.revision_id
     return None
 
 

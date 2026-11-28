@@ -245,7 +245,8 @@ def _navigation_source_authority(adapter):
         from application_state.agent_conversation.build_pending_native import pending_native_owner, prepared_pending_source
         receipt, execution = pending_native_owner(turn)
         return prepared_pending_source(receipt, execution)[0]
-    return turn.graph_context_receipt.source_authority
+    from application_state.agent_conversation.native_plan_graph_need import effective_plan_source_authority
+    return effective_plan_source_authority(turn.graph_context_receipt, turn.graph_context_execution.events)
 
 
 def _navigation_source_context_matches(adapter, context):
@@ -532,10 +533,13 @@ class NativeBodyNavigation:
         from application_state.agent_conversation.native_corpus import (
             NativeCorpusAuthorityV1, NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled,
             NativePlanRequestSearchAuthorizedV1, request_source_discovery_enabled,
+            plan_intent_excludes_source_discovery,
         )
         from ..integrations.dungeonmind.native_corpus_source import capture_native_sources
         a = self.adapter
         turn = a.fence.turn
+        if plan_intent_excludes_source_discovery(turn.graph_context_execution.events):
+            return
         request_owned = request_source_discovery_enabled(turn.graph_context_receipt, turn.graph_context_execution)
         if (not (request_owned or initial_source_discovery_enabled(turn.graph_context_execution))
                 or not isinstance(_navigation_source_authority(self.adapter), NativeCorpusAuthorityV1)):
@@ -673,6 +677,8 @@ class NativeBodyNavigation:
             return ()
         turn = self.adapter.fence.turn
         authority = _navigation_source_authority(self.adapter)
+        if authority is None:
+            return ()
         if not isinstance(authority, NativeCorpusAuthorityV1):
             return (RetrievalCandidate(handle="native-source-unavailable:" + authority.failure_code,
                 label="Native source inspection unavailable", kind=authority.failure_code + "; not evidence of absence"),)

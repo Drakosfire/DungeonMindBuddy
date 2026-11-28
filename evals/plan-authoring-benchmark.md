@@ -178,6 +178,13 @@ Action-sequence grading is new work. Qualify the first-turn cohort through
 ordinary Buddy first. Use retained Sheep and Maelthor evidence to map the
 subsequent multi-turn fixtures and identify telemetry gaps before rerunning.
 
+For the Plan Graph-need producer, include an uncertain-decision control: the
+ordinary turn must deliver and reopen the host scope question without Graph
+acquisition, writer dispatch, or a page action. Pair it with conversation-only,
+explicit no-search (including a Plan edit with no captured placement),
+source-required, retry and stale-claim controls. The reader
+is merged but not live; producer and hosted acceptance evidence remain open.
+
 ## Plan authoring and conversation-only cohort
 
 | Case | Request and starting state | Required result |
