@@ -510,7 +510,8 @@ def test_pdf_append_recovers_exact_review_after_source_changes(revision_case):
     request = AppendPdfStatblockReviewRequest(
         operation_id=p.request["operation_id"], expected_revision=2, base=p.request["base"],
     )
-    review = {"revision": 1, "definition": p.request["definition"], "regions": [{"page": 2}]}
+    review = {"revision": 1, "definition": p.request["definition"], "regions": [{"page": 2}],
+              "artwork": {"jpeg_base64": "/9hwb3J0cmFpdP/Z"}}
     args = dict(draft_id=p.draft.draft_id, world_id="elderwyld", review_id=review_id,
                 request=request, load_review=lambda: review)
     with pytest.raises(ApplicationStateConflictError, match="review changed"):
@@ -521,6 +522,13 @@ def test_pdf_append_recovers_exact_review_after_source_changes(revision_case):
     p.manual.timeout = True
     first = service.append_pdf_review(p.root, **args)
     assert first["state"] == "outcome_unknown"
+    from uuid import UUID
+    from application_state.mechanics_revisions import pdf_portraits
+
+    assert pdf_portraits.read(
+        statblock_id=p.revision.statblock_id, world_id="elderwyld",
+        draft_id=UUID(p.draft.draft_id), review_id=review_id,
+    ) == bytes.fromhex("ffd8706f727472616974ffd9")
     review["revision"] = 3
     assert service.append_pdf_review(p.root, **args)["state"] == "committed"
     assert p.manual.appends == 1
