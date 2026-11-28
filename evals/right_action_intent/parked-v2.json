@@ -1,0 +1,156 @@
+[
+  {
+    "case": {
+      "id": "plan-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Give me an editable checklist for finishing this adventure."
+      },
+      "expected": "plan"
+    },
+    "reason": "Editable checklist is a requested product capability."
+  },
+  {
+    "case": {
+      "id": "plan_cards-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Turn this adventure into runnable GM cards with triggers and branches."
+      },
+      "expected": "plan_cards"
+    },
+    "reason": "The full runnable-card construction remains unqualified."
+  },
+  {
+    "case": {
+      "id": "plan_cards-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Build the aftermath cards from the source so I can run that part at the table."
+      },
+      "expected": "plan_cards"
+    },
+    "reason": "The full runnable-card construction remains unqualified."
+  },
+  {
+    "case": {
+      "id": "link_statblock-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Reference the saved variant on Corrupted Edge."
+      },
+      "expected": "link_statblock"
+    },
+    "reason": "The saved creature link workflow still needs ordinary qualification."
+  },
+  {
+    "case": {
+      "id": "link_statblock-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Put a link from this scene to the statblock we already saved."
+      },
+      "expected": "link_statblock"
+    },
+    "reason": "The saved creature link workflow still needs ordinary qualification."
+  },
+  {
+    "case": {
+      "id": "place_map_coordinates-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Pin the Jove home at this map coordinate."
+      },
+      "expected": "place_map_coordinates"
+    },
+    "reason": "The linked map authoring workflow remains unqualified."
+  },
+  {
+    "case": {
+      "id": "place_map_coordinates-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Add a map node here linked to the village square."
+      },
+      "expected": "place_map_coordinates"
+    },
+    "reason": "The linked map authoring workflow remains unqualified."
+  },
+  {
+    "case": {
+      "id": "reference_object-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Open the editable name table from the appendix."
+      },
+      "expected": "reference_object"
+    },
+    "reason": "Editable source-backed Items and Tables are backlog work."
+  },
+  {
+    "case": {
+      "id": "reference_object-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Change the description in the linked Item record for the statue."
+      },
+      "expected": "reference_object"
+    },
+    "reason": "Editable source-backed Items and Tables are backlog work."
+  },
+  {
+    "case": {
+      "id": "npc_art-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Show the saved portrait for the NPC in this scene."
+      },
+      "expected": "npc_art"
+    },
+    "reason": "The requested scene-aware portrait workflow remains unqualified."
+  },
+  {
+    "case": {
+      "id": "npc_art-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Attach this existing image to Mark Jove so it appears when he's in scene."
+      },
+      "expected": "npc_art"
+    },
+    "reason": "The requested scene-aware portrait workflow remains unqualified."
+  },
+  {
+    "case": {
+      "id": "publish_extraction-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Replace the published session with the reviewed re-ingestion candidate."
+      },
+      "expected": "publish_extraction"
+    },
+    "reason": "Replacement publication still requires qualification in isolation."
+  },
+  {
+    "case": {
+      "id": "operator_handoff-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Open the existing statblock in Combat for me to inspect without starting a fight."
+      },
+      "expected": "operator_handoff"
+    },
+    "reason": "Inspecting a statblock in a chat modal is backlog work."
+  },
+  {
+    "case": {
+      "id": "draft-then-save",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "The draft is in chat. Show me a proposed insertion in the current page for review first."
+      },
+      "expected": "write_current_page"
+    },
+    "reason": "Chat-draft-to-page placement has not been proven as a complete workflow."
+  }
+]

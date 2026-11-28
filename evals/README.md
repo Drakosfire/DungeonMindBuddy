@@ -28,6 +28,7 @@ explains capture, offline reporting and independent assessment.
 | ID | Status | Protocol |
 | --- | --- | --- |
 | `buddy.right-action-intent.v1` | Jev baseline captured | [Right Action intent benchmark](right-action-intent.md) |
+| `buddy.right-action-intent.v2` | Jev baseline captured | [Supported-action cohort](right-action-intent.md#v2-supported-action-cohort) |
 | `buddy.cpu-decision-models.v1` | Registered, unrun | [CPU decision models and MPNet-seeded Graph retrieval](../Docs/Experiments/EXPERIMENT-CPU-Decision-Models.md) |
 | `buddy.intent-utterance.v1` | Registered, unrun | [Utterance-only first action](right-action-decision-benchmarks.md#1-utterance-only-first-action) |
 | `buddy.intent-context-effect.v1` | Registered, unrun | [Context effect on first action](right-action-decision-benchmarks.md#2-context-effect-on-first-action) |

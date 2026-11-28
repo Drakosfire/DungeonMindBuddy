@@ -47,6 +47,42 @@ One run with `jev-1.14.0` scored **93/103**. It returned nine wrong actions and 
 
 The [case-level baseline record](right_action_intent/jev-baseline.json) retains the fixture digest, timing, score and choices. The full provider response capture was retained locally. Classifier accuracy is independent of workflow fulfillment.
 
+## V2 supported-action cohort
+
+**Registry ID** `buddy.right-action-intent.v2`
+
+The [v2 fixtures](right_action_intent/cases-v2.json) revise twelve retained cases.
+The current-page replacement includes a fixed page and one exact selected
+sentence. The statblock save requests include the prior reviewed draft. Prompts
+use the user's intended operation, such as inspecting the creatures already in
+an encounter or continuing play along the selected negotiation outcome.
+
+The [parked case ledger](right_action_intent/parked-v2.json) records 14 cases
+excluded from v2 scoring and why. The v1 fixtures and baseline stay frozen.
+The v2 menu has 37 choices. The same ordered menu applies to every v2 case.
+
+```bash
+python -m evals.right_action_intent.run --suite evals/right_action_intent/cases-v2.json --validate-only
+python -m evals.right_action_intent.run --suite evals/right_action_intent/cases-v2.json --credential-file /path/to/.env --output /path/to/jev-v2.json
+```
+
+[Jev 1.14.0 v2 results](right_action_intent/jev-baseline-v2.json) are **86/89**
+at **192.61 ms** median. Two wrong choices remain, on correcting an occurrence
+before extraction and staging a Play scene edit. The pinned editor case returned
+the expected action with equal top probabilities for current-page edit and Play
+edit. The shared scorer counted that tie as invalid.
+
+| Comparison | V1 | V2 |
+| --- | ---: | ---: |
+| Whole cohort | 93/103 | 86/89 |
+| Same case IDs | 84/89 | 86/89 |
+| Identical fixture input and Gold | 77/77 | 76/77 |
+| Revised fixtures | 7/12 | 10/12 |
+
+The v1 median was 207.28 ms on 103 cases. The cohort and menu changed together,
+so these runs establish separate baselines. They do not isolate an effect of
+wording, input context, or menu changes on accuracy or latency.
+
 ## Surface-menu probe
 
 The [nine fixture cases](right_action_intent/surface-probe.json) pin Build or
