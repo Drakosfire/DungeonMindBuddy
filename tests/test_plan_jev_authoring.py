@@ -1897,6 +1897,14 @@ def _shared_plan_authoring_case(
             assert response.answer.status == "ok" and response.plan_proposal is None
             assert "plan_proposal" not in response.model_dump(mode="json")
             assert len(writer.calls) == 1 and len(decisions.calls) == 1 + author_scope_calls
+        if routing == "clarify" and author_scope_calls:
+            import os
+            from pathlib import Path
+
+            if destination := os.environ.get("DMB_PLAN_OPENING_WIRE"):
+                Path(destination).write_text(json.dumps([
+                    json.loads(call.content) for call in decisions.calls
+                ], indent=2) + "\n")
         turn = kwargs["conversation_service"].inspect_turn(
             world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id)
         assert turn.graph_context_receipt.schema_ == "dmb_surface_native_context_receipt_v1"
