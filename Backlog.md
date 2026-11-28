@@ -73,13 +73,11 @@ One row per product idea. These rows are pointers, not separate status records. 
 | [Create a campaign inside an existing World](#deferred-create-a-campaign-inside-an-existing-world) | Define membership ownership and prove ordinary scoped creation. |
 | [Propose edits to a related page](#deferred-propose-edits-to-an-existing-related-page-from-the-current-workspace) | Target one existing passage without leaving or corrupting the current draft. |
 
-## [IDEA] Simple bulk selection and deletion — captured 2026-11-25
+## [IDEA] Extend bulk selection and deletion to other collections — captured 2026-11-25
 
-**Context:** Dogfooding conversation history: deleting old conversations one at a time is cumbersome, and Move to Trash currently leaves their stored records in place. The conversation loader is working; it is not part of this issue.
-**Insight:** Across Buddy, people should be able to select multiple items and delete them as easily and consistently as they can delete one. Deletion must be honest about recovery and actual storage removal.
-**Action:** Audit applicable collections and provide a consistent, accessible bulk-selection and deletion flow, with clear scope, confirmation and partial-failure handling. Start with conversations: make deletion register and execute a real purge of conversation data, preserve independently saved pages, and handle active work, retries, permissions and restore/purge races. Define the recovery period and explain backup or other retained copies before promising permanent removal; do not silently schedule existing trashed conversations. Current conversation trash uses pointer-revision-guarded commands and retained references, so a safe batch and purge need an explicit storage contract rather than a naive cascade.
-**Surfaces when:** Building collection management, conversation history, trash, retention, data deletion or bulk actions in Buddy.
-**Refs:** `apps/live-control-ui/src/agentInteraction/ConversationLibrary.tsx`, `src/application_state/agent_conversation/service.py`, `tests/application_state/test_conversation_trash.py`.
+**Context:** Conversation history shipped and passed hosted single and bulk verification. [Conversation lifecycle record](Backlog-DONE.md#done-conversation-library-lifecycle--2026-11-27)
+**Action:** Audit other Buddy collections. Reuse selection, scope, confirmation, and partial-failure patterns where they fit the collection’s own recovery and storage contract. State what can be recovered and which copies remain.
+**Surfaces when:** Building collection management, trash, retention, data deletion, or bulk actions beyond conversations.
 
 ## [IDEA] Delete the current Build page — captured 2026-11-19
 
