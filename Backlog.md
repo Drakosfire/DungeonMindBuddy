@@ -439,3 +439,10 @@ a prototype is not a new durable authority.
 **Action:** Generate and audition a small set of music beds, looping ambience, and short effects on the workstation. Record quality, generation time, curation effort, licensing, and provenance. Sketch a searchable catalog with stable asset references, compare cloud object storage with the operator's media server for direct browser playback, and demonstrate how Plan could reference one approved cue for manual playback in Play.
 
 **Surfaces when:** Selecting an audio generation experiment or designing a reusable audio catalog.
+
+## [IDEA] Generate images with references and style presets — captured 2026-11-27
+
+**Context:** The operator wants to guide image generation with reference images and reuse predefined visual styles.
+**Action:** Let users select reference images for a generation request. Offer predefined styles backed by reusable text instructions, and include the selected style's text in the composed prompt alongside the user's request.
+**Verification:** Generate from a request with a reference image and a preset. Confirm the selected image reaches the generation request and the composed prompt includes the preset's full text.
+**Surfaces when:** Image generation, image directions, or Image Studio work begins.
