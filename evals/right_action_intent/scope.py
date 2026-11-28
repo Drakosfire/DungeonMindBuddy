@@ -103,8 +103,7 @@ def with_menu(request, menu):
 
 def build_wire(state, menu, model, *, intent_only=False):
     from application_state.agent_conversation.build_intentional_response import (
-        SCOPED_BUILD_MENU_DIGEST, SOURCE_NEED_GUIDANCE, SOURCE_NEED_OPTIONS,
-        opening_work_question,
+        SCOPED_BUILD_MENU_DIGEST, opening_work_question, source_need_question,
     )
 
     work = opening_work_question(SCOPED_BUILD_MENU_DIGEST)
@@ -124,10 +123,7 @@ def build_wire(state, menu, model, *, intent_only=False):
         }},
         "questions": {
             "requested_work": work,
-            **({} if intent_only else {
-                "source_need": {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
-                                "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)},
-            }),
+            **({} if intent_only else {"source_need": source_need_question()}),
         },
     }
 
