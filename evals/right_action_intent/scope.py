@@ -238,7 +238,21 @@ def retained_cohort(path):
                                 capture["wire_questions"][arm]["requested_work"]["criteria"]
                             )):
                         raise ValueError(f"Build wire changed for {case['id']} {arm}")
+        fixtures = {case["id"]: case for case in groups[surface]}
         for arm, data in capture["results"][surface].items():
+            for row in data["rows"]:
+                if surface == "plan" and "plan_wire_state_by_case" in capture:
+                    request = with_menu(plan_request(fixtures[row["id"]]["input"]), menus[surface][arm])
+                    if request.state != capture["plan_wire_state_by_case"][row["id"]]:
+                        raise ValueError(f"Plan wire state changed for {row['id']}")
+                elif surface == "play" and "play_question" in capture:
+                    request = play_request(fixtures[row["id"]]["input"], menus[surface][arm])
+                else:
+                    continue
+                question, = request.questions
+                if (question.name != capture[f"{surface}_question"]
+                        or question.question != capture[f"{surface}_prompt"]):
+                    raise ValueError(f"{surface} opening instructions changed for {row['id']}")
             rows = results[surface].setdefault(arm, [])
             rows.extend(data["rows"])
     if set(results) != set(groups):
