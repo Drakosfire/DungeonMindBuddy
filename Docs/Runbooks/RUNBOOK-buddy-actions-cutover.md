@@ -313,13 +313,21 @@ submitted release that changes these fixed fields. Keep the forced SSH command,
 deploy key and sudoers grant scoped to the existing dispatcher. A new recovery
 program or infrastructure policy requires a separately reviewed installation.
 
-For each compatible release, merge a reviewed directory at
-`deploy/production/app-fence-releases/<candidate-sha>/` on Buddy main. Include
-`manifest.json`, `release.json`, `qualification.json`, and the qualification
-evidence for reviewers. Keep credentials and production data out of the repo.
-Use manual dispatch from main with the exact pins. Actions submits only the
-three JSON inputs on the authenticated deploy connection. It does so under
-standing operator authorization without a release-specific sudo step.
+For each compatible release, review the qualification evidence and the exact
+`manifest.json`, `release.json` and `qualification.json` privately, through
+the release lane. Have an independent reviewer verify the manifest fingerprint
+against the private data. Merge only that fingerprint as one lowercase SHA-256
+line in `deploy/production/app-fence-releases/<candidate-sha>.sha256` on Buddy
+main. Keep release and recovery metadata out of the public repository.
+
+Stage a private environment secret `BUDDY_APP_FENCE_<candidate-sha>` in
+`buddy-production`. Its value is a JSON object keyed by the three filenames.
+Each value is the complete original UTF-8 file text, including the final
+newline. Use manual dispatch from main with the exact pins. Actions checks
+the submitted manifest against the reviewed fingerprint, then sends the JSON
+on the authenticated deploy connection under standing authorization. It
+never prints or publishes the release data. Remove the private secret after
+deployment and recovery checks finish.
 
 The server stages the data atomically under the existing deployment lock in
 `/etc/buddy-deploy/app-fence-packets/<candidate-sha>`. It validates the submitted

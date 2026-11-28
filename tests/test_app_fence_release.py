@@ -251,6 +251,8 @@ def test_workflow_uses_same_queue_and_pinned_receipts():
     assert 'persist-credentials' in job['steps'][0]['with']
     assert 'app-fence-releases' in run and '< "$ssh_dir/release.json"' in run
     assert 'ssh -n' not in run
+    assert 'secrets[format(' in job['steps'][1]['env']['RELEASE_DATA']
+    assert 'unset RELEASE_DATA' in run
     assert '${{ inputs.' not in run and 'StrictHostKeyChecking=yes' in run
     assert 'BUDDY_STAGED $REVISION $CANDIDATE_ID $REGISTRY_DIGEST' in run
     assert 'BUDDY_LIVE $REVISION $CANDIDATE_ID' in run
@@ -349,3 +351,31 @@ def test_authenticated_release_staging(helper, packet, change):
 def test_request_read_returns_at_most_one_byte_beyond_limit(helper):
     stream = BytesIO(b'a' * (helper.MAX_REQUEST_BYTES + 100))
     assert len(helper.read_request(stream)) == helper.MAX_REQUEST_BYTES + 1
+
+@pytest.mark.parametrize('matches', [True, False])
+def test_workflow_checks_private_payload_against_reviewed_fingerprint(tmp_path, matches):
+    import sys
+    import yaml
+
+    workflow = yaml.safe_load((ROOT / '.github/workflows/deploy-buddy-app-fence.yml').read_text())
+    shell = workflow['jobs']['deploy']['steps'][1]['run']
+    script = shell.split("<<'PYTHON'\n", 1)[1].split('\nPYTHON\n', 1)[0]
+    manifest = '{"test":true}\n'
+    digest = hashlib.sha256(manifest.encode()).hexdigest()
+    directory = tmp_path / 'deploy/production/app-fence-releases'
+    directory.mkdir(parents=True)
+    (directory / f'{REV}.sha256').write_text((digest if matches else 'f' * 64) + '\n')
+    private = tmp_path / 'release-data'
+    private.write_text(json.dumps({
+        'manifest.json': manifest,
+        'release.json': '{}\n',
+        'qualification.json': '{}\n',
+    }))
+    result = subprocess.run([sys.executable, '-', str(private)], input=script, text=True,
+                            capture_output=True, cwd=tmp_path,
+                            env={**os.environ, 'REVISION': REV, 'PACKET_DIGEST': digest},
+                            timeout=10)
+    assert (result.returncode == 0) is matches
+    assert not result.stdout
+    if not matches:
+        assert 'does not match the reviewed manifest fingerprint' in result.stderr
