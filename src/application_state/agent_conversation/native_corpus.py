@@ -355,8 +355,10 @@ def validate_request_source_search(execution, grant):
             raise ValueError('Request discovery requires settled Plan Graph work')
         validate_graph_need_intent_prefix(execution, prefix[:graph.sequence])
         prior_attempts = [event for event in prior_attempts if event is not graph]
-    scope_attempt_ids = [event.controller_attempt_id for event in prefix
-                         if type(event) is NativePlanAuthorScopeObservedV1]
+    scope_observations = [event for event in prefix if type(event) is NativePlanAuthorScopeObservedV1]
+    if any(event.scope_observation.source_use == "conversation_only" for event in scope_observations):
+        raise ValueError("Conversation-only Plan intent cannot authorize source discovery")
+    scope_attempt_ids = [event.controller_attempt_id for event in scope_observations]
     after_author_scope = (
         (type(action) is NativePlanActionV3 or all(getattr(event, "intent_opening", None) is True for event in prior_attempts))
         and all(type(event) is NativePlanAuthorScopeAuthorizedV1 for event in prior_attempts)

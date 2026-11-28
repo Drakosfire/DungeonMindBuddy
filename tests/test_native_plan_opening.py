@@ -254,3 +254,16 @@ def test_versioned_plan_intent_keeps_historical_ballot_and_records_source_use():
         observed = decode_author_scope_decision(SimpleNamespace(intent_opening=versioned), decision)
         assert observed.requested_work == "discuss"
         assert observed.source_use == source_use
+
+
+def test_conversation_only_intent_refuses_request_source_grant():
+    from application_state.agent_conversation.native_corpus import validate_request_source_search
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+    context, record = request_context()
+    observation = NativePlanAuthorScopeObservedV1.model_construct(
+        scope_observation=type("Scope", (), {"source_use": "conversation_only"})(),
+    )
+    prefix = record.model_copy(update={"events": [observation]})
+    with pytest.raises(ValueError, match="Conversation-only Plan intent"):
+        validate_request_source_search(prefix, request_grant(context, record, sequence=1))
