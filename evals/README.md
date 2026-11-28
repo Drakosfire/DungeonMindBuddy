@@ -11,6 +11,8 @@ Start with the suite that owns the question you are testing.
 - [Workflow decision benchmark](plan-authoring-benchmark.md#workflow-decision-benchmark):
   cases for deciding when to discuss, retrieve, propose, or refrain from acting,
   including destination and side-effect checks.
+- [Right Action](right-action-intent.md): single-decision intent classification
+  and model comparison.
 - [Right Action at the Right Time coverage matrix](right-action-coverage.md):
   fixture specifications for direct, contrast and multi-step workflow cases.
 - [Adventure-to-follow-up benchmark](adventure-to-follow-up-benchmark.md):
@@ -25,6 +27,7 @@ explains capture, offline reporting and independent assessment.
 
 | ID | Status | Protocol |
 | --- | --- | --- |
+| `buddy.right-action-intent.v1` | Jev baseline captured | [Right Action intent benchmark](right-action-intent.md) |
 | `buddy.cpu-decision-models.v1` | Registered, unrun | [CPU decision models and MPNet-seeded Graph retrieval](../Docs/Experiments/EXPERIMENT-CPU-Decision-Models.md) |
 | `buddy.intent-utterance.v1` | Registered, unrun | [Utterance-only first action](right-action-decision-benchmarks.md#1-utterance-only-first-action) |
 | `buddy.intent-context-effect.v1` | Registered, unrun | [Context effect on first action](right-action-decision-benchmarks.md#2-context-effect-on-first-action) |
