@@ -4112,9 +4112,20 @@ def test_hosted_deletes_exact_statblock_and_retries_cleanup(prepared, hosted):
             ))
             assert hosted.client.request("DELETE", path).status_code == 503
 
+        read_base = f"/api/live/threat-drafts/{draft_id}/mechanics-revisions"
+        reads = (f"{read_base}?world_id={world}", f"{read_base}/{fixture.revision.revision_id}?world_id={world}")
+        for read in reads:
+            pending = hosted.client.request("GET", read)
+            assert pending.status_code == 409, pending.text
+
         deleted = hosted.client.request("DELETE", path)
         assert deleted.status_code == 204, deleted.text
         assert hosted.client.request("DELETE", path).status_code == 204
+        for read in reads:
+            gone = hosted.client.request("GET", read)
+            assert gone.status_code == 410, gone.text
+            assert "permanently deleted" in gone.json()["detail"]
+            assert hosted.client.request("GET", read, session="other-session").status_code == 403
         assert provider.purge_statblock_revisions.call_count == 2
         assert provider.purge_statblock_revisions.call_args.args == (
             fixture.revision.statblock_id, fixture.revision.revision_id,

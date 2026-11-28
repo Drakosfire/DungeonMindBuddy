@@ -1,6 +1,7 @@
 """Statblock candidate generate/read and definition validation API."""
 from __future__ import annotations
 
+import os
 from typing import Any,Annotated
 from uuid import UUID
 
@@ -180,6 +181,27 @@ def lookup_saved_statblock(
     return result
 
 
+def _require_undeleted_revision_target(world_id: str, draft_id: str) -> None:
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from application_state.mechanics_revisions import purge
+
+    if not os.getenv(APPLICATION_STATE_DSN_ENV):
+        return
+    try:
+        draft_key = UUID(draft_id)
+    except ValueError:
+        return
+    try:
+        receipt = purge.find_receipt(world_id=world_id, draft_id=draft_key)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if receipt is not None:
+        _, complete = receipt
+        if complete:
+            raise HTTPException(status_code=410, detail="This statblock was permanently deleted.")
+        raise HTTPException(status_code=409, detail="Deletion is in progress for this statblock.")
+
+
 @router.get('/threat-drafts/{draft_id}/mechanics-revisions')
 def list_saved_revisions(
     draft_id: str, world_id: str, request: Request,
@@ -188,6 +210,7 @@ def list_saved_revisions(
     from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
     require_build_pdf_access(request, world_id)
+    _require_undeleted_revision_target(world_id, draft_id)
     return _revision_call(saved_versions.list_versions,world_id=world_id,draft_id=draft_id,limit=limit,offset=offset)
 
 
@@ -198,6 +221,7 @@ def open_saved_revision(draft_id: str, revision_id: str, world_id: str, request:
     from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
     require_build_pdf_access(request, world_id)
+    _require_undeleted_revision_target(world_id, draft_id)
     packet = _revision_call(saved_versions.open_version, world_id=world_id, draft_id=draft_id, revision_id=revision_id)
     resource = packet["resource"]
     accepted_through = (resource.get("provenance") or {}).get("accepted_through") or {}
