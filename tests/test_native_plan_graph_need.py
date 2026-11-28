@@ -221,7 +221,7 @@ def current_pending_context():
     from tests.test_native_plan_opening import request_context
     from tests.test_surface_native_context import seal
     from tests.test_surface_native_execution import execution
-    context, record = request_context(source_discovery_mode='controller_selection_v1')
+    context, record = request_context()
     pending = NativePlanGraphQueryPendingV1(authority=context.native_query.authority,
         question=record.policy.action.intent.message)
     policy = record.policy.model_copy(update={'native_query_sha256': t.canonical_sha256(pending)})
@@ -244,6 +244,89 @@ def test_pending_receipt_and_empty_execution_bind_at_actual_native_boundary():
     assert validate_context_binding(context, record) == record
     assert type(context).model_validate_json(context.model_dump_json(by_alias=True)) == context
     assert type(record).model_validate_json(record.model_dump_json(by_alias=True)) == record
+
+
+"""Versioned Graph-need wire reconstruction without provider or database IO."""
+import json
+from hashlib import sha256
+
+import pytest
+from pydantic import ValidationError
+
+from application_state.agent_conversation.native_plan_graph_need import (
+    NativePlanGraphNeedInputV1, canonical_wire, prepare_decision, validate_wire,
+)
+
+
+def _exclusion_guidance_parent():
+    return NativePlanGraphNeedInputV1(pending_query_sha256='a' * 64,
+        admission_sha256='b' * 64,
+        question='Use only this conversation; do not search the World.',
+        dialogue=(), current_work='Synthetic Plan')
+
+
+def test_unmarked_parent_and_wire_preserve_historical_identity():
+    old = _exclusion_guidance_parent()
+    assert 'exclusion_guidance_version' not in old.model_dump(mode='json', by_alias=True)
+    assert old.digest == '66dc21f6b47a8fb1d2d035f836876a64a8c69e596a3a024491aa8d6f4fb3843e'
+    wire = canonical_wire(old)
+    assert sha256(wire).hexdigest() == '91f3a8aeeb039a5298c457bf53e439c087f77dc996aa816ab553e52c3c459892'
+    validate_wire(old, wire)
+
+
+def test_marked_wire_changes_only_descriptions_and_is_bound_to_its_parent():
+    old = _exclusion_guidance_parent()
+    marked = NativePlanGraphNeedInputV1.model_validate(
+        old.model_dump(mode='json', by_alias=True) | {'exclusion_guidance_version': 'v1'})
+    assert marked.digest != old.digest
+    assert NativePlanGraphNeedInputV1.model_validate_json(marked.model_dump_json(by_alias=True)) == marked
+    old_wire, new_wire = canonical_wire(old), canonical_wire(marked)
+    a, b = json.loads(old_wire), json.loads(new_wire)
+    assert a['state'] == b['state'] and a['model'] == b['model']
+    assert 'exclusion_guidance_version' not in new_wire.decode()
+    assert a['questions']['graph_need']['instructions'] == b['questions']['graph_need']['instructions']
+    assert a['questions']['graph_need']['criteria'].keys() == b['questions']['graph_need']['criteria'].keys()
+    assert a['questions']['graph_need']['criteria'] != b['questions']['graph_need']['criteria']
+    validate_wire(old, old_wire)
+    validate_wire(marked, new_wire)
+    for owner, wire in ((old, new_wire), (marked, old_wire)):
+        with pytest.raises(ValueError, match='wire differs'):
+            validate_wire(owner, wire)
+
+
+def test_unknown_guidance_version_is_rejected_even_after_model_copy():
+    old = _exclusion_guidance_parent()
+    with pytest.raises(ValidationError):
+        NativePlanGraphNeedInputV1.model_validate(
+            old.model_dump(mode='json', by_alias=True) | {'exclusion_guidance_version': 'v2'})
+    with pytest.raises(ValueError, match='Unsupported Plan Graph-need guidance version'):
+        prepare_decision(old.model_copy(update={'exclusion_guidance_version': 'v2'}))
+
+
+def test_marked_decision_reopens_through_actual_execution_binding():
+    from uuid import uuid4
+    from application_state.agent_conversation.native_execution import validate_context_binding
+    from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQueryClosedV1
+    from tests.test_native_plan_graph_need import actual_need_execution
+    from tests.test_surface_native_execution import execution, outcomes
+
+    context, record, old_auth, _, old_observed = actual_need_execution()
+    marked = old_observed.parent.model_copy(update={'exclusion_guidance_version': 'v1'})
+    envelope = sha256(canonical_wire(marked, expected_model=old_auth.model)).hexdigest()
+    auth = old_auth.model_copy(update={'parent_json': marked.model_dump_json(by_alias=True),
+        'parent_request_sha256': marked.digest, 'envelope_sha256': envelope})
+    observed = old_observed.model_copy(update={'parent': marked, 'envelope_sha256': envelope})
+    closed = NativePlanGraphQueryClosedV1(event_id=uuid4(), sequence=4,
+        need_event_id=observed.event_id, pending_query_sha256=marked.pending_query_sha256)
+    retained = execution(context.context_receipt_sha256, record.policy,
+        [auth, *outcomes(auth, 1), observed, closed])
+    assert validate_context_binding(context, retained) == retained
+    reopened = type(retained).model_validate_json(retained.model_dump_json(by_alias=True))
+    assert validate_context_binding(context, reopened) == retained
+    forged = retained.model_copy(update={'events': [auth.model_copy(update={
+        'envelope_sha256': old_auth.envelope_sha256}), *outcomes(auth, 1), observed, closed]})
+    with pytest.raises(ValueError):
+        validate_context_binding(context, forged)
 
 
 def actual_need_execution(choice='no_graph'):
