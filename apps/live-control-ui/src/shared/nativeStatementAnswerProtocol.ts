@@ -131,6 +131,13 @@ function isNativeQueryAuthority(a:unknown,worldId:string):a is import('../api/ty
     if(!exact(r,['authority_id','revision','descriptor_sha256']) || !text(r.authority_id) || !text(r.revision) || !hash(r.descriptor_sha256))return false;
   return true;
 }
+export function isNativePlanGraphQueryPending(q: unknown, worldId: string): q is import('../api/types').NativePlanGraphQueryPendingV1 {
+  const authorityPresent = typeof q === 'object' && q !== null && 'authority' in q;
+  return exact(q, ['schema', 'question', ...(authorityPresent ? ['authority'] : [])])
+    && q.schema === 'dmb_native_plan_graph_query_pending_v1' && text(q.question)
+    && (!authorityPresent || isNativeQueryAuthority(q.authority, worldId));
+}
+
 export function isNativeBuildQueryPending(q:unknown,worldId:string):q is import('../api/types').NativeBuildQueryPendingV1 {
   return exact(q,['schema','authority','question'])&&q.schema==='dmb_native_build_query_pending_v1'
     &&text(q.question)&&isNativeQueryAuthority(q.authority,worldId)
