@@ -316,7 +316,7 @@ def plan_intent_input(action, dialogue):
     selected = (getattr(capture, "selection_witness_text", None)
                 or (getattr(capture, "selected_text", None) if author_editor_focus(action) == "text_selection" else None))
     return NativePlanIntentInputV1(
-        question=action.intent.message, page_title=action.document_title,
+        question=action.intent.message, page_title=getattr(action, "document_title", None),
         selected_text=selected or None, dialogue=tuple(dialogue),
         requested_operation=getattr(action.intent, "plan_requested_operation", None),
     )
@@ -535,12 +535,13 @@ def validate_author_scope_wire(request: NativePlanAuthorScopeInputV1, payload: b
 
 def validate_author_scope_parent(context, execution, parent, authorization):
     from .native_context import NativePlanRequestAdmissionV1
-    from .native_execution import NativePlanActionV3
+    from .native_execution import NativePlanActionV2, NativePlanActionV3
     from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
 
     if (type(authorization) is not NativePlanAuthorScopeAuthorizedV1
             or type(parent) is not NativePlanAuthorScopeParentV1
-            or type(execution.policy.action) is not NativePlanActionV3
+            or (type(execution.policy.action) is not NativePlanActionV3
+                and not (type(execution.policy.action) is NativePlanActionV2 and parent.intent_opening is not None))
             or (parent.implicit_caret_version is not None
                 and opening_input_type(execution.policy.action) not in (NativePlanOpeningInputV2, NativePlanOpeningInputV3))
             or type(context.assembled_input) is not NativePlanRequestAdmissionV1
@@ -975,7 +976,8 @@ def validate_request_admission(context, execution):
             raise ValueError('Request-admitted Plan cannot borrow the historical work-owned search')
         from .native_retrieval import NativePlanOpeningAuthorizedV1
         from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
-        if type(event) is NativePlanAuthorScopeAuthorizedV1 and type(action) is not NativePlanActionV3:
+        if (type(event) is NativePlanAuthorScopeAuthorizedV1 and type(action) is not NativePlanActionV3
+                and not event.intent_opening):
             raise ValueError('Author scope decisions require their actual contextual Plan action')
         if type(event) is NativePlanAuthorScopeAuthorizedV1:
             review_ids = event.scope_review_event_ids

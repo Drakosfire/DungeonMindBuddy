@@ -645,7 +645,10 @@ def test_ordinary_http_plan_source_answer_uses_published_graph_authority(source_
     assert data['answer']['status'] == 'ok' and not data['answer']['graph_grounded']
     assert len(wire.calls) == len(constructions) == 1
     selection_count = len(choices.calls)
-    assert selection_count == (4 if direct else 2)
+    assert selection_count == (5 if direct else 3)
+    first = choices.calls[0]
+    assert first["state"] == {"surface": "plan", "user_utterance": request.message}
+    assert set(first["questions"]) == {"requested_work"}
     groups = [group for group in choices.selected_kinds if group]
     if direct:
         assert len(groups) == 3 and len(groups[0]) == 1

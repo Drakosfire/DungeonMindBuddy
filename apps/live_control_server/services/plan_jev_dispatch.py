@@ -205,7 +205,7 @@ class PlanJevDispatch:
     @classmethod
     def author_scope(cls, adapter, *, dialogue=(), prior_scope=None, review_scope=(), intent_opening=False):
         from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
-        from application_state.agent_conversation.native_execution import NativePlanActionV3
+        from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
         from application_state.agent_conversation.native_plan_opening import (
             NativePlanAuthorScopeObservedV1, NativePlanAuthorScopeParentV1,
             NativePlanOpeningInputV2, NativePlanOpeningInputV3, NativePlanOpeningScopeBindingV1, opening_input_type,
@@ -215,7 +215,9 @@ class PlanJevDispatch:
         turn = adapter.fence.turn
         admission = turn.graph_context_receipt.assembled_input
         if (type(admission) is not NativePlanRequestAdmissionV1
-                or type(turn.graph_context_execution.policy.action) is not NativePlanActionV3):
+                or type(turn.graph_context_execution.policy.action) not in (
+                    (NativePlanActionV2, NativePlanActionV3) if intent_opening else (NativePlanActionV3,)
+                )):
             raise ValueError('Author scope requires an admitted contextual Plan turn')
         if prior_scope is not None and review_scope:
             raise ValueError('Author scope recheck and review require separate stages')
