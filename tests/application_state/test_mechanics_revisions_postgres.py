@@ -127,7 +127,10 @@ def test_purge_receipt_serializes_with_revision_writes_and_erases_request_copy(a
     with pytest.raises(ApplicationStateConflictError, match="changed before deletion"):
         purge.claim(stale_target, authorize=authorize)
 
+    assert purge.find_receipt(world_id=target.world_id, draft_id=target.draft_id) is None
     assert purge.claim(target, authorize=authorize) is False
+    assert purge.find_receipt(world_id=target.world_id, draft_id=target.draft_id) == (target, False)
+    assert purge.find_receipt(world_id="other", draft_id=target.draft_id) is None
     assert purge.claim(target, authorize=authorize) is False
     with pytest.raises(ApplicationStateConflictError, match="being deleted"):
         service.claim(intent())
@@ -138,6 +141,7 @@ def test_purge_receipt_serializes_with_revision_writes_and_erases_request_copy(a
     purge.settle_after_cleanup(target, authorize=authorize)
     purge.settle_after_cleanup(target, authorize=authorize)
     assert purge.claim(target, authorize=authorize) is True
+    assert purge.find_receipt(world_id=target.world_id, draft_id=target.draft_id) == (target, True)
     assert service.read(
         world_id=record.world_id, draft_id=record.draft_id, operation_id=record.operation_id,
     ) is None
