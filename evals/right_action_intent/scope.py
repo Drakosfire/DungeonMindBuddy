@@ -11,7 +11,7 @@ from application_state.agent_conversation.surface_action_catalog import (
     UNIVERSAL_OPENING_ACTIONS,
     opening_action_menu,
 )
-from evals.right_action_intent.run import PROMPT, evaluate_suite, result_summary
+from evals.right_action_intent.run import PROMPT, evaluate_suite, grade_choice, result_summary
 
 
 def prepare(path):
@@ -187,6 +187,26 @@ def paired_changes(arms):
     return changes
 
 
+def verify_retained_grade(row, menu):
+    from evals.utterance_intent.proof import selection
+
+    response = row["response"]
+    if set(response) == {"error"} and isinstance(response["error"], str):
+        choice, status = None, "provider_error"
+    else:
+        answers = response.get("answers", {})
+        name = "requested_work" if "requested_work" in answers else "intent"
+        if set(answers.get(name, {}).get("probabilities", {})) != set(menu):
+            raise ValueError(f"Retained ballot differs from its offered menu: {row['id']}")
+        try:
+            choice = selection(response, name)
+        except (KeyError, TypeError, ValueError):
+            choice = None
+        status = grade_choice(choice, row["expected"], menu)
+    if (row["choice"], row["status"]) != (choice, status):
+        raise ValueError(f"Retained grade differs from its provider response: {row['id']}")
+
+
 def retained_cohort(path):
     manifest = json.loads(path.read_bytes())
     fixture_digest, groups, menus = prepare(path.parent / manifest["fixtures"])
@@ -227,9 +247,11 @@ def retained_cohort(path):
         expected = {case["id"]: case["expected"] for case in cases}
         if set(results[surface]) != {"full", "scoped"}:
             raise ValueError(f"Incomplete retained pair for {surface}")
-        for rows in results[surface].values():
+        for arm, rows in results[surface].items():
             if len(rows) != len(expected) or {row["id"]: row["expected"] for row in rows} != expected:
                 raise ValueError(f"Retained cohort differs from fixtures for {surface}")
+            for row in rows:
+                verify_retained_grade(row, menus[surface][arm])
     return {surface: {arm: grouped_summary(rows, surface) for arm, rows in arms.items()}
             | {"paired_changes": paired_changes(arms)} for surface, arms in results.items()}
 

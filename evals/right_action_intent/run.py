@@ -39,6 +39,18 @@ def result_summary(rows):
             "median_decision_ms": round(median(timings), 2) if timings else None}
 
 
+def grade_choice(choice, expected, actions):
+    if choice not in actions:
+        return "invalid_output"
+    if choice == expected:
+        return "correct"
+    if choice == "needs_context_to_choose":
+        return "unnecessary_deferral"
+    if expected == "needs_context_to_choose":
+        return "guessed_without_context"
+    return "wrong_action"
+
+
 async def evaluate_suite(cases, actions, decide, concurrency):
     tasks = asyncio.Semaphore(concurrency)
 
@@ -52,10 +64,7 @@ async def evaluate_suite(cases, actions, decide, concurrency):
                 choice, response = None, {"error": type(error).__name__}
                 status = "provider_error"
             else:
-                status = ("invalid_output" if choice not in actions else
-                          "correct" if choice == case["expected"] else
-                          "unnecessary_deferral" if choice == "needs_context_to_choose" else
-                          "guessed_without_context" if case["expected"] == "needs_context_to_choose" else "wrong_action")
+                status = grade_choice(choice, case["expected"], actions)
             elapsed = (monotonic() - started) * 1000
         return {"id": case["id"], "tier": case["tier"], "expected": case["expected"],
                 "choice": choice, "status": status, "elapsed_ms": round(elapsed, 2), "response": response}
