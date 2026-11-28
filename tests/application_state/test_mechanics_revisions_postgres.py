@@ -101,3 +101,167 @@ def test_resealed_acceptance_metadata_cannot_change_operation_authority(applicat
     changed=record.model_copy(update={'request_body':body,'request_digest':digest(body)})
     with pytest.raises(ValueError):service.claim(changed)
     assert service.read(world_id=record.world_id,draft_id=record.draft_id,operation_id=record.operation_id) is None
+
+
+def test_purge_receipt_serializes_with_revision_writes_and_erases_request_copy(application_state_dsn):
+    from application_state.mechanics_revisions import purge
+
+    record = intent()
+    result = record.origin.model_copy(update={
+        "revision_id": "rev_second", "definition_digest": record.definition_digest,
+    })
+    target = purge.PurgeTarget(
+        record.base.statblock_id, record.world_id, record.draft_id, 2, result.revision_id,
+    )
+    authorize = lambda: None
+    service.claim(record)
+    with pytest.raises(ApplicationStateConflictError, match="pending mechanics save"):
+        purge.claim(target, authorize=authorize)
+    unknown = service.settle(record, state="outcome_unknown")
+    service.settle(unknown, state="committed", result=result)
+
+    stale_target = purge.PurgeTarget(
+        target.statblock_id, target.world_id, target.draft_id,
+        target.draft_version, record.base.revision_id,
+    )
+    with pytest.raises(ApplicationStateConflictError, match="changed before deletion"):
+        purge.claim(stale_target, authorize=authorize)
+
+    assert purge.find_receipt(world_id=target.world_id, draft_id=target.draft_id) is None
+    assert purge.claim(target, authorize=authorize) is False
+    assert purge.find_receipt(world_id=target.world_id, draft_id=target.draft_id) == (target, False)
+    assert purge.find_receipt(world_id="other", draft_id=target.draft_id) is None
+    assert purge.claim(target, authorize=authorize) is False
+    with pytest.raises(ApplicationStateConflictError, match="being deleted"):
+        service.claim(intent())
+    assert service.read(
+        world_id=record.world_id, draft_id=record.draft_id, operation_id=record.operation_id,
+    ) is not None
+
+    purge.settle_after_cleanup(target, authorize=authorize)
+    purge.settle_after_cleanup(target, authorize=authorize)
+    assert purge.claim(target, authorize=authorize) is True
+    assert purge.find_receipt(world_id=target.world_id, draft_id=target.draft_id) == (target, True)
+    assert service.read(
+        world_id=record.world_id, draft_id=record.draft_id, operation_id=record.operation_id,
+    ) is None
+    with pytest.raises(ApplicationStateConflictError, match="different saved statblock"):
+        purge.claim(
+            purge.PurgeTarget(target.statblock_id, "other", target.draft_id, 2, result.revision_id),
+            authorize=authorize,
+        )
+
+
+def test_hosted_purge_role_cannot_delete_without_exact_receipt(application_state_dsn):
+    import psycopg
+
+    with psycopg.connect(application_state_dsn) as conn:
+        if not conn.execute("SELECT 1 FROM pg_roles WHERE rolname='dmb_app_runtime'").fetchone():
+            pytest.skip("Hosted runtime role is not installed in this disposable cluster")
+        privileges = conn.execute("""
+            SELECT has_table_privilege('dmb_app_runtime', 'mechanics_revision.operation', 'DELETE'),
+                   has_column_privilege('dmb_app_runtime', 'mechanics_revision.purge', 'complete', 'INSERT'),
+                   has_function_privilege('dmb_app_runtime',
+                    'mechanics_revision.complete_statblock_purge(text,text,uuid,integer,text)', 'EXECUTE')
+        """).fetchone()
+        assert privileges == (False, False, True)
+
+
+def test_purge_receipt_blocks_draft_edits_and_recreation(application_state_dsn, tmp_path, monkeypatch):
+    from application_state.mechanics_revisions import purge
+    from apps.live_control_server.models.statblock_mechanics_acceptance import AcceptedMechanicsRefV1
+    from apps.live_control_server.services import threat_draft_store as drafts
+    from tests.test_threat_draft_store import _update_request, _world_create_request
+
+    record = intent()
+    request = _world_create_request(world_id=record.world_id)
+    draft = drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id)
+    saved = drafts.attach_accepted_mechanics_ref(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_version=draft.version,
+        locator=AcceptedMechanicsRefV1.from_locator(
+            record.origin, accepted_from_draft_version=draft.version,
+            accepted_at=datetime.now(UTC).isoformat(), accepted_from_candidate_id=None,
+        ),
+    )
+    owned = dict(
+        world_id=saved.world_id, draft_id=saved.draft_id, expected_version=saved.version,
+        statblock_id=record.origin.statblock_id,
+    )
+    target = purge.PurgeTarget(
+        record.origin.statblock_id, saved.world_id, record.draft_id, saved.version, record.origin.revision_id,
+    )
+    with pytest.raises(ApplicationStateConflictError, match="stale claim"):
+        with drafts.locked_statblock_purge_owner(tmp_path, **owned) as persist_fence:
+            persist_fence()
+            raise ApplicationStateConflictError("stale claim")
+    assert drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id) == saved
+
+    with drafts.locked_statblock_purge_owner(tmp_path, **owned) as persist_fence:
+        persist_fence()
+        assert purge.claim(target, authorize=lambda: None) is False
+
+    with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+        drafts.update_threat_draft(
+            tmp_path, saved.draft_id, _update_request(saved, description="Edit", expected_version=saved.version),
+        )
+    with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+        drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id)
+
+    with monkeypatch.context() as missing_app:
+        from application_state.config import APPLICATION_STATE_DSN_ENV
+
+        missing_app.delenv(APPLICATION_STATE_DSN_ENV)
+        with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+            drafts.update_threat_draft(
+                tmp_path, saved.draft_id, _update_request(saved, description="Edit", expected_version=saved.version),
+            )
+        with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+            drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id)
+
+    drafts.remove_purged_threat_draft(tmp_path, **owned)
+    with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+        drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id)
+    other = drafts.create_threat_draft(tmp_path, request)
+    assert drafts.get_threat_draft(tmp_path, other.draft_id) == other
+    with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+        drafts.attach_accepted_mechanics_ref(
+            tmp_path, draft_id=other.draft_id, expected_version=other.version,
+            locator=saved.accepted_mechanics_ref,
+        )
+
+
+def test_statblock_purge_physically_removes_only_its_published_portrait(application_state_dsn):
+    from base64 import b64encode
+
+    from application_state.mechanics_revisions import pdf_portraits, purge
+    from application_state.pdf_statblock_review import read_review, save_review
+
+    record = intent()
+    review_id = uuid4()
+    jpeg = b"\xff\xd8fixture\xff\xd9"
+    artwork = b64encode(jpeg).decode("ascii")
+    review = save_review(
+        world_id=record.world_id, review_id=review_id, expected_revision=0,
+        definition={}, regions=[], artwork={"jpeg_base64": artwork},
+    )
+    key = dict(statblock_id=record.origin.statblock_id, world_id=record.world_id,
+               draft_id=record.draft_id, review_id=review_id)
+    other = {**key, "statblock_id": "sb_other", "draft_id": uuid4()}
+    pdf_portraits.retain(**key, artwork=artwork)
+    pdf_portraits.retain(**key, artwork=artwork)
+    pdf_portraits.retain(**other, artwork=artwork)
+    assert pdf_portraits.read(**key) == jpeg
+    assert pdf_portraits.read(**{**key, "world_id": "foreign"}) is None
+
+    target = purge.PurgeTarget(
+        key["statblock_id"], record.world_id, record.draft_id, 2, record.origin.revision_id,
+    )
+    assert purge.claim(target, authorize=lambda: None) is False
+    with pytest.raises(ApplicationStateConflictError, match="being deleted"):
+        pdf_portraits.retain(**key, artwork=artwork)
+    purge.settle_after_cleanup(target, authorize=lambda: None)
+    assert pdf_portraits.read(**key) is None
+    assert pdf_portraits.read(**other) == jpeg
+    assert read_review(world_id=record.world_id, review_id=review_id) == review

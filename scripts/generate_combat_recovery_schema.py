@@ -15,7 +15,7 @@ def build_schema():
     # Recovery stores complete model_dump records, not input bodies with omitted
     # defaults. The renderer's APP DTO requires these fields to be present.
     for node in [schema, *schema['$defs'].values()]:
-        if 'properties' in node: node['required'] = list(node['properties'])
+        if 'properties' in node: node['required'] = [name for name in node['properties'] if name != 'deleted_mechanics']
     resource = ExactRevisionResourceV1.model_json_schema(by_alias=True)
     assert not set(schema['$defs']) & set(resource['$defs'])
     schema['$defs'].update(resource.pop('$defs'))

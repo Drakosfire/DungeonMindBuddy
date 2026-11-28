@@ -1307,3 +1307,30 @@ def test_validate_sends_required_unknown_fields():
 
     client = _client(httpx.MockTransport(handler))
     client.validate_definition(ValidateDefinitionRequestV1(definition=definition))
+
+
+def test_purge_requires_exact_identity_and_confirmed_completion():
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        assert request.method == "DELETE"
+        assert request.url.path == "/api/internal/dungeonbuddy/v1/statblocks/sb_example"
+        assert dict(request.url.params) == {"expected_revision_id": "rev_example"}
+        assert request.headers[INTERNAL_KEY_HEADER] == SECRET
+        assert not request.content
+        return httpx.Response(204)
+
+    client = _client(httpx.MockTransport(handler))
+    with pytest.raises(StatblockIntegrationError):
+        client.purge_statblock_revisions("sb_example", "rev_example&other=true")
+    assert not requests
+    assert client.purge_statblock_revisions("sb_example", "rev_example") is None
+    assert len(requests) == 1
+
+
+@pytest.mark.parametrize("status", [200, 202, 404, 409, 503])
+def test_purge_does_not_treat_other_responses_as_completion(status):
+    client = _client(httpx.MockTransport(lambda _: httpx.Response(status)))
+    with pytest.raises(StatblockIntegrationError):
+        client.purge_statblock_revisions("sb_example", "rev_example")

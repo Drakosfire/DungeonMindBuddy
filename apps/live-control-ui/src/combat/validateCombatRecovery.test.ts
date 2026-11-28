@@ -26,3 +26,13 @@ it('accepts the direct accepted-mechanics origin without a fabricated World iden
   expect(isCombatRecoveryDraft({...directDraft,entities:[{...directDraft.entities[0],mechanics_snapshot:{...direct,association_id:'forged'}}]})).toBe(false);
   expect(isCombatRecoveryDraft({...directDraft,entities:[{...directDraft.entities[0],mechanics_snapshot:{...direct,resource:{}}}]})).toBe(false);
 });
+
+
+it('accepts an identifier-only deleted statblock reference on recovery', () => {
+  const deleted = {statblock_id: resource.statblock_id, revision_id: resource.revision_id};
+  const retained = {...actor, mechanics_snapshot: null, deleted_mechanics: deleted};
+  expect(isCombatRecoveryDraft({...draft, entities: [retained]})).toBe(true);
+  expect(isCombatRecoveryDraft({...draft, entities: [
+    {...retained, deleted_mechanics: {...deleted, resource}},
+  ]})).toBe(false);
+});

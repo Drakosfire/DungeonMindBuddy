@@ -611,6 +611,9 @@
       "tests/test_lore_page_review.py"
     ],
     "domain-integration": [
+      "tests/test_build_current_page_direct.py",
+      "tests/test_build_current_page_projection_reader.py",
+      "tests/test_build_current_scope_reader.py",
       "tests/test_guest_release_assertions.py",
       "tests/test_guest_release_evidence.py",
       "tests/test_guest_release_integration.py",
