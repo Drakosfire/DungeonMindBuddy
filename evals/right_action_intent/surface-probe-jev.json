@@ -1,0 +1,195 @@
+{
+  "build": {
+    "full": {
+      "summary": {
+        "cases": 4,
+        "dispositions": {
+          "correct": 4
+        },
+        "median_decision_ms": 338.28
+      },
+      "rows": [
+        {
+          "id": "build-selection",
+          "tier": "build",
+          "expected": "write_current_page",
+          "choice": "write_current_page",
+          "status": "correct",
+          "elapsed_ms": 406.99
+        },
+        {
+          "id": "build-chat-draft",
+          "tier": "build",
+          "expected": "draft_in_conversation",
+          "choice": "draft_in_conversation",
+          "status": "correct",
+          "elapsed_ms": 327.56
+        },
+        {
+          "id": "build-clarify",
+          "tier": "build",
+          "expected": "clarify_request",
+          "choice": "clarify_request",
+          "status": "correct",
+          "elapsed_ms": 335.33
+        },
+        {
+          "id": "build-discuss",
+          "tier": "build",
+          "expected": "discuss",
+          "choice": "discuss",
+          "status": "correct",
+          "elapsed_ms": 341.23
+        }
+      ]
+    },
+    "scoped": {
+      "summary": {
+        "cases": 4,
+        "dispositions": {
+          "correct": 4
+        },
+        "median_decision_ms": 197.52
+      },
+      "rows": [
+        {
+          "id": "build-selection",
+          "tier": "build",
+          "expected": "write_current_page",
+          "choice": "write_current_page",
+          "status": "correct",
+          "elapsed_ms": 191.1
+        },
+        {
+          "id": "build-chat-draft",
+          "tier": "build",
+          "expected": "draft_in_conversation",
+          "choice": "draft_in_conversation",
+          "status": "correct",
+          "elapsed_ms": 158.44
+        },
+        {
+          "id": "build-clarify",
+          "tier": "build",
+          "expected": "clarify_request",
+          "choice": "clarify_request",
+          "status": "correct",
+          "elapsed_ms": 203.94
+        },
+        {
+          "id": "build-discuss",
+          "tier": "build",
+          "expected": "discuss",
+          "choice": "discuss",
+          "status": "correct",
+          "elapsed_ms": 220.01
+        }
+      ]
+    }
+  },
+  "plan": {
+    "scoped": {
+      "summary": {
+        "cases": 5,
+        "dispositions": {
+          "correct": 5
+        },
+        "median_decision_ms": 237.0
+      },
+      "rows": [
+        {
+          "id": "plan-edit",
+          "tier": "plan",
+          "expected": "write_current_page",
+          "choice": "write_current_page",
+          "status": "correct",
+          "elapsed_ms": 246.6
+        },
+        {
+          "id": "plan-clarify",
+          "tier": "plan",
+          "expected": "clarify",
+          "choice": "clarify",
+          "status": "correct",
+          "elapsed_ms": 210.55
+        },
+        {
+          "id": "plan-discuss",
+          "tier": "plan",
+          "expected": "discuss",
+          "choice": "discuss",
+          "status": "correct",
+          "elapsed_ms": 203.13
+        },
+        {
+          "id": "plan-other-destination",
+          "tier": "plan",
+          "expected": "different_destination",
+          "choice": "different_destination",
+          "status": "correct",
+          "elapsed_ms": 237.0
+        },
+        {
+          "id": "plan-connected-page",
+          "tier": "plan",
+          "expected": "review_connected_page",
+          "choice": "review_connected_page",
+          "status": "correct",
+          "elapsed_ms": 246.74
+        }
+      ]
+    },
+    "full": {
+      "summary": {
+        "cases": 5,
+        "dispositions": {
+          "correct": 4,
+          "wrong_action": 1
+        },
+        "median_decision_ms": 207.53
+      },
+      "rows": [
+        {
+          "id": "plan-edit",
+          "tier": "plan",
+          "expected": "write_current_page",
+          "choice": "write_current_page",
+          "status": "correct",
+          "elapsed_ms": 150.07
+        },
+        {
+          "id": "plan-clarify",
+          "tier": "plan",
+          "expected": "clarify",
+          "choice": "plan",
+          "status": "wrong_action",
+          "elapsed_ms": 234.19
+        },
+        {
+          "id": "plan-discuss",
+          "tier": "plan",
+          "expected": "discuss",
+          "choice": "discuss",
+          "status": "correct",
+          "elapsed_ms": 249.61
+        },
+        {
+          "id": "plan-other-destination",
+          "tier": "plan",
+          "expected": "different_destination",
+          "choice": "different_destination",
+          "status": "correct",
+          "elapsed_ms": 207.53
+        },
+        {
+          "id": "plan-connected-page",
+          "tier": "plan",
+          "expected": "review_connected_page",
+          "choice": "review_connected_page",
+          "status": "correct",
+          "elapsed_ms": 178.13
+        }
+      ]
+    }
+  }
+}

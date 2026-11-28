@@ -46,3 +46,29 @@ One run with `jev-1.14.0` scored **93/103**. It returned nine wrong actions and 
 | Retained dialogue | 3/3 |
 
 The [case-level baseline record](right_action_intent/jev-baseline.json) retains the fixture digest, timing, score and choices. The full provider response capture was retained locally. Classifier accuracy is independent of workflow fulfillment.
+
+## Surface-menu probe
+
+The [nine fixture cases](right_action_intent/surface-probe.json) pin Build or
+Plan and the exact selection for in-place edit cases. Each case explains the
+expected label. Preflight fails if the catalog cannot offer that label or the
+selected text does not occur exactly once. Both arms derive their menu from
+the product catalog. The full arm adds distinct actions from the other tested
+surface while preserving local labels, definitions and order. The fixture,
+instruction and model are identical within each pair.
+
+```bash
+python -m evals.right_action_intent.scope --validate-only
+python -m evals.right_action_intent.scope --credential-file /path/to/.env --output /path/to/new-directory
+```
+
+Jev 1.14.0 scored Build 4/4 in each arm and Plan 4/5 with the full menu versus
+5/5 with the scoped menu. In Plan, the full-menu response chose a work plan
+when asked to clarify an ending before preparing the scene. The small sample
+does not establish a latency trend. See the [pair results](right_action_intent/surface-probe-jev.json)
+and [exact menus and prompt](right_action_intent/surface-probe-pin.json).
+
+This probe uses the Build and contextual Plan menus. Play conversational routes
+currently enter through a retrieval controller, so they still need an ordinary
+first intent boundary and corresponding fixtures. An action's classification
+here does not establish that its surface can carry it through.
