@@ -383,8 +383,23 @@ async function run() {
       }, null, 2));
       return;
     }
+    const imageFixture = JSON.parse(process.env.DMB_BENCHMARK_CONVERSATION_IMAGE || "null");
     const imageMove = process.env.DMB_BENCHMARK_IMAGE_MOVE === "1";
     const commitPath = "/api/live/tiptap/markdown-write/commit";
+    const imageCounts = {generation: 0, asset_save: 0, page_save: 0};
+    const requestMatches = (request, path) =>
+      request.method() === "POST" && new URL(request.url()).pathname === path;
+    if (imageFixture) {
+      page.on("request", request => {
+        const path = new URL(request.url()).pathname;
+        if (request.method() !== "POST") return;
+        if (path === "/api/live/media/images/generate"
+            || /^\/api\/live\/media\/images\/[^/]+\/regenerate$/.test(path)) imageCounts.generation++;
+        if (/^\/api\/live\/media\/images\/[^/]+\/save$/.test(path)) imageCounts.asset_save++;
+        if (path === commitPath) imageCounts.page_save++;
+      });
+    }
+
     let commits = 0, generationPosts = 0;
     if (imageMove) {
       page.on("request", request => {
@@ -396,7 +411,6 @@ async function run() {
       });
     }
     const loreSpec = JSON.parse(process.env.DMB_BENCHMARK_LONG_CHAT_PAGE || "null");
-    const imageFixture = JSON.parse(process.env.DMB_BENCHMARK_CONVERSATION_IMAGE || "null");
     const imageFlowEditor = page.locator(".build-surface-shell .ProseMirror[contenteditable=true]:visible");
     const imageFlowDocument = () => imageFlowEditor.evaluate(element => element.pmViewDesc.node.toJSON());
     const originalImagePage = imageFixture ? await imageFlowDocument() : null;
@@ -526,6 +540,9 @@ async function run() {
     } catch (error) {
       const alerts = await page.getByRole("alert").allTextContents();
       writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
+        conversation_image: imageFixture ? {
+          stage: "direction", passed: false, error: String(error), counts: imageCounts,
+        } : undefined,
         alerts, apiFailures, composerHasQuestion: await composer.inputValue() === process.env.DMB_BENCHMARK_QUESTION,
         planTarget: build ? undefined : await page.getByLabel("Actual Plan change target").allTextContents(),
       }, null, 2));
@@ -541,11 +558,19 @@ async function run() {
     let buildCheckpoint;
     if (process.env.DMB_BENCHMARK_LIVE_BROWSER === "1") {
       // Keep the page alive while its ordinary client consumes the terminal event.
-      buildCheckpoint = await pollBrowserRead(() => page.evaluate(async () => {
-        const response = await fetch("/__benchmark/browser-response-retained", { cache: "no-store" });
-        const checkpoint = await response.json();
-        return checkpoint.retained === true ? checkpoint : false;
-      }), 75000, 250, "retained Build response");
+      try {
+        buildCheckpoint = await pollBrowserRead(() => page.evaluate(async () => {
+          const response = await fetch("/__benchmark/browser-response-retained", { cache: "no-store" });
+          const checkpoint = await response.json();
+          return checkpoint.retained === true ? checkpoint : false;
+        }), 75000, 250, "retained Build response");
+      } catch (error) {
+        if (!imageFixture) throw error;
+        writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
+          conversation_image: {stage: "direction", passed: false, error: String(error), counts: imageCounts},
+        }, null, 2));
+        return;
+      }
     }
     const after = await calibrate();
     const browserMarks = await page.evaluate(() => {
@@ -566,14 +591,9 @@ async function run() {
       const { generatePreparedConversationImage, verifyConversationImagePlacement } = require("./conversation_image.cjs");
       const result = { stage: "direction", passed: false };
       const world = process.env.DMB_BENCHMARK_WORLD;
-      const requestMatches = (request, path) =>
-        request.method() === "POST" && new URL(request.url()).pathname === path;
-      const counts = { generation: 0, page_save: 0 };
-      page.on("request", request => {
-        if (requestMatches(request, "/api/live/media/images/generate")) counts.generation++;
-        if (requestMatches(request, commitPath)) counts.page_save++;
-      });
       try {
+        assert.deepEqual(imageCounts, {generation: 0, asset_save: 0, page_save: 0},
+          "Preparing the direction unexpectedly generated or saved");
         const id = buildCheckpoint?.action_id;
         assert.ok(id, "Buddy did not deliver a prepared direction");
         const url = origin + "/api/live/media/images/preparations/" + encodeURIComponent(id)
@@ -587,7 +607,8 @@ async function run() {
         assert.deepEqual(await imageFlowDocument(), originalImagePage, "Direction changed the page");
         result.stage = "generation";
         result.generation = await generatePreparedConversationImage(page, origin, imageFixture, preparation);
-        assert.equal(counts.generation, 1, "Expected one explicit image generation");
+        assert.deepEqual(imageCounts, {generation: 1, asset_save: 1, page_save: 0},
+          "Expected exactly one generation and asset Save before placement");
         assert.deepEqual(await imageFlowDocument(), originalImagePage, "Generation or asset save changed the page");
 
         result.stage = "placement";
@@ -615,7 +636,8 @@ async function run() {
         result.placement_index = verifyConversationImagePlacement(originalImagePage, placed, imageFixture,
           result.generation.asset_id);
         result.placement_ms = performance.now() - placementStarted;
-        assert.equal(counts.page_save, 0, "Placement committed before explicit Save");
+        assert.deepEqual(imageCounts, {generation: 1, asset_save: 1, page_save: 0},
+          "Placement unexpectedly generated or saved");
         result.stage = "save_and_reload";
         const commit = page.waitForResponse(r => requestMatches(r.request(), commitPath), {timeout: 20000});
         commit.catch(() => {});
@@ -625,14 +647,14 @@ async function run() {
         await imageFlowEditor.waitFor();
         await pollBrowserRead(async () => JSON.stringify(await imageFlowDocument()) === JSON.stringify(placed),
           15000, 150, "exact placed image and page blocks after reload");
-        assert.equal(counts.generation, 1, "Placement or reload generated another image");
-        assert.equal(counts.page_save, 1, "Expected one explicit page Save");
+        assert.deepEqual(imageCounts, {generation: 1, asset_save: 1, page_save: 1},
+          "Expected one generation, one asset Save and one page Save through reload");
         result.passed = true;
       } catch (error) {
         result.error = String(error);
       }
       writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
-        conversation_image: {...result, counts}, status: delivered.status(),
+        conversation_image: {...result, counts: imageCounts}, status: delivered.status(),
       }, null, 2));
       return;
     }
