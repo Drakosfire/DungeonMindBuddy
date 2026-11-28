@@ -32,6 +32,36 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
+def test_pending_build_clarifies_without_source_scope(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from apps.live_control_server.services import build_related_pages
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Clarification attempted new source acquisition")
+
+    monkeypatch.setattr(build_related_pages, "discover", forbidden)
+    monkeypatch.setattr(native_corpus_source, "prepare_native_source_context", forbidden)
+    monkeypatch.setattr(native_corpus_source, "turn_source_repository", lambda **kwargs: lane.repo)
+
+    def send(client, world, body, _decisions):
+        body["build_authored_references"] = None
+        return client.post("/api/live/agent/turn", json=body)
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, False,
+        message="Make that work.", requested_work="clarify_request",
+        dispatch=send, capture_pending=True,
+    )
+    assert case.response.status_code == 200, case.response.text
+    opening, = [json.loads(call.content) for call in case.decisions.calls]
+    assert set(opening["questions"]) == {"requested_work"}
+    assert case.turn.status == "completed"
+    assert case.turn.completion.collaboration.kind == "questions"
+    intent, = [event for event in case.turn.graph_context_execution.events
+               if type(event) is t.BuildOpeningIntentSelectedV1]
+    assert intent.requested_work == "clarify_request"
+
+
 @pytest.mark.parametrize('mode', ['legacy', 'pending', 'recover', 'cited-recover'])
 def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, mode):
     table = (
@@ -895,6 +925,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[source_text(r) for r in sections])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
+            if current_work == "clarify_request":
+                candidate.update(answer_segments=[], collaboration={
+                    "kind": "questions", "questions": [{"text": "What should I change?"}],
+                })
             if placement_question:
                 assert "preserve any anchor, section, or before/after direction" in body["instructions"]
                 question = {
