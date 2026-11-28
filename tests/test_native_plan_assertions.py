@@ -607,6 +607,19 @@ def _ordinary_native_case(
             if failure == 'opening_timeout':
                 raise httpx2.ReadTimeout('synthetic opening response unknown', request=req)
             body=json.loads(req.content)
+            if body["state"].get("surface") == "plan":
+                from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+                assert len(decision_requests) == 1
+                assert set(body["questions"]) == {"requested_work"}
+                criteria = body["questions"]["requested_work"]["criteria"]
+                assert criteria == opening_action_menu("plan", plan_operation=plan_operation)
+                choice = "review_connected_page" if connected_review else "write_current_page" if authoring else "discuss"
+                return httpx2.Response(200, request=req, json={
+                    "model": body["model"], "usage": {"input_tokens": 37, "output_tokens": 9},
+                    "answers": {"requested_work": {"type": "choice", "choice": choice, "confidence": 1,
+                        "probabilities": {label: float(label == choice) for label in criteria}}},
+                })
             candidates=body.get('state',{}).get('candidates',[])
             if extra_name is not None and any(c['kind'].startswith('Native Graph object') for c in candidates):
                 encoded=json.dumps(candidates,ensure_ascii=False)
@@ -1018,7 +1031,11 @@ def _ordinary_native_case(
     grant = request_grants[0]
     search = next(e for e in turn.graph_context_execution.events if type(e) is NativeBodySearchObservedV1
         and e.authorization_event_id == grant.event_id)
-    assert grant.sequence < search.sequence < opening_auths[0].sequence < opening_choices[0].sequence
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+    intent, = [event for event in turn.graph_context_execution.events
+               if type(event) is NativePlanAuthorScopeObservedV1 and event.scope_observation.requested_work]
+    assert intent.sequence < grant.sequence < search.sequence < opening_auths[0].sequence < opening_choices[0].sequence
     assert grant.request_manifest_sha256 == turn.graph_context_receipt.assembled_input.manifest_sha256
     if selected_references is not None:
         assert turn.graph_context_execution.events[0].kind == 'build_authored_references_captured_v1'
