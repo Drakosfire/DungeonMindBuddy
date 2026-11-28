@@ -156,8 +156,15 @@ class PlanJevHarness:
                         raise AgentTurnServiceError('The earlier Graph decision has an uncertain outcome and cannot be repeated.',
                             code='plan_graph_need_outcome_uncertain', status_code=409, provider_dispatched=False)
                     else:
+                        self._interpret_opening_intent(adapter, dialogue, author_scope_calls)
                         graph_need = PlanGraphNeedDispatch(adapter, dialogue=dialogue)
-                        observed = asyncio.run(graph_need.run(transport=self.decision_transport, api_key=self.decision_api_key))
+                        try:
+                            observed = asyncio.run(graph_need.run(
+                                transport=self.decision_transport, api_key=self.decision_api_key
+                            ))
+                        finally:
+                            if graph_need.call is not None:
+                                author_scope_calls.append(graph_need.call)
                     clarification = settle_graph_need(adapter, observed, prepare_graph=prepare_graph)
                     if clarification is not None:
                         return clarification
@@ -230,7 +237,7 @@ class PlanJevHarness:
                     code='plan_authoring_target_changed', status_code=409) from exc
             raise
         finally:
-            self.calls = ([graph_need.call] if graph_need is not None and graph_need.call is not None else []) + author_scope_calls + ([semantic.call] if semantic is not None and semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
+            self.calls = author_scope_calls + ([semantic.call] if semantic is not None and semantic.call is not None else []) + (driver.calls if driver is not None else []) + ([writer.call] if writer is not None and writer.call is not None else [])
             self.output_limit_exceeded = writer.output_limit_exceeded if writer is not None else False
             if adapter.fence is not None:
                 try:
