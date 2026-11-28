@@ -56,3 +56,20 @@ def opening_action_menu(surface, *, plan_operation=None):
     if surface == "play":
         return dict(_PLAY_DESCRIPTIONS)
     raise ValueError(f"No opening action catalog registered for {surface!r}")
+
+
+def validate_opening_action_wire(expected, raw: bytes) -> None:
+    """Validate the provider envelope against the owning choice projection."""
+    from .source_writer_output import strict_json
+
+    actual = strict_json(raw.decode("utf-8"))
+    questions = {
+        q.name: {
+            "type": "choice",
+            "instructions": q.question,
+            "criteria": {option: (q.option_descriptions or {}).get(option) for option in q.options},
+        }
+        for q in expected.questions
+    }
+    if actual != {"model": expected.model, "state": expected.state, "questions": questions}:
+        raise ValueError("Opening action wire differs from its offered semantic choices")

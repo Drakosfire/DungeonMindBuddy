@@ -643,22 +643,9 @@ def requested_work_choice(request, selected):
 
 def validate_requested_work_wire(request: PlanRequestedWorkInputV1, raw: bytes) -> None:
     """Verify the exact offered work/conditional navigation wire at APP authorization."""
-    from .jev_retrieval_contract import MODEL
+    from .surface_action_catalog import validate_opening_action_wire
 
-    body = strict_json(raw.decode("utf-8"))
-    expected = prepare_requested_work_decision(request)
-    questions = {
-        q.name: {
-            "type": "choice",
-            "instructions": q.question,
-            "criteria": {option: (q.option_descriptions or {}).get(option) for option in q.options},
-        }
-        for q in expected.questions
-    }
-    if body != {"model": MODEL, "state": expected.state, "questions": questions}:
-        raise ValueError(
-            "Plan requested-work wire differs from its offered semantic choices"
-        )
+    validate_opening_action_wire(prepare_requested_work_decision(request), raw)
 
 
 def validate_prepared_requested_work(

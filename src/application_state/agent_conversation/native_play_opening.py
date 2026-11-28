@@ -7,7 +7,7 @@ from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
 from .jev_retrieval_contract import MODEL, PROVIDER, RetrievalDialogue, validated_choice_answers
-from .surface_action_catalog import opening_action_menu
+from .surface_action_catalog import opening_action_menu, validate_opening_action_wire
 
 
 class NativePlayOpeningInputV1(BaseModel):
@@ -44,3 +44,9 @@ def decode_play_opening(result) -> str:
     if choice not in opening_action_menu("play"):
         raise ValueError("Play decision is outside its opening action menu")
     return choice
+
+
+def validate_play_opening(request: NativePlayOpeningInputV1, raw: bytes, result) -> str:
+    """Admit only a result for the reconstructed Play intent envelope."""
+    validate_opening_action_wire(prepare_play_opening(request), raw)
+    return decode_play_opening(result)
