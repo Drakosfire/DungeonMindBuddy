@@ -1685,7 +1685,9 @@ def _shared_plan_authoring_case(
                 assert criteria == opening_action_menu("plan", plan_operation=plan_adapter.request.plan_requested_operation)
                 assert set(body["state"]) <= {"surface", "user_utterance", "page_title", "selected_text",
                                              "prior_dialogue", "explicit_editor_operation"}
-                choice = semantic_intent or ("discuss" if routing == "discuss" else "write_current_page")
+                choice = semantic_intent or (
+                    routing if routing in {"discuss", "different_destination"} else "write_current_page"
+                )
                 return httpx2.Response(200, request=request, json={
                     "model": body["model"], "usage": {"input_tokens": 31, "output_tokens": 7},
                     "answers": {"requested_work": {"type": "choice", "choice": choice, "confidence": 1,
@@ -1906,9 +1908,26 @@ def _shared_plan_authoring_case(
         refused = {"different_destination": "plan_authoring_destination_unavailable",
             "write_without_capture": "plan_authoring_target_unavailable"}
         if routing in refused:
+            saved_before = snapshot_content(capture.document_id).markdown
             with pytest.raises(AgentTurnServiceError) as failed:
                 execute_agent_turn(plan_adapter.request, **kwargs)
             assert failed.value.code == refused[routing]
+            if routing == "different_destination" and author_scope_calls:
+                from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+                assert len(decisions.calls) == 1 and not writer.calls
+                turn = kwargs["conversation_service"].inspect_turn(
+                    world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id,
+                )
+                observations = [event.scope_observation for event in turn.graph_context_execution.events
+                                if type(event) is NativePlanAuthorScopeObservedV1]
+                assert [observation.requested_work for observation in observations] == ["different_destination"]
+                assert turn.completion is None
+                assert PlanActionDialogueService().get_by_key(capture.world_id, capture.idempotency_key) is None
+                assert not any(event.kind in {"native_plan_request_search_authorized_v1", "native_authored_source_read_v1"}
+                               for event in turn.graph_context_execution.events)
+                assert snapshot_content(capture.document_id).markdown == saved_before
+                return None
             assert not writer.calls and len(decisions.calls) == 1 + author_scope_calls
             response = None
         else:

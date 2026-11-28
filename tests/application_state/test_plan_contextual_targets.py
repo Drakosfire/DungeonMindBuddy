@@ -1081,3 +1081,19 @@ def test_request_discovery_can_follow_only_settled_author_scope():
     validate((scope_attempt, observed))
     with pytest.raises(ValueError, match="actual first admitted Plan request"):
         validate((scope_attempt,))
+
+
+
+def test_contextual_plan_handoff_stops_after_first_intent(
+    plan_adapter, tmp_path, monkeypatch, application_state_dsn,
+):
+    from tests.application_state.test_plan_placement import native_paragraph_placement_fixture
+    from tests.test_plan_jev_authoring import _shared_plan_authoring_case
+
+    plan_adapter.request = plan_adapter.request.model_copy(update={
+        "message": "Revise the saved Ferry Crossing page in Build.",
+    })
+    _shared_plan_authoring_case(
+        plan_adapter, tmp_path, monkeypatch, "place1", "base", routing="different_destination",
+        dsn=application_state_dsn, placement_factory=native_paragraph_placement_fixture,
+    )
