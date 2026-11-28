@@ -2259,7 +2259,15 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
         async def handle_async_request(self, request):
             body = json.loads(request.content)
             questions = body["questions"]
-            if "existing_scope" in questions:
+            if body["state"].get("surface") == "plan":
+                from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+                assert not self.calls
+                assert set(questions) == {"requested_work"}
+                assert questions["requested_work"]["criteria"] == opening_action_menu("plan")
+                assert set(body["state"]) == {"surface", "user_utterance", "page_title"}
+                choices = {"requested_work": "write_current_page"}
+            elif "existing_scope" in questions:
                 choices = dict(
                     location_relation=("unstated_insertion_location" if caret_case
                         else "before_paragraph" if outcome == "relation_conflict" else "after_paragraph"),
@@ -2322,8 +2330,14 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
     turn = kwargs["conversation_service"].inspect_turn(
         world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id,
     )
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+    intent = next(event for event in turn.graph_context_execution.events
+                  if type(event) is NativePlanAuthorScopeObservedV1)
+    assert intent.scope_observation.requested_work == "write_current_page"
     [selection] = [event for event in turn.graph_context_execution.events
                    if type(event) is NativePlanOpeningSelectedV3]
+    assert intent.sequence < selection.sequence
     calls = len(decisions.calls), len(writer.calls)
     replay = execute_agent_turn(request, **kwargs)
     assert (len(decisions.calls), len(writer.calls)) == calls
