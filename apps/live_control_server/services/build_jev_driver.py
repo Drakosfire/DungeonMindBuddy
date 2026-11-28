@@ -547,12 +547,16 @@ class BuildJevDriver:
         self._boundary_catalog = catalog_for_build_capability(a.request.build_write_capability)
         if self._boundary_catalog is not None and not fresh:
             raise ValueError("A reviewed Build action cannot acquire a contextual paragraph offer")
+        capture = a.request.build_image_move_capture
+        pending = getattr(a, "pending_build_source_observation", None) is not None
+        if pending and "related_page_catalog" in self._interaction:
+            raise ValueError("Pending Build discovers related pages only after selecting work")
+        self.split_opening = fresh and pending and capture is None
         if fresh:
             from application_state.agent_conversation.build_intentional_response import semantic_routing_state
             state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references,
-                write_capability=a.request.build_write_capability)
+                write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening)
         questions = (DecisionQuestion(name='requested_work',kind='choice',question=work_question["instructions"],options=tuple(work_question["criteria"])),)
-        capture = a.request.build_image_move_capture
         if capture is not None:
             from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
             from .agent_turn_service import AgentTurnServiceError
@@ -572,10 +576,6 @@ class BuildJevDriver:
             state["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
             questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
                                for q in self.image_move.questions())
-        pending = getattr(a, "pending_build_source_observation", None) is not None
-        if pending and "related_page_catalog" in self._interaction:
-            raise ValueError("Pending Build discovers related pages only after selecting work")
-        self.split_opening = fresh and pending and capture is None
         if fresh and not self.split_opening:
             from application_state.agent_conversation.build_intentional_response import source_need_question
 
@@ -1163,7 +1163,7 @@ class BuildJevDriver:
                 from application_state.agent_conversation.build_intentional_response import semantic_routing_state,semantic_request_id
                 from .agent_turn_service import _turn_idempotency_key
                 expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references,
-                    write_capability=a.request.build_write_capability)
+                    write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening)
                 if self.image_move is not None:
                     from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
                     expected["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()

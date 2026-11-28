@@ -200,6 +200,9 @@ def test_pending_build_resolves_paragraph_after_intent(lane, tmp_path, monkeypat
     assert case.response.status_code == 200, case.response.text
     opening, followup = [json.loads(call.content) for call in case.decisions.calls[:2]]
     assert set(opening["questions"]) == {"requested_work"}
+    assert "paragraph_placement" not in opening["state"]["interaction"]
+    assert opening["state"]["interaction"]["page_target"] == {"kind": "contextual_paragraph"}
+    assert followup["state"]["interaction"]["paragraph_placement"]["existing_passages"]
     assert "paragraph_work" in followup["questions"]
     assert "requested_work" not in followup["questions"]
     resolution, = [event for event in case.turn.graph_context_execution.events
