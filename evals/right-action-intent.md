@@ -106,9 +106,9 @@ The small sample does not establish a latency trend. See the current
 [pair results](right_action_intent/surface-probe-jev.json) and
 [exact menus and prompt](right_action_intent/surface-probe-pin.json).
 
-This probe uses the Build and contextual Plan menus. Play conversational routes
-currently enter through a retrieval controller, so they still need an ordinary
-first intent boundary and corresponding fixtures. An action's classification
+This early probe used the Build and contextual Plan menus. At the time,
+Play conversational routes entered through a retrieval controller. The later
+Play comparison covers the intent-first route. An action's classification
 here does not establish that its surface can carry it through.
 
 ### Expanded Build and Plan comparison
@@ -252,12 +252,10 @@ also receives the earlier page-edit intent. The seven paired Plan cases
 measure requested work in isolation. Treat this capture as the control for
 a future intent-first Plan route.
 
-The first request contains no source candidates. The current Plan harness
-still acquires explicit references and starts request-owned source discovery
-before dispatch when the relevant authorities are available. The opening
-admission validator requires settled discovery in the prefix. Moving source
-work later therefore needs a coordinated change to orchestration and
-admission, with replay coverage for the earlier ordering.
+The historical capture predates the intent-only ballot. The merged Plan
+harness sends intent first, then performs placement interpretation and acquires
+explicit references before the later retrieval ballot. Plan request admission
+still prepares its source authority and catalog metadata before intent.
 
 #### Reuse captured results for analysis
 
@@ -305,20 +303,18 @@ in each arm. The combined menu chose a live Play scene edit for the
 highlighted-sentence edit on the current Plan. Median decision wall time
 was 295.23 ms scoped and 303.19 ms combined.
 
-The shared builder already serves Play. The Plan trial evaluates the request
-before product integration. The contextual Plan wire control above shows
-the ordinary Plan sequence that still needs to change.
+The Plan trial evaluated the request before product integration. The
+contextual Plan wire control above preserves the earlier dispatch sequence.
 
 The [typed Plan projection comparison](right_action_intent/plan-minimal-intent-paired-jev.json)
 freezes the exact model-visible state per case. The page title and selected
 sentence remain visible. The complete fixture page stays local to validate
 the selection. No placement or retrieval questions are sent. This reproduced
 7/7 scoped and 6/7 combined on the same seven cases. Median time was 188.45 ms
-scoped and 294.12 ms combined. This is a prototype decision comparison.
-Ordinary Plan still uses the earlier dispatch sequence.
+scoped and 294.12 ms combined. This was a prototype decision comparison.
 
-The runtime draft now sends the shared intent-only request first on
-contextual Plan turns. Transport checks cover contextual and composed
+The merged runtime sends the shared intent-only request first on fresh Plan
+turns. Transport checks cover contextual and composed
 Plan, including saved placement replay, ambiguity, stale and foreign
 targets, and the discussion path that skips placement interpretation.
 The historical wire capture records the earlier sequence. The paired Jev
@@ -496,11 +492,11 @@ pending Build packet. Both arms were captured in the same run. Build scored
 and **200.87 ms**, respectively. With the pinned Plan and Play pairs this
 is **56/60 scoped and 50/60 full**. The earlier roster remains available.
 
-### Build controls awaiting intent-only scoring
+### Specialized Build workflow controls
 
-These cases run through ordinary Build today. Their current specialized
-questions share an opening with the general action choice. Keep their
-workflow evidence alongside the frozen intent comparison.
+Ordinary Build sends the general action choice first on these routes.
+Downstream ballots resolve the image move or Graph-reference placement. The
+controls verify workflow behavior alongside the separate intent comparison.
 
 | Case | Visible Build state to pin | Expected behavior | Current evidence |
 | --- | --- | --- | --- |
@@ -508,10 +504,10 @@ workflow evidence alongside the frozen intent comparison.
 | “What would happen if we moved the Harbour map to the right?” | Same page and image context | Discuss the effect in conversation. | The ordinary image discussion controls exercise the review boundary. |
 | “Insert a reference to the selected object after the orchid paragraph in East.” | Current composed page, exact selected Graph object, and paragraph anchor | Stage a Graph-reference placement review bound to that object. | The ordinary Graph-reference test completes through nomination and review without calling the writer. |
 
-The intent classifier needs offered choices that distinguish these reviews
-from preparing new artwork and writing prose. “Discussion” is already an
-offered choice. Include the matching controls when the review choices are
-available, and let downstream ballots resolve the exact slot or paragraph.
+These workflow cases exercise the downstream distinction between placing
+an existing reference or moving an image and writing new prose or preparing
+new artwork. The separate image pilot below measures how well the opening
+ballot classifies these requests.
 
 ### Build image intent pilot
 
