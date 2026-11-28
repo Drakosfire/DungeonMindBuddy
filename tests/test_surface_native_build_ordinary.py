@@ -285,12 +285,16 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
 ])
 def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):
     if disposition in {"ready", "tied_menu", "duplicate_context", "different_row"}:
-        from apps.live_control_server.services import native_graph_reads
+        from apps.live_control_server.services import build_related_pages, native_graph_reads
 
         def unexpected_graph_preparation(*_args, **_kwargs):
             pytest.fail("A local image Review prepared a Graph query")
 
+        def unexpected_page_discovery(*_args, **_kwargs):
+            pytest.fail("A local image Review discovered saved pages")
+
         monkeypatch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
+        monkeypatch.setattr(build_related_pages, "discover", unexpected_page_discovery)
     _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
                 message=message, image_move=disposition,
                 requested_work=("write_current_page" if disposition in {"ready", "different_row", "duplicate_context"}
