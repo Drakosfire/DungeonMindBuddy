@@ -222,3 +222,18 @@ before dispatch when the relevant authorities are available. The opening
 admission validator requires settled discovery in the prefix. Moving source
 work later therefore needs a coordinated change to orchestration and
 admission, with replay coverage for the earlier ordering.
+
+#### Reuse captured results for analysis
+
+Run `python -m evals.right_action_intent.scope --summarize <capture.json>`
+to analyze retained paired results without contacting a provider. The
+report includes dispositions and median latency by surface, arm and expected
+action. A correct clarification counts as a valid deferral. A clarification
+where the pinned state establishes another action counts as an invalid
+deferral. A tied top score is additional telemetry because Jev can still
+return a selected action when scores tie. Provider failures remain separate
+from classification errors.
+
+The retained 50-case comparison includes four valid deferrals per Build arm,
+two per Plan arm, and one per Play arm. These are included in the correct
+totals in the earlier comparison tables.

@@ -1,7 +1,7 @@
 """Compare the current owner-scoped intent menus on fixed surface fixtures."""
 import argparse
 import asyncio
-from collections import defaultdict
+from collections import Counter, defaultdict
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -84,6 +84,38 @@ def play_request(state, menu):
     }),)})
 
 
+def decision_summary(rows, surface):
+    deferrals = {"needs_context_to_choose", "clarify_request", "clarify_creation"}
+    if surface == "plan":
+        deferrals.add("clarify")
+    counts = Counter()
+    tied = 0
+    for row in rows:
+        status = row["status"]
+        if status == "correct" and row["expected"] in deferrals:
+            status = "valid_deferral"
+        elif status == "unnecessary_deferral" or (status == "wrong_action" and row["choice"] in deferrals):
+            status = "invalid_deferral"
+        counts[status] += 1
+        answers = row["response"].get("answers", {})
+        question = answers.get("requested_work") or answers.get("intent") or {}
+        probabilities = list((question.get("probabilities") or {}).values())
+        if probabilities and probabilities.count(max(probabilities)) > 1:
+            tied += 1
+    original = result_summary(rows)
+    return {"cases": len(rows), "dispositions": dict(counts),
+            "top_score_ties": tied, "median_decision_ms": original["median_decision_ms"]}
+
+
+def grouped_summary(rows, surface):
+    by_action = defaultdict(list)
+    for row in rows:
+        by_action[row["expected"]].append(row)
+    return {"decision_summary": decision_summary(rows, surface),
+            "by_action": {action: decision_summary(group, surface)
+                          for action, group in by_action.items()}}
+
+
 async def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixtures", type=Path, default=Path(__file__).with_name("surface-probe.json"))
@@ -95,7 +127,16 @@ async def main():
     parser.add_argument("--play-destination-wording", action="store_true",
                         help="Compare explicit edit destinations in the Play ballot")
     parser.add_argument("--tier", help="Run only cases in this tier while retaining the original menu union")
+    parser.add_argument("--summarize", type=Path, help="Summarize a retained paired capture without a provider")
     args = parser.parse_args()
+    if args.summarize:
+        capture = json.loads(args.summarize.read_bytes())
+        results = capture.get("results", capture)
+        print(json.dumps({
+            surface: {arm: grouped_summary(value["rows"], surface) for arm, value in arms.items()}
+            for surface, arms in results.items()
+        }, indent=2))
+        return
     if args.play_destination_wording and args.surface != "play":
         parser.error("--play-destination-wording requires --surface play")
     digest, groups, menus = prepare(args.fixtures)
@@ -184,7 +225,7 @@ async def main():
                 by_id = reused | {row["id"]: row for row in fresh}
                 rows = [by_id[case["id"]] for case in cases]
                 report[surface][arm] = {"summary": result_summary(rows), "rows": rows,
-                                        "reused": list(reused)}
+                                        "reused": list(reused), **grouped_summary(rows, surface)}
     finally:
         await client.aclose()
     (args.output / "results.json").write_text(json.dumps(report, indent=2) + "\n")
