@@ -280,7 +280,16 @@ def _conversation_response_task(execution):
         return question_task
     action = execution.policy.action
     if type(action) is NativePlayActionV1:
-        return 'answer'  # This action owns only a read-only Run question.
+        from application_state.agent_conversation.native_retrieval import NativePlayIntentSelectedV1
+
+        opening = next((event for event in execution.events if type(event) is NativePlayIntentSelectedV1), None)
+        if opening is None:
+            return "answer"
+        return {
+            "clarify_request": "clarify",
+            "different_destination": "different_destination",
+            "play_edit": "play_scene_edit_handoff",
+        }.get(opening.requested_work, "answer")
     if type(action) in (NativePlanActionV1, NativePlanActionV2, NativePlanActionV3):
         choices = [e for e in execution.events if isinstance(e, t.PlanRequestedWorkSelectedV2)]
         accepted = NATIVE_PLAN_WORK_SELECTION_TYPES if type(action) in (NativePlanActionV2, NativePlanActionV3) else (t.PlanRequestedWorkSelectedV2,)
