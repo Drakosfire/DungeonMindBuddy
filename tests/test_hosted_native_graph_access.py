@@ -4067,8 +4067,10 @@ def test_hosted_creature_catalog_and_association_read_are_world_scoped(hosted, m
         assert response.status_code == 403, response.text
 
 
-def test_hosted_archives_exact_statblock_and_preserves_saved_revision(prepared, hosted):
-    from apps.live_control_server.services import threat_draft_store
+def test_hosted_deletes_exact_statblock_and_retries_cleanup(prepared, hosted):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import statblock_permanent_deletion, threat_draft_store
 
     fixture = prepared
     world = "elderwyld"
@@ -4077,6 +4079,8 @@ def test_hosted_archives_exact_statblock_and_preserves_saved_revision(prepared, 
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setenv(hosted_auth.HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+        provider = Mock()
+        patch.setattr(statblock_permanent_deletion, "build_statblock_v1_client", lambda: provider)
         draft_id = fixture.draft.draft_id
         version = fixture.draft.version
         base = f"/api/live/threat-drafts/{draft_id}/saved-statblock?world_id={world}"
@@ -4101,12 +4105,23 @@ def test_hosted_archives_exact_statblock_and_preserves_saved_revision(prepared, 
         visible, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
         assert visible == before
         hosted.records[world] = owner_record
-        archived = hosted.client.request("DELETE", path)
-        assert archived.status_code == 204, archived.text
-        after, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
-        assert after == []
-        assert threat_draft_store.get_threat_draft(fixture.root, draft_id).accepted_mechanics_ref == fixture.draft.accepted_mechanics_ref
+        provider.purge_statblock_revisions.assert_not_called()
+        with patch.context() as failure:
+            failure.setattr(statblock_permanent_deletion, "remove_purged_acceptance", Mock(
+                side_effect=threat_draft_store.ThreatDraftStoreError("cleanup interruption", status_code=503),
+            ))
+            assert hosted.client.request("DELETE", path).status_code == 503
+
+        deleted = hosted.client.request("DELETE", path)
+        assert deleted.status_code == 204, deleted.text
         assert hosted.client.request("DELETE", path).status_code == 204
+        assert provider.purge_statblock_revisions.call_count == 2
+        assert provider.purge_statblock_revisions.call_args.args == (
+            fixture.revision.statblock_id, fixture.revision.revision_id,
+        )
+        assert threat_draft_store.list_threat_drafts(fixture.root, world_id=world) == ([], 0)
+        with pytest.raises(threat_draft_store.ThreatDraftStoreError, match="not found"):
+            threat_draft_store.get_threat_draft(fixture.root, draft_id)
 
 
 def test_hosted_portrait_revision_recovers_exact_save(revision_case, hosted, monkeypatch):
