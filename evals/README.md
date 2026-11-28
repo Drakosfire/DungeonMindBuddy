@@ -271,6 +271,32 @@ first text position, set `browser_capture.at_document_start` to true and omit
 `selection_text`. The browser positions the caret and the harness checks the
 captured range and exact committed text digest before dispatch.
 
+### Conversation to image
+
+`CONVERSATION-IMAGE-1` joins Build's image direction, generation and
+Buddy-directed placement actions in one browser session. Restore the saved
+page and active dialogue from the
+[synthetic fixture](buddy_benchmark/fixtures/conversation-image.json).
+Use the registered ID and exact `direction_request` in the manifest case,
+`conversation_mode: build_sequence`, the restored `build_history` pin,
+the browser bundle pins, and `browser_capture.conversation_image: true`.
+Configure an approved live image provider and asset storage on the evaluator.
+Use an owned App clone with the shared read-only Core.
+
+```bash
+python -m evals.buddy_benchmark.workflow capture --manifest MANIFEST.json \
+  --output CAPTURE_DIRECTORY --case CONVERSATION-IMAGE-1 --build-fixture --live-build --clone-app
+```
+
+The browser checks that the prepared description carries separate details
+from the page and chat. It generates from the populated Studio description,
+saves that same asset, requests placement in the conversation, then saves and
+reloads the page. The result records the first failing stage, generation and
+placement timings where available, request counts, and observed source
+activity. The source probes cover selected paths. The test verifies the
+generated asset at the exact paragraph anchor and checks all other blocks
+for changes.
+
 For a private Image Studio preview, use the live Build browser mode and set
 `browser_capture.image_preview` to true. Omit selection, unsent-draft and
 confirmation fields. The case question is the exact image description. The

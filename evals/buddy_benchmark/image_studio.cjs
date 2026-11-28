@@ -3,14 +3,18 @@
 const assert = require("node:assert/strict");
 const { performance } = require("node:perf_hooks");
 
-async function generatePrivatePreview(page, origin, description) {
+async function generatePrivatePreview(page, origin, description, { preparationId } = {}) {
   const studio = page.getByRole('region', { name: 'Create an image', exact: true });
   const expand = studio.getByRole('button', { name: 'Expand image studio', exact: true });
   if (await expand.isVisible()) await expand.click();
   const back = studio.getByRole('button', { name: 'Back to studio', exact: true });
   if (await back.isVisible()) await back.click();
   const prompt = studio.getByRole('textbox', { name: /What would you like to see/ });
-  await prompt.fill(description);
+  if (preparationId) {
+    assert.equal(await prompt.inputValue(), description, 'Image Studio did not receive the prepared description');
+  } else {
+    await prompt.fill(description);
+  }
   const generate = studio.getByRole('button', { name: 'Generate image', exact: true });
   const started = performance.now();
   const [response] = await Promise.all([
@@ -21,6 +25,11 @@ async function generatePrivatePreview(page, origin, description) {
     }, { timeout: 185000 }),
     generate.click(),
   ]);
+  if (preparationId) {
+    const request = response.request().postDataJSON();
+    assert.equal(request.prompt, description, 'Generate sent a different description');
+    assert.equal(request.preparation_id, preparationId, 'Generate did not use the same prepared action');
+  }
   assert.ok(response.ok(), `Image provider failed with HTTP ${response.status()}`);
   const result = await response.json();
   assert.equal(result.images.length, 1, 'Expected exactly one generated preview');

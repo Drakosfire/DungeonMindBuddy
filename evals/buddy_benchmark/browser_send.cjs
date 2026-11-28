@@ -396,9 +396,13 @@ async function run() {
       });
     }
     const loreSpec = JSON.parse(process.env.DMB_BENCHMARK_LONG_CHAT_PAGE || "null");
+    const imageFixture = JSON.parse(process.env.DMB_BENCHMARK_CONVERSATION_IMAGE || "null");
+    const imageFlowEditor = page.locator(".build-surface-shell .ProseMirror[contenteditable=true]:visible");
+    const imageFlowDocument = () => imageFlowEditor.evaluate(element => element.pmViewDesc.node.toJSON());
+    const originalImagePage = imageFixture ? await imageFlowDocument() : null;
     const loreWorld = process.env.DMB_BENCHMARK_WORLD;
     const loreBefore = loreSpec ? await readLorePages(page, loreWorld) : null;
-    if (!loreSpec && !reviewedWork && !imageMove && (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1")) {
+    if (!imageFixture && !loreSpec && !reviewedWork && !imageMove && (build || process.env.DMB_BENCHMARK_LIVE_BROWSER === "1")) {
       const selected = process.env.DMB_BENCHMARK_SELECTION;
       const documentStart = process.env.DMB_BENCHMARK_DOCUMENT_START === "1";
       const editor = page.locator((build ? ".build-surface-shell" : ".world-plan-visual-editor") + " .ProseMirror[contenteditable=true]:visible");
@@ -557,6 +561,81 @@ async function run() {
         }));
       return { click, request, preflight };
     });
+    if (imageFixture) {
+      const assert = require("node:assert/strict");
+      const { generatePreparedConversationImage, verifyConversationImagePlacement } = require("./conversation_image.cjs");
+      const result = { stage: "direction", passed: false };
+      const world = process.env.DMB_BENCHMARK_WORLD;
+      const requestMatches = (request, path) =>
+        request.method() === "POST" && new URL(request.url()).pathname === path;
+      const counts = { generation: 0, page_save: 0 };
+      page.on("request", request => {
+        if (requestMatches(request, "/api/live/media/images/generate")) counts.generation++;
+        if (requestMatches(request, commitPath)) counts.page_save++;
+      });
+      try {
+        const id = buildCheckpoint?.action_id;
+        assert.ok(id, "Buddy did not deliver a prepared direction");
+        const url = origin + "/api/live/media/images/preparations/" + encodeURIComponent(id)
+          + "?" + new URLSearchParams({world_id: world});
+        const response = await page.request.get(url, {headers: {
+          authorization: "Bearer " + process.env.DMB_BENCHMARK_BROWSER_TOKEN,
+        }});
+        assert.ok(response.ok(), "Prepared direction could not be reopened");
+        const preparation = await response.json();
+        assert.equal(preparation.action_id, id, "Prepared direction differs from the turn");
+        assert.deepEqual(await imageFlowDocument(), originalImagePage, "Direction changed the page");
+        result.stage = "generation";
+        result.generation = await generatePreparedConversationImage(page, origin, imageFixture, preparation);
+        assert.equal(counts.generation, 1, "Expected one explicit image generation");
+        assert.deepEqual(await imageFlowDocument(), originalImagePage, "Generation or asset save changed the page");
+
+        result.stage = "placement";
+        if (!await composer.isVisible()) {
+          await page.locator(".conversation-dock__launcher").getByRole("button").click({timeout: 15000});
+        }
+        const placementStarted = performance.now();
+        await composer.fill(imageFixture.placement_request);
+        const placementResponse = page.waitForResponse(r =>
+          requestMatches(r.request(), "/api/live/agent/turn"), {timeout: 60000});
+        placementResponse.catch(() => {});
+        await page.getByRole("button", {name: /^(Send message|Propose edit)$/}).click();
+        assert.ok((await placementResponse).ok(), "Buddy placement request was refused");
+        await pollBrowserRead(() => page.evaluate(async () => {
+          const response = await fetch("/__benchmark/image-placement-retained", {cache: "no-store"});
+          return response.ok && (await response.json()).retained;
+        }), 75000, 250, "retained Buddy placement response");
+
+        const apply = page.getByRole("button", {name: "Apply image placement", exact: true});
+        await pollBrowserRead(async () =>
+          await apply.isVisible() || JSON.stringify(await imageFlowDocument()) !== JSON.stringify(originalImagePage),
+        12000, 150, "Buddy placement review or inserted image");
+        if (await apply.isVisible()) await apply.click();
+        const placed = await imageFlowDocument();
+        result.placement_index = verifyConversationImagePlacement(originalImagePage, placed, imageFixture,
+          result.generation.asset_id);
+        result.placement_ms = performance.now() - placementStarted;
+        assert.equal(counts.page_save, 0, "Placement committed before explicit Save");
+        result.stage = "save_and_reload";
+        const commit = page.waitForResponse(r => requestMatches(r.request(), commitPath), {timeout: 20000});
+        commit.catch(() => {});
+        await page.getByRole("button", {name: "Save", exact: true}).filter({visible: true}).click();
+        assert.ok((await commit).ok(), "Page Save was refused");
+        await page.reload();
+        await imageFlowEditor.waitFor();
+        await pollBrowserRead(async () => JSON.stringify(await imageFlowDocument()) === JSON.stringify(placed),
+          15000, 150, "exact placed image and page blocks after reload");
+        assert.equal(counts.generation, 1, "Placement or reload generated another image");
+        assert.equal(counts.page_save, 1, "Expected one explicit page Save");
+        result.passed = true;
+      } catch (error) {
+        result.error = String(error);
+      }
+      writeFileSync(process.env.DMB_BENCHMARK_BROWSER_RESULT, JSON.stringify({
+        conversation_image: {...result, counts}, status: delivered.status(),
+      }, null, 2));
+      return;
+    }
     const staleImageMove = process.env.DMB_BENCHMARK_STALE_IMAGE_MOVE === "1";
     let imageMoveResult;
     if (imageMove && live) {
