@@ -665,8 +665,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
 
             using_prior_citations = native_conversation_terminal(self.adapter.turn) is not None
-            expected_effort = ('medium' if (current_work == 'draft_in_conversation' and saved_statblock == 'associated'
-                    or authored_source and (current_work == 'discuss' or current_work is None))
+            expected_effort = ('medium' if current_work == 'draft_in_conversation' and saved_statblock == 'associated'
                 else 'none' if using_prior_citations and current_work == 'review_lore_page_from_conversation' else 'low')
             if reference_image in {'saved', 'saved_large'}:
                 from base64 import b64decode

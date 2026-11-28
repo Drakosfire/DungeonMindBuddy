@@ -1563,7 +1563,8 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
     assert all(detail['start_monotonic_ns'] <= span['start_monotonic_ns']
                <= span['end_monotonic_ns'] <= detail['end_monotonic_ns'] for span in intervals)
     names = {span['name'] for span in intervals}
-    assert {'execution_append', 'native_source_append',
+    assert 'native_source_append' not in names  # The controller chose Graph without a source scan.
+    assert {'execution_append',
             'native_writer_authorization_persistence', 'route_auth', 'first_jev_transport_entry',
             'plan_retrieval_complete', 'plan_writer_composition', 'writer_sdk_preparation',
             'plan_opening_candidate_preparation', 'plan_opening_selection_apply'} <= names
