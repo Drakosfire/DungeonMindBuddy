@@ -122,6 +122,9 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             if any(scope.page_edit_intent for scope in scopes):
                 expected_state.add('author_page_edit_intent')
                 assert body['state']['author_page_edit_intent'] in {'page_edit', 'discussion', 'unresolved'}
+        if any(candidate["kind"] == "Explicit admitted full-source read; metadata choice, not evidence"
+               for candidate in body["state"].get("candidates", ())):
+            expected_state.update({"full_document_selection_guidance", "source_catalogue_guidance"})
         assert set(body["state"]) == expected_state
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (

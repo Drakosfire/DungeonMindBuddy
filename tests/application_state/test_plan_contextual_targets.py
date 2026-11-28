@@ -15,6 +15,7 @@ from application_state.agent_conversation.plan_placement import (
 from tests.application_state.test_plan_authoring import capture_payload
 from tests.test_plan_jev_dispatch import plan_adapter as plan_adapter
 from tests.test_plan_jev_harness import unavailable_native_sources as unavailable_native_sources
+from tests.test_native_corpus_source_access import lane as lane
 
 
 def captured_catalog(*, selected=False, duplicate=False):
@@ -933,14 +934,29 @@ def test_contextual_completion_binds_sdk_final_instead_of_aggregate_commentary(
         assert '<fim_suffix>' not in result.plan_proposal.replacement_markdown
 
 
+@pytest.mark.parametrize("populated_corpus", [False, True])
 def test_actual_model_multiple_nominations_clarify_without_reservation_or_factual_answer(
-    plan_adapter, tmp_path, monkeypatch, application_state_dsn,
+    plan_adapter, tmp_path, monkeypatch, application_state_dsn, lane, populated_corpus,
 ):
     import psycopg
     from application_state.agent_conversation import AgentConversationService
     from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV2
     from application_state.agent_conversation.plan_contextual_questions import decode_question, output_format
     from tests.test_plan_jev_authoring import _shared_plan_authoring_case
+
+    if populated_corpus:
+        from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+        from apps.live_control_server.services import plan_source_turn
+        from tests.test_native_corpus_source_access import admit
+
+        lane.bound.managed_world_id = plan_adapter.world_id
+        admit(lane, body="# Park visit\n\nThe park has a walkway.\n")
+        def prepare(world, principal, **pins):
+            context = prepare_native_source_context(managed_world_id=world, principal=principal,
+                repository=lane.repo, resolve_identity=lambda _: lane.bound, **pins)
+            return context, context.authority
+
+        monkeypatch.setattr(plan_source_turn, "prepare", prepare)
 
     _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, 'place1', 'base', routing='clarify',
         dsn=application_state_dsn, placement_factory=two_native_locations,
@@ -950,6 +966,19 @@ def test_actual_model_multiple_nominations_clarify_without_reservation_or_factua
     turn = service.list_turns('world:one', pointer.active_conversation_id)[-1]
     from application_state.agent_conversation.native_plan_opening import validate_request_admission
     execution = turn.graph_context_execution
+    if populated_corpus:
+        from application_state.agent_conversation.native_corpus import (
+            NativeBodySearchObservedV1, NativePlanRequestSearchAuthorizedV1,
+        )
+        from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+        from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
+
+        scope = [event.sequence for event in execution.events if type(event) is NativePlanAuthorScopeObservedV1]
+        grant, = [event for event in execution.events if type(event) is NativePlanRequestSearchAuthorizedV1]
+        observed, = [event for event in execution.events if type(event) is NativeBodySearchObservedV1]
+        opening, = [event for event in execution.events if type(event) is NativePlanOpeningAuthorizedV1]
+        assert max(scope) < grant.sequence < observed.sequence < opening.sequence
+        assert observed.authorization_event_id == grant.event_id
     assert execution.policy.action.document_title == 'Synthetic park Plan'
     assert validate_request_admission(turn.graph_context_receipt, execution)
     changed_action = execution.policy.action.model_copy(update={'document_title': 'Foreign title'})
