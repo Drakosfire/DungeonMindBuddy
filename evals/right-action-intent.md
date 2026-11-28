@@ -442,3 +442,12 @@ Build scored **34/36 scoped versus 29/36 full**, with median decision times of
 197.56 ms and 200.16 ms respectively. Across Build, Plan and Play the comparison
 is **56/60 scoped versus 49/60 full**. Build arms were captured at different
 times. These times describe the decision call, separately from downstream routing.
+
+### Explicit Build surface in the ordinary intent wire
+
+The [explicit-surface roster](right_action_intent/surface-cohort-frozen-explicit-surface.json)
+adds the same Build surface field to both Build arms, matching the ordinary
+pending Build packet. Both arms were captured in the same run. Build scored
+**34/36 scoped and 30/36 full**, with median decision times of **205.03 ms**
+and **200.87 ms**, respectively. With the pinned Plan and Play pairs this
+is **56/60 scoped and 50/60 full**. The earlier roster remains available.

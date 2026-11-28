@@ -105,7 +105,7 @@ def with_menu(request, menu):
     }),)})
 
 
-def build_wire(state, menu, model, *, intent_only=False):
+def build_wire(state, menu, model, *, intent_only=False, explicit_surface=False):
     from application_state.agent_conversation.build_intentional_response import (
         SCOPED_BUILD_MENU_DIGEST, opening_work_question, semantic_routing_state, source_need_question,
     )
@@ -127,6 +127,7 @@ def build_wire(state, menu, model, *, intent_only=False):
         "model": model,
         "state": semantic_routing_state(
             state["user_utterance"], interaction, None, include_paragraph_catalog=not intent_only,
+            include_surface=explicit_surface,
         ),
         "questions": {
             "requested_work": work,
@@ -209,7 +210,8 @@ def retained_cohort(path):
             for case in groups[surface]:
                 for arm, menu in menus[surface].items():
                     wire = build_wire(case["input"], menu, manifest["model"],
-                        intent_only=capture.get("build_intent_only", False))
+                        intent_only=capture.get("build_intent_only", False),
+                        explicit_surface=capture.get("explicit_build_surface", False))
                     if (wire["state"] != capture["wire_states"][case["id"]]
                             or wire["questions"] != capture["wire_questions"][arm]
                             or tuple(wire["questions"]["requested_work"]["criteria"]) != tuple(
@@ -371,7 +373,8 @@ async def main():
                                             for row in groups["plan"]}
     if args.build_wire_shape:
         frozen["build_wire_by_case"] = {
-            row["id"]: {arm: build_wire(row["input"], menu, model, intent_only=args.build_intent_only)
+            row["id"]: {arm: build_wire(row["input"], menu, model, intent_only=args.build_intent_only,
+                    explicit_surface=args.build_intent_only)
                         for arm, menu in menus["build"].items()}
             for row in groups["build"]
         }
@@ -410,7 +413,8 @@ async def main():
         payload = {"model": model, "state": body["state"], "questions": {"intent": {
             "question": body["instructions"], "options": list(menu), "option_descriptions": menu}}}
         if args.build_wire_shape:
-            request = DecisionRequest.model_validate(sdk_request(build_wire(body["state"], menu, model, intent_only=args.build_intent_only)))
+            request = DecisionRequest.model_validate(sdk_request(build_wire(body["state"], menu, model, intent_only=args.build_intent_only,
+                    explicit_surface=args.build_intent_only)))
         elif args.plan_intent_only:
             request = with_menu(plan_request(body["state"]), menu)
         else:
