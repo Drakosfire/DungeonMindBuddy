@@ -474,3 +474,37 @@ def test_tied_source_need_does_not_override_build_clarification(monkeypatch):
     del source_vote["probabilities"]["anchored"]
     with pytest.raises(ValueError, match="Invalid actual semantic selection"):
         c.opening_work(None, request, response("clarify_request"), None)
+
+
+def test_opening_intent_requires_the_acknowledged_response(monkeypatch):
+    from types import SimpleNamespace
+
+    identity = ("typesafe", "jev-1.14.0", "typesafe_decision")
+    policy = SimpleNamespace(provider_roles=SimpleNamespace(
+        controller=SimpleNamespace(identity=lambda: identity),
+        writer=SimpleNamespace(identity=lambda: ("openai", "writer", "responses")),
+    ))
+    monkeypatch.setattr(c, "_captured_semantics", lambda _: (None, None, c.SCOPED_BUILD_MENU_DIGEST, None))
+    attempt = t.ProviderAttemptAuthorizedEventV5.model_construct(
+        context_phase="select", provider_attempt_id=uuid4(), envelope_sha256="a" * 64,
+        provider=identity[0], model=identity[1], api_mode=identity[2],
+    )
+    response = t.ProviderOutcomeEventV1(
+        kind="provider_outcome", event_id=uuid4(), sequence=1, provider_attempt_id=attempt.provider_attempt_id,
+        outcome="response_received", response_sha256="b" * 64,
+    )
+    intent = t.BuildOpeningIntentSelectedV1(
+        kind="build_opening_intent_selected_v1", event_id=uuid4(), sequence=2,
+        controller_attempt_id=attempt.provider_attempt_id, controller_envelope_sha256=attempt.envelope_sha256,
+        controller_response_sha256=response.response_sha256, requested_work="discuss",
+    )
+    c.validate_native_action_events(SimpleNamespace(policy=policy, events=[attempt, response, intent]))
+
+    for events in (
+        [attempt, intent],
+        [attempt, response, intent.model_copy(update={"controller_envelope_sha256": "c" * 64})],
+        [attempt, response, intent, intent],
+        [attempt, response, intent.model_copy(update={"requested_work": "not_offered"})],
+    ):
+        with pytest.raises(ValueError, match="acknowledged controller"):
+            c.validate_native_action_events(SimpleNamespace(policy=policy, events=events))

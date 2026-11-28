@@ -855,15 +855,30 @@ def validate_native_action_events(execution):
     steps additionally require their existing review/reservation admission.
     """
     from . import types as t
-    caps,capability,_,_=_captured_semantics(execution.policy)
-    latest=outcome=selection=None
+    caps,capability,menu,_=_captured_semantics(execution.policy)
+    latest=outcome=selection=opening_intent=None
     for event in execution.events:
         if isinstance(event,t.BuildReviewedActionSelectionV1):
             if (selection is not None or latest is not None or event.capability_sha256!=capability
                     or event.operation not in caps.operations):
                 raise ValueError('Reviewed action lacks its unique pre-provider capability binding')
             selection=event
+        elif isinstance(event, t.BuildOpeningIntentSelectedV1):
+            if (
+                selection is not None or opening_intent is not None
+                or type(latest) is not t.ProviderAttemptAuthorizedEventV5
+                or latest.context_phase != "select" or outcome != "response_received"
+                or latest.provider_attempt_id != event.controller_attempt_id
+                or latest.envelope_sha256 != event.controller_envelope_sha256
+                or (latest.provider, latest.model, latest.api_mode)
+                != execution.policy.provider_roles.controller.identity()
+                or event.requested_work not in _menu_work(menu)
+            ):
+                raise ValueError("Build opening intent differs from its acknowledged controller")
+            opening_intent = event
         elif isinstance(event,t.BuildRequestedWorkResolutionV1):
+            if opening_intent is not None and event.requested_work != opening_intent.requested_work:
+                raise ValueError("Build resolution cannot replace the retained opening intent")
             if (selection is not None or latest is None or outcome!='response_received'
                     or latest.provider_attempt_id!=event.controller_attempt_id
                     or latest.envelope_sha256!=event.controller_envelope_sha256
@@ -901,14 +916,41 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
 
     policy = execution.policy
     caps,capability,menu,resolver=_captured_semantics(policy)
-    if (
-        not isinstance(proof, dict)
-        or set(proof) != {"request_json", "response_json"}
-    ):
+    openings = [row for row in execution.events[:event.sequence] if type(row) is t.BuildOpeningIntentSelectedV1]
+    split = openings[0] if len(openings) == 1 else None
+    followup = split is not None and split.controller_attempt_id != event.controller_attempt_id
+    fields = {"request_json", "response_json"}
+    if followup:
+        fields |= {"opening_request_json", "opening_response_json"}
+    if not isinstance(proof, dict) or set(proof) != fields:
         raise ValueError("Semantic selection requires its exact producing proof")
-    request = strict_json(proof["request_json"])
-    raw_response = strict_json(proof["response_json"])
+    produced_request = strict_json(proof["request_json"])
+    produced_response = strict_json(proof["response_json"])
+    request = strict_json(proof["opening_request_json"]) if followup else produced_request
+    raw_response = strict_json(proof["opening_response_json"]) if followup else produced_response
     response = DecisionResult.model_validate(raw_response)
+    if split is not None:
+        if (hashlib.sha256(proof["opening_request_json" if followup else "request_json"].encode()).hexdigest()
+                != split.controller_envelope_sha256
+                or hashlib.sha256(proof["opening_response_json" if followup else "response_json"].encode()).hexdigest()
+                != split.controller_response_sha256):
+            raise ValueError("Build resolution differs from its saved opening proof")
+        label = verify_build_intent_opening(request, raw_response, menu_digest=menu)
+        if label != split.requested_work:
+            raise ValueError("Build resolution differs from its saved opening action")
+        if followup:
+            from .native_execution import BuildSourceScopeAuthorizedV1
+            source_auth = [row for row in execution.events[:event.sequence]
+                if type(row) is BuildSourceScopeAuthorizedV1
+                and row.provider_attempt_id == event.controller_attempt_id]
+            if len(source_auth) != 1 or source_auth[0].opening_intent_event_id != split.event_id:
+                raise ValueError("Build resolution requires its authorized source ballot")
+            source_scope = verify_build_source_followup(request, raw_response, menu_digest=menu,
+                wire=produced_request, response=produced_response)
+        elif label in {"clarify_request", "clarify_creation"}:
+            source_scope = "anchored"
+        else:
+            raise ValueError("Build resolution requires the separate source ballot")
     capture = getattr(getattr(policy, "action", None), "image_move_capture", None)
     from application_state.build_proposal.image_move_decision import (
         CONTEXTUAL_IDENTITY, IMAGE_MOVE_AFFIRMATION, OPENING_STATE_KEY,
@@ -964,7 +1006,8 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         or policy.action.write_capability.basis.visibility != "internal"
     )):
         raise ValueError("Build Graph reference opening differs from its actual native selection")
-    label, source_scope = opening_work(policy, request, raw_response, event.typed_image_move)
+    if split is None:
+        label, source_scope = opening_work(policy, request, raw_response, event.typed_image_move)
     resolution = resolution_for(policy, label, source_scope=source_scope)
     if event.paragraph_placement != paragraph_placement_for(policy, request, response, user_text, label):
         raise ValueError("Build paragraph placement differs from its actual opening selection")
@@ -996,7 +1039,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
             raise ValueError('Semantic Build routing differs from its locked submission')
     if (
         len(prior) != 1
-        or request.get("model") != prior[0].model
+        or produced_request.get("model") != prior[0].model
         or hashlib.sha256(proof["request_json"].encode()).hexdigest()
         != event.controller_envelope_sha256
         or event.controller_envelope_sha256 != prior[0].envelope_sha256

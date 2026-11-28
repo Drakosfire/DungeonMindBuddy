@@ -60,7 +60,7 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
         monkeypatch.setattr(plan_source_turn, 'prepare_native_source_context', forbidden)
         monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **kwargs: lane.repo)
 
-        def send(client, world, body):
+        def send(client, world, body, decision_requests):
             body['build_authored_references'] = None
             if mode != 'recover':
                 capability = body['build_write_capability']
@@ -79,7 +79,9 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
             key = UUID(body['build_write_capability']['idempotency_key'])
             stored = BuildProposalService().get(world, key)
             assert stored.state == 'proposed'
+            attempts = len(decision_requests.calls)
             recovered = client.post('/api/live/agent/turn', json=body)
+            assert len(decision_requests.calls) == attempts
             assert recovered.status_code == 200, recovered.text
             assert recovered.json()['knowledge_context']['delivery_replay'] is True
             assert BuildProposalService().get(world, key) == stored
@@ -100,6 +102,11 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
         assert case.turn.graph_context_receipt.schema_ == 'dmb_build_pending_context_receipt_v1'
         assert case.turn.status == 'completed'
         assert len(case.writer.calls) == 1
+        if mode in {'pending', 'cited-recover'}:
+            opening, followup = [json.loads(call.content) for call in case.decisions.calls[:2]]
+            assert set(opening["questions"]) == {"requested_work"}
+            assert set(followup["questions"]) == {"source_need"}
+            assert followup["state"] == opening["state"] | {"selected_work": "write_current_page"}
         if mode == 'pending':
             request = json.loads(case.writer.calls[0].content)
             target = json.loads(request['input'])['surface_work']['build_work']['edit_target']
@@ -1370,7 +1377,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         save_page(tmp_path, page.document_id, source.markdown + "\nA newer saved paragraph.\n")
     elif contextual == "foreign":
         body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
-    response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
+    response = (dispatch(client, world, body, decisions) if dispatch and capture_pending
+                else dispatch(client, world, body) if dispatch
+                else client.post('/api/live/agent/turn', json=body))
     if capture_pending:
         turn = AgentConversationService().inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
         assert not classic_calls

@@ -17,7 +17,7 @@ def phase(body, *, host_phase=None):
     state = body["state"]
     if host_phase is not None:
         # Only versioned native input owners use the clean wire contract.
-        if (host_phase not in {"navigate", "select", "writer_selection", "graph_reference"} or not isinstance(state, dict)
+        if (host_phase not in {"navigate", "select", "writer_selection", "graph_reference", "source_scope"} or not isinstance(state, dict)
                 or any(key in state for key in ("phase", "decision", "context_accounting"))):
             raise ValueError("Native decision contains host control metadata")
         return host_phase
@@ -53,9 +53,9 @@ def mode_context(event):
     from . import types as t
     if type(event) is t.ProviderAttemptAuthorizedEventV5:
         return event
-    from .native_execution import BuildAppPageSelectionAuthorizedV1
+    from .native_execution import BuildAppPageSelectionAuthorizedV1, BuildSourceScopeAuthorizedV1
     from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1
-    if type(event) in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1):
+    if type(event) in (BuildAppPageSelectionAuthorizedV1, BuildAppCoverageAuthorizedV1, BuildSourceScopeAuthorizedV1):
         return event
     from .native_retrieval import NativeRetrievalAuthorizedV1
     if type(event) is NativeRetrievalAuthorizedV1 and event.build_context is not None:

@@ -664,7 +664,7 @@ class BuildJevHarness:
             body = json.loads(prepared.body)
             return DecisionContextMode(accounting.context_mode(body, host_phase=getattr(plan,"host_phase",None)))
 
-        prepare_deferred_query = (None if getattr(plan, "host_phase", None) == "graph_reference"
+        prepare_deferred_query = (None if getattr(plan, "host_phase", None) in {"graph_reference", "source_scope"}
                                   else getattr(adapter, "prepare_deferred_build_query", None))
         pending_query = None
         opening_dispatched = False
@@ -682,6 +682,10 @@ class BuildJevHarness:
             # Starting Graph while that decision is in flight violates anchored
             # discussion even when its writer later chooses retained context.
             wait_for_work = wait_for_work or any(q.name == "source_need" for q in intent.questions)
+            # Pending intent-only Build cannot start Graph preparation while
+            # the opening ballot is still deciding what the user wants.
+            if getattr(adapter, "pending_build_source_observation", None) is not None:
+                wait_for_work = wait_for_work or any(q.name == "requested_work" for q in intent.questions)
 
         def dispatch_started():
             nonlocal pending_query, opening_dispatched
@@ -722,10 +726,20 @@ class BuildJevHarness:
             # Retain actual received bytes before a host gate can reject them.
             # This protected, unvalidated Debug channel grants no answer authority.
             if isinstance(adapter._broker_execution().policy, (ledger.BuildSelectedSourceActionControllerWriterPolicyV1, SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1)):
-                adapter.context_capture.controller_decision_response(
-                    canonical(result.model_dump(mode="json")),
-                    producing_provider_attempt_id=adapter.last_provider_attempt_id,
-                )
+                self._capture_controller_decision(adapter, plan, result)
+            split_proof = None
+            if getattr(driver, "split_opening", False):
+                from .build_pending_source_scope import PendingBuildSourceScopeDriver
+
+                intent = adapter._broker_execution().events[-1]
+                if type(intent) is not ledger.BuildOpeningIntentSelectedV1:
+                    raise ValueError("Build source handling requires its saved intent")
+                request = adapter._prepared_build_decision.body.decode()
+                split_proof = {"intent": intent.requested_work, "opening_request": request, "scope": "anchored"}
+                if intent.requested_work not in {"clarify_request", "clarify_creation"}:
+                    followup = PendingBuildSourceScopeDriver(adapter, request, result.model_dump(mode="json"))
+                    await self._decide(adapter, followup)
+                    split_proof.update(scope=followup.result, response=followup.response)
             if prepare_deferred_query is not None:
                 if not opening_dispatched:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
@@ -767,7 +781,8 @@ class BuildJevHarness:
                 if isinstance(driver, WriterSelectionDriver):
                     driver.accept_response(result)
                 else:
-                    driver.accept_decision(decision_policy.MODEL, sdk_answers(result), actual_response=result)
+                    options = {"split_proof": split_proof} if split_proof is not None else {}
+                    driver.accept_decision(decision_policy.MODEL, sdk_answers(result), actual_response=result, **options)
             except Exception:
                 if adapter.context_capture:
                     adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
@@ -795,6 +810,38 @@ class BuildJevHarness:
                 else:
                     pending_query.cancel()
             await client.aclose()
+
+    @staticmethod
+    def _capture_controller_decision(adapter, projection, result):
+        from hashlib import sha256
+        from uuid import UUID, uuid4
+        from application_state.agent_conversation.build_intentional_response import verify_build_intent_opening
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        from application_state.agent_conversation.types import BuildOpeningIntentSelectedV1
+        from .agent_turn_service import _require_fresh_execution_append
+
+        response = result.model_dump(mode="json")
+        raw = canonical(response)
+        adapter.context_capture.controller_decision_response(
+            raw, producing_provider_attempt_id=adapter.last_provider_attempt_id,
+        )
+        if (projection.host_phase != "select" or set(projection.questions()) != {"requested_work"}
+                or type(adapter._broker_receipt()) is not BuildPendingContextReceiptV1):
+            return
+        prepared = adapter._prepared_build_decision
+        execution = adapter._broker_execution()
+        request = prepared.body.decode()
+        choice = verify_build_intent_opening(json.loads(request), response,
+            menu_digest=execution.policy.action.requested_work_menu_sha256)
+        event = BuildOpeningIntentSelectedV1(
+            kind="build_opening_intent_selected_v1", event_id=uuid4(), sequence=len(execution.events),
+            controller_attempt_id=UUID(prepared.attempt_id), controller_envelope_sha256=prepared.body_sha256,
+            controller_response_sha256=sha256(raw.encode()).hexdigest(), requested_work=choice,
+        )
+        adapter.turn = _require_fresh_execution_append(adapter.fence.commit(
+            "record_pending_build_opening_intent", decision=event, request_json=request,
+            response_json=raw, authorize_current_access=adapter.pending_build_access,
+        ))
 
     @staticmethod
     def _acquire(adapter, driver):

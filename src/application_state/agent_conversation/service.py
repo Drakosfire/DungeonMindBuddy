@@ -1941,11 +1941,11 @@ class AgentConversationService:
             from .build_related_pages import RelatedPagesSelection, RelatedPageRead
             from .types import BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1
             from .build_pending_app_coverage import BuildAppCoverageDecidedV1
-            from .types import PlanJevRetrievalSelectionV1
+            from .types import BuildOpeningIntentSelectedV1, PlanJevRetrievalSelectionV1
             if type(turn.graph_context_execution) is BuildPendingExecutionV1 and (native_source_materializer is not None or isinstance(event, (
                     ProviderAttemptAuthorizedEventV1, ProviderOutcomeEventV1, RelatedPagesSelection, RelatedPageRead,
                     BuildPriorBodyEvidenceAdmittedV1, BuildWriterEvidenceSelectionV1, BuildAppCoverageDecidedV1,
-                    PlanJevRetrievalSelectionV1))):
+                    BuildOpeningIntentSelectedV1, PlanJevRetrievalSelectionV1))):
                 raise ApplicationStateValidationError('Pending Build dispatch/acquisition requires its exact prepared-input admission owner')
             from .native_execution import SurfaceNativeExecutionV1, NativePlanActionV1, NATIVE_PLAN_ACTION_TYPES, NativeBuildActionV1, NativePlayActionV1, NativeWriterAuthorizedV1, NATIVE_WRITER_TYPES
             from .types import PlanJevProviderAuthorizedV1, ProviderAttemptAuthorizedEventV5
@@ -3530,6 +3530,88 @@ class AgentConversationService:
             raise ApplicationStateValidationError('Pending page selection has no matching initial controller')
         self._validate_pending_prompt(conn, turn, first, initial_request_json)
 
+    def record_pending_build_opening_intent(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, decision, request_json, response_json,
+            authorize_current_access):
+        """Persist the intent from the exact acknowledged opening ballot."""
+        from .build_intentional_response import verify_build_intent_opening
+        from .source_writer_output import strict_json
+        from .types import BuildOpeningIntentSelectedV1
+
+        world_id = _world_id(world_id)
+        if (type(decision) is not BuildOpeningIntentSelectedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not isinstance(request_json, str) or not isinstance(response_json, str)
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Build opening intent requires its exact request and response')
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            self._validate_pending_initial_prompt(conn, turn, request_json)
+            try:
+                decision = BuildOpeningIntentSelectedV1.model_validate_json(decision.model_dump_json())
+                if hashlib.sha256(response_json.encode()).hexdigest() != decision.controller_response_sha256:
+                    raise ValueError('Build opening response differs from its intent commitment')
+                menu = turn.graph_context_execution.policy.action.requested_work_menu_sha256
+                work = verify_build_intent_opening(strict_json(request_json), strict_json(response_json),
+                    menu_digest=menu)
+                if work != decision.requested_work:
+                    raise ValueError('Build opening intent differs from the actual vote')
+                row = conn.execute('SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s',
+                    (turn.turn_id, turn.attempt)).fetchone()
+                trace = row[0] if row else {}
+                receipt = turn.graph_context_receipt.context_receipt_sha256
+                item_id = f'unvalidated-controller-decision:{decision.controller_attempt_id}:{receipt}'
+                captured = [material for observation in trace.get('observations', [])
+                    if observation.get('kind') == 'context_snapshot'
+                    for material in observation.get('materials', []) if material.get('item_id') == item_id]
+                if len(captured) != 1 or captured[0].get('text') != response_json:
+                    raise ValueError('Build opening intent requires its exact captured controller response')
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize the opening intent')
+            return self._append_pending_checked(conn, turn, decision, expected_revision)
+
+    def authorize_pending_build_source_scope(self, world_id, conversation_id, turn_id, *,
+            expected_revision, expected_attempt, authorization, request_json, initial_request_json,
+            authorize_current_access):
+        """Authorize only the source ballot derived from the captured opening state."""
+        from .build_decision_context import validate_prepared
+        from .build_intentional_response import build_source_followup_wire
+        from .native_execution import BuildSourceScopeAuthorizedV1
+        from .source_writer_output import strict_json
+        from .types import BuildOpeningIntentSelectedV1
+
+        world_id = _world_id(world_id)
+        if (type(authorization) is not BuildSourceScopeAuthorizedV1
+                or type(expected_revision) is not int or expected_revision < 1
+                or type(expected_attempt) is not int or expected_attempt < 1
+                or not callable(authorize_current_access)):
+            raise ApplicationStateValidationError('Build source scope requires its exact authorization and App owner')
+        with unit_of_work(_ready_dsn()) as conn:
+            turn = self._pending_source_turn_locked(conn, world_id, conversation_id, turn_id,
+                expected_revision=expected_revision, expected_attempt=expected_attempt)
+            self._validate_pending_initial_prompt(conn, turn, initial_request_json)
+            execution = turn.graph_context_execution
+            try:
+                authorization = BuildSourceScopeAuthorizedV1.model_validate_json(authorization.model_dump_json())
+                intent = execution.events[-1] if execution.events else None
+                if type(intent) is not BuildOpeningIntentSelectedV1:
+                    raise ValueError('Build source scope requires the saved opening intent')
+                opening = strict_json(initial_request_json)
+                expected = build_source_followup_wire(opening["state"], intent.requested_work,
+                    menu_digest=execution.policy.action.requested_work_menu_sha256)
+                validate_prepared(authorization, execution, request_json, host_phase="source_scope")
+                if strict_json(request_json) != expected:
+                    raise ValueError('Build source scope differs from the admitted opening')
+            except (ValueError, TypeError, KeyError, AttributeError) as exc:
+                raise ApplicationStateValidationError(str(exc)) from exc
+            if authorize_current_access(conn, turn, None) is not True:
+                raise ApplicationStateConflictError('Current App access does not authorize source scope')
+            return self._append_pending_checked(conn, turn, authorization, expected_revision)
+
     def authorize_pending_app_coverage(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, prepared_request_json,
             initial_request_json, authorize_current_access):
@@ -3918,7 +4000,7 @@ class AgentConversationService:
         recorded entry is non-fresh; stale revision/claim or changed entry is a
         conflict. The host App access callback performs no Core/network IO.
         """
-        from .native_execution import BuildPendingExecutionV1, BuildAppPageSelectionAuthorizedV1
+        from .native_execution import BuildPendingExecutionV1, BuildAppPageSelectionAuthorizedV1, BuildSourceScopeAuthorizedV1
         from .types import ProviderAttemptAuthorizedEventV5
         from .build_source_free import BuildAppPageCatalogObservedV1, effective_pending_app_catalog
         world_id = _world_id(world_id)
@@ -3937,7 +4019,8 @@ class AgentConversationService:
             authorizations = [event for event in turn.graph_context_execution.events
                               if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             authorization = authorizations[-1] if authorizations else None
-            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
+            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select'
+                       or type(authorization) is BuildSourceScopeAuthorizedV1)
             writer_selection = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'writer_selection')
             from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
             from .native_retrieval import NativeRetrievalAuthorizedV1
@@ -4002,7 +4085,7 @@ class AgentConversationService:
                                               expected_revision, expected_attempt, outcome,
                                               authorize_current_access):
         """Record the actual resolved/unknown observation; never grant SDK entry."""
-        from .native_execution import BuildAppPageSelectionAuthorizedV1
+        from .native_execution import BuildAppPageSelectionAuthorizedV1, BuildSourceScopeAuthorizedV1
         from .types import ProviderAttemptAuthorizedEventV5
         from .build_source_free import BuildAppPageCatalogObservedV1
         world_id = _world_id(world_id)
@@ -4021,7 +4104,8 @@ class AgentConversationService:
             authorizations = [event for event in turn.graph_context_execution.events
                               if isinstance(event, ProviderAttemptAuthorizedEventV1)]
             authorization = authorizations[-1] if authorizations else None
-            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select')
+            initial = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'select'
+                       or type(authorization) is BuildSourceScopeAuthorizedV1)
             writer_selection = (type(authorization) is ProviderAttemptAuthorizedEventV5 and authorization.context_phase == 'writer_selection')
             from .build_pending_app_coverage import BuildAppCoverageAuthorizedV1, pending_app_coverage_reads
             from .native_retrieval import NativeRetrievalAuthorizedV1

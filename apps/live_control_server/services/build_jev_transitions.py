@@ -127,7 +127,7 @@ class DecisionIntent(_Frozen):
     kind: Literal["decision"] = "decision"
     request_id: str
     model: str = MODEL
-    phase: Literal["select", "assess", "navigate", "coverage", "retention", "writer_selection"]
+    phase: Literal["select", "assess", "navigate", "coverage", "retention", "writer_selection", "source_scope"]
     state: dict
     questions: tuple[DecisionQuestion, ...]
 

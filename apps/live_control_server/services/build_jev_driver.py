@@ -572,7 +572,12 @@ class BuildJevDriver:
             state["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
             questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
                                for q in self.image_move.questions())
-        if fresh:
+        self.split_opening = (
+            fresh and getattr(a, "pending_build_source_observation", None) is not None
+            and self._boundary_catalog is None and capture is None
+            and "related_page_catalog" not in self._interaction
+        )
+        if fresh and not self.split_opening:
             from application_state.agent_conversation.build_intentional_response import source_need_question
 
             source_question = source_need_question()
@@ -1254,7 +1259,7 @@ class BuildJevDriver:
             self._attempt = prepared.attempt_id
         return accepted
 
-    def accept_decision(self, model: str, answers: dict, *, actual_response=None):
+    def accept_decision(self, model: str, answers: dict, *, actual_response=None, split_proof=None):
         a, plan = self._adapter, self._pending
         if plan is None or plan.request_id not in self._used or a.fence is None:
             raise ValueError("No authorized driver response")
@@ -1267,7 +1272,7 @@ class BuildJevDriver:
         ]
         if (
             prepared is None
-            or prepared.attempt_id != self._attempt
+            or split_proof is None and prepared.attempt_id != self._attempt
             or prepared.attempt_id != str(a.last_provider_attempt_id)
             or outcomes[-1:] != ["response_received"]
         ):
@@ -1330,7 +1335,7 @@ class BuildJevDriver:
                     raise ValueError('Semantic selection requires its actual complete SDK response')
                 raw = canonical(actual_response.model_dump(mode='json'))
                 execution = a._broker_execution()
-                request = json.loads(prepared.body)
+                request = json.loads(split_proof["opening_request"] if split_proof else prepared.body)
                 graph_reference = resolve_graph_reference_opening(request, actual_response)
                 image_move = (opening_image_choice(
                     execution.policy, json.loads(raw),
@@ -1338,7 +1343,10 @@ class BuildJevDriver:
                 ) if self.image_move is not None else None)
                 image_terminal = image_move in {"move_existing", "unresolved"}
                 try:
-                    label, source_scope = opening_work(execution.policy, request, json.loads(raw), image_move)
+                    if split_proof is None:
+                        label, source_scope = opening_work(execution.policy, request, json.loads(raw), image_move)
+                    else:
+                        label, source_scope = split_proof["intent"], split_proof["scope"]
                 except UnresolvedDiscussionSource as exc:
                     from .agent_turn_service import AgentTurnServiceError
                     raise AgentTurnServiceError(
@@ -1350,9 +1358,15 @@ class BuildJevDriver:
                 _, _, menu, resolver = _captured_semantics(execution.policy)
                 selected = resolution['operation']
                 authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == a.last_provider_attempt_id)
+                producer_proof = {"request_json": prepared.body.decode(), "response_json": raw}
+                if split_proof is not None and prepared.attempt_id != self._attempt:
+                    producer_proof.update(
+                        opening_request_json=split_proof["opening_request"], opening_response_json=raw,
+                        response_json=split_proof["response"],
+                    )
                 event = ledger.BuildRequestedWorkResolutionV1(kind='build_requested_work_resolved_v1', event_id=uuid4(), sequence=len(execution.events),
                     controller_attempt_id=authorization.provider_attempt_id, controller_envelope_sha256=authorization.envelope_sha256,
-                    controller_response_sha256=hashlib.sha256(raw.encode()).hexdigest(), machine_request_id=plan.request_id,
+                    controller_response_sha256=hashlib.sha256(producer_proof["response_json"].encode()).hexdigest(), machine_request_id=plan.request_id,
                     requested_work=label, intent_family=resolution['intent_family'], menu_sha256=menu, resolver_sha256=resolver,
                     response_capabilities_sha256=(digest(asdict(execution.policy.action.capabilities)) if self._native else execution.policy.response_capabilities_sha256), resolution=resolution,
                     paragraph_placement=placement,
@@ -1363,7 +1377,7 @@ class BuildJevDriver:
                     arguments_sha256=digest({'instruction': a.request.message} if selected != 'answer_from_sources' else {}))
                 from .agent_turn_service import _require_fresh_execution_append
                 a.turn = _require_fresh_execution_append(a.fence.append('record_build_requested_work_resolution', 'selection', event,
-                    producer_proof={'request_json': prepared.body.decode(), 'response_json': raw}))
+                    producer_proof=producer_proof))
                 self.operation, self.selection = selected, event
                 if image_terminal:
                     self.image_move_opening_proof = {
