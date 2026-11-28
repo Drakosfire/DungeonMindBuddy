@@ -388,7 +388,9 @@ a prototype is not a new durable authority.
 
 **Context:** Hosted Buddy traces are valuable for debugging, but the request setup is noisy and critical-path timing still has gaps.
 **Action:** Profile trace capture, persistence, reads, and rendering under realistic hosted turns. Remove duplicate events and synchronous work where evidence permits. Present each Luna or Jev call as one expandable step with the composed prompt, call configuration, timing, outcome, and retries. Make the pre-dispatch critical path and unmeasured gaps explicit, and keep the details panel stable during refresh. Preserve authorization, redaction, and the durable evidence needed to diagnose failures and verify dispatch fencing.
-**Verification:** Compare trace write volume, added Send-to-first-dispatch latency, and trace open time before and after. Inspect successful, failed, retried, and historical turns on hosted Buddy.
+**Viewer polish:** Make the entire execution trace collapsible so it can be tucked away while reading the conversation. Restore the prompt viewer’s two-column layout, with the prompt contents listed on the left and the selected item shown in full on the right.
+
+**Verification:** Compare trace write volume, added Send-to-first-dispatch latency, and trace open time before and after. Inspect successful, failed, retried, and historical turns on hosted Buddy. Verify that the whole trace collapses and reopens, and that selecting a prompt item shows its full content in the right pane.
 **Surfaces when:** Trace performance, execution Details, or conversation diagnostics work begins.
 
 ## [IDEA] Cut document and page loading latency across Buddy — captured 2026-11-19
