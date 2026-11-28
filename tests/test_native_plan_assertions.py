@@ -426,7 +426,7 @@ def test_support_materialization_does_not_authorize_a_later_changed_assertion(la
 
 
 def _ordinary_native_case(
-        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False, pdf_region=None, synthetic_guest=False):
+        lane, tmp_path, monkeypatch, qualified, unavailable, advancement, failure, mixed, native_read_admission_probes, authoring=False, authored=False, authored_source=None, plan_operation=None, extra_name=None, related_page=False, connected_review=False, connected_mutation=None, prospective=False, opening_accounting_probe=False, pdf_region=None, synthetic_guest=False, recovery_dsn=None, saved_page_only=False):
     import httpx2
     from hashlib import sha256
     from fastapi import FastAPI
@@ -579,7 +579,7 @@ def _ordinary_native_case(
     request = type(request).model_validate(request.model_dump(mode='json',by_alias=True) | {
         **({'plan_requested_operation':plan_operation} if plan_operation is not None else {}),
         **({'authored_references':selected_references.model_dump(mode='json',by_alias=True)} if selected_references else {}),
-        'turn_id':str(uuid4()),'message':('Create a page for The Old Bath House. We will develop it later.' if connected_review else 'Describe the source-local episode.' if authored_source=='source_only' else 'Write a Plan note about what B did.' if authoring else 'What did B do?'),'owner_scope':{'kind':'world','world_id':world},
+        'turn_id':str(uuid4()),'message':('Create a page for The Old Bath House. We will develop it later.' if connected_review else 'Describe the source-local episode.' if authored_source=='source_only' else 'Write a Plan note about what B did.' if authoring else 'What does the saved Edge page say about the bath house?' if saved_page_only else 'What did B do?'),'owner_scope':{'kind':'world','world_id':world},
         'primary_work':request.primary_work.model_dump(mode='json',by_alias=True) | {'object_id':work.object_id,'expected_revision':work.revision,'expected_revision_n':work.content_basis.revision_n,'expected_content_sha256':work.content_basis.content_sha256},
         'plan_context_policy':{'schema':'dmb_plan_context_policy_v2','policy':'auto_plan_world','graph_source':'reviewed_native_graph'},
         'graph_request':{'mode':'none'},**({'plan_authoring_capture':capture.model_dump(mode='json',by_alias=True),'plan_placement_catalog':catalog.model_dump(mode='json',by_alias=True)} if capture is not None else {})})
@@ -611,14 +611,28 @@ def _ordinary_native_case(
                 from application_state.agent_conversation.surface_action_catalog import opening_action_menu
 
                 assert len(decision_requests) == 1
-                assert set(body["questions"]) == {"requested_work"}
+                assert set(body["questions"]) in ({"requested_work"}, {"requested_work", "source_use"})
                 criteria = body["questions"]["requested_work"]["criteria"]
                 assert criteria == opening_action_menu("plan", plan_operation=plan_operation)
                 choice = "review_connected_page" if connected_review else "write_current_page" if authoring else "discuss"
+                answers = {"requested_work": {"type": "choice", "choice": choice, "confidence": 1,
+                    "probabilities": {key: float(key == choice) for key in criteria}}}
+                if "source_use" in body["questions"]:
+                    source_use = "source_needed"
+                    answers["source_use"] = {"type": "choice", "choice": source_use, "confidence": 1,
+                        "probabilities": {key: float(key == source_use)
+                                          for key in body["questions"]["source_use"]["criteria"]}}
                 return httpx2.Response(200, request=req, json={
                     "model": body["model"], "usage": {"input_tokens": 37, "output_tokens": 9},
-                    "answers": {"requested_work": {"type": "choice", "choice": choice, "confidence": 1,
-                        "probabilities": {label: float(label == choice) for label in criteria}}},
+                    "answers": answers,
+                })
+            if set(body["questions"]) == {"graph_need"}:
+                assert len(decision_requests) == 2
+                graph_choice = "no_graph" if saved_page_only else "require_graph"
+                return httpx2.Response(200, request=req, json={
+                    "model": body["model"], "usage": {"input_tokens": 37, "output_tokens": 9},
+                    "answers": {"graph_need": {"type": "choice", "choice": graph_choice, "confidence": 1,
+                        "probabilities": {key: float(key == graph_choice) for key in body["questions"]["graph_need"]["criteria"]}}},
                 })
             candidates=body.get('state',{}).get('candidates',[])
             if extra_name is not None and any(c['kind'].startswith('Native Graph object') for c in candidates):
@@ -698,7 +712,7 @@ def _ordinary_native_case(
                 summary = re.search(r'^\[(assertion\d+)\] .+ · summary · .+$', prose, re.MULTILINE)
                 segments = []
                 limitations = []
-                if authored_source == 'source_only' or unavailable:
+                if authored_source == 'source_only' or unavailable or saved_page_only:
                     assert summary is None
                     if unavailable:
                         assert 'Some evidence was unavailable.' in prose
@@ -740,7 +754,7 @@ def _ordinary_native_case(
                             **({'extent':ref.selection_kind} if source else {})))
                     assert work_frame['selected_references']==expected
                     assert 'authored_references' not in work_frame
-                if authored_source=='source_only':
+                if authored_source=='source_only' or saved_page_only:
                     assert not rows
                     segments=[]
                     limitations=[]
@@ -794,7 +808,30 @@ def _ordinary_native_case(
                 raise httpx.ReadTimeout('synthetic selected writer timeout',request=req)
             return await super().handle_async_request(req)
     wire=Writer(None,'')
+    interrupted = None
+
+    class WorkerLost(Exception):
+        pass
+
     class Harness(PlanJevHarness):
+        def execute_response(self, adapter, *, owner, trace, dialogue=(), retained_navigation=()):
+            nonlocal interrupted
+            if recovery_dsn and interrupted is None:
+                import psycopg
+
+                adapter.claim_native_plan_request(dialogue=dialogue)
+                observation = self._interpret_opening_intent(adapter, dialogue, [])
+                adapter.stop()
+                interrupted = adapter.fence.turn
+                assert observation == interrupted.graph_context_execution.events[-1]
+                with psycopg.connect(recovery_dsn) as conn:
+                    conn.execute(
+                        "UPDATE agent.turn SET claim_expires_at=clock_timestamp()-interval '1 second' "
+                        "WHERE world_id=%s AND turn_id=%s", (interrupted.world_id, interrupted.turn_id),
+                    )
+                raise WorkerLost()
+            return super().execute_response(adapter, owner=owner, trace=trace, dialogue=dialogue,
+                retained_navigation=retained_navigation)
         def execute(self, adapter, **kwargs):
             wire.adapter=adapter
             try:
@@ -837,7 +874,9 @@ def _ordinary_native_case(
             grants=[e for e in current.graph_context_execution.events if isinstance(e,t.NativePlanAssertionReadAuthorizedV1)]
             assert any(e.kind=='provider_outcome' and e.provider_attempt_id==grants[-1].provider_attempt_id
                 and e.outcome=='response_received' for e in current.graph_context_execution.events)
-        assert grants and current.graph_context_receipt.native_query.sha256==grants[-1].query_sha256
+        from application_state.agent_conversation.native_execution import effective_native_query
+        query = effective_native_query(current.graph_context_receipt, current.graph_context_execution)
+        assert grants and query.sha256 == grants[-1].query_sha256
         opened_with_grant.append(identity)
         return original_open(access,identity)
     monkeypatch.setattr(native_reads,'open_admitted_native_text',source_after_grant)
@@ -864,7 +903,16 @@ def _ordinary_native_case(
             {'id':'ordinary-context','question':wire_request['message']},directory,context_only=True)
         wire_request=json.loads((directory/'request.json').read_text())
     else:
+        if recovery_dsn:
+            with pytest.raises(WorkerLost):
+                client.post('/api/live/agent/turn', json=wire_request)
+            assert interrupted is not None and len(decision_requests) == 1 and not wire.calls
         response=client.post('/api/live/agent/turn',json=wire_request)
+        if recovery_dsn:
+            assert response.status_code == 200, response.text + getattr(wire, 'failure', '')
+            assert wire.adapter.turn.attempt == interrupted.attempt + 1
+            assert wire.adapter.turn.graph_context_execution.events[:len(interrupted.graph_context_execution.events)] == interrupted.graph_context_execution.events
+            assert sum(json.loads(req.content)['state'].get('surface') == 'plan' for req in decision_requests) == 1
     if synthetic_guest:
         assert guarded
     if connected_mutation:
@@ -933,8 +981,8 @@ def _ordinary_native_case(
     if opening_accounting_probe:
         assert opening_accounting_checked
         assert len(opening_entry_checked) == 1
-    assert authored_source=='source_only' or opened_with_grant
-    assert authored or native_read_admission_probes
+    assert authored_source=='source_only' or saved_page_only or opened_with_grant
+    assert authored or saved_page_only or native_read_admission_probes
     data=response.json()
     if connected_review:
         from application_state.content.service import snapshot_content
@@ -1010,7 +1058,7 @@ def _ordinary_native_case(
     context=data['rules_context']['base_context'] if mixed else data['plan_context']
     completion=context['completion']
     assert completion['schema']=='dmb_surface_native_completion_v1'
-    if authored_source=='source_only':
+    if authored_source=='source_only' or saved_page_only:
         assert not data['answer']['graph_grounded']
     else:
         assert completion['answer_context_status']==('insufficient_evidence' if unavailable else 'graph_grounded')
@@ -1027,16 +1075,42 @@ def _ordinary_native_case(
     assert len(opening_auths) == len(opening_choices) == 1
     assert opening_auths[0].provider_attempt_id == opening_choices[0].controller_attempt_id
     request_grants = [e for e in turn.graph_context_execution.events if type(e) is NativePlanRequestSearchAuthorizedV1]
-    assert len(request_grants) == 1
-    grant = request_grants[0]
-    search = next(e for e in turn.graph_context_execution.events if type(e) is NativeBodySearchObservedV1
-        and e.authorization_event_id == grant.event_id)
-    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+    if saved_page_only:
+        from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQueryStartedV1
 
-    intent, = [event for event in turn.graph_context_execution.events
-               if type(event) is NativePlanAuthorScopeObservedV1 and event.scope_observation.requested_work]
-    assert intent.sequence < grant.sequence < search.sequence < opening_auths[0].sequence < opening_choices[0].sequence
-    assert grant.request_manifest_sha256 == turn.graph_context_receipt.assembled_input.manifest_sha256
+        assert not request_grants
+        assert not any(type(event) is NativePlanGraphQueryStartedV1 for event in turn.graph_context_execution.events)
+    else:
+        assert len(request_grants) == 1
+        grant = request_grants[0]
+        search = next(e for e in turn.graph_context_execution.events if type(e) is NativeBodySearchObservedV1
+            and e.authorization_event_id == grant.event_id)
+        from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+        intent, = [event for event in turn.graph_context_execution.events
+                   if type(event) is NativePlanAuthorScopeObservedV1 and event.scope_observation.requested_work]
+        assert intent.sequence < grant.sequence < search.sequence < opening_auths[0].sequence < opening_choices[0].sequence
+    if related_page and not saved_page_only:
+        from application_state.agent_conversation.build_related_pages import PlanPageCatalogObservedV1
+        from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphQueryStartedV1
+        from application_state.agent_conversation.native_plan_graph_producer import safe_reclaimable_graph_need_prefix
+
+        execution = turn.graph_context_execution
+        started = next(event for event in execution.events if type(event) is NativePlanGraphQueryStartedV1)
+        catalog = next(event for event in execution.events if type(event) is PlanPageCatalogObservedV1)
+
+        def reclaimable(end):
+            prefix = execution.model_copy(update={'events': execution.events[:end]})
+            running = turn.model_copy(update={'status': 'running', 'graph_context_execution': prefix})
+            return safe_reclaimable_graph_need_prefix(running)
+
+        assert reclaimable(intent.sequence + 1)
+        assert not reclaimable(intent.sequence)
+        assert not reclaimable(started.sequence + 1)
+        assert reclaimable(catalog.sequence + 1)
+        assert not reclaimable(grant.sequence + 1)
+    if not saved_page_only:
+        assert grant.request_manifest_sha256 == turn.graph_context_receipt.assembled_input.manifest_sha256
     if selected_references is not None:
         assert turn.graph_context_execution.events[0].kind == 'build_authored_references_captured_v1'
     if authoring:
@@ -1064,6 +1138,8 @@ def _ordinary_native_case(
         assert reopened.status_code==200,reopened.text
         assert len(wire.calls)==before_calls
         assert AgentConversationService().inspect_turn(world_id=world,turn_id=turn.turn_id)==retained
+        if saved_page_only:
+            return
     assert turn.graph_context_receipt.work_context.plan_context_policy.graph_source=='reviewed_native_graph'
     if authored:
         history=client.get(f'/api/live/agent/worlds/{world}/conversation?include_turn_correlation=true')
@@ -1204,7 +1280,9 @@ def _ordinary_native_case(
             from application_state.agent_conversation.native_plan_assertions import selected_read_records
             reads={(e.event_id,r.assertion.assertion_id):(e,r) for e,r in selected_read_records(execution)
                 if e.event_id in authorization.native_read_event_ids}
-            return validate_citation_records(completion,receipt,authorization,reads)
+            from application_state.agent_conversation.native_completion import _pending_graph_identity
+            return validate_citation_records(completion,receipt,authorization,reads,
+                pending_identity=_pending_graph_identity(receipt, execution))
         execution=turn.graph_context_execution
         authorization=next(e for e in execution.events if isinstance(e,NativeWriterAuthorizedV1))
         unsettled=execution.model_copy(update={'events':[e for e in execution.events if e not in observations]})

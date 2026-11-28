@@ -133,7 +133,7 @@ class PlanJevDispatch:
                 fields['graph_relevance_version'] = 'v1'
                 if source_expansion_selected(adapter.fence.turn):
                     fields['expanded_relevance_version'] = 'v1'
-            self.parent = codec(**fields,**source_pins(receipt))
+            self.parent = codec(**fields,**source_pins(receipt, adapter.fence.turn.graph_context_execution))
         elif authority is not None:
             from application_state.agent_conversation.native_corpus import NativeCorpusAuthorityV1
             available = isinstance(authority, NativeCorpusAuthorityV1)
@@ -204,7 +204,7 @@ class PlanJevDispatch:
 
     @classmethod
     def author_scope(cls, adapter, *, dialogue=(), prior_scope=None, review_scope=(), intent_opening=False):
-        from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
+        from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1, NativePlanSourcePendingV1
         from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
         from application_state.agent_conversation.native_plan_opening import (
             NativePlanAuthorScopeObservedV1, NativePlanAuthorScopeParentV1,
@@ -243,7 +243,9 @@ class PlanJevDispatch:
             scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256,
             prior_scope_event_id=prior_scope.event_id if prior_scope is not None else None,
             scope_review=review or None,
-            intent_opening=plan_intent_input(turn.graph_context_execution.policy.action, dialogue) if intent_opening else None)
+            intent_opening=plan_intent_input(turn.graph_context_execution.policy.action, dialogue,
+                source_use_version=('v1' if type(turn.graph_context_receipt.source_authority)
+                                    is NativePlanSourcePendingV1 else None)) if intent_opening else None)
         return dispatch
 
     def _host_phase(self):

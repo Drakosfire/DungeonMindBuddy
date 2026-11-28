@@ -427,7 +427,7 @@ NativeAssertionCitation = NativeAssertionCitationV1 | NativeAssertionPdfCitation
 
 def citation(receipt, authorization, event, read, span, *, index, pending_identity=None):
     from .native_context import BuildPendingContextReceiptV1
-    if type(receipt) is BuildPendingContextReceiptV1:
+    if pending_identity is not None or type(receipt) is BuildPendingContextReceiptV1:
         if pending_identity is None:
             raise ValueError("Pending citation requires its admitted source identity")
         managed_world_id, native_world_id, read_revision_id = pending_identity

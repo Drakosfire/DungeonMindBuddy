@@ -250,13 +250,13 @@ def open_page(service, world_id, turn_id, read_id):
 def acquire_plan_page(adapter, pointer, selection):
     """A Plan selection grants only its frozen exact saved-page read."""
     from application_state.agent_conversation.native_retrieval import current_selection
-    from application_state.agent_conversation.build_related_pages import catalog, plan_handle, plan_read_enabled, records
+    from application_state.agent_conversation.build_related_pages import effective_catalog, plan_handle, plan_read_enabled, records
     from .agent_turn_service import _require_fresh_execution_append
     current = current_selection(adapter.fence.turn)
     if (not plan_read_enabled(adapter._broker_execution())
             or current != selection or current.operation != 'select_candidates'
             or plan_handle(pointer) not in current.selected_handles
-            or pointer not in catalog(adapter._broker_execution().policy)
+            or pointer not in (effective_catalog(adapter._broker_execution()) or ())
             or any(read.page.document_id == pointer.document_id for read in records(adapter._broker_execution()))):
         raise ValueError('Saved-page acquisition requires its current native selection')
     actual = materialize(pointer)

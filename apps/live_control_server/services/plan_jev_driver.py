@@ -85,9 +85,9 @@ class PlanJevDriver:
                 self.node_kinds[node_id] = kind
 
     def _refresh_related_catalog(self):
-        from application_state.agent_conversation.build_related_pages import plan_catalog_available, catalog, plan_handle
+        from application_state.agent_conversation.build_related_pages import plan_catalog_available, effective_catalog, plan_handle
         a = self.adapter
-        self.related_saved_pages = ({plan_handle(p): p for p in catalog(a._broker_execution().policy)}
+        self.related_saved_pages = ({plan_handle(p): p for p in (effective_catalog(a._broker_execution()) or ())}
             if a.fence is not None and plan_catalog_available(a.fence.turn.graph_context_receipt, a._broker_execution()) else {})
 
     def _collect_candidates(self, session):

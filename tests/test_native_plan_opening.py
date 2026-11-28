@@ -230,3 +230,47 @@ def test_captured_plan_opening_ui_wire_uses_the_current_backend_response_model()
     assert context.completion.native_assertion_citations
     assert wire['source']['citation'] == context.completion.native_assertion_citations[0].model_dump(mode='json',by_alias=True)
     assert wire['source']['world_id'] == context.receipt.work_context.plan_basis.world_id
+
+
+def test_versioned_plan_intent_keeps_historical_ballot_and_records_source_use():
+    from types import SimpleNamespace
+    from application_state.agent_conversation.native_plan_opening import NativePlanIntentInputV1, decode_author_scope_decision
+
+    legacy = NativePlanIntentInputV1(question="Using this conversation only, what did we plan?")
+    versioned = legacy.model_copy(update={"source_use_version": "v1"})
+    assert 'source_use_version' not in legacy.model_dump()
+    old_wire, new_wire = legacy.prepare(), versioned.prepare()
+    assert new_wire.state == old_wire.state
+    assert [question.name for question in old_wire.questions] == ["requested_work"]
+    assert [question.name for question in new_wire.questions] == ["requested_work", "source_use"]
+
+    answers = {"requested_work": ChoiceDecisionAnswer(selected="discuss")}
+    old = decode_author_scope_decision(SimpleNamespace(intent_opening=legacy), result(answers=answers))
+    assert "source_use" not in old.model_dump()
+    with pytest.raises(ValueError, match="Missing or unexpected"):
+        decode_author_scope_decision(SimpleNamespace(intent_opening=versioned), result(answers=answers))
+    for source_use in ("conversation_only", "source_needed", "uncertain"):
+        decision = result(answers=answers | {"source_use": ChoiceDecisionAnswer(selected=source_use)})
+        observed = decode_author_scope_decision(SimpleNamespace(intent_opening=versioned), decision)
+        assert observed.requested_work == "discuss"
+        assert observed.source_use == source_use
+
+
+def test_conversation_only_intent_refuses_request_source_grant():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
+    from application_state.agent_conversation.native_corpus import validate_request_source_search
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+    context, record = request_context()
+    observation = NativePlanAuthorScopeObservedV1.model_construct(
+        scope_observation=type("Scope", (), {"source_use": "conversation_only"})(),
+    )
+    prefix = record.model_copy(update={"events": [observation]})
+    with pytest.raises(ValueError, match="Conversation-only Plan intent"):
+        validate_request_source_search(prefix, request_grant(context, record, sequence=1))
+    navigation = object.__new__(NativeBodyNavigation)
+    navigation.adapter = SimpleNamespace(fence=SimpleNamespace(turn=SimpleNamespace(
+        graph_context_receipt=context, graph_context_execution=prefix,
+    )))
+    navigation.discover_initial()

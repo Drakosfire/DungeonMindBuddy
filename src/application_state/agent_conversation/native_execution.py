@@ -20,7 +20,7 @@ from .build_related_pages import PagePointer
 from .build_source_free import BuildAppPageCatalogObservedV1
 from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read as validate_saved_statblock_read
 from .native_context import (
-    SurfaceNativeContextReceiptV1, NativeBuildQueryPendingV1, BuildWorkContextV1, PlanWorkContextV1,
+    SurfaceNativeContextReceiptV1, NativeBuildQueryPendingV1, NativePlanGraphQueryPendingV1, BuildWorkContextV1, PlanWorkContextV1,
     PlayWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1, NativePlanRequestAdmissionV1, work_world_id,
 )
 from .native_statement_input import Strict
@@ -30,12 +30,16 @@ from .plan_composed_targeting import ComposedColumn, ComposedPlanNominationV1, C
 from .plan_placement import PlanPlacementCatalog
 
 from .native_retrieval import (
-    NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1, NativeReadBatchConcludedV1,
+    NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1, NativePlanGraphNeedAuthorizedV1, NativeReadBatchConcludedV1,
     NativePlayIntentSelectedV1, NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2,
 )
 from .native_plan_opening import (
     NativePlanAuthorScopeObservedV1, NativePlanOpeningScopeBindingV1, bind_opening_author_scope,
     resolve_composed_opening,
+)
+from .native_plan_graph_need import (
+    NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1, NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+    NativePlanGraphQueryClosedV1, NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1,
 )
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
 from .native_plan_assertions import NativeGraphQueryV4, NativePlanAssertionReadObservedV2
@@ -138,7 +142,7 @@ class NativePlayActionV1(Strict):
 class NativePlanActionV2(NativePlanActionV1):
     """Current Plan freezes the same saved-page capability used by Build."""
     action_version: Literal['plan_saved_authored_pages_v2'] = 'plan_saved_authored_pages_v2'
-    related_page_catalog: tuple[PagePointer, ...]
+    related_page_catalog: tuple[PagePointer, ...] | None
 
     @field_validator("related_page_catalog", mode="before")
     @classmethod
@@ -147,7 +151,7 @@ class NativePlanActionV2(NativePlanActionV1):
 
     @model_validator(mode="after")
     def saved_pages(self):
-        rows = self.related_page_catalog
+        rows = self.related_page_catalog or ()
         if (len({p.document_id for p in rows}) != len(rows)
                 or any(p.world_id != self.intent.world_id
                     or str(p.document_id) == str(self.intent.primary_work.object_id) for p in rows)):
@@ -542,6 +546,10 @@ class NativeBuildSourceSettledV1(Strict):
 def effective_native_query(context, execution):
     """Return the query admitted by this prefix, or the typed pending commitment."""
     query = context.native_query
+    from .native_plan_graph_need import validate_pending_graph
+    plan_effective = validate_pending_graph(context, execution)
+    if type(query) is NativePlanGraphQueryPendingV1:
+        return plan_effective
     settlements = [e for e in execution.events if type(e) is NativeBuildQuerySettledV1]
     if type(query) is not NativeBuildQueryPendingV1:
         if settlements:
@@ -613,10 +621,15 @@ def effective_native_query(context, execution):
 
 # Current owner event codecs are reused. Classic Graph operations/scopes and
 # source-anchor receipts deliberately have no branch in this native event union.
+from .build_related_pages import PlanPageCatalogObservedV1
+
+
 SurfaceNativeEvent = Annotated[
     t.ProviderAttemptAuthorizedEventV3 | t.ProviderAttemptAuthorizedEventV5
     | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | NativePlanOpeningAuthorizedV1
-    | NativePlanAuthorScopeAuthorizedV1 | NativePlanAuthorScopeObservedV1 | t.PlanRequestedWorkAuthorizedV2
+    | NativePlanAuthorScopeAuthorizedV1 | NativePlanAuthorScopeObservedV1 | NativePlanGraphNeedAuthorizedV1
+    | NativePlanGraphNeedObservedV1 | NativePlanGraphClarificationEventV1 | NativePlanGraphQueryAuthorizedV1 | NativePlanGraphQueryStartedV1
+    | NativePlanGraphQueryClosedV1 | NativePlanGraphQueryFailedV1 | NativePlanGraphQuerySettledV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
     | t.BuildGraphReferenceCompletionBindingV1
     | t.BuildImageMoveCompletionBindingV1
@@ -631,7 +644,7 @@ SurfaceNativeEvent = Annotated[
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
     | t.BuildOpeningIntentSelectedV1 | BuildSourceScopeAuthorizedV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildWriterEvidenceSelectionV2 | t.BuildPlanOutputContractV2
-    | t.RelatedPagesSelection | t.RelatedPageRead | BuildSavedStatblockReadV1
+    | t.RelatedPagesSelection | t.RelatedPageRead | PlanPageCatalogObservedV1 | BuildSavedStatblockReadV1
     | t.BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV2
     | BuildAuthoredReferenceReadV2 | BuildAuthoredReferenceReadV3 | NativePlanAssertionReadObservedV2,
     Field(discriminator="kind"),
@@ -905,6 +918,24 @@ class SurfaceNativeExecutionV1(Strict):
                     raise ValueError("Prior body evidence requires the unique producing Build work decision")
             if isinstance(event, BuildSavedStatblockReadV1):
                 validate_saved_statblock_read(event, self)
+            if type(event) is PlanPageCatalogObservedV1:
+                prefix = self.events[:event.sequence]
+                from .native_plan_graph_need import NativePlanGraphQueryClosedV1
+                from .native_plan_opening import NativePlanAuthorScopeObservedV1
+
+                source_needed = any(type(row) is NativePlanAuthorScopeObservedV1
+                                    and row.scope_observation.source_use == "source_needed" for row in prefix)
+                settlements = [row for row in prefix if type(row) is NativePlanGraphQuerySettledV1
+                               or (source_needed and type(row) is NativePlanGraphQueryClosedV1)]
+                if (type(action) not in (NativePlanActionV2, NativePlanActionV3)
+                        or action.related_page_catalog is not None
+                        or len(settlements) != 1 or settlements[0].event_id != event.graph_settlement_event_id
+                        or any(type(row) is PlanPageCatalogObservedV1 for row in prefix)
+                        or len({page.document_id for page in event.pages}) != len(event.pages)
+                        or any(page.world_id != action.intent.world_id
+                               or str(page.document_id) == str(action.intent.primary_work.object_id)
+                               for page in event.pages)):
+                    raise ValueError("Plan page catalog differs from the settled source-seeking work")
             if isinstance(event, t.RelatedPageRead) and type(self.policy.action) not in (NativeBuildActionV1, NativePlanActionV2, NativePlanActionV3):
                 raise ValueError("Saved-page read lacks its actual surface capability")
             if isinstance(event, _PLAN_WORK_EVENTS) and not isinstance(self.policy.action, NativePlanActionV1):
@@ -1093,7 +1124,8 @@ def _join_context_binding(context, execution, *, record_prefix=None):
     else:
         record_prefix.validate(query, execution)
     from .authored_graph_references import validate_native_context
-    validate_native_context(query, execution)
+    if type(query) is not NativePlanGraphQueryPendingV1:
+        validate_native_context(query, execution)
     from .native_batch_completion import selected_read_closure
     for event in execution.events:
         if type(event) is NativeReadBatchConcludedV1:
@@ -1136,11 +1168,23 @@ def validate_turn_fields(receipt, execution, provenance, intent_fingerprint, com
 
 def _join_turn_fields(receipt, execution, completion, assistant_text):
     """Complete the structural join after the caller has checked the context binding."""
+    from .native_plan_graph_need import NativePlanGraphClarificationCompletionV1, NativePlanGraphClarificationEventV1
     bindings=[event for event in execution.events if isinstance(event,t.CompletionBindingEventV1)]
+    clarifications=[event for event in execution.events if type(event) is NativePlanGraphClarificationEventV1]
     if completion is None:
-        if assistant_text is not None or bindings:
+        if assistant_text is not None or bindings or clarifications:
             raise ValueError('Shared native text requires its typed completion and binding')
         return
+    if type(completion) is NativePlanGraphClarificationCompletionV1:
+        completion = NativePlanGraphClarificationCompletionV1.model_validate(completion.model_dump(mode='python', by_alias=True))
+        if (bindings or len(clarifications) != 1 or completion.context_receipt_sha256 != receipt.context_receipt_sha256
+                or completion.observation_event_id != clarifications[0].observation_event_id
+                or clarifications[0].completion_sha256 != t.canonical_sha256(completion)
+                or assistant_text != completion.answer_segments[0].text):
+            raise ValueError('Plan Graph clarification differs from its exact terminal binding')
+        return
+    if clarifications:
+        raise ValueError('Plan Graph clarification cannot bind another completion')
     if (len(bindings)!=1 or assistant_text!='\n'.join(s.text for s in completion.answer_segments)):
         raise ValueError('Shared native completion requires exact retained text and binding')
     from .native_completion import _join_retained_completion
