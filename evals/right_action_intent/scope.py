@@ -207,7 +207,7 @@ def retained_cohort(path):
 
 def verify_build_followup_capture(path):
     from application_state.agent_conversation.build_intentional_response import (
-        SCOPED_BUILD_MENU_DIGEST, verify_build_source_followup,
+        SCOPED_BUILD_MENU_DIGEST, verify_build_intent_opening, verify_build_source_followup,
     )
 
     capture = json.loads(path.read_bytes())
@@ -225,19 +225,22 @@ def verify_build_followup_capture(path):
     count = Counter()
     for row in capture["rows"]:
         case_id, action = row["id"], row["action"]
-        if opening_rows[case_id]["choice"] != action:
+        opening_row = opening_rows[case_id]
+        opening_wire = {
+            "model": intent["model"],
+            "state": intent["wire_states"][case_id],
+            "questions": intent["wire_questions"]["scoped"],
+        }
+        if verify_build_intent_opening(
+            opening_wire, opening_row["response"], menu_digest=SCOPED_BUILD_MENU_DIGEST,
+        ) != action or opening_row["choice"] != action:
             raise ValueError("Build source follow-up action differs from its retained first result")
         if action in {"clarify_request", "clarify_creation"}:
             if "request" in row or "response" in row:
                 raise ValueError("Build clarification dispatched a source-scope decision")
             choice = "skip"
         else:
-            opening_wire = {
-                "model": intent["model"],
-                "state": intent["wire_states"][case_id],
-                "questions": intent["wire_questions"]["scoped"],
-            }
-            choice = verify_build_source_followup(opening_wire, opening_rows[case_id]["response"],
+            choice = verify_build_source_followup(opening_wire, opening_row["response"],
                 menu_digest=SCOPED_BUILD_MENU_DIGEST, wire=row["request"], response=row["response"])
         if choice != row["choice"] or gold[case_id] != row["expected"]:
             raise ValueError("Build source follow-up scoring differs from retained evidence")
