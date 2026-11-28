@@ -1126,7 +1126,7 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         with pytest.raises(AgentTurnServiceError):execute_agent_turn(request,**kwargs)
         kept=service.list_turns(world,wire.adapter.fence.turn.conversation_id)[-1]
         assert kept.status in {'interrupted','failed'} and kept.completion is None
-        assert len(decisions.calls)==(0 if mode in {'source_failure','forged_work'} else 1)
+        assert len(decisions.calls)==(0 if mode == 'forged_work' else 1)
         assert len(wire.calls)==(1 if mode=='writer_failure' else 0)
         if mode=='unknown':assert any(getattr(e,'outcome',None)=='outcome_unknown' for e in kept.graph_context_execution.events)
         if mode == "forged_choice":
@@ -1146,7 +1146,7 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     assert len(decisions.calls)==(3 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
     openings=[json.loads(call.content) for call in decisions.calls
               if 'requested_work' in json.loads(call.content)['questions']]
-    assert len(openings)==(0 if references else 1)
+    assert len(openings) == 1
     if openings:
         assert set(openings[0]['questions'])=={'requested_work'}
         from application_state.agent_conversation.surface_action_catalog import opening_action_menu
@@ -1198,14 +1198,18 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
             dict(role='assistant',content=response.answer.text)]
         assert 'surface_work' not in state
     if mode in {'selected','automatic','mixed'}:assert stored.completion.native_body_citations
+    if mode in {"selected", "mixed"}:
+        events = stored.graph_context_execution.events
+        choice = next(event.sequence for event in events if event.kind == "native_play_intent_selected_v1")
+        assert choice < next(event.sequence for event in events if isinstance(event, t.NativeAuthoredSourceReadV1))
     if mode=='memory':assert stored.completion.answer_segments[-1].kind=='session_summary'
     if mode in {'graph','object','mixed'}:assert stored.completion.native_assertion_citations
     if mode in {'object','mixed'}:
         assert stored.graph_context_execution.policy.action.intent.authored_references.references==references
         events=stored.graph_context_execution.events
         assert len([event for event in events if event.kind=='build_authored_reference_read_v3'])==1
-        assert next(event.sequence for event in events if event.kind=='build_authored_reference_read_v3') < next(
-            event.sequence for event in events if isinstance(event,t.ProviderAttemptAuthorizedEventV1))
+        assert next(event.sequence for event in events if event.kind == "native_play_intent_selected_v1") < next(
+            event.sequence for event in events if event.kind == "build_authored_reference_read_v3")
     if mode=='selected':
         import os
         from pathlib import Path

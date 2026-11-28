@@ -291,8 +291,13 @@ class PlanJevDispatch:
                     raise
                 finally:
                     a._active_plan_jev_request = None
-            if a.request.surface.surface_id=='play' and not any(isinstance(e,t.ProviderAttemptAuthorizedEventV1)
-                    for e in a.fence.turn.graph_context_execution.events):
+            from application_state.agent_conversation.jev_retrieval_contract import NativePlayIntentDecisionInputV1
+
+            play_opening = type(self.parent) is NativePlayIntentDecisionInputV1
+            if a.request.surface.surface_id == "play" and not play_opening and not any(
+                isinstance(e, t.ProviderAttemptAuthorizedEventV1)
+                for e in a.fence.turn.graph_context_execution.events
+            ):
                 from .native_authored_references import acquire
                 acquire(a)
             turn = a.fence.turn
@@ -321,6 +326,8 @@ class PlanJevDispatch:
                 auth_type, auth_kind = NativePlanAuthorScopeAuthorizedV1, 'native_plan_author_scope_authorized_v1'
             scope_binding = getattr(self.parent, 'author_scope_binding', None)
             opening_fields = {'author_scope_event_id': scope_binding.observation_event_id} if scope_binding else {}
+            if play_opening:
+                opening_fields["play_intent_opening"] = True
             if author_scope and self.parent.prior_scope_event_id is not None:
                 opening_fields['prior_scope_event_id'] = self.parent.prior_scope_event_id
             if author_scope and self.parent.scope_review is not None:

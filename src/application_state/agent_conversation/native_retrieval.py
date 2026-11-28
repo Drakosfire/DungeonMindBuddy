@@ -31,6 +31,7 @@ class NativeRetrievalAuthorizedV1(t.PlanJevProviderAuthorizedV1):
 
     kind: Literal["native_retrieval_authorized_v1"] = "native_retrieval_authorized_v1"
     build_context: NativeBuildDecisionContextV1 | None = None
+    play_intent_opening: Literal[True] | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class NativePlanOpeningAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
@@ -214,12 +215,12 @@ def verify_input(turn, auth, proof):
     parent = parse_native_retrieval_input(strict_json(proof["parent_request_json"]),
         surface_id=execution.policy.action.surface_id)
     from .jev_retrieval_contract import NativePlanBatchDecisionInputV3, NativePlayIntentDecisionInputV1
-    if type(parent) is NativePlayIntentDecisionInputV1 and (
-        execution.policy.action.intent.authored_references is not None
-        or any(isinstance(event, t.ProviderAttemptAuthorizedEventV1)
-               for event in execution.events[:auth.sequence])
-    ):
-        raise ValueError("Play intent ballot requires the first unbound conversational request")
+    play_opening = type(parent) is NativePlayIntentDecisionInputV1
+    if bool(auth.play_intent_opening) != play_opening:
+        raise ValueError("Play intent authorization differs from its exact producer")
+    if play_opening and any(isinstance(event, t.ProviderAttemptAuthorizedEventV1)
+                            for event in execution.events[:auth.sequence]):
+        raise ValueError("Play intent ballot requires the first conversational request")
     if type(parent) is NativePlanBatchDecisionInputV3:
         from .native_corpus import initial_source_discovery_enabled
         if not initial_source_discovery_enabled(execution):
@@ -597,7 +598,11 @@ def validate_decision_phases(execution):
                     raise ValueError(
                         "Build retrieval requires its actual semantic or reviewed work selection"
                     )
-                if ((pending_author_nodes or pending_author_sources)
+                play_opening = (type(event) is NativeRetrievalAuthorizedV1
+                                and event.play_intent_opening is True)
+                if play_opening and (native_action is None or native_action.surface_id != "play" or auth is not None):
+                    raise ValueError("Play intent authorization requires the first Play decision")
+                if ((pending_author_nodes or pending_author_sources) and not play_opening
                         and not isinstance(event, t.PlanRequestedWorkAuthorizedV1)):
                     raise ValueError('Native retrieval requires settled author-requested reads')
                 semantic_auth = isinstance(event, t.PlanRequestedWorkAuthorizedV1)
@@ -751,11 +756,15 @@ def validate_decision_phases(execution):
             if event.operation == "finish_retrieval":
                 retrieval_finished = True
         elif isinstance(event, t.NativeAuthoredSourceReadV1):
-            if references is None or writer is not None or retrieval_finished:
+            if references is None or writer is not None or (
+                retrieval_finished and type(selected) is not NativePlayIntentSelectedV1
+            ):
                 raise ValueError('Human source acquisition cannot resume after retrieval or writing')
             pending_author_sources.discard(event.reference_index)
         elif isinstance(event, (BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)):
-            if references is None or writer is not None or retrieval_finished:
+            if references is None or writer is not None or (
+                retrieval_finished and type(selected) is not NativePlayIntentSelectedV1
+            ):
                 raise ValueError('Human acquisition cannot resume after native retrieval or writing')
             if isinstance(event, BuildAuthoredReferenceAuthorizedV2):
                 pending_sources.add((BuildAuthoredReferenceAuthorizedV2, event.event_id))

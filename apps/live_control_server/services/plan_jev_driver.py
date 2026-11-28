@@ -242,6 +242,12 @@ class PlanJevDriver:
                 or tuple(admitted.selected_handles) != tuple(selected.selected_handles)):
             raise ValueError("Plan acquisition decision is no longer current")
         self.current = None
+        from application_state.agent_conversation.native_retrieval import NativePlayIntentSelectedV1
+
+        if type(admitted) is NativePlayIntentSelectedV1 and self.adapter.request.authored_references:
+            from .native_authored_references import acquire
+
+            acquire(self.adapter)
         if selected.operation == "finish_retrieval":
             self.finished = True
             return
@@ -757,8 +763,7 @@ class PlanJevDriver:
         """One actual catalog producer for opening and subsequent decisions."""
         if (self.adapter.request.surface.surface_id == "play"
                 and self.adapter.fence is None
-                and self.adapter.native_source_authority is not None
-                and not self.adapter.request.authored_references):
+                and self.adapter.native_source_authority is not None):
             return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
                         allowed_operations=("discover_more", "finish_retrieval"),
                         play_intent_opening=True)
