@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 from typing import TYPE_CHECKING
 
 from pydantic import ValidationError
+from psycopg.errors import CheckViolation
 
 from application_state.agent_conversation import repository as repo
 from application_state.agent_conversation.context_trace import (
@@ -64,6 +65,7 @@ from application_state.agent_conversation.types import (
     RelatedRecapContextProviderInclusionEventV2,
     ReopenCommand,
     ConversationTrashCommand,
+    ConversationDeleteCommand,
     SourceReadAuthorizationEventV2,
     SubmittedTurnIntentV1,
     SubmittedTurnIntentV2,
@@ -969,6 +971,8 @@ class AgentConversationService:
                 conn, world_id=world_id, conversation_id=target.conversation_id,
             ):
                 raise ApplicationStateConflictError("This conversation has a reply in progress.")
+            if repo.world_has_pending_build_insertion(conn, world_id=world_id):
+                raise ApplicationStateConflictError("Finish the current Build insertion before changing conversation history.")
             if authorize_write is not None:
                 authorize_write()
             changed = repo.update_conversation_state(
@@ -985,6 +989,60 @@ class AgentConversationService:
             )
             return repo.insert_command_receipt(
                 conn, world_id=world_id, command_id=command.command_id, command_kind=kind,
+                request_fingerprint=request_fingerprint(command),
+                expected_pointer_revision=command.expected_pointer_revision,
+                expected_active_conversation_id=command.expected_active_conversation_id,
+                conversation_id=target.conversation_id,
+                result_active_conversation_id=new_pointer.active_conversation_id,
+                result_pointer_revision=new_pointer.revision, recorded_at=now,
+            )
+
+    def delete_conversation(
+        self, command: ConversationDeleteCommand, *, authorize_write=None,
+    ) -> ConversationCommandReceipt:
+        """Erase a trashed conversation and record the exact replay in one transaction."""
+        command = ConversationDeleteCommand.model_validate_json(command.model_dump_json())
+        world_id = _world_id(command.world_id)
+        if world_id.startswith("guest-"):
+            raise ApplicationStateValidationError("Guest conversation data expires with its session.")
+        now = _now()
+        with self._transaction(_ready_dsn()) as conn:
+            pointer = _lock_pointer(conn, world_id)
+            if repo.get_command_retirement(conn, world_id, command.command_id) is not None:
+                raise ApplicationStateConflictError("command ID is retired")
+            replay = _receipt_replay(conn, command, command_kind="delete")
+            if replay is not None:
+                if authorize_write is not None:
+                    authorize_write()
+                return replay
+            _expect_pointer(command, pointer)
+            target = repo.lock_conversation(conn, world_id, command.conversation_id)
+            if target is None:
+                raise ApplicationStateNotFoundError("conversation not found in verified World")
+            if target.status != "trashed" or pointer.active_conversation_id == target.conversation_id:
+                raise ApplicationStateConflictError("Move the conversation to Trash before deleting it.")
+            if repo.world_has_pending_build_insertion(conn, world_id=world_id):
+                raise ApplicationStateConflictError("Finish the current Build insertion before changing conversation history.")
+            if authorize_write is not None:
+                authorize_write()
+            try:
+                erased = conn.execute(
+                    """DELETE FROM agent.conversation
+                       WHERE world_id=%s AND conversation_id=%s AND status='trashed'""",
+                    (world_id, target.conversation_id),
+                )
+            except CheckViolation as exc:
+                if exc.diag.constraint_name == "conversation_erasure_in_flight":
+                    raise ApplicationStateConflictError("The conversation has a reply or save still in progress.") from exc
+                raise
+            if erased.rowcount != 1:
+                raise ApplicationStateConflictError("Conversation changed during permanent deletion.")
+            new_pointer = repo.update_world_state(
+                conn, world_id=world_id, active_conversation_id=pointer.active_conversation_id,
+                pointer_revision=pointer.revision + 1, now=now,
+            )
+            return repo.insert_command_receipt(
+                conn, world_id=world_id, command_id=command.command_id, command_kind="delete",
                 request_fingerprint=request_fingerprint(command),
                 expected_pointer_revision=command.expected_pointer_revision,
                 expected_active_conversation_id=command.expected_active_conversation_id,

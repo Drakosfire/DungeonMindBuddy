@@ -1,4 +1,4 @@
-import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {act,cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeAll,beforeEach,expect,it,vi} from 'vitest';
 import {ConversationLibrary} from './ConversationLibrary';
 import {LiveApiError} from '../api/liveApi';
@@ -10,7 +10,10 @@ const current='11111111-1111-4111-8111-111111111111',old='22222222-2222-4222-822
 const meta=(id=current,world='world-one')=>({conversation_id:id,world_id:world,title:id===current?'Current piece':'Archived piece',name_revision:0,status:id===current?'active' as const:'archived' as const,turn_count:1,created_at:'2026-10-24T12:00:00Z',updated_at:'2026-10-24T12:00:00Z'});
 const page=(id=current,world='world-one')=>({schema:'dmb_conversation_library_turns_v3' as const,world_id:world,conversation_id:id,turns:[{turn_id:'33333333-3333-4333-8333-333333333333',sequence:1,status:'completed',user_text:id===current?'Current question':'Archived question',assistant_text:'Saved reply',reply_object:null,retry_context:null}],next_before_sequence:null});
 const messages=(id=current,world='world-one')=>({schema:'dmb_conversation_messages_v1' as const,world_id:world,conversation_id:id,messages:page(id,world).turns.map(({turn_id,sequence,status,user_text,assistant_text})=>({turn_id,sequence,status,user_text,assistant_text})),next_before_sequence:null as number|null});
-beforeAll(()=>{Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value(this:HTMLDialogElement){this.setAttribute('open','');}});});
+beforeAll(()=>{
+ Object.defineProperty(HTMLDialogElement.prototype,'showModal',{configurable:true,value(this:HTMLDialogElement){this.setAttribute('open','');}});
+ Object.defineProperty(HTMLDialogElement.prototype,'close',{configurable:true,value(this:HTMLDialogElement){this.removeAttribute('open');}});
+});
 beforeEach(()=>{vi.clearAllMocks();vi.mocked(api.listConversations).mockImplementation(async(world,status)=>({schema:'dmb_conversation_library_v1',world_id:world,status,items:[meta(current,world),meta(old,world)],next_before:null}));vi.mocked(api.readConversationName).mockImplementation(async(world,id)=>meta(id,world));vi.mocked(api.readConversationTurns).mockImplementation(async(world,id)=>page(id,world));vi.mocked(api.readConversationMessages).mockImplementation(async(world,id)=>messages(id,world));});
 afterEach(()=>cleanup());
 it('reads and names archived work without touching the current composer',async()=>{
@@ -304,4 +307,80 @@ it('waits for the pending rename before allowing a view change',async()=>{
  fireEvent.click(toggle);
  await waitFor(()=>expect(api.readConversationTurns).toHaveBeenCalledTimes(1));
  expect(screen.getByRole('button',{name:/Updated name/})).toBeInTheDocument();
+});
+
+it('confirms single deletion only in Trash and preserves the active composer',async()=>{
+ let deleted=false;
+ const onClose=vi.fn(),onContinue=vi.fn(),onLifecycle=vi.fn();
+ const onBulkLifecycle=vi.fn(async(plan:BulkConversationPlan)=>{
+  deleted=true;
+  return {applied:[...plan.targets],failed:[],stopped:[],retry:null};
+ });
+ vi.mocked(api.listConversations).mockImplementation(async(world,status)=>({
+  schema:'dmb_conversation_library_v1',world_id:world,status,
+  items:status==='recent'?[meta(current,world)]:status==='trashed'&&!deleted?[{...meta(old,world),status:'trashed'}]:[],next_before:null,
+ }));
+ render(<><textarea aria-label="Unsent draft" defaultValue="Keep my draft"/><ConversationLibrary
+  worldId="world-one" onClose={onClose} pointer={{revision:8,activeId:current}}
+  onContinue={onContinue} onLifecycle={onLifecycle} onBulkLifecycle={onBulkLifecycle}/></>);
+ await screen.findByText('Current question');
+ fireEvent.click(screen.getByText('•••'));
+ expect(screen.queryByRole('button',{name:'Delete permanently'})).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Show'),{target:{value:'trashed'}});
+ await screen.findByText('Archived question');
+ fireEvent.click(screen.getByText('•••'));
+ const trigger=screen.getByRole('button',{name:'Delete permanently'});
+ fireEvent.click(trigger);
+ const confirm=screen.getByRole('dialog',{name:'Permanently delete this conversation?'});
+ expect(within(confirm).getByText('Archived piece')).toBeVisible();
+ expect(within(confirm).getByText(/Saved World work stays available/)).toBeVisible();
+ fireEvent.click(within(confirm).getByRole('button',{name:'Cancel'}));
+ expect(confirm).not.toBeInTheDocument();
+ expect(onBulkLifecycle).not.toHaveBeenCalled();
+ fireEvent.click(trigger);
+ fireEvent.click(within(screen.getByRole('dialog',{name:'Permanently delete this conversation?'})).getByRole('button',{name:'Delete permanently'}));
+ await screen.findByText('Trash is empty.');
+ expect(onBulkLifecycle).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+  worldId:'world-one',operation:'delete',pointer:{revision:8,activeId:current},
+  targets:[expect.objectContaining({conversationId:old})],
+ }),expect.any(Function));
+ expect(screen.queryByText('Archived question')).not.toBeInTheDocument();
+ expect(screen.getByRole('dialog',{name:'Conversations'})).toHaveAttribute('open');
+ expect(screen.getByLabelText('Unsent draft')).toHaveValue('Keep my draft');
+ expect(onClose).not.toHaveBeenCalled();
+ expect(onContinue).not.toHaveBeenCalled();
+ expect(onLifecycle).not.toHaveBeenCalled();
+});
+
+it('confirms cross-page Trash targets and retries unconfirmed deletion with the original command',async()=>{
+ vi.mocked(api.listConversations).mockImplementation(async(world,status,before)=>({
+  schema:'dmb_conversation_library_v1',world_id:world,status,
+  items:status==='trashed'?[{...meta(before?old:current,world),status:'trashed'}]:[],
+  next_before:status==='trashed'&&!before?current:null,
+ }));
+ const change=vi.fn()
+  .mockResolvedValueOnce({pointer_revision:9,active_conversation_id:null})
+  .mockRejectedValueOnce(new LiveApiError('Purge pending',503))
+  .mockResolvedValueOnce({pointer_revision:10,active_conversation_id:null});
+ const onBulkLifecycle=vi.fn((plan:BulkConversationPlan,isCurrent:()=>boolean)=>runBulkConversationLifecycle(plan,isCurrent,change));
+ render(<ConversationLibrary worldId="world-one" onClose={()=>{}} pointer={{revision:8,activeId:null}} onBulkLifecycle={onBulkLifecycle}/>);
+ fireEvent.change(screen.getByLabelText('Show'),{target:{value:'trashed'}});
+ await screen.findByText('Current question');
+ fireEvent.click(screen.getByRole('button',{name:'Select conversations'}));
+ fireEvent.click(screen.getByRole('checkbox',{name:'Select Current piece'}));
+ fireEvent.click(screen.getByRole('button',{name:'More conversations'}));
+ fireEvent.click(await screen.findByRole('checkbox',{name:'Select Archived piece'}));
+ fireEvent.click(screen.getByRole('button',{name:'Delete selected permanently'}));
+ const confirm=screen.getByRole('dialog',{name:'Permanently delete 2 conversations?'});
+ expect(within(confirm).getAllByRole('listitem').map(item=>item.textContent)).toEqual(['Current piece','Archived piece']);
+ expect(change).not.toHaveBeenCalled();
+ fireEvent.click(within(confirm).getByRole('button',{name:'Delete permanently'}));
+ await screen.findByText('1 permanently deleted. 0 failed. 1 unconfirmed or waiting.');
+ expect(screen.getByLabelText('Show')).toBeDisabled();
+ fireEvent.click(screen.getByRole('button',{name:'Retry unconfirmed action'}));
+ await screen.findByText('2 permanently deleted. 0 failed. 0 skipped.');
+ expect(change.mock.calls[2]).toEqual(change.mock.calls[1]);
+ expect(change.mock.calls[2]).toEqual([
+  expect.objectContaining({conversation_id:old,expected_pointer_revision:9,expected_active_conversation_id:null}),'delete',
+ ]);
 });

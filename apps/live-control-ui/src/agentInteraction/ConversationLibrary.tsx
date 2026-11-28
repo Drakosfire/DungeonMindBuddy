@@ -3,13 +3,13 @@ import {ConversationExport} from './ConversationExport';
 import {LiveApiError} from '../api/liveApi';
 import {groupRetryLineage} from './conversationAttemptGroups';
 import {ConversationRetryAttempts} from './ConversationRetryAttempts';
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {listConversations,readConversationName,readConversationTurns,readConversationMessages,renameConversation,type ConversationSummary,type LibraryTurn,type ResumeConversationCommand,type ConversationLifecycleOperation,type ConversationLibraryFilter} from '../api/conversationLibraryApi';
 import {WorldPlanAgentAnswer} from '../planSurface/components/WorldPlanAgentAnswer';
 import {BuddyContextTraceLoader} from '../planSurface/components/BuddyContextTraceLoader';
 import {BuddyTurnInspection} from '../planSurface/components/BuddyTurnInspection';
-import type {BulkConversationPlan, BulkConversationResult} from './conversationBulkLifecycle';
+import type {BulkConversationOperation, BulkConversationPlan, BulkConversationResult} from './conversationBulkLifecycle';
 import './ConversationLibrary.css';
 const message=(error:unknown)=>error instanceof Error?error.message:'The conversation could not be read.';
 export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecycle,onBulkLifecycle,continueDisabledReason}:{worldId:string;onClose:()=>void;pointer?:{revision:number;activeId:string|null};onContinue?:(command:ResumeConversationCommand)=>Promise<void>;onLifecycle?:(command:ResumeConversationCommand,operation:ConversationLifecycleOperation)=>Promise<void>;onBulkLifecycle?:(plan:BulkConversationPlan,isCurrent:()=>boolean)=>Promise<BulkConversationResult>;continueDisabledReason?:string|null}){
@@ -21,6 +21,8 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  const [bulkSelection,setBulkSelection]=useState<Map<string,string>>(new Map());
  const [bulkResult,setBulkResult]=useState<BulkConversationResult|null>(null);
  const [bulkError,setBulkError]=useState('');
+ const [bulkOperation,setBulkOperation]=useState<BulkConversationOperation|null>(null);
+ const [deletePlan,setDeletePlan]=useState<BulkConversationPlan|null>(null);
  const [bulkBusy,setBulkBusy]=useState(false);
  const bulkInFlight=useRef(false);
  const bulkRetry=bulkResult?.retry??null;
@@ -78,7 +80,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   finally{if(listRequest.current===request)listRequest.current=null;if(alive(owner)&&epoch===listEpoch.current){setListing(false);pageBusy.current=false;}}
  }
  useEffect(()=>{detailEpoch.current++;setLifecycleNotice('');setItems([]);
-  setBulkSelection(new Map());setBulkResult(null);setBulkError('');setBulkMode(false);setBulkBusy(false);bulkInFlight.current=false;setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;listRequest.current?.abort();detailRequest.current?.abort();};},[worldId,filter]);
+  setBulkSelection(new Map());setBulkResult(null);setBulkError('');setBulkOperation(null);setDeletePlan(null);setBulkMode(false);setBulkBusy(false);bulkInFlight.current=false;setSelected(null);setDetail(null);setTurns([]);setNext(null);void loadList();return()=>{listEpoch.current++;detailEpoch.current++;listRequest.current?.abort();detailRequest.current?.abort();};},[worldId,filter]);
  async function olderTurns(){
   if(!selected||before===null||loading)return;
   const owner=scope.current,epoch=detailEpoch.current,id=selected,cursor=before;setLoading(true);setError('');
@@ -121,7 +123,7 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   finally{if(detailRequest.current===request)detailRequest.current=null;}
  }
  async function continueSelected(operation:'reopen'|ConversationLifecycleOperation='reopen'){
-  if(!detail||!pointer||continueInFlight.current||continuing||bulkMode||continueDisabledReason)return;
+  if(!detail||!pointer||continueInFlight.current||continuing||bulkInFlight.current||bulkMode||bulkRetry||continueDisabledReason)return;
   if(operation==='reopen'?(detail.status!=='archived'||!onContinue):!onLifecycle)return;
   const owner=scope.current,id=detail.conversation_id;
   if(pendingResume.current&&(pendingResume.current.conversation_id!==id||pendingOperation.current!==operation)){setError('Refresh the current conversation before switching to another.');return;}
@@ -159,14 +161,22 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
   });
  }
 
- async function applyBulk(){
-  if(!onBulkLifecycle||!pointer||!bulkSelection.size||bulkInFlight.current||continuing||continueDisabledReason||pendingResume.current)return;
-  const owner=scope.current;
-  const plan:BulkConversationPlan=bulkRetry??{
-   worldId, pointer, operation:filter==='trashed'?'restore':'trash',
-   targets:Array.from(bulkSelection,([conversationId,title])=>({conversationId,title,commandId:crypto.randomUUID()})),
+ function makePlan(operation:BulkConversationOperation,selection:ReadonlyMap<string,string>):BulkConversationPlan|null{
+  if(!pointer||!selection.size)return null;
+  return {
+   worldId, pointer, operation,
+   targets:Array.from(selection,([conversationId,title])=>({conversationId,title,commandId:crypto.randomUUID()})),
   };
-  bulkInFlight.current=true;setBulkBusy(true);setBulkError('');setLifecycleNotice('');
+ }
+
+ async function applyBulk(plan:BulkConversationPlan|null){
+  if(!onBulkLifecycle||!plan||plan.worldId!==worldId||!pointer||bulkInFlight.current||
+   continueInFlight.current||continueDisabledReason||pendingResume.current)return;
+  if(plan.operation==='delete'&&filter!=='trashed')return;
+  const owner=scope.current;
+  setDeletePlan(null);
+  if(!bulkRetry)setBulkResult(null);
+  bulkInFlight.current=true;setBulkBusy(true);setBulkOperation(plan.operation);setBulkError('');setLifecycleNotice('');
   try{
    const result=await onBulkLifecycle(plan,()=>alive(owner));
    if(!alive(owner))return;
@@ -186,13 +196,18 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
  }
 
  useEffect(()=>{
-  if(lifecycleNotice&&!continuing)filterControl.current?.focus();
- },[lifecycleNotice,continuing]);
+  const singleDeleteFinished=bulkOperation==='delete'&&!bulkMode&&!bulkBusy&&bulkResult?.applied.length;
+  if(lifecycleNotice&&!continuing||singleDeleteFinished)filterControl.current?.focus();
+ },[lifecycleNotice,continuing,bulkOperation,bulkMode,bulkBusy,bulkResult]);
  const ownDetail=detail?.world_id===worldId?detail:null;
  const libraryBusy=continuing||bulkBusy;
- const bulkLabels=filter==='trashed'?{action:'Restore selected',applied:'restored'}:{action:'Move selected to Trash',applied:'moved to Trash'};
+ const bulkAction=filter==='trashed'?'restore':'trash';
+ const bulkActionLabel=bulkAction==='restore'?'Restore selected':'Move selected to Trash';
+ const appliedLabel=bulkOperation==='delete'?'permanently deleted':bulkOperation==='restore'?'restored':'moved to Trash';
+ const batchDisabled=libraryBusy||!pointer||Boolean(continueDisabledReason)||Boolean(pendingResume.current);
+ const confirmPlan=deletePlan?.worldId===worldId&&filter==='trashed'?deletePlan:null;
  return createPortal(<dialog ref={dialog} className="conversation-library" aria-label="Conversations" onKeyDown={event=>{
-  if(event.key==='Escape'&&actionMenu.current?.open){event.preventDefault();event.stopPropagation();actionMenu.current.open=false;actionMenu.current.querySelector('summary')?.focus();}
+  if(!confirmPlan&&event.key==='Escape'&&actionMenu.current?.open){event.preventDefault();event.stopPropagation();actionMenu.current.open=false;actionMenu.current.querySelector('summary')?.focus();}
  }} onCancel={event=>{event.preventDefault();if(!bulkBusy&&!bulkRetry)onClose();}}>
   <header className="conversation-library__shell-header"><h2>Conversations</h2><button type="button" className="conversation-library__close" aria-label="Close conversations" disabled={bulkBusy||Boolean(bulkRetry)} onClick={onClose}>×</button></header>
   <div className="conversation-library__panes"><nav aria-label="Saved conversations">
@@ -200,24 +215,30 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
     <button type="button" className="conversation-library__refresh" aria-label="Refresh conversations" title="Refresh conversations" disabled={listing||libraryBusy} onClick={()=>void loadList()}>↻</button></div>
    {onBulkLifecycle&&<div className="conversation-library__bulk">
     <button type="button" aria-pressed={bulkMode} disabled={libraryBusy||Boolean(bulkRetry)||Boolean(pendingResume.current)} onClick={()=>{
-     setBulkMode(!bulkMode);setBulkSelection(new Map());setBulkResult(null);setBulkError('');
+     setBulkMode(!bulkMode);setBulkSelection(new Map());setBulkResult(null);setBulkError('');setBulkOperation(null);
     }}>{bulkMode?'Done selecting':'Select conversations'}</button>
     {bulkMode&&<>
      <p role="status">{bulkSelection.size} selected in {filter==='trashed'?'Trash':filter==='explicitly_archived'?'Archived':'Recent'}</p>
-     <button type="button" disabled={libraryBusy||!pointer||Boolean(continueDisabledReason)||!bulkSelection.size}
-      onClick={()=>void applyBulk()}>{bulkBusy?'Updating conversations…':bulkRetry?'Retry unconfirmed action':bulkLabels.action}</button>
-     {bulkRetry&&<button type="button" disabled={bulkBusy} onClick={()=>{
+     {!bulkRetry&&<button type="button" disabled={batchDisabled||!bulkSelection.size}
+      onClick={()=>void applyBulk(makePlan(bulkAction,bulkSelection))}>{bulkActionLabel}</button>}
+     {filter==='trashed'&&!bulkRetry&&<button type="button" disabled={batchDisabled||!bulkSelection.size}
+      onClick={()=>setDeletePlan(makePlan('delete',bulkSelection))}>Delete selected permanently</button>}
+    </>}
+    {bulkRetry&&<>
+     <button type="button" disabled={batchDisabled} onClick={()=>void applyBulk(bulkRetry)}>Retry unconfirmed action</button>
+     <button type="button" disabled={bulkBusy} onClick={()=>{
       setBulkResult(previous=>previous&&{...previous,retry:null});setBulkSelection(new Map());void loadList();
-     }}>Clear selection and refresh</button>}
-     {bulkError&&<p role="alert">{bulkError}</p>}
-     {bulkResult&&<>
-      <p role="status">{bulkResult.applied.length} {bulkLabels.applied}. {bulkResult.failed.length} failed. {bulkResult.stopped.length} {bulkRetry?'unconfirmed or waiting':'skipped'}.</p>
-      <details><summary>Results by conversation</summary><ul>
-       {bulkResult.applied.map(target=><li key={target.commandId}>{target.title}: {bulkLabels.applied}</li>)}
-       {bulkResult.failed.map(({target,reason})=><li key={target.commandId}>{target.title}: {reason}</li>)}
-       {bulkResult.stopped.map((target,index)=><li key={target.commandId}>{target.title}: {bulkRetry&&index===0?'Result unconfirmed':'Awaiting your action'}</li>)}
-      </ul></details>
-     </>}
+     }}>Clear selection and refresh</button>
+    </>}
+    {bulkBusy&&<p role="status">{bulkOperation==='delete'?'Deleting conversations…':'Updating conversations…'}</p>}
+    {bulkError&&<p role="alert">{bulkError}</p>}
+    {bulkResult&&<>
+     <p role="status">{bulkResult.applied.length} {appliedLabel}. {bulkResult.failed.length} failed. {bulkResult.stopped.length} {bulkRetry?'unconfirmed or waiting':'skipped'}.</p>
+     <details><summary>Results by conversation</summary><ul>
+      {bulkResult.applied.map(target=><li key={target.commandId}>{target.title}: {appliedLabel}</li>)}
+      {bulkResult.failed.map(({target,reason})=><li key={target.commandId}>{target.title}: {reason}</li>)}
+      {bulkResult.stopped.map((target,index)=><li key={target.commandId}>{target.title}: {bulkRetry&&index===0?'Result unconfirmed':'Awaiting your action'}</li>)}
+     </ul></details>
     </>}
    </div>}
    {lifecycleNotice&&<p role="status">{lifecycleNotice}</p>}
@@ -234,9 +255,14 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
     <div className="conversation-library__heading"><h3 title={ownDetail.title}>{ownDetail.title}</h3><p>{ownDetail.status==='active'?'Current conversation':ownDetail.status==='trashed'?'In Trash':ownDetail.library_archived?'Archived conversation':'Saved conversation'} · Read-only transcript</p></div>
     <div className="conversation-library__actions">
      {onContinue&&ownDetail.status==='archived'&&<button type="button" className="conversation-library__primary" aria-label="Continue conversation" title={continueDisabledReason??'Your unsent message and references are kept. Saved pages and previous actions stay unchanged.'} disabled={loading||libraryBusy||bulkMode||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected()}>{continuing?'Continuing…':'Continue conversation'}</button>}
-     {onLifecycle&&ownDetail.status==='trashed'&&<button type="button" className="conversation-library__primary" disabled={loading||libraryBusy||bulkMode||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('restore')}>{continuing?'Restoring…':'Restore conversation'}</button>}
+     {onLifecycle&&ownDetail.status==='trashed'&&<button type="button" className="conversation-library__primary" disabled={loading||batchDisabled||bulkMode||Boolean(bulkRetry)} onClick={()=>void continueSelected('restore')}>{continuing?'Restoring…':'Restore conversation'}</button>}
      <details key={`${worldId}:${ownDetail.conversation_id}`} ref={actionMenu} className="conversation-library__action-menu"><summary aria-label="Conversation actions" title="Conversation actions">•••</summary><div className="conversation-library__menu">
       <button type="button" disabled={loading||libraryBusy} onClick={()=>{setRenaming(true);if(actionMenu.current)actionMenu.current.open=false;}}>Rename conversation</button>
+      {onBulkLifecycle&&filter==='trashed'&&ownDetail.status==='trashed'&&<button type="button"
+       disabled={loading||batchDisabled||bulkMode||Boolean(bulkRetry)} onClick={()=>
+        setDeletePlan(makePlan('delete',new Map([[ownDetail.conversation_id,ownDetail.title]])))}>
+       Delete permanently
+      </button>}
       <fieldset className="conversation-library__exports" disabled={loading||libraryBusy}><ConversationExport key={`${worldId}:${ownDetail.conversation_id}`} worldId={worldId} conversationId={ownDetail.conversation_id}/></fieldset>
       {onLifecycle&&ownDetail.status!=='trashed'&&!ownDetail.library_archived&&<button type="button" disabled={loading||libraryBusy||bulkMode||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('archive')}>Archive conversation</button>}
       {onLifecycle&&ownDetail.status!=='trashed'&&<div className="conversation-library__trash-action"><button type="button" disabled={loading||libraryBusy||bulkMode||!pointer||Boolean(continueDisabledReason)} onClick={()=>void continueSelected('trash')}>{continuing?'Updating…':'Move to Trash'}</button><p>Recoverable in Trash. Saved pages are kept.</p></div>}
@@ -264,7 +290,37 @@ export function ConversationLibrary({worldId,onClose,pointer,onContinue,onLifecy
    </article>;return historical?<details key={turn.turn_id}><summary>Earlier attempt of a request with a later response</summary>{content}</details>:content;})}
    {ownDetail&&!loading&&!turns.length&&<p>No messages in this conversation yet.</p>}
   </div></section></div>
+  {confirmPlan&&<ConfirmConversationDeletion plan={confirmPlan} disabled={batchDisabled}
+   onDismiss={()=>setDeletePlan(null)} onConfirm={()=>void applyBulk(confirmPlan)}/>}
  </dialog>,document.body);
+}
+
+function ConfirmConversationDeletion({plan,disabled,onDismiss,onConfirm}:{
+ plan:BulkConversationPlan;disabled:boolean;onDismiss:()=>void;onConfirm:()=>void;
+}){
+ const dialog=useRef<HTMLDialogElement>(null);
+ useLayoutEffect(()=>{
+  const element=dialog.current;
+  element?.showModal();
+  return ()=>{if(element?.open)element.close();};
+ },[]);
+ const count=plan.targets.length;
+ return <dialog ref={dialog} className="conversation-library__delete-confirm"
+  aria-labelledby="conversation-delete-title" aria-describedby="conversation-delete-impact"
+  onCancel={event=>{event.preventDefault();event.stopPropagation();onDismiss();}}>
+  <h3 id="conversation-delete-title">Permanently delete {count===1?'this conversation':count+' conversations'}?</h3>
+  <ul aria-label="Conversations to delete">
+   {plan.targets.map(target=><li key={target.conversationId}>{target.title}</li>)}
+  </ul>
+  <p id="conversation-delete-impact">
+   Messages, drafts, and traces will be removed from Buddy. Saved World work stays available.
+   Recovery backups may retain copies. You can’t undo this.
+  </p>
+  <div className="conversation-library__delete-actions">
+   <button type="button" onClick={onDismiss}>Cancel</button>
+   <button type="button" className="conversation-library__delete-submit" disabled={disabled} onClick={onConfirm}>Delete permanently</button>
+  </div>
+ </dialog>;
 }
 
 function SavedTurnTrace({worldId,conversationId,turnId,status}:{worldId:string;conversationId:string;turnId:string;status:string}){

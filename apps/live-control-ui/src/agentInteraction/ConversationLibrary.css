@@ -93,3 +93,33 @@
   align-items: center;
   gap: 0.25rem;
 }
+
+.conversation-library__delete-confirm {
+  width: min(28rem, calc(100vw - var(--ui-space-8)));
+  max-height: calc(100dvh - var(--ui-space-8));
+  box-sizing: border-box;
+  padding: var(--ui-space-6);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-background-chrome);
+  color: var(--ui-text-primary);
+  overflow-wrap: anywhere;
+}
+.conversation-library__delete-confirm::backdrop {
+  background: color-mix(in srgb, var(--ui-background-app) 76%, transparent);
+}
+.conversation-library__delete-confirm h3 { margin-top: 0; }
+.conversation-library__delete-confirm ul {
+  max-height: 24dvh;
+  overflow-y: auto;
+}
+.conversation-library__delete-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: var(--ui-space-2);
+}
+.conversation-library .conversation-library__delete-submit {
+  border-color: var(--ui-accent-danger);
+  font-weight: 600;
+}

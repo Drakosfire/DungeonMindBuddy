@@ -564,7 +564,7 @@ def hosted(monkeypatch, request):
             ("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/resume"): HOSTED_WORLD_SCOPE_RESOLVERS[("POST", "/api/live/agent/worlds/{world_id}/conversations/{conversation_id}/resume")],
             **{
                 key: HOSTED_WORLD_SCOPE_RESOLVERS[key]
-                for operation in ("archive", "trash", "restore")
+                for operation in ("archive", "trash", "restore", "delete")
                 for key in [("POST", f"/api/live/agent/worlds/{{world_id}}/conversations/{{conversation_id}}/{operation}")]
             },
             ("GET", "/api/live/agent/worlds/{world_id}/conversations/active/messages"): access.resolve_hosted_conversation_world,
@@ -3594,6 +3594,64 @@ def test_hosted_conversation_starts_and_reopens_in_exact_world(hosted, applicati
         assert response.status_code == 200, response.text
         assert response.headers["cache-control"] == "no-store"
         assert hosted.client.request("GET", path, session="other-session").status_code == 403
+
+
+def test_hosted_conversation_delete_checks_world_and_current_owner(
+    hosted, application_state_dsn, monkeypatch,
+):
+    from apps.live_control_server.routes import agent, conversation_library
+    from application_state.agent_conversation import repository
+
+    monkeypatch.setattr(agent, "_verified_world_id", lambda world: world)
+    monkeypatch.setattr(conversation_library, "_verified_world_id", lambda world: world)
+    base = "/api/live/agent/worlds/managed/conversation"
+    created = hosted.client.request("POST", f"{base}/new", json={
+        "command_id": str(uuid4()), "expected_pointer_revision": 0,
+        "expected_active_conversation_id": None,
+    })
+    assert created.status_code == 200, created.text
+    current = created.json()
+    cid = current["conversation_id"]
+    path = f"{base}s/{cid}"
+    command = {
+        "world_id": "managed", "conversation_id": cid, "command_id": str(uuid4()),
+        "expected_pointer_revision": current["pointer_revision"],
+        "expected_active_conversation_id": cid,
+    }
+    trash = hosted.client.request("POST", f"{path}/trash", json=command)
+    assert trash.status_code == 200, trash.text
+    command |= {
+        "command_id": str(uuid4()), "expected_pointer_revision": trash.json()["pointer_revision"],
+        "expected_active_conversation_id": None,
+    }
+    assert hosted.client.request(
+        "POST", f"{path}/delete", json=command, session="other-session",
+    ).status_code == 403
+    assert hosted.client.request("POST", f"{path}/delete", json=command, origin=None).status_code == 403
+    assert hosted.client.request(
+        "POST", f"{path}/delete", json=command | {"conversation_id": str(uuid4())},
+    ).status_code == 422
+
+    owner = hosted.records["managed"]
+    lock = repository.lock_conversation
+
+    def transfer(*args, **kwargs):
+        target = lock(*args, **kwargs)
+        hosted.records["managed"] = owner.model_copy(update={"owner_subject": OTHER_OWNER})
+        return target
+
+    with monkeypatch.context() as patch:
+        patch.setattr(repository, "lock_conversation", transfer)
+        assert hosted.client.request("POST", f"{path}/delete", json=command).status_code == 403
+    hosted.records["managed"] = owner
+    assert hosted.client.request("GET", f"{path}/messages").status_code == 200
+    deleted = hosted.client.request("POST", f"{path}/delete", json=command)
+    assert deleted.status_code == 200, deleted.text
+    assert deleted.json()["command_kind"] == "delete"
+    assert deleted.headers["cache-control"] == "no-store"
+    assert hosted.client.request("POST", f"{path}/delete", json=command).json() == deleted.json()
+    assert hosted.client.request("GET", f"{path}/messages").status_code == 404
+    assert hosted.client.request("GET", f"{path}/turns").status_code == 404
 
 
 @pytest.mark.parametrize("transfer_at", ["target", "active"])
