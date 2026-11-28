@@ -1496,7 +1496,7 @@ def test_pending_append_binding_returns_validated_execution_after_source_settlem
         AgentConversationService()._bind_execution_append(receipt, changed)
 
 
-def pending_runtime_freeze_case(*, include_surface=True):
+def pending_runtime_freeze_case():
     from types import SimpleNamespace
     from hashlib import sha256
     from application_state.agent_conversation.build_source_free import BuildSourceObservationV1, BuildConversationObservationV1
@@ -1528,7 +1528,7 @@ def pending_runtime_freeze_case(*, include_surface=True):
         'current_page': {'document_id': source.document_id, 'title': source.title},
         'capability_sha256': None, 'conversation_id': str(conversation.conversation_id),
         'pointer_revision': conversation.pointer_revision, 'history': history, 'working_draft': None, 'page_target': None}
-    state = semantic_routing_state(request.message, host, None, include_surface=include_surface, include_paragraph_catalog=False)
+    state = semantic_routing_state(request.message, host, None, include_surface=True, include_paragraph_catalog=False)
     questions = {'requested_work': opening_work_question(SCOPED_BUILD_MENU_DIGEST)}
     body = {'model': 'jev-1.14.0', 'state': state, 'questions': questions}
     raw = json.dumps(body)
@@ -1589,7 +1589,7 @@ def test_real_build_runtime_freezer_keeps_historical_shared_path_separate():
     from tests.test_build_source_free_routing import settled_source
     from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, NativeBuildProviderInputV2
     from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
-    kwargs = pending_runtime_freeze_case(include_surface=False)
+    kwargs = pending_runtime_freeze_case()
     kwargs.pop('source_observation')
     kwargs.pop('conversation_observation')
     kwargs['authority'] = settled_source(managed_world_id=kwargs['submitted_intent'].world_id)

@@ -1503,6 +1503,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         expected = {"tied_menu": "ready", "duplicate_context": "ready",
                     "other_discussion_tied_work": "discussion"}.get(image_move, image_move)
         assert completion["disposition"] == expected
+        opening = json.loads(decisions.calls[0].content)
+        assert opening["state"]["interaction"]["surface"] == "build"
         turn_id = writer.adapter.turn.turn_id
         if expected == "ready":
             review = BuildImageMoveReviewService().get(world, turn_id)
@@ -1564,6 +1566,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         completion = response.json()["knowledge_context"]["completion"]
         assert completion["disposition"] == graph_reference
         assert len(decisions.calls) == 2 and not writer.calls
+        opening = json.loads(decisions.calls[0].content)
+        assert opening["state"]["interaction"]["surface"] == "build"
         turn = writer.adapter.turn
         assert turn.status == "completed"
         if graph_reference == "ready":
