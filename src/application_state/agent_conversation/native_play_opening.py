@@ -3,12 +3,12 @@ from __future__ import annotations
 
 from typing import Literal
 
-from generationengine.types import ChoiceDecisionQuestion, DecisionRequest, DecisionResult
+from generationengine.types import DecisionRequest, DecisionResult
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
-from .jev_retrieval_contract import MODEL, PROVIDER, RetrievalDialogue, validated_choice_answers
+from .jev_retrieval_contract import RetrievalDialogue, validated_choice_answers
 from .play_graph_context import validate_work_intent
-from .surface_action_catalog import opening_action_menu, validate_opening_action_wire
+from .surface_action_catalog import opening_action_menu, prepare_opening_intent, validate_opening_action_wire
 from .types import PlayGraphIntentV1, PlayRunTurnContextReceiptV2
 
 
@@ -24,20 +24,12 @@ class NativePlayOpeningInputV1(BaseModel):
 
 
 def prepare_play_opening(request: NativePlayOpeningInputV1) -> DecisionRequest:
-    menu = opening_action_menu("play")
     state = {"surface": "play", "user_utterance": request.question}
     if request.dialogue:
         state["prior_dialogue"] = [row.model_dump() for row in request.dialogue]
     if request.current_scene_title is not None:
         state["current_scene_title"] = request.current_scene_title
-    return DecisionRequest(
-        provider=PROVIDER, model=MODEL, state=state,
-        questions=(ChoiceDecisionQuestion(
-            name="requested_work", options=tuple(menu), option_descriptions=menu,
-            question=("Identify the user’s intent now. Use dialogue to resolve omitted references. "
-                      "Choose one action family. Target binding and execution are downstream."),
-        ),), max_transport_retries=0,
-    )
+    return prepare_opening_intent("play", state)
 
 
 def decode_play_opening(result: DecisionResult) -> str:
