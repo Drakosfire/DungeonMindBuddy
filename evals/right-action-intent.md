@@ -375,3 +375,20 @@ from 214.03 to 197.56 ms. Both runs used reconstructed fixture state and were
 made at different times. Downstream retrieval and proposal behavior are
 outside this comparison. Removing the question from ordinary Build requires
 an explicit owning decision for turns that still need source scope.
+
+### Build source scope after intent
+
+The [six-case follow-up comparison](right_action_intent/build-source-followup-jev.json)
+pins [local source-scope expectations](right_action_intent/build-source-followup-cases.json)
+and both prior captures. It reuses the first action selected by Jev, passes
+that label and the same visible state to a source-scope-only ballot, and never
+opens a page. The four anchored controls and the explicit ledger lookup
+all matched the expected scope and the earlier combined votes.
+The clarification case needed zero second calls.
+
+The five two-call cases consumed 359–456 more input tokens than the earlier
+combined request. The clarification saved 237 input tokens. This supports
+an intent-only first request with conditional source dispatch. It gives
+evidence against automatically following every intent with a source ballot.
+Times come from separately captured runs. No runtime admission or source
+access was exercised in this comparison.
