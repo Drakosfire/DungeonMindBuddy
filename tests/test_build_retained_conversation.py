@@ -330,7 +330,7 @@ def test_ordinary_http_retains_early_uncited_reads_after_sixty_turns_without_edi
                    for event in turn.graph_context_execution.events)
     assert len(case.writer.calls) == before + 1
     request = json.loads(case.writer.calls[-1].content)
-    assert request['reasoning']['effort'] == ('low' if discussion else 'none')
+    assert request['reasoning']['effort'] == ('medium' if discussion else 'none')
     if not discussion:
         assert request['text']['format']['name'] == ('surface_native_lore_request_reference_v2' if legacy else 'lore_page_response')
     assert request['input'][-1] == retained.current_request_message(turn.graph_context_execution)
