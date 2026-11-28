@@ -177,13 +177,16 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
 
 
 @pytest.mark.parametrize("source_scope", ["anchored", "source_lookup"])
-def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, monkeypatch, source_scope):
+@pytest.mark.parametrize("contextual", [False, "unique"])
+def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, monkeypatch, source_scope, contextual):
     from evals.negative_retrieval.related_page_probe import observe_related_page_owners
 
     with observe_related_page_owners() as observations:
         _fresh_case(
             lane, tmp_path, monkeypatch, None, True, False, True,
-            message="Add a copper lamp here for review.",
+            message=("Add a copper lamp for review after the orchid paragraph in East."
+                     if contextual else "Add a copper lamp here for review."),
+            contextual=contextual,
             requested_work="write_current_page",
             source_need=source_scope,
             read_optional_page=True,
@@ -2017,11 +2020,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert context['receipt']['native_query']['reason']=='native_graph_binding_unavailable'
     else:
         assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
-    if authored_source!='source_only' and saved_statblock != 'by-name' and failure != 'deferred_graph_citation':
-        assert context['receipt']['native_query']['authored_targets'][0]['selection_revision_id'] == original_revision
     service = AgentConversationService()
     turn = service.inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
     assert turn.status == 'completed' and type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+    if authored_source!='source_only' and saved_statblock != 'by-name' and failure != 'deferred_graph_citation':
+        from application_state.agent_conversation.native_execution import effective_native_query
+
+        query = effective_native_query(turn.graph_context_receipt, turn.graph_context_execution)
+        assert query.authored_targets[0].selection_revision_id == original_revision
     if authored_source:
         from application_state.agent_conversation.native_corpus import NativeAuthoredSourceReadV1
         reads=[e for e in turn.graph_context_execution.events if isinstance(e,NativeAuthoredSourceReadV1)]
@@ -2062,8 +2068,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert captured.record.snapshot==draft.snapshot
         assert captured.sequence < next(e.sequence for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1))
         if contextual:
-            assert "unsaved orchid" in decisions.calls[0].content.decode()
-            assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[1:])
+            opening = json.loads(decisions.calls[0].content)
+            if set(opening["questions"]) == {"requested_work"}:
+                assert "unsaved orchid" not in decisions.calls[0].content.decode()
+                assert "unsaved orchid" in decisions.calls[1].content.decode()
+                assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[2:])
+            else:
+                assert "unsaved orchid" in decisions.calls[0].content.decode()
+                assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[1:])
             assert all("boundary_editor_json" not in req.content.decode() for req in decisions.calls)
         else:
             assert all('unsaved orchid' not in req.content.decode() for req in decisions.calls)
