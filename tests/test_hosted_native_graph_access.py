@@ -4106,12 +4106,14 @@ def test_hosted_deletes_exact_statblock_and_retries_cleanup(prepared, hosted):
         assert visible == before
         hosted.records[world] = owner_record
         provider.purge_statblock_revisions.assert_not_called()
+        from application_state.errors import ApplicationStateUnavailableError
+
         with patch.context() as failure:
-            failure.setattr(statblock_permanent_deletion, "remove_purged_acceptance", Mock(
-                side_effect=threat_draft_store.ThreatDraftStoreError("cleanup interruption", status_code=503),
+            failure.setattr(statblock_permanent_deletion.purge, "remove_current_combat_copies", Mock(
+                side_effect=ApplicationStateUnavailableError("Combat cleanup interruption"),
             ))
             assert hosted.client.request("DELETE", path).status_code == 503
-
+        assert threat_draft_store.get_threat_draft(fixture.root, draft_id) == fixture.draft
         fence = threat_draft_store.threat_drafts_root(fixture.root) / threat_draft_store.PURGE_FENCES_NAME
         fence.unlink()
         provider.purge_statblock_revisions.side_effect = lambda *_: (

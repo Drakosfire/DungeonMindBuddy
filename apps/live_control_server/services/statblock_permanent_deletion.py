@@ -64,6 +64,7 @@ def delete_saved_statblock(
         client.close()
 
     authorize()
+    purge.remove_current_combat_copies(target)
     remove_purged_acceptance(
         root, world_id=target.world_id, draft_id=str(target.draft_id),
         expected_version=target.draft_version, statblock_id=target.statblock_id,
