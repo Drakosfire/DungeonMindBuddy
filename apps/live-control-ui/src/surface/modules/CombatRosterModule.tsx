@@ -170,6 +170,7 @@ function RosterRow({
         </details> : entity.notes || "—"}
       </td>
       <td role="cell" className="combat-roster-row-actions">
+        {entity.deleted_mechanics && <span>Statblock deleted</span>}
         {projection.available && <button type="button" aria-label={entity.mechanics_snapshot ? `Keep statblock open for ${entity.name}` : `Open corpus sheet for ${entity.name}`}
           aria-pressed={projection.selected} aria-controls={projection.selected ? projection.regionId : undefined}
           onClick={event => projection.open(event.currentTarget)}>Sheet</button>}

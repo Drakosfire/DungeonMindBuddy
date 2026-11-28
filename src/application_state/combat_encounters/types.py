@@ -186,6 +186,13 @@ def _snapshot_integrity(self):
     return self
 
 
+class DeletedCombatMechanics(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    statblock_id: str = Field(pattern=r"^sb_[a-z0-9]+$")
+    revision_id: str = Field(pattern=r"^rev_[a-z0-9]+$")
+
+
 class CombatEntity(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -210,8 +217,12 @@ class CombatEntity(BaseModel):
     world_identity: CombatWorldIdentity | None = None
     mechanics_snapshot: CombatMechanicsSnapshot | AcceptedCombatMechanicsSnapshot | SavedCombatMechanicsSnapshot | ConversationVariantCombatSnapshot | None = None
 
+    deleted_mechanics: DeletedCombatMechanics | None = Field(default=None, exclude_if=lambda value: value is None)
+
     @model_validator(mode="after")
     def _mechanics_target(self):
+        if self.deleted_mechanics is not None and self.mechanics_snapshot is not None:
+            raise ValueError("Deleted combat mechanics cannot retain a statblock snapshot")
         if isinstance(self.mechanics_snapshot, ConversationVariantCombatSnapshot) and self.world_identity is not None:
             raise ValueError("Conversation variant cannot claim a different World creature identity")
         if isinstance(self.mechanics_snapshot, CombatMechanicsSnapshot) and self.world_identity != self.mechanics_snapshot.target:

@@ -56,6 +56,9 @@ def claim(record: RevisionOperation, *, authorize=None):
         if conn.execute('SELECT 1 FROM mechanics_revision.cancellation WHERE operation_id=%s',(record.operation_id,)).fetchone():
             raise ApplicationStateConflictError('This Save was canceled before dispatch; create a new operation for further edits')
         conn.execute('SELECT pg_advisory_xact_lock(hashtextextended(%s,0))',('mechanics-revision:'+record.base.statblock_id,))
+        if conn.execute('SELECT 1 FROM mechanics_revision.purge WHERE statblock_id=%s OR draft_id=%s',
+                        (record.base.statblock_id, record.draft_id)).fetchone():
+            raise ApplicationStateConflictError('This statblock is being deleted or has been deleted')
         old=_read(conn,record.operation_id)
         if old:
             if any(getattr(old,key)!=getattr(record,key) for key in ('world_id','draft_id','origin','origin_acceptance_operation_id','base','input_digest','request_body','request_digest','definition_digest')):
