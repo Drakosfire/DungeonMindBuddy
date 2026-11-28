@@ -649,7 +649,7 @@ def bind_opening_author_scope(execution, observation_event_id, observation):
         intent = 'unresolved'
     if opening_work == "discuss":
         intent = "discussion"
-    elif opening_work is not None and opening_work != "write_current_page" and intent == "page_edit":
+    elif opening_work == "clarify" or (opening_work is not None and opening_work != "write_current_page" and intent == "page_edit"):
         intent = "unresolved"
     return NativePlanOpeningScopeBindingV1(observation_event_id=observation_event_id,
         observation=observation, page_edit_intent=intent)
@@ -870,8 +870,8 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
         intent = observations[0]
         if author_scope_event_id == intent.event_id:
             if (author_scope_recheck or review_event_ids is not None or len(attempts) != 1
-                    or intent.scope_observation.requested_work != "discuss"):
-                raise ValueError("Only discussion can use the intent receipt without placement interpretation")
+                    or intent.scope_observation.requested_work not in {"discuss", "clarify"}):
+                raise ValueError("Only discussion or clarification can use the intent receipt without placement interpretation")
         else:
             attempts = attempts[1:]
             prefix = tuple(e for e in prefix if e is not intent)

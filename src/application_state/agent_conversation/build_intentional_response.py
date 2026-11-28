@@ -227,6 +227,11 @@ SOURCE_NEED_GUIDANCE = _PAGE_SOURCE_NEED_GUIDANCE + (
 )
 
 
+def source_need_question():
+    return {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
+            "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
+
+
 class UnresolvedDiscussionSource(ValueError):
     """The read-only work choice is settled, but its evidence scope is tied."""
 
@@ -235,7 +240,7 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
     question = request["questions"].get("source_need")
     if question is None:
         return None
-    expected = {"type": "choice", "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
+    expected = source_need_question()
     if question not in (expected | {"instructions": guidance}
                         for guidance in (SOURCE_NEED_GUIDANCE, _PAGE_SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
         raise ValueError("Build source scope differs from its offered decision")

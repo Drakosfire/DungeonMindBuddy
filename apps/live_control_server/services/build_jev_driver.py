@@ -573,10 +573,12 @@ class BuildJevDriver:
             questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
                                for q in self.image_move.questions())
         if fresh:
-            from application_state.agent_conversation.build_intentional_response import SOURCE_NEED_GUIDANCE, SOURCE_NEED_OPTIONS
+            from application_state.agent_conversation.build_intentional_response import source_need_question
 
-            questions += (DecisionQuestion(name="source_need", kind="choice",
-                                           question=SOURCE_NEED_GUIDANCE, options=SOURCE_NEED_OPTIONS),)
+            source_question = source_need_question()
+            questions += (DecisionQuestion(name="source_need", kind=source_question["type"],
+                                           question=source_question["instructions"],
+                                           options=tuple(source_question["criteria"])),)
         if self._boundary_catalog is not None:
             _, placement_questions = build_boundary_opening(
                 a.request.message, self._interaction["current_page"]["title"], self._boundary_catalog,
