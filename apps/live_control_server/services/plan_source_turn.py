@@ -331,7 +331,9 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
             move = BuildImageMoveDecision.from_saved(
                 action.image_move_capture, request.message, basis.markdown, basis.page_presentation,
             )
-            if set(body["questions"]) != {"requested_work"}:
+            if set(body["questions"]) == {"requested_work"}:
+                expected_state["interaction"]["image_editor"] = move.intent_context()
+            else:
                 move.require_opening_offer(body)
                 expected_state["interaction"][OPENING_STATE_KEY] = move.semantic_state()
         if (host['current_page']!={'document_id':basis.document_id,'title':basis.title}

@@ -245,6 +245,13 @@ def _context_terms(text: str) -> set[str]:
             and not _IMAGE_MENTION.fullmatch(word) and not _LAYOUT_MENTION.fullmatch(word)}
 
 
+def image_editor_intent_context(selected_image=None):
+    return {
+        "available_work": "Moving an existing image is a current-page edit. Creating a new image is image preparation.",
+        **({"selected_image": selected_image} if selected_image is not None else {}),
+    }
+
+
 @dataclass(frozen=True)
 class BuildImageMoveDecision:
     capture: BuildImageMoveCapture
@@ -310,6 +317,11 @@ class BuildImageMoveDecision:
     @property
     def selected(self) -> str | None:
         return next((x.alias for x in self.occurrences if x.block.id == self.capture.author_selected_block_id), None)
+
+    def intent_context(self) -> dict:
+        alias = self.selected
+        selected = next((item.alt for item in self.occurrences if item.alias == alias), None)
+        return image_editor_intent_context(selected)
 
     def semantic_state(self) -> dict:
         return {

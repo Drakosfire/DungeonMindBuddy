@@ -1529,6 +1529,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert opening["state"]["interaction"]["surface"] == "build"
         assert set(opening["questions"]) == {"requested_work"}
         assert "image_move" not in opening["state"]["interaction"]
+        assert "current-page edit" in opening["state"]["interaction"]["image_editor"]["available_work"]
         if expected in {"ready", "different_row"}:
             followup = json.loads(decisions.calls[1].content)
             assert "image_move_occurrence" in followup["questions"]

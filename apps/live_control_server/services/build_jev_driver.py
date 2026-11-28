@@ -582,7 +582,9 @@ class BuildJevDriver:
                     "The saved Page and editor capture differ. Reopen the Page and send again.",
                     code="build_image_move_context_changed", status_code=409, provider_dispatched=False,
                 ) from exc
-            if not self.split_opening:
+            if self.split_opening:
+                state["interaction"]["image_editor"] = self.image_move.intent_context()
+            else:
                 state["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
                 questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
                                    for q in self.image_move.questions())
@@ -1175,9 +1177,12 @@ class BuildJevDriver:
                 expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references,
                     write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening,
                     include_surface=True, include_related_catalog=not self.split_opening)
-                if self.image_move is not None and not self.split_opening:
-                    from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
-                    expected["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
+                if self.image_move is not None:
+                    if self.split_opening:
+                        expected["interaction"]["image_editor"] = self.image_move.intent_context()
+                    else:
+                        from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
+                        expected["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
                 if (plan.host_phase!='select' or plan.state()!=expected
                     or plan.host_interaction_json!=canonical(self._interaction)
                     or plan.questions()!=wire_questions(self.step)
