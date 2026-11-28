@@ -1739,6 +1739,10 @@ def _shared_plan_authoring_case(
                 return httpx2.Response(200, request=request, json=dict(model=body['model'], answers=answers,
                     usage=dict(input_tokens=31, output_tokens=7)))
             if "requested_work" in body["questions"]:
+                if source_free:
+                    assert not body["state"].get("candidates")
+                    if "operation" in body["questions"]:
+                        assert "discover_more" not in body["questions"]["operation"]["criteria"]
                 if "conditional_read_plan_policy" in body["state"] and "author_page_edit_intent" in body["state"]:
                     from application_state.agent_conversation.surface_action_catalog import opening_action_menu
 

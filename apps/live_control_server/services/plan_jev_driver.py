@@ -139,8 +139,15 @@ class PlanJevDriver:
             )
         )
 
+    def _plan_conversation_only(self):
+        if self.adapter.request.surface.surface_id != "plan" or self.adapter.fence is None:
+            return False
+        from application_state.agent_conversation.native_corpus import plan_intent_excludes_source_discovery
+
+        return plan_intent_excludes_source_discovery(self.adapter._broker_execution().events)
+
     def offered(self, *, object_catalog=None):
-        if self.finished or self._variant_approval():
+        if self.finished or self._variant_approval() or self._plan_conversation_only():
             return ()
         if self._anchored_variant_draft():
             return self._saved_statblock_candidates()
@@ -241,6 +248,8 @@ class PlanJevDriver:
                 or admitted.operation != selected.operation
                 or tuple(admitted.selected_handles) != tuple(selected.selected_handles)):
             raise ValueError("Plan acquisition decision is no longer current")
+        if selected.operation != "finish_retrieval" and self._plan_conversation_only():
+            raise ValueError("Conversation-only Plan intent cannot acquire sources")
         self.current = None
         from application_state.agent_conversation.native_retrieval import NativePlayIntentSelectedV1
 
@@ -768,6 +777,9 @@ class PlanJevDriver:
             return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
                         allowed_operations=("discover_more", "finish_retrieval"),
                         play_intent_opening=True)
+        if self._plan_conversation_only():
+            return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
+                        allowed_operations=("select_candidates", "finish_retrieval"))
         if self._variant_approval():
             return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
                         allowed_operations=("select_candidates", "finish_retrieval"))
