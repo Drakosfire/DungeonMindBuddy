@@ -69,3 +69,13 @@ preparation occurs and a source-required control that verifies preparation
 starts only after intent. Record latency at the same boundaries on both heads.
 The isolated main run used simulated providers and establishes routing
 controls, with no live-model quality or latency claim.
+
+The first main-port trial used `aa31508aa99fe683f5488a10799d60c1b1fb2821`
+and the producer-only diff from serving parent `0a367b42dbd7`. Main is missing
+the pending Plan reader and its test module. With that test excluded from the
+trial, conflicts were confined to `agent_turn_service.py`,
+`context_trace_store.py`, and `test_agent_native_corpus_sources.py`. The trial
+left both branches unchanged. Resolve against main's shared intent-only Plan
+ballot and current trace storage. Integrate the required reader contracts
+without importing the unrelated serving overlay. Preserve #5008's separate
+serving qualification and its migration hold.
