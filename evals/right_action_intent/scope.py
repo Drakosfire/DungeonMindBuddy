@@ -46,6 +46,8 @@ def prepare(path):
             scopes[surface] = opening_action_menu(surface)
         if surface == "play":
             play_request(state, scopes[surface])
+        elif surface == "plan":
+            plan_request(state)
         if case["expected"] not in scopes[surface]:
             raise ValueError(f"{case['id']} expects a choice unavailable on {surface}")
         groups[surface].append(case)
@@ -73,6 +75,7 @@ def play_request(state, menu):
     request = prepare_play_opening(NativePlayOpeningInputV1(
         question=state["user_utterance"],
         current_scene_title=state.get("current_scene_title"),
+        dialogue=tuple(state.get("prior_dialogue", ())),
     ))
     if state != request.state:
         raise ValueError("Play fixture state differs from Buddy's opening request")
@@ -85,6 +88,7 @@ def plan_request(state):
     return NativePlanIntentInputV1(
         question=state["user_utterance"], page_title=state.get("page_title"),
         selected_text=state.get("selected_text"),
+        dialogue=tuple(state.get("prior_dialogue", ())),
     ).prepare()
 
 

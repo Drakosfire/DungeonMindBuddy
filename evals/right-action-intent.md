@@ -297,3 +297,13 @@ scored 86/89. Both captures match the SHA-256 of their corresponding case
 file. The checked v2 disposition accounts for all 89 IDs, with 32 reused
 and 57 parked. The result counts describe different cohorts and should
 not be used as a before-and-after accuracy comparison.
+
+### Dialogue follow-ups
+
+The [paired dialogue fixtures](right_action_intent/surface-dialogue-intent-jev.json)
+use the native intent request builders. Each arm receives the same visible
+conversation. One Plan turn confirms a specific replacement on the pinned
+selection, and one Play turn asks about a hypothetical outcome in the
+current scene. Both arms chose correctly on both cases. Reproduce with
+`--tier dialogue_followup` and the appropriate surface, adding
+`--plan-intent-only` for Plan.

@@ -668,6 +668,50 @@
       },
       "expected": "clarify_request",
       "reason": "The active scene is visible but there is no identifiable other target."
+    },
+    {
+      "id": "plan-follow-up-selected-edit",
+      "tier": "dialogue_followup",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Yes, use that wording.",
+        "page_title": "Ferry Crossing",
+        "selected_text": "The guard sees them.",
+        "page_markdown": "# Ferry Crossing\n\nThe guard sees them.",
+        "prior_dialogue": [
+          {
+            "role": "user",
+            "content": "Please replace the highlighted sentence in the Plan with a warning about the river."
+          },
+          {
+            "role": "assistant",
+            "content": "Shall I replace it with ‘The guard warns that the river is rising’?"
+          }
+        ]
+      },
+      "expected": "write_current_page",
+      "reason": "The reply confirms an exact proposed replacement on the open Plan."
+    },
+    {
+      "id": "play-follow-up-discussion",
+      "tier": "dialogue_followup",
+      "input": {
+        "surface": "play",
+        "user_utterance": "What if he refuses?",
+        "current_scene_title": "Ferry Crossing",
+        "prior_dialogue": [
+          {
+            "role": "user",
+            "content": "Let's discuss how to handle the party negotiating with the ferryman. We are only brainstorming."
+          },
+          {
+            "role": "assistant",
+            "content": "They could offer to tell him a story in exchange for passage."
+          }
+        ]
+      },
+      "expected": "discuss",
+      "reason": "The previous turns establish a hypothetical negotiation to discuss."
     }
   ]
 }
