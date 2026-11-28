@@ -250,6 +250,34 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
     )
 
 
+def build_source_followup_wire(state, requested_work, *, menu_digest):
+    """Offer source scope for an already selected action, without offering reads."""
+    from .jev_retrieval_contract import MODEL
+
+    if requested_work not in _menu_work(menu_digest):
+        raise ValueError("Build source scope requires an offered action")
+    if requested_work in {"clarify_request", "clarify_creation"}:
+        raise ValueError("Build clarification requires no source-scope decision")
+    if set(state) != {"user_question", "interaction"}:
+        raise ValueError("Build source scope requires the opening semantic state")
+    return {
+        "model": MODEL,
+        "state": deepcopy(state) | {"selected_work": requested_work},
+        "questions": {"source_need": source_need_question()},
+    }
+
+
+def verify_build_source_followup(state, requested_work, *, menu_digest, wire, response):
+    from generationengine.types import DecisionResult
+    from .jev_retrieval_contract import validated_choice_answers
+
+    expected = build_source_followup_wire(state, requested_work, menu_digest=menu_digest)
+    if wire != expected or tuple(wire["questions"]["source_need"]["criteria"]) != SOURCE_NEED_OPTIONS:
+        raise ValueError("Build source-scope request differs from the verified intent context")
+    validated_choice_answers(DecisionResult.model_validate(response), {"source_need"})
+    return source_need(wire, response, clarify_uncertain_tie=requested_work == "discuss")
+
+
 def selected(response, *, menu=None, tie_fallback=None):
     options = WORK if menu is None else _menu_work(menu)
     return _selected_choice(response["answers"]["requested_work"], options, tie_fallback=tie_fallback)
