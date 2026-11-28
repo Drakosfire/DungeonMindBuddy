@@ -708,3 +708,54 @@ def test_claim_versus_draft_update_thread_nested_lock_order(tmp_path) -> None:
 
     assert results.get("updated_version") == 2
     assert results.get("claim_outcome") in {"claimed", "version_mismatch"}
+
+def test_purged_statblock_local_cleanup_resumes_after_index_commit(tmp_path, monkeypatch):
+    from apps.live_control_server.models.statblock_mechanics_acceptance import AcceptedMechanicsRefV1
+    from apps.live_control_server.services import statblock_acceptance_reconciliation as journal
+    from apps.live_control_server.services import threat_draft_store as drafts
+
+    target = _create_draft(tmp_path)
+    other = _create_draft(tmp_path)
+    locator = _locator()
+    target = drafts.attach_accepted_mechanics_ref(
+        tmp_path, draft_id=target.draft_id, expected_version=target.version,
+        locator=AcceptedMechanicsRefV1.from_locator(
+            locator, accepted_from_draft_version=target.version,
+            accepted_at=_now(), accepted_from_candidate_id=None,
+        ),
+    )
+    active = AcceptanceOperationV1(**_operation_kwargs(draft_id=target.draft_id))
+    journal._write_operation_unlocked(tmp_path, active)
+    args = dict(world_id="world_1", draft_id=target.draft_id,
+                expected_version=target.version, statblock_id=locator.statblock_id)
+    with pytest.raises(AcceptanceReconciliationError, match="Unresolved"):
+        journal.remove_purged_acceptance(tmp_path, **args)
+    assert drafts.get_threat_draft(tmp_path, target.draft_id) == target
+
+    record_terminal_failure(
+        tmp_path, draft_id=target.draft_id, operation_id=active.operation_id,
+        create_request_digest=active.create_request_digest, terminal_code="invalid_request",
+        failure_category="downstream_invalid_request", http_status=422,
+    )
+    other_operation = AcceptanceOperationV1(**_operation_kwargs(draft_id=other.draft_id))
+    journal._write_operation_unlocked(tmp_path, other_operation)
+
+    def fail_unlink(*args):
+        raise drafts.ThreatDraftStoreError("simulated unlink failure", status_code=500)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(drafts, "_remove_draft_file", fail_unlink)
+        with pytest.raises(drafts.ThreatDraftStoreError, match="simulated unlink failure"):
+            journal.remove_purged_acceptance(tmp_path, **args)
+    with pytest.raises(drafts.ThreatDraftStoreError, match="not found"):
+        drafts.get_threat_draft(tmp_path, target.draft_id)
+    assert drafts._draft_path(tmp_path, target.draft_id).exists()
+
+    journal.remove_purged_acceptance(tmp_path, **args)
+    journal.remove_purged_acceptance(tmp_path, **args)
+    assert not drafts._draft_path(tmp_path, target.draft_id).exists()
+    assert journal.list_acceptance_operations_for_draft(tmp_path, draft_id=target.draft_id) == []
+    assert drafts.get_threat_draft(tmp_path, other.draft_id) == other
+    assert journal.get_acceptance_operation(
+        tmp_path, draft_id=other.draft_id, operation_id=other_operation.operation_id,
+    ) == other_operation

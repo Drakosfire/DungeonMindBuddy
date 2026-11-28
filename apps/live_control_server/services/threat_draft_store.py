@@ -383,6 +383,32 @@ def verify_statblock_purge_owner(
                 )
 
 
+def remove_purged_threat_draft(
+    root: Path, *, world_id: str, draft_id: str, expected_version: int, statblock_id: str,
+) -> None:
+    """Erase the exact draft after confirmed canonical purge, including interrupted retries."""
+    with _store_lock(root):
+        key = _validated_draft_id(draft_id)
+        index = _load_index(root)
+        if _draft_path(root, key).exists():
+            draft = _load_draft_unlocked(root, key)
+            ref = draft.accepted_mechanics_ref
+            if draft.world_id != world_id or ref is None or ref.statblock_id != statblock_id:
+                raise ThreatDraftStoreError("Saved statblock unavailable", status_code=404)
+            if draft.version != expected_version:
+                raise ThreatDraftStoreError("Saved statblock changed", status_code=409)
+        elif key in index.draft_ids:
+            raise ThreatDraftStoreError("Indexed statblock draft is missing", status_code=500)
+
+        # Index membership controls visibility. An interrupted unlink can retry
+        # with the same verified receipt even after index membership is gone.
+        if key in index.draft_ids or key in index.archived_draft_ids:
+            index.draft_ids = [item for item in index.draft_ids if item != key]
+            index.archived_draft_ids = [item for item in index.archived_draft_ids if item != key]
+            _save_index(root, index)
+        _remove_draft_file(root, key)
+
+
 def archive_saved_threat_draft(
     root: Path, *, world_id: str, draft_id: str, expected_version: int, authorize_world=None
 ) -> None:
