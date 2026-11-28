@@ -55,6 +55,12 @@ COPY src/ ./src/
 RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev --no-editable
 
 FROM python-base AS api
+# Hosted PDF-region extraction uses both render and embedded-text tools.
+RUN apt-get -o Acquire::Check-Valid-Until=false update \
+    && apt-get install --yes --no-install-recommends poppler-utils \
+    && rm -rf /var/lib/apt/lists/* \
+    && pdftoppm -v \
+    && pdftotext -v
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
