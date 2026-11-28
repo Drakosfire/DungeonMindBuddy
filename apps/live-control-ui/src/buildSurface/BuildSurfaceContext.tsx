@@ -58,7 +58,7 @@ export type BuildSurfaceContextProps = Pick<
   | "destinationOptions"
   | "suggestedDestinationValue"
   | "suggestedCreateCampaignId"
-> & { primaryActionsHost?: HTMLDivElement | null; extractionTargetRef?: Ref<HTMLDivElement> };
+> & { primaryActionsHost?: HTMLDivElement | null; extractionTargetRef?: Ref<HTMLDivElement>; documentHeaderHost?: HTMLDivElement | null };
 
 export function BuildSurfaceContext({
   activeRecord,
@@ -85,6 +85,7 @@ export function BuildSurfaceContext({
   suggestedCreateCampaignId,
   primaryActionsHost,
   extractionTargetRef,
+  documentHeaderHost,
 }: BuildSurfaceContextProps) {
   const session = useOptionalMarkdownCanvasSession();
   const [relationshipsHost,setRelationshipsHost]=useState<HTMLDivElement|null>(null);
@@ -150,8 +151,29 @@ export function BuildSurfaceContext({
   const renameAdmitted = Boolean(session?.lookupAdmission("editable").ok);
 
   const content = useMemo(
-    () => (
+    () => {
+      const rename = session && !guest ? (
+        <BuildDocumentRenameControl
+          currentTitle={displayTitle ?? ""}
+          renaming={metadataBusy}
+          disabled={!renameAdmitted || (documentMutationBusy && !metadataBusy)}
+          onRename={async (title) => {
+            const result = await session.updateDocumentMetadata({ title });
+            if (result.ok) refreshDocuments();
+            return result;
+          }}
+        />
+      ) : null;
+
+      return (
       <SurfaceContextModule label="" className="build-surface-context">
+        {documentHeaderHost && displayTitle && createPortal(
+          <header className="build-document-header" aria-label="Document title">
+            <h1>{displayTitle}</h1>
+            {rename}
+          </header>,
+          documentHeaderHost,
+        )}
         <div className="build-surface-context__row">
           {activeDocumentId && liveRecord ? (
             <>
@@ -230,20 +252,7 @@ export function BuildSurfaceContext({
               {documentClass ? <SurfaceContextBadge>{documentClass}</SurfaceContextBadge> : null}
               {!needsRecovery && session && (session.dirty || session.draftRecoveryAvailable || session.conflictRecovery?.protectedCopies) ?
                 <details className="build-source-recovery"><summary>Draft and recovery copies</summary><BuildDraftRecovery session={session} /></details> : null}
-              {session && !guest ? (
-                <BuildDocumentRenameControl
-                  currentTitle={displayTitle ?? ""}
-                  renaming={metadataBusy}
-                  disabled={!renameAdmitted || (documentMutationBusy && !metadataBusy)}
-                  onRename={async (title) => {
-                    const result = await session.updateDocumentMetadata({ title });
-                    if (result.ok) {
-                      refreshDocuments();
-                    }
-                    return result;
-                  }}
-                />
-              ) : null}
+              {!documentHeaderHost && rename}
             </div>
           </details>}
           {activeDocumentId ? <>
@@ -287,7 +296,8 @@ export function BuildSurfaceContext({
           <SurfaceContextStatus tone="error">{switchError}</SurfaceContextStatus>
         ) : null}
       </SurfaceContextModule>
-    ),
+      );
+    },
     [
       openReferenceTool,
       linkAvailable,
@@ -303,6 +313,7 @@ export function BuildSurfaceContext({
       creating,
       destinationOptions,
       displayTitle,
+      documentHeaderHost,
       primaryActionsHost,
       extractionTargetRef,
       documentClass,
