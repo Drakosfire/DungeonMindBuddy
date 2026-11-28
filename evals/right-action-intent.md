@@ -272,3 +272,11 @@ was 295.23 ms scoped and 303.19 ms combined.
 The shared builder already serves Play. The Plan trial evaluates the request
 before product integration. The contextual Plan wire control above shows
 the ordinary Plan sequence that still needs to change.
+
+The [typed Plan projection comparison](right_action_intent/plan-minimal-intent-paired-jev.json)
+freezes the exact model-visible state per case. The page title and selected
+sentence remain visible. The complete fixture page stays local to validate
+the selection. No placement or retrieval questions are sent. This reproduced
+7/7 scoped and 6/7 combined on the same seven cases. Median time was 188.45 ms
+scoped and 294.12 ms combined. This is a prototype decision comparison.
+Ordinary Plan still uses the earlier dispatch sequence.

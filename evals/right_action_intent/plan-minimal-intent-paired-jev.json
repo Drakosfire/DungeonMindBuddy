@@ -1,0 +1,1042 @@
+{
+  "fixture_sha256": "ad7d0c155a3f7af273072a0ce27882c9e4b7cf8e8f91c1250372ede88c1bec12",
+  "model": "jev-1.14.0",
+  "prompt": "Identify the user's intent for this turn. Use the supplied dialogue where needed. If the available evidence leaves the intent unclear, choose needs_context_to_choose. Return one action family. Target binding, available tools, and execution are downstream.",
+  "menus": {
+    "plan": {
+      "scoped": {
+        "discuss": "Answer, explain, critique or discuss in conversation without a requested page edit.",
+        "clarify": "The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.",
+        "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+        "different_destination": "Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+        "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred."
+      },
+      "full": {
+        "discuss": "Answer, explain, critique or discuss in conversation without a requested page edit.",
+        "clarify": "The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.",
+        "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+        "different_destination": "Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+        "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion.",
+        "read_source": "Consult Rules or saved sources for facts the user needs.",
+        "play_edit": "Prepare a reviewable change to the current session scene."
+      }
+    }
+  },
+  "cases": {
+    "plan": [
+      {
+        "id": "plan-edit",
+        "tier": "plan",
+        "expected": "write_current_page",
+        "input": {
+          "surface": "plan",
+          "user_utterance": "Propose replacing the highlighted paragraph in this Plan with a quieter scene opening.",
+          "page_title": "Arrive in Hempholm",
+          "selected_text": "The villagers rush out to greet the party.",
+          "page_markdown": "# Arrive in Hempholm\n\nThe villagers rush out to greet the party.\n"
+        },
+        "reason": "The selected paragraph is in the active Plan."
+      },
+      {
+        "id": "plan-clarify",
+        "tier": "plan",
+        "expected": "clarify",
+        "input": {
+          "surface": "plan",
+          "user_utterance": "Ask me which of the two possible endings I want before preparing the scene."
+        },
+        "reason": "The requested next action is to ask which ending to use."
+      },
+      {
+        "id": "plan-discuss",
+        "tier": "plan",
+        "expected": "discuss",
+        "input": {
+          "surface": "plan",
+          "user_utterance": "Talk me through what might happen if the party ignores the tree. Keep it in chat."
+        },
+        "reason": "The user wants to discuss an outcome in conversation."
+      },
+      {
+        "id": "plan-other-destination",
+        "tier": "plan",
+        "expected": "different_destination",
+        "input": {
+          "surface": "plan",
+          "user_utterance": "Please update the existing Corrupted Edge worldbuilding page, rather than editing this Plan.",
+          "page_title": "Arrive in Hempholm"
+        },
+        "reason": "The requested Worldbuilding page is outside the current Plan."
+      },
+      {
+        "id": "plan-connected-page",
+        "tier": "plan",
+        "expected": "review_connected_page",
+        "input": {
+          "surface": "plan",
+          "user_utterance": "Prepare a new location page for the cellar linked from the saved Jove home page. Let me review it first."
+        },
+        "reason": "The user wants to review a new location tied to a saved origin."
+      },
+      {
+        "id": "plan-ferryman-discuss",
+        "tier": "surface_contrast",
+        "input": {
+          "user_utterance": "Discussion only. A village ferryman refuses coins and accepts stories instead. Brainstorm why he does this and what might change his mind.",
+          "surface": "plan"
+        },
+        "expected": "discuss",
+        "reason": "The user requests discussion and no artifact."
+      },
+      {
+        "id": "plan-festival-clarify",
+        "tier": "surface_contrast",
+        "input": {
+          "user_utterance": "Draft a short welcome for a midsummer festival at Rowan’s Forge. The audience is the local apprentices, the length is two sentences, and the goal is to thank them. Our one undecided preference is whether it should be solemn or playful. Ask me about that before drafting.",
+          "surface": "plan"
+        },
+        "expected": "clarify",
+        "reason": "The user requests a clarifying question before proceeding."
+      }
+    ]
+  },
+  "plan_prompt": "Identify the user’s intent now. Use dialogue to resolve omitted references. Choose one action family. Target binding and execution are downstream.",
+  "plan_question": "requested_work",
+  "plan_wire_state_by_case": {
+    "plan-edit": {
+      "surface": "plan",
+      "user_utterance": "Propose replacing the highlighted paragraph in this Plan with a quieter scene opening.",
+      "page_title": "Arrive in Hempholm",
+      "selected_text": "The villagers rush out to greet the party."
+    },
+    "plan-clarify": {
+      "surface": "plan",
+      "user_utterance": "Ask me which of the two possible endings I want before preparing the scene."
+    },
+    "plan-discuss": {
+      "surface": "plan",
+      "user_utterance": "Talk me through what might happen if the party ignores the tree. Keep it in chat."
+    },
+    "plan-other-destination": {
+      "surface": "plan",
+      "user_utterance": "Please update the existing Corrupted Edge worldbuilding page, rather than editing this Plan.",
+      "page_title": "Arrive in Hempholm"
+    },
+    "plan-connected-page": {
+      "surface": "plan",
+      "user_utterance": "Prepare a new location page for the cellar linked from the saved Jove home page. Let me review it first."
+    },
+    "plan-ferryman-discuss": {
+      "surface": "plan",
+      "user_utterance": "Discussion only. A village ferryman refuses coins and accepts stories instead. Brainstorm why he does this and what might change his mind."
+    },
+    "plan-festival-clarify": {
+      "surface": "plan",
+      "user_utterance": "Draft a short welcome for a midsummer festival at Rowan’s Forge. The audience is the local apprentices, the length is two sentences, and the goal is to thank them. Our one undecided preference is whether it should be solemn or playful. Ask me about that before drafting."
+    }
+  },
+  "results": {
+    "plan": {
+      "full": {
+        "summary": {
+          "cases": 7,
+          "dispositions": {
+            "wrong_action": 1,
+            "correct": 6
+          },
+          "median_decision_ms": 294.12
+        },
+        "rows": [
+          {
+            "id": "plan-edit",
+            "tier": "plan",
+            "expected": "write_current_page",
+            "choice": "play_edit",
+            "status": "wrong_action",
+            "elapsed_ms": 376.98,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "play_edit",
+                  "probabilities": {
+                    "discuss": 0.01,
+                    "clarify": 0.0,
+                    "write_current_page": 0.35,
+                    "different_destination": 0.0,
+                    "review_connected_page": 0.0,
+                    "plan": 0.0,
+                    "prepare_image": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.1,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0,
+                    "read_source": 0.0,
+                    "play_edit": 0.54
+                  },
+                  "confidence": 0.51
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 820,
+                "cached_input_tokens": null,
+                "output_tokens": 163,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 376,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-clarify",
+            "tier": "plan",
+            "expected": "clarify",
+            "choice": "clarify",
+            "status": "correct",
+            "elapsed_ms": 294.12,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "clarify",
+                  "probabilities": {
+                    "discuss": 0.18,
+                    "clarify": 0.42,
+                    "write_current_page": 0.01,
+                    "different_destination": 0.0,
+                    "review_connected_page": 0.0,
+                    "plan": 0.34,
+                    "prepare_image": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.03,
+                    "draft_in_conversation": 0.01,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0,
+                    "read_source": 0.0,
+                    "play_edit": 0.01
+                  },
+                  "confidence": 0.38
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 789,
+                "cached_input_tokens": null,
+                "output_tokens": 163,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 293,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-discuss",
+            "tier": "plan",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 298.67,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "discuss",
+                  "probabilities": {
+                    "discuss": 0.9,
+                    "clarify": 0.01,
+                    "write_current_page": 0.01,
+                    "different_destination": 0.0,
+                    "review_connected_page": 0.0,
+                    "plan": 0.01,
+                    "prepare_image": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.07,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0,
+                    "read_source": 0.0,
+                    "play_edit": 0.0
+                  },
+                  "confidence": 0.89
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 792,
+                "cached_input_tokens": null,
+                "output_tokens": 163,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 298,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-other-destination",
+            "tier": "plan",
+            "expected": "different_destination",
+            "choice": "different_destination",
+            "status": "correct",
+            "elapsed_ms": 309.78,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "different_destination",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify": 0.0,
+                    "write_current_page": 0.0,
+                    "different_destination": 1.0,
+                    "review_connected_page": 0.0,
+                    "plan": 0.0,
+                    "prepare_image": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.0,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0,
+                    "read_source": 0.0,
+                    "play_edit": 0.0
+                  },
+                  "confidence": 1.0
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 808,
+                "cached_input_tokens": null,
+                "output_tokens": 163,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 309,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-connected-page",
+            "tier": "plan",
+            "expected": "review_connected_page",
+            "choice": "review_connected_page",
+            "status": "correct",
+            "elapsed_ms": 262.26,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "review_connected_page",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify": 0.01,
+                    "write_current_page": 0.02,
+                    "different_destination": 0.01,
+                    "review_connected_page": 0.78,
+                    "plan": 0.03,
+                    "prepare_image": 0.0,
+                    "review_relationship": 0.08,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.04,
+                    "draft_in_conversation": 0.02,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.01,
+                    "review_lore_page_from_conversation": 0.0,
+                    "read_source": 0.0,
+                    "play_edit": 0.0
+                  },
+                  "confidence": 0.77
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 797,
+                "cached_input_tokens": null,
+                "output_tokens": 164,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 262,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-ferryman-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 285.28,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "discuss",
+                  "probabilities": {
+                    "discuss": 0.95,
+                    "clarify": 0.0,
+                    "write_current_page": 0.02,
+                    "different_destination": 0.0,
+                    "review_connected_page": 0.0,
+                    "plan": 0.01,
+                    "prepare_image": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.0,
+                    "draft_in_conversation": 0.02,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0,
+                    "read_source": 0.0,
+                    "play_edit": 0.0
+                  },
+                  "confidence": 0.95
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 803,
+                "cached_input_tokens": null,
+                "output_tokens": 163,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 285,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-festival-clarify",
+            "tier": "surface_contrast",
+            "expected": "clarify",
+            "choice": "clarify",
+            "status": "correct",
+            "elapsed_ms": 278.47,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "clarify",
+                  "probabilities": {
+                    "discuss": 0.03,
+                    "clarify": 0.88,
+                    "write_current_page": 0.02,
+                    "different_destination": 0.0,
+                    "review_connected_page": 0.0,
+                    "plan": 0.02,
+                    "prepare_image": 0.0,
+                    "review_relationship": 0.0,
+                    "other_creation": 0.0,
+                    "clarify_creation": 0.03,
+                    "draft_in_conversation": 0.02,
+                    "review_variant_approval": 0.0,
+                    "review_lore_page": 0.0,
+                    "review_lore_page_from_conversation": 0.0,
+                    "read_source": 0.0,
+                    "play_edit": 0.0
+                  },
+                  "confidence": 0.87
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 832,
+                "cached_input_tokens": null,
+                "output_tokens": 163,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 278,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          }
+        ],
+        "reused": [],
+        "decision_summary": {
+          "cases": 7,
+          "dispositions": {
+            "wrong_action": 1,
+            "valid_deferral": 2,
+            "correct": 4
+          },
+          "top_score_ties": 0,
+          "median_decision_ms": 294.12
+        },
+        "by_action": {
+          "write_current_page": {
+            "cases": 1,
+            "dispositions": {
+              "wrong_action": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 376.98
+          },
+          "clarify": {
+            "cases": 2,
+            "dispositions": {
+              "valid_deferral": 2
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 286.3
+          },
+          "discuss": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 291.98
+          },
+          "different_destination": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 309.78
+          },
+          "review_connected_page": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 262.26
+          }
+        }
+      },
+      "scoped": {
+        "summary": {
+          "cases": 7,
+          "dispositions": {
+            "correct": 7
+          },
+          "median_decision_ms": 188.45
+        },
+        "rows": [
+          {
+            "id": "plan-edit",
+            "tier": "plan",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 202.14,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "write_current_page",
+                  "probabilities": {
+                    "discuss": 0.01,
+                    "clarify": 0.01,
+                    "write_current_page": 0.98,
+                    "different_destination": 0.0,
+                    "review_connected_page": 0.0
+                  },
+                  "confidence": 0.98
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 518,
+                "cached_input_tokens": null,
+                "output_tokens": 62,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 202,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-clarify",
+            "tier": "plan",
+            "expected": "clarify",
+            "choice": "clarify",
+            "status": "correct",
+            "elapsed_ms": 186.18,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "clarify",
+                  "probabilities": {
+                    "discuss": 0.23,
+                    "clarify": 0.63,
+                    "write_current_page": 0.13,
+                    "different_destination": 0.01,
+                    "review_connected_page": 0.0
+                  },
+                  "confidence": 0.54
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 487,
+                "cached_input_tokens": null,
+                "output_tokens": 61,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 186,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-discuss",
+            "tier": "plan",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 277.91,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "discuss",
+                  "probabilities": {
+                    "discuss": 0.97,
+                    "clarify": 0.01,
+                    "write_current_page": 0.02,
+                    "different_destination": 0.0,
+                    "review_connected_page": 0.0
+                  },
+                  "confidence": 0.96
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 490,
+                "cached_input_tokens": null,
+                "output_tokens": 61,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 277,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-other-destination",
+            "tier": "plan",
+            "expected": "different_destination",
+            "choice": "different_destination",
+            "status": "correct",
+            "elapsed_ms": 180.6,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "different_destination",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify": 0.0,
+                    "write_current_page": 0.0,
+                    "different_destination": 1.0,
+                    "review_connected_page": 0.0
+                  },
+                  "confidence": 1.0
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 506,
+                "cached_input_tokens": null,
+                "output_tokens": 61,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 180,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-connected-page",
+            "tier": "plan",
+            "expected": "review_connected_page",
+            "choice": "review_connected_page",
+            "status": "correct",
+            "elapsed_ms": 188.45,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "review_connected_page",
+                  "probabilities": {
+                    "discuss": 0.0,
+                    "clarify": 0.02,
+                    "write_current_page": 0.12,
+                    "different_destination": 0.05,
+                    "review_connected_page": 0.81
+                  },
+                  "confidence": 0.76
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 495,
+                "cached_input_tokens": null,
+                "output_tokens": 62,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 188,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-ferryman-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 208.54,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "discuss",
+                  "probabilities": {
+                    "discuss": 0.95,
+                    "clarify": 0.0,
+                    "write_current_page": 0.05,
+                    "different_destination": 0.0,
+                    "review_connected_page": 0.0
+                  },
+                  "confidence": 0.94
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 501,
+                "cached_input_tokens": null,
+                "output_tokens": 61,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 208,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          },
+          {
+            "id": "plan-festival-clarify",
+            "tier": "surface_contrast",
+            "expected": "clarify",
+            "choice": "clarify",
+            "status": "correct",
+            "elapsed_ms": 180.54,
+            "response": {
+              "answers": {
+                "requested_work": {
+                  "kind": "choice",
+                  "selected": "clarify",
+                  "probabilities": {
+                    "discuss": 0.03,
+                    "clarify": 0.95,
+                    "write_current_page": 0.02,
+                    "different_destination": 0.0,
+                    "review_connected_page": 0.0
+                  },
+                  "confidence": 0.94
+                }
+              },
+              "observation": {
+                "provider": "typesafe",
+                "requested_profile": null,
+                "requested_model": "jev-1.14.0",
+                "resolved_model": "jev-1.14.0",
+                "response_model": "jev-1.14.0",
+                "provider_transport": "vercel_ai_gateway",
+                "provider_request_id": null,
+                "provider_response_id": null,
+                "input_tokens": 530,
+                "cached_input_tokens": null,
+                "output_tokens": 61,
+                "reasoning_tokens": null,
+                "cost_usd": null,
+                "known_cost_usd": null,
+                "cost_status": "unavailable",
+                "latency_ms": 180,
+                "retry_count": 0,
+                "transport_retry_count": 0,
+                "conformance_retry_count": 0,
+                "provider_attempt_count": 1,
+                "state": "completed",
+                "failure_code": null,
+                "pricing_source": null
+              }
+            }
+          }
+        ],
+        "reused": [],
+        "decision_summary": {
+          "cases": 7,
+          "dispositions": {
+            "correct": 5,
+            "valid_deferral": 2
+          },
+          "top_score_ties": 0,
+          "median_decision_ms": 188.45
+        },
+        "by_action": {
+          "write_current_page": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 202.14
+          },
+          "clarify": {
+            "cases": 2,
+            "dispositions": {
+              "valid_deferral": 2
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 183.36
+          },
+          "discuss": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 243.23
+          },
+          "different_destination": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 180.6
+          },
+          "review_connected_page": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "top_score_ties": 0,
+            "median_decision_ms": 188.45
+          }
+        }
+      }
+    }
+  }
+}

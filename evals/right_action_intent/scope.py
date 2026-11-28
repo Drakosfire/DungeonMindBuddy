@@ -79,6 +79,15 @@ def play_request(state, menu):
     return with_menu(request, menu)
 
 
+def plan_request(state):
+    from application_state.agent_conversation.native_plan_opening import NativePlanIntentInputV1
+
+    return NativePlanIntentInputV1(
+        question=state["user_utterance"], page_title=state.get("page_title"),
+        selected_text=state.get("selected_text"),
+    ).prepare()
+
+
 def with_menu(request, menu):
     question = request.questions[0]
     if dict(question.option_descriptions) == menu and question.options == tuple(menu):
@@ -187,17 +196,17 @@ async def main():
         frozen["play_prompt"] = play.questions[0].question
         frozen["play_question"] = play.questions[0].name
     if args.plan_intent_only:
-        from application_state.agent_conversation.surface_action_catalog import prepare_opening_intent
-
-        plan = prepare_opening_intent("plan", groups["plan"][0]["input"])
+        plan = plan_request(groups["plan"][0]["input"])
         frozen["plan_prompt"] = plan.questions[0].question
         frozen["plan_question"] = plan.questions[0].name
+        frozen["plan_wire_state_by_case"] = {row["id"]: plan_request(row["input"]).state
+                                            for row in groups["plan"]}
     (args.output / "frozen-inputs.json").write_text(json.dumps(frozen, indent=2) + "\n")
     retained = {}
     if args.reuse:
         prior = json.loads((args.reuse / "frozen-inputs.json").read_bytes())
         prior_report = json.loads((args.reuse / "results.json").read_bytes())
-        if (any(prior.get(key) != frozen.get(key) for key in ("model", "prompt", "menus", "play_prompt", "play_question", "plan_prompt", "plan_question"))
+        if (any(prior.get(key) != frozen.get(key) for key in ("model", "prompt", "menus", "play_prompt", "play_question", "plan_prompt", "plan_question", "plan_wire_state_by_case"))
             or any(tuple(menu) != tuple(menus[surface][arm])
                    for surface, arms in prior["menus"].items() for arm, menu in arms.items())
         ):
@@ -216,7 +225,7 @@ async def main():
         payload = {"model": model, "state": body["state"], "questions": {"intent": {
             "question": body["instructions"], "options": list(menu), "option_descriptions": menu}}}
         if args.plan_intent_only:
-            request = with_menu(prepare_opening_intent("plan", body["state"]), menu)
+            request = with_menu(plan_request(body["state"]), menu)
         else:
             request = (play_request(body["state"], menu) if body["state"]["surface"] == "play"
                        else DecisionRequest.model_validate(sdk_request(payload)))
