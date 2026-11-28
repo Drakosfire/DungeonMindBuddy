@@ -72,6 +72,30 @@ _SELECTION_REFERENCE_GUIDANCE = (
 )
 
 
+class NativePlanIntentInputV1(Strict):
+    """Visible context for the intent question before placement or source work."""
+
+    question: str = Field(min_length=1)
+    page_title: str | None = None
+    selected_text: str | None = None
+    dialogue: tuple[RetrievalDialogue, ...] = ()
+    requested_operation: Literal["discuss", "write_current_page"] | None = None
+
+    def prepare(self):
+        from .surface_action_catalog import prepare_opening_intent
+
+        state = {"surface": "plan", "user_utterance": self.question}
+        if self.page_title is not None:
+            state["page_title"] = self.page_title
+        if self.selected_text is not None:
+            state["selected_text"] = self.selected_text
+        if self.dialogue:
+            state["prior_dialogue"] = [row.model_dump() for row in self.dialogue]
+        if self.requested_operation is not None:
+            state["explicit_editor_operation"] = self.requested_operation
+        return prepare_opening_intent("plan", state, plan_operation=self.requested_operation)
+
+
 class NativePlanAuthorScopeInputV1(Strict):
     """Source-blind parent for one proposed interpretation of author text."""
 
