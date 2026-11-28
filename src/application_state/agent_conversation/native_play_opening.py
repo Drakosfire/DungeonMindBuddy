@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from typing import Literal
 
-from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
+from generationengine.types import ChoiceDecisionQuestion, DecisionRequest, DecisionResult
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 
 from .jev_retrieval_contract import MODEL, PROVIDER, RetrievalDialogue, validated_choice_answers
+from .play_graph_context import validate_work_intent
 from .surface_action_catalog import opening_action_menu, validate_opening_action_wire
+from .types import PlayGraphIntentV1, PlayRunTurnContextReceiptV2
 
 
 class NativePlayOpeningInputV1(BaseModel):
@@ -38,7 +40,7 @@ def prepare_play_opening(request: NativePlayOpeningInputV1) -> DecisionRequest:
     )
 
 
-def decode_play_opening(result) -> str:
+def decode_play_opening(result: DecisionResult) -> str:
     """Return an offered intent without granting any Run operation."""
     choice = validated_choice_answers(result, {"requested_work"})["requested_work"]
     if choice not in opening_action_menu("play"):
@@ -46,7 +48,17 @@ def decode_play_opening(result) -> str:
     return choice
 
 
-def validate_play_opening(request: NativePlayOpeningInputV1, raw: bytes, result) -> str:
-    """Admit only a result for the reconstructed Play intent envelope."""
+def validate_play_opening(
+    request: NativePlayOpeningInputV1,
+    raw: bytes,
+    result: DecisionResult,
+    *,
+    intent: PlayGraphIntentV1,
+    basis: PlayRunTurnContextReceiptV2,
+) -> str:
+    """Join the choice to the independently resolved Run basis and its wire."""
+    validate_work_intent(basis, intent)
+    if request.question != intent.message:
+        raise ValueError("Play opening differs from its submitted utterance")
     validate_opening_action_wire(prepare_play_opening(request), raw)
     return decode_play_opening(result)
