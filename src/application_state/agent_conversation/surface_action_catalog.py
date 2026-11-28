@@ -58,6 +58,24 @@ def opening_action_menu(surface, *, plan_operation=None):
     raise ValueError(f"No opening action catalog registered for {surface!r}")
 
 
+def prepare_opening_intent(surface, state, *, plan_operation=None):
+    """Build one source-blind action question from the owning surface catalog."""
+    from generationengine.types import ChoiceDecisionQuestion, DecisionRequest
+    from .jev_retrieval_contract import MODEL, PROVIDER
+
+    menu = opening_action_menu(surface, plan_operation=plan_operation)
+    if state.get("surface") != surface:
+        raise ValueError("Intent state requires its active surface")
+    return DecisionRequest(
+        provider=PROVIDER, model=MODEL, state=state,
+        questions=(ChoiceDecisionQuestion(
+            name="requested_work", options=tuple(menu), option_descriptions=menu,
+            question=("Identify the user’s intent now. Use dialogue to resolve omitted references. "
+                      "Choose one action family. Target binding and execution are downstream."),
+        ),), max_transport_retries=0,
+    )
+
+
 def validate_opening_action_wire(expected, raw: bytes) -> None:
     """Validate the provider envelope against the owning choice projection."""
     from .source_writer_output import strict_json
