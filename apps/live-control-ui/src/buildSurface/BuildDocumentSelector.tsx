@@ -7,7 +7,7 @@ import type { NativeSourceMetadata } from "../api/nativeSourceInspection";
 import { useEffect, useId, useMemo, useState, useRef } from "react";
 
 import { listRetainedPdfDocuments, retainedPdfBuildHref, type RetainedPdf } from "../api/retainedPdfRegions";
-import { archiveBuildStatblock, listPdfStatblockReviews, listWorldMechanicsAssociations, listWorldThreatDrafts, withdrawBuildSource, type PdfStatblockReviewSummary, type WorldThreatDraftSummary } from "../api/liveApi";
+import { deleteBuildStatblock, listPdfStatblockReviews, listWorldMechanicsAssociations, listWorldThreatDrafts, withdrawBuildSource, type PdfStatblockReviewSummary, type WorldThreatDraftSummary } from "../api/liveApi";
 import { buildSavedStatblockHref, readSavedStatblockTarget } from "../statblocks/savedStatblockLocation";
 import type { WorkspaceDocumentRecord } from "../api/types";
 import { formatReviewCampaignLabel } from "../graphLens/sessionCampaignContext";
@@ -122,11 +122,11 @@ export function BuildDocumentSelector({
   const [deleteTarget, setDeleteTarget] = useState<PickerEntry | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-  const [archivedDrafts, setArchivedDrafts] = useState<string[]>([]);
+  const [deletedStatblockDrafts, setDeletedStatblockDrafts] = useState<string[]>([]);
   const [withdrawn, setWithdrawn] = useState<string[]>([]);
   const [recent, setRecent] = useState<string[]>([]);
   const statblocks = (currentCatalog?.drafts ?? []).flatMap(draft => {
-    if (draft.world_id !== worldId || archivedDrafts.includes(draft.draft_id)) return [];
+    if (draft.world_id !== worldId || deletedStatblockDrafts.includes(draft.draft_id)) return [];
     return Array.from(currentCatalog?.published.get(draft.draft_id) ?? [], revisionId => ({
       href: buildSavedStatblockHref({ worldId: draft.world_id, draftId: draft.draft_id, revisionId }),
       title: draft.name,
@@ -352,8 +352,8 @@ export function BuildDocumentSelector({
       if (target.withdrawal) await withdrawBuildSource(worldId, target.withdrawal);
       else if (target.statblock) {
         const { draftId, version } = target.statblock;
-        await archiveBuildStatblock(worldId, draftId, version);
-        setArchivedDrafts(ids => [...ids, draftId]);
+        await deleteBuildStatblock(worldId, draftId, version);
+        setDeletedStatblockDrafts(ids => [...ids, draftId]);
       }
       else return;
       setWithdrawn(ids => [...ids, target.id]);
@@ -404,10 +404,13 @@ export function BuildDocumentSelector({
           <button type="button" aria-label="Close document picker" onClick={closePicker}>×</button>
         </header>}
         {confirmationTarget ? <section className="build-document-picker__confirmation" aria-label="Confirm document deletion">
-          <p>Delete “{confirmationTarget.label}” from this World? {confirmationTarget.statblock ? "Existing references to saved mechanics will keep working." : "Existing links to this source will stop opening it."}</p>
+          {confirmationTarget.statblock ? <>
+            <p>Permanently delete “{confirmationTarget.label}”?</p>
+            <p>All saved statblock revisions and artwork that belongs only to this statblock will be removed. The World creature, shared artwork, and saved encounters will remain. Links to the deleted revisions will stop opening them.</p>
+          </> : <p>Delete “{confirmationTarget.label}” from this World? Existing links to this source will stop opening it.</p>}
           {deleteError && <p role="alert">{deleteError}</p>}
           <button type="button" disabled={deleting} autoFocus={Boolean(directDeleteId)} onClick={cancelDelete}>Cancel</button>
-          <button type="button" disabled={deleting} onClick={() => void deleteSource()}>{deleting ? "Deleting…" : "Delete document"}</button>
+          <button type="button" disabled={deleting} onClick={() => void deleteSource()}>{deleting ? "Deleting…" : confirmationTarget.statblock ? "Permanently delete statblock" : "Delete document"}</button>
         </section> : directDeleteId ? <section className="build-document-picker__confirmation">
           <p role="status">{directDeleteReadFinished || directDeleteId !== directStatblockId
             ? "This statblock is unavailable to delete. Reopen it from the document picker and try again."
