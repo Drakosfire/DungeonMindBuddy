@@ -205,6 +205,41 @@ def retained_cohort(path):
             for surface, arms in results.items()}
 
 
+def verify_build_followup_capture(path):
+    from application_state.agent_conversation.build_intentional_response import (
+        SCOPED_BUILD_MENU_DIGEST, verify_build_source_followup,
+    )
+
+    capture = json.loads(path.read_bytes())
+    inputs = {}
+    for name, expected_hash in capture["pins"].items():
+        raw = (path.parent / name).read_bytes()
+        if sha256(raw).hexdigest() != expected_hash:
+            raise ValueError(f"Build source follow-up pin changed: {name}")
+        inputs[name] = json.loads(raw)
+    intent = inputs["build-intent-only-cohort-jev.json"]
+    actions = {row["id"]: row["choice"] for row in intent["results"]["build"]["scoped"]["rows"]}
+    gold = {row["id"]: row["expected"] for row in inputs["build-source-followup-cases.json"]["cases"]}
+    if len(capture["rows"]) != len(gold) or {row["id"] for row in capture["rows"]} != set(gold):
+        raise ValueError("Build source follow-up case coverage changed")
+    count = Counter()
+    for row in capture["rows"]:
+        case_id, action = row["id"], row["action"]
+        if actions[case_id] != action:
+            raise ValueError("Build source follow-up action differs from its retained first result")
+        if action in {"clarify_request", "clarify_creation"}:
+            if "request" in row or "response" in row:
+                raise ValueError("Build clarification dispatched a source-scope decision")
+            choice = "skip"
+        else:
+            choice = verify_build_source_followup(intent["wire_states"][case_id], action,
+                menu_digest=SCOPED_BUILD_MENU_DIGEST, wire=row["request"], response=row["response"])
+        if choice != row["choice"] or gold[case_id] != row["expected"]:
+            raise ValueError("Build source follow-up scoring differs from retained evidence")
+        count["correct" if choice == gold[case_id] else "incorrect"] += 1
+    return dict(count)
+
+
 async def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixtures", type=Path, default=Path(__file__).with_name("surface-probe.json"))
@@ -224,7 +259,12 @@ async def main():
                         help="Use the ordinary Build question instructions and source-need ballot")
     parser.add_argument("--build-intent-only", action="store_true",
                         help="Ablate the source-need question from the scoped ordinary Build request")
+    parser.add_argument("--verify-build-followup", type=Path,
+                        help="Validate the retained Build follow-up capture without calling a provider")
     args = parser.parse_args()
+    if args.verify_build_followup:
+        print(json.dumps(verify_build_followup_capture(args.verify_build_followup), indent=2))
+        return
     if args.build_intent_only and not args.build_wire_shape:
         parser.error("--build-intent-only requires --build-wire-shape")
     if args.build_wire_shape and args.surface != "build":
