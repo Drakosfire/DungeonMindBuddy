@@ -35,3 +35,37 @@ claim and storage atomicity, stale/expired claim and wrong-decision rejection,
 no acquisition or writer on uncertainty, replay, and existing Graph/no-Graph
 controls. Do not claim hosted acceptance from a unit test. Independent exact-head
 review and the reader-first deployment gate are separate.
+
+## Intent-first producer and ordinary comparison
+
+The user assigned this implementation to #4987. Compare against main
+`63404f5cf39d847a831241908aa055fc6f881a59`. Keep the serving-dependent producer
+history available while porting only the Plan ownership changes. A direct
+merge of the serving branch and main conflicts across unrelated product
+surfaces.
+
+The first admitted Jev request uses the shared Plan intent catalog with the
+current Plan title, visible selection, and relevant dialogue. Seal the request,
+claim, and editor basis before dispatch. Move source authority, query and
+saved-page discovery out of that admission. After the acknowledged intent,
+use the existing Graph-need decision where applicable. Bind later acquired
+authority and exact catalog entries durably before use. Reopen and validate
+retained receipts through their original wire and source owners.
+
+Ordinary controls on the pinned main runtime passed with simulated providers
+on a disposable evaluator:
+
+- Discussion versus Plan write authority
+  (`test_plain_plan_cannot_write_after_discussion_intent`).
+- Current Plan caret edit and exact saved proposal replay
+  (`test_ordinary_plan_caret_reopens_its_exact_captured_proposal`).
+- Selected saved Worldbuilding page and exact citation reopening
+  (`test_ordinary_plan_reads_saved_worldbuilding_and_reopens_exact_capture`).
+
+Reuse those controls on the candidate. Compare actual first request, source
+preparation order, chosen action, exact proposal/citation and replay behavior.
+Include a no-source discussion control that fails if any opening source
+preparation occurs and a source-required control that verifies preparation
+starts only after intent. Record latency at the same boundaries on both heads.
+The isolated main run used simulated providers and establishes routing
+controls, with no live-model quality or latency claim.
