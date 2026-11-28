@@ -181,6 +181,16 @@ def retained_cohort(path):
                 or any(list(menu.items()) != list(menus[surface][arm].items())
                        for arm, menu in recorded.items())):
             raise ValueError(f"Retained model or menu differs for {surface}")
+        if surface == "build" and "wire_questions" in capture:
+            for case in groups[surface]:
+                for arm, menu in menus[surface].items():
+                    wire = build_wire(case["input"], menu, manifest["model"])
+                    if (wire["state"] != capture["wire_states"][case["id"]]
+                            or wire["questions"] != capture["wire_questions"][arm]
+                            or tuple(wire["questions"]["requested_work"]["criteria"]) != tuple(
+                                capture["wire_questions"][arm]["requested_work"]["criteria"]
+                            )):
+                        raise ValueError(f"Build wire changed for {case['id']} {arm}")
         for arm, data in capture["results"][surface].items():
             rows = results[surface].setdefault(arm, [])
             rows.extend(data["rows"])

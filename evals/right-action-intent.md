@@ -351,3 +351,12 @@ for a Build page edit. Both arms missed connected-page creation and saved
 statblock review. The scoped arm unnecessarily clarified one request for a
 map description in chat. These are classifier results, with ordinary runtime
 placement and side effects covered separately.
+
+The [wire-shaped frozen roster](right_action_intent/surface-cohort-frozen-wire.json)
+uses these Build pairs and the same Plan and Play pairs as the original roster.
+Pass it to `--frozen-cohort` to check the exact reconstructed Build state,
+question wording, and option order against the retained record. It preserves
+the 49/60 combined and 55/60 scoped totals. On this roster, the combined arm
+has ten wrong actions and one invalid deferral. The scoped arm has four
+wrong actions and one invalid deferral. Both have eight valid deferrals and
+zero provider failures or top-score ties.
