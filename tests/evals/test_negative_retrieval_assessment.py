@@ -128,6 +128,8 @@ def test_fixture_splits_have_separate_rubrics_and_valid_source_labels():
     import json
     from pathlib import Path
 
+    from evals.negative_retrieval.fixture_sources import CURRENT_PAGE_LABEL
+
     root = Path(__file__).resolve().parents[2] / "evals/negative_retrieval/fixtures"
     identities = []
     for split in ("development", "heldout-draft"):
@@ -139,6 +141,9 @@ def test_fixture_splits_have_separate_rubrics_and_valid_source_labels():
             assert "rubric" not in case and "outcomes" not in case
             grade = rubrics["cases"][case["id"]]
             labels = {page["label"] for page in case["related_pages"]}
+            assert CURRENT_PAGE_LABEL not in labels
+            if case["page"].strip():
+                labels.add(CURRENT_PAGE_LABEL)
             assert set(grade["required_reads"]) <= set(grade["allowed_reads"]) <= labels
             assert grade["rubric"].strip()
             identities.append(case["id"])
