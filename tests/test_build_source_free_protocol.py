@@ -1496,12 +1496,14 @@ def test_pending_append_binding_returns_validated_execution_after_source_settlem
         AgentConversationService()._bind_execution_append(receipt, changed)
 
 
-def pending_runtime_freeze_case():
+def pending_runtime_freeze_case(*, include_surface=True):
     from types import SimpleNamespace
     from hashlib import sha256
     from application_state.agent_conversation.build_source_free import BuildSourceObservationV1, BuildConversationObservationV1
     from application_state.agent_conversation.native_context import BuildWorkContextV1
-    from application_state.agent_conversation.build_intentional_response import budget_fields, semantic_routing_state, semantic_request_id, decision_instructions, WORK
+    from application_state.agent_conversation.build_intentional_response import (
+        SCOPED_BUILD_MENU_DIGEST, budget_fields, opening_work_question, semantic_routing_state, semantic_request_id,
+    )
     from apps.live_control_server.services.build_jev_harness import BuildJevHarness
     from apps.live_control_server.services.build_jev_driver import DriverDecisionProjection
     from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
@@ -1526,8 +1528,8 @@ def pending_runtime_freeze_case():
         'current_page': {'document_id': source.document_id, 'title': source.title},
         'capability_sha256': None, 'conversation_id': str(conversation.conversation_id),
         'pointer_revision': conversation.pointer_revision, 'history': history, 'working_draft': None, 'page_target': None}
-    state = semantic_routing_state(request.message, host, None)
-    questions = {'requested_work': {'type': 'choice', 'instructions': decision_instructions(), 'criteria': dict.fromkeys(WORK)}}
+    state = semantic_routing_state(request.message, host, None, include_surface=include_surface, include_paragraph_catalog=False)
+    questions = {'requested_work': opening_work_question(SCOPED_BUILD_MENU_DIGEST)}
     body = {'model': 'jev-1.14.0', 'state': state, 'questions': questions}
     raw = json.dumps(body)
     projection = DriverDecisionProjection(state_json=json.dumps(state), questions_json=json.dumps(questions),
@@ -1587,7 +1589,7 @@ def test_real_build_runtime_freezer_keeps_historical_shared_path_separate():
     from tests.test_build_source_free_routing import settled_source
     from application_state.agent_conversation.native_context import SurfaceNativeContextReceiptV1, NativeBuildProviderInputV2
     from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
-    kwargs = pending_runtime_freeze_case()
+    kwargs = pending_runtime_freeze_case(include_surface=False)
     kwargs.pop('source_observation')
     kwargs.pop('conversation_observation')
     kwargs['authority'] = settled_source(managed_world_id=kwargs['submitted_intent'].world_id)
