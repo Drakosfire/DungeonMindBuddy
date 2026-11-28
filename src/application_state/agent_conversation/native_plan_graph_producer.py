@@ -132,7 +132,10 @@ def safe_reclaimable_graph_need_prefix(turn):
     from .native_plan_graph_need import (
         NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
         NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1,
+        validate_graph_need_intent_prefix,
     )
+    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+
     receipt, execution = turn.graph_context_receipt, turn.graph_context_execution
     if (turn.status != 'running' or type(receipt) is not SurfaceNativeContextReceiptV1
             or type(receipt.native_query) is not NativePlanGraphQueryPendingV1
@@ -142,6 +145,17 @@ def safe_reclaimable_graph_need_prefix(turn):
         NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
         NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)
     events = execution.events
+    try:
+        validate_context_binding(receipt, execution)
+        if events and type(events[0]) is NativePlanAuthorScopeAuthorizedV1 and events[0].intent_opening:
+            if len(events) < 4:
+                return False
+            validate_graph_need_intent_prefix(execution, events[:4])
+            events = events[4:]
+            if not events:
+                return True
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return False
     if any(type(event) not in allowed for event in events):
         return False
     auths = [event for event in events if isinstance(event, t.ProviderAttemptAuthorizedEventV1)]
@@ -155,9 +169,5 @@ def safe_reclaimable_graph_need_prefix(turn):
     # Only the fully acknowledged decision itself may precede a recovered
     # host clarification. Never repeat a started acquisition or later work.
     if observed[0].choice == 'uncertain' and events[-1] is not observed[0]:
-        return False
-    try:
-        validate_context_binding(receipt, execution)
-    except (ValueError, TypeError, KeyError, AttributeError):
         return False
     return True

@@ -1038,7 +1038,7 @@ def test_prepared_graph_authorization_checks_intent_predecessor(monkeypatch, cas
     from types import SimpleNamespace
     from uuid import uuid4
     from application_state.agent_conversation import native_execution, types as t
-    from application_state.agent_conversation.native_plan_graph_producer import validate_prepared_authorization
+    from application_state.agent_conversation.native_plan_graph_producer import safe_reclaimable_graph_need_prefix, validate_prepared_authorization
     from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
     from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
     from application_state.agent_conversation.native_writer import json_container_count
@@ -1074,6 +1074,8 @@ def test_prepared_graph_authorization_checks_intent_predecessor(monkeypatch, cas
         'sequence': len(events),
         'input_tokens': len(raw) + 64 * (1 + json_container_count(strict_json(raw.decode()))),
     })
+    turn = SimpleNamespace(status='running', graph_context_receipt=context, graph_context_execution=prefix)
+    assert safe_reclaimable_graph_need_prefix(turn) is (case == 'acknowledged')
     if case == 'acknowledged':
         assert validate_prepared_authorization(context, prefix, graph_auth, raw).events[-1] == graph_auth
     else:
