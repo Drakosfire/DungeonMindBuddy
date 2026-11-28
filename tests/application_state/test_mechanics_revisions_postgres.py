@@ -101,3 +101,41 @@ def test_resealed_acceptance_metadata_cannot_change_operation_authority(applicat
     changed=record.model_copy(update={'request_body':body,'request_digest':digest(body)})
     with pytest.raises(ValueError):service.claim(changed)
     assert service.read(world_id=record.world_id,draft_id=record.draft_id,operation_id=record.operation_id) is None
+
+
+def test_purge_receipt_serializes_with_revision_writes_and_erases_request_copy(application_state_dsn):
+    from application_state.mechanics_revisions import purge
+
+    record = intent()
+    result = record.origin.model_copy(update={
+        "revision_id": "rev_second", "definition_digest": record.definition_digest,
+    })
+    target = purge.PurgeTarget(
+        record.base.statblock_id, record.world_id, record.draft_id, 2, result.revision_id,
+    )
+    authorize = lambda: None
+    service.claim(record)
+    with pytest.raises(ApplicationStateConflictError, match="pending mechanics save"):
+        purge.claim(target, authorize=authorize)
+    unknown = service.settle(record, state="outcome_unknown")
+    service.settle(unknown, state="committed", result=result)
+
+    assert purge.claim(target, authorize=authorize) is False
+    assert purge.claim(target, authorize=authorize) is False
+    with pytest.raises(ApplicationStateConflictError, match="being deleted"):
+        service.claim(intent())
+    assert service.read(
+        world_id=record.world_id, draft_id=record.draft_id, operation_id=record.operation_id,
+    ) is not None
+
+    purge.settle_after_cleanup(target, authorize=authorize)
+    purge.settle_after_cleanup(target, authorize=authorize)
+    assert purge.claim(target, authorize=authorize) is True
+    assert service.read(
+        world_id=record.world_id, draft_id=record.draft_id, operation_id=record.operation_id,
+    ) is None
+    with pytest.raises(ApplicationStateConflictError, match="different saved statblock"):
+        purge.claim(
+            purge.PurgeTarget(target.statblock_id, "other", target.draft_id, 2, result.revision_id),
+            authorize=authorize,
+        )
