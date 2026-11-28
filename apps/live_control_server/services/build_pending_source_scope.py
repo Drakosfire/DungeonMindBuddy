@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.build_intentional_response import (
-    build_source_followup_wire, verify_build_source_followup,
+    UnresolvedDiscussionSource, build_source_followup_wire, verify_build_source_followup,
 )
 from application_state.agent_conversation.native_execution import BuildSourceScopeAuthorizedV1
 
@@ -84,10 +84,17 @@ class PendingBuildSourceScopeDriver:
         if (self.prepared is None or str(self.adapter.last_provider_attempt_id) != self.prepared.attempt_id
                 or model != self.wire["model"] or sdk_answers(actual_response) != answers):
             raise ValueError("Build source scope requires its actual producing response")
-        scope = verify_build_source_followup(
-            self.opening_wire, self.opening_response, menu_digest=self.menu,
-            wire=json.loads(self.prepared.body), response=actual_response.model_dump(mode="json"),
-            write_capability=self.before.policy.action.write_capability,
-        )
+        try:
+            scope = verify_build_source_followup(
+                self.opening_wire, self.opening_response, menu_digest=self.menu,
+                wire=json.loads(self.prepared.body), response=actual_response.model_dump(mode="json"),
+                write_capability=self.before.policy.action.write_capability,
+            )
+        except UnresolvedDiscussionSource as exc:
+            from .agent_turn_service import AgentTurnServiceError
+
+            raise AgentTurnServiceError(
+                str(exc), code="build_discussion_source_uncertain", status_code=409,
+            ) from exc
         self.result = scope
         self.response = canonical(actual_response.model_dump(mode="json"))

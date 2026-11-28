@@ -32,7 +32,8 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def test_pending_build_clarifies_without_source_scope(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize("work", ["clarify_request", "discuss"])
+def test_pending_build_clarifies_without_source_acquisition(lane, tmp_path, monkeypatch, work):
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
     from apps.live_control_server.services import build_related_pages
 
@@ -48,12 +49,19 @@ def test_pending_build_clarifies_without_source_scope(lane, tmp_path, monkeypatc
         return client.post("/api/live/agent/turn", json=body)
 
     case = _fresh_case(
-        lane, tmp_path, monkeypatch, None, True, False, False,
-        message="Make that work.", requested_work="clarify_request",
+        lane, tmp_path, monkeypatch, "discussion_source_tie" if work == "discuss" else None,
+        True, False, False, message="Make that work.", requested_work=work,
         dispatch=send, capture_pending=True,
     )
+    calls = [json.loads(call.content) for call in case.decisions.calls]
+    if work == "discuss":
+        assert case.response.status_code == 409, case.response.text
+        assert case.response.json()["detail"]["code"] == "build_discussion_source_uncertain"
+        assert [set(call["questions"]) for call in calls] == [{"requested_work"}, {"source_need"}]
+        assert not case.writer.calls
+        return
     assert case.response.status_code == 200, case.response.text
-    opening, = [json.loads(call.content) for call in case.decisions.calls]
+    opening, = calls
     assert set(opening["questions"]) == {"requested_work"}
     assert case.turn.status == "completed"
     assert case.turn.completion.collaboration.kind == "questions"
