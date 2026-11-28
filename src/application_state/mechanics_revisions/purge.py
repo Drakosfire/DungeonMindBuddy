@@ -110,10 +110,16 @@ def claim(target: PurgeTarget, *, authorize) -> bool:
         return _receipt(conn, target) is True
 
 
-def require_available_statblocks(conn, statblock_ids: Iterable[str]) -> None:
+def require_available_statblocks(conn, statblock_ids: Iterable[str], *, wait: bool = True) -> None:
     """Fence snapshot admission against a concurrently claimed deletion."""
     for statblock_id in sorted(set(statblock_ids)):
-        _lock(conn, statblock_id)
+        if wait:
+            _lock(conn, statblock_id)
+        elif not conn.execute(
+            "SELECT pg_try_advisory_xact_lock_shared(hashtextextended(%s,0))",
+            (f"mechanics-revision:{statblock_id}",),
+        ).fetchone()[0]:
+            raise ApplicationStateConflictError("Statblock mechanics are changing. Retry opening the encounter.")
         if conn.execute(
             "SELECT 1 FROM mechanics_revision.purge WHERE statblock_id=%s",
             (statblock_id,),

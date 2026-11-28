@@ -244,6 +244,12 @@ def test_deleted_statblock_is_removed_from_scene_history_under_original_pin(scen
         p.original["locator"]["statblock_id"], world_id, UUID(p.draft.draft_id),
         p.draft.version, p.locator["revision_id"],
     )
+    with unit_of_work() as deleting, unit_of_work() as opening:
+        purge._lock(deleting, target.statblock_id)
+        opening.execute("SELECT encounter_id FROM combat.encounter WHERE encounter_id=%s FOR SHARE", (pin.encounter_id,))
+        with pytest.raises(ApplicationStateConflictError, match="Retry opening the encounter"):
+            service.read_snapshot(opening, **scope, pin=pin, require_head=True)
+
     assert purge.claim(target, authorize=lambda: None) is False
     with pytest.raises(ApplicationStateConflictError, match="being deleted"):
         service.read_version(**scope, revision=start.revision)
