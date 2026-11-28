@@ -537,6 +537,11 @@ def normalize_candidate(candidate, receipt, execution, authorization, evidence):
                 author_text=execution.policy.action.intent.message,
             ) if review_enabled and not plan_review else None
         )
+    from .native_execution import BuildPendingExecutionV1
+    if (type(execution) is BuildPendingExecutionV1
+            and evidence.work_frame.get('response_contract', {}).get('requested_work') == 'review_lore_page_from_conversation'
+            and collaboration is None and not candidate['requested_detail_gaps']):
+        raise ValueError('Conversation page work requires a lore review or an explicit missing detail')
     if review_enabled and not segments and collaboration is None:
         raise ValueError('Empty intentional response')
     # A host retrieval footer cannot stand in for an actual clarification.

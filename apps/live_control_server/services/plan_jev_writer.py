@@ -472,7 +472,7 @@ class PlanJevWriter:
 
         conversation_draft = (self.shared and native_conversation_terminal(turn) is not None
             and self.provider_work.get("build_work", {}).get("requested_work", {}).get("requested_work") == "review_lore_page_from_conversation")
-        default_effort = "medium" if single_variant_base or conversation_draft else "low"
+        default_effort = "medium" if single_variant_base else "none" if conversation_draft else "low"
         self.reasoning_effort = _discussion_reasoning_effort(
             default_effort, shared=self.shared,
             provider_work=self.provider_work if self.shared else None,

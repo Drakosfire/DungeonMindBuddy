@@ -3259,17 +3259,23 @@ def test_pending_source_free_real_sdk_completion(monkeypatch, label):
 def test_pending_sixty_turn_context_produces_stored_maelthor_page_draft_without_search(monkeypatch, failure):
     import asyncio
     import httpx
+    from application_state.agent_conversation.plan_writer_output_schema import ASSERTION_POLICY
     calls = []
     def respond(request):
         calls.append(json.loads(request.content))
-        candidate = {'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea',
+        candidate = {'schema': ASSERTION_POLICY, 'requested_detail_gaps': [], 'answer_segments': [{'kind': 'proposal', 'label': 'invented_idea',
             'text': 'Authored note context: Maelthor stands beside three bridges. The fare is a truthful memory.'}],
             'limitations': [], 'collaboration': {'kind': 'lore_page',
-                'destination': {'request': 'current_author_request', 'title': 'Maelthor'},
+                'destination': {
+                    'instruction': 'Create a new page titled "Maelthor" from the context we just discussed. Do not search again.',
+                    'title': 'Maelthor',
+                },
                 'open_questions': ['Who is the traveler?']}}
         if failure == 'bare_discussion':
             candidate['collaboration'] = None
-            candidate['answer_segments'] = [{'kind': 'discussion', 'text': 'Here is your page.'}]
+            candidate['answer_segments'] = [
+                {'kind': 'proposal', 'label': 'invented_idea', 'text': 'Here is your page.'},
+            ]
         if failure == 'unbound_citation':
             candidate['answer_segments'] = [{'kind': 'source_passage_claim',
                 'text': 'An unsupported fact.', 'passage_handles': ['not-supplied']}]
@@ -3291,7 +3297,7 @@ def test_pending_sixty_turn_context_produces_stored_maelthor_page_draft_without_
         assert completed.completion.collaboration.kind == 'lore_page'
         assert completed.completion.collaboration.destination.title == 'Maelthor'
         assert 'three bridges' in completed.assistant_text
-        assert calls[0]['text']['format']['name'] == 'lore_page_response'
+        assert calls[0]['text']['format']['name'] == 'surface_native_evidence_selectors_v2'
         assert calls[0]['reasoning']['effort'] == 'none'
         assert state.retained_reads == 1 and state.materialized == 0
         admission = next(row for row in completed.graph_context_execution.events
