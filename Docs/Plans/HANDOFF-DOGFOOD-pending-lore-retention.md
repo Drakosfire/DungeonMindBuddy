@@ -12,7 +12,7 @@ validate the locked claim. Carry the serving reasoning setting for this
 writer path while retaining main's current writer schema and exact
 instruction witness.
 
-Scope is this handoff, the pending retained admission in
+Scope is this handoff, the standalone-page entry in the action catalog, the pending retained admission in
 `src/application_state/agent_conversation/service.py`, the conversation-page
 writer effort in `apps/live_control_server/services/plan_jev_writer.py`,
 fresh pending lore completion in
@@ -24,3 +24,9 @@ unbound citation. Use simulated providers and no database. Independent
 exact-head review is required. The running serving release already uses V3
 and the lower reasoning setting. Release work must preserve its current
 reader dependencies and be qualified against the current serving source.
+
+
+Focused verification covered five 60-turn outcomes, retained history ownership,
+and 11 forged or inconsistent writer-output cases. The three neighboring
+generic SDK fixtures for clarify request, clarify creation, and blank lore
+review failed identically on the unmodified base. They remain red.
