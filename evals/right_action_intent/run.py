@@ -21,14 +21,21 @@ def load_suite(path):
     raw = path.read_bytes()
     suite = json.loads(raw)
     actions, cases = suite["actions"], suite["cases"]
-    if suite["schema"] != "buddy.right-action-intent.v1":
+    if suite["schema"] not in {"buddy.right-action-intent.v1", "buddy.right-action-intent.v2"}:
         raise ValueError("Unexpected benchmark schema")
     if len({case["id"] for case in cases}) != len(cases) or set(actions) != {case["expected"] for case in cases}:
         raise ValueError("Each case needs a unique ID and every action needs Gold")
     for case in cases:
         if (not case["input"].get("user_utterance")
-                or set(case["input"]) - {"user_utterance", "dialogue", "history", "prior_dialogue", "prior_dialogue_and_pending_work"}):
+                or set(case["input"]) - {"user_utterance", "dialogue", "history", "prior_dialogue", "prior_dialogue_and_pending_work", "editor_context"}):
             raise ValueError(f"Unexpected model-visible input for {case['id']}")
+        editor = case["input"].get("editor_context")
+        if editor is not None and (
+            set(editor) != {"page_title", "page_markdown", "selected_text"}
+            or any(not isinstance(value, str) or not value.strip() for value in editor.values())
+            or editor["page_markdown"].count(editor["selected_text"]) != 1
+        ):
+            raise ValueError(f"Expected one exact selected sentence in {case['id']}")
     return sha256(raw).hexdigest(), actions, cases
 
 
