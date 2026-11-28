@@ -118,6 +118,7 @@ class NativePlanAuthorScopeInputV1(Strict):
 class NativePlanAuthorScopeObservationV1(Strict):
     """Interpretation evidence alone, with no source or placement authority."""
 
+    requested_work: str | None = Field(default=None, exclude_if=lambda value: value is None)
     relation: str
     selected_alias: str
     scope: ScopeExpression
@@ -299,6 +300,7 @@ class NativePlanAuthorScopeParentV1(NativePlanAuthorScopeInputV1):
     parent_attempt_id: UUID
     scope_sha256: Digest
     request_manifest_sha256: Digest
+    intent_opening: NativePlanIntentInputV1 | None = Field(default=None, exclude_if=lambda value: value is None)
     prior_scope_event_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
     scope_review: tuple[NativePlanOpeningScopeBindingV1, NativePlanOpeningScopeBindingV1] | None = Field(
         default=None, exclude_if=lambda value: value is None)
@@ -307,6 +309,17 @@ class NativePlanAuthorScopeParentV1(NativePlanAuthorScopeInputV1):
     @property
     def digest(self) -> str:
         return t.canonical_sha256(self.model_dump(mode='json', by_alias=True))
+
+
+def plan_intent_input(action, dialogue):
+    capture = action.authoring_capture
+    selected = (getattr(capture, "selection_witness_text", None)
+                or (getattr(capture, "selected_text", None) if author_editor_focus(action) == "text_selection" else None))
+    return NativePlanIntentInputV1(
+        question=action.intent.message, page_title=action.document_title,
+        selected_text=selected or None, dialogue=tuple(dialogue),
+        requested_operation=getattr(action.intent, "plan_requested_operation", None),
+    )
 
 
 def author_editor_focus(action) -> AuthorEditorFocus | None:
@@ -360,6 +373,9 @@ def prepare_author_scope_decision(request: NativePlanAuthorScopeInputV1):
     from .jev_retrieval_contract import MODEL, PROVIDER
     if getattr(request, 'scope_review', None) is not None:
         return _prepare_author_scope_review(request)[0]
+    intent_input = getattr(request, "intent_opening", None)
+    if intent_input is not None:
+        return intent_input.prepare()
     relation_options = _author_relation_options(request)
     hypotheses = _author_scope_offers(request)
     state = author_scope_offer_view(request.question, request.dialogue, hypotheses,
@@ -538,6 +554,15 @@ def validate_author_scope_parent(context, execution, parent, authorization):
             or opening_dialogue_sha256(parent.dialogue) != context.assembled_input.dialogue_sha256):
         raise ValueError('Author scope parent differs from its admitted Plan request or dialogue')
     prefix = execution.events[:authorization.sequence]
+    is_intent_opening = parent.intent_opening is not None
+    if bool(authorization.intent_opening) != is_intent_opening:
+        raise ValueError("Plan intent authorization differs from its exact producer")
+    if is_intent_opening and (
+        parent.intent_opening != plan_intent_input(execution.policy.action, parent.dialogue)
+        or parent.prior_scope_event_id is not None or parent.scope_review is not None
+        or any(isinstance(event, t.ProviderAttemptAuthorizedEventV1) for event in prefix)
+    ):
+        raise ValueError("Plan intent must be first and bound to the exact editor state")
     review_ids = tuple(row.observation_event_id for row in parent.scope_review) if parent.scope_review else None
     if authorization.scope_review_event_ids != review_ids or (review_ids is not None and parent.prior_scope_event_id):
         raise ValueError('Author scope review differs from its authorized prior observations')
@@ -562,6 +587,17 @@ def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
         relation, scope, subject = bindings[alias]
         return NativePlanAuthorScopeObservationV1(
             relation=relation, selected_alias=alias, scope=scope, paragraph_subject=subject)
+    intent_input = getattr(request, "intent_opening", None)
+    if intent_input is not None:
+        from .surface_action_catalog import opening_action_menu
+
+        choice = validated_choice_answers(result, {"requested_work"})["requested_work"]
+        if choice not in opening_action_menu("plan", plan_operation=intent_input.requested_operation):
+            raise ValueError("Plan did not offer this requested work")
+        return NativePlanAuthorScopeObservationV1(
+            requested_work=choice, relation="unresolved", selected_alias="none",
+            scope=UnscopedLocation(),
+        )
     expected = {'location_relation', 'existing_scope'}
     if request.assess_page_edit:
         expected.add('page_edit_intent')
@@ -598,8 +634,10 @@ def require_retained_author_scope(execution, observation_event_id: UUID,
 
 def bind_opening_author_scope(execution, observation_event_id, observation):
     selected = require_retained_author_scope(execution, observation_event_id, observation)
-    prior = [event.scope_observation.page_edit_intent for event in execution.events[:selected.sequence + 1]
-             if type(event) is NativePlanAuthorScopeObservedV1][:2]
+    observations = [event.scope_observation for event in execution.events[:selected.sequence + 1]
+                    if type(event) is NativePlanAuthorScopeObservedV1]
+    opening_work = next((item.requested_work for item in observations if item.requested_work is not None), None)
+    prior = [item.page_edit_intent for item in observations if item.requested_work is None][:2]
     if not any(prior):
         intent = None  # Historical openings have no retained edit-intent observations.
     elif prior == ['page_edit', 'page_edit']:
@@ -608,6 +646,10 @@ def bind_opening_author_scope(execution, observation_event_id, observation):
         intent = 'discussion'
     else:
         intent = 'unresolved'
+    if opening_work == "discuss":
+        intent = "discussion"
+    elif opening_work is not None and opening_work != "write_current_page" and intent == "page_edit":
+        intent = "unresolved"
     return NativePlanOpeningScopeBindingV1(observation_event_id=observation_event_id,
         observation=observation, page_edit_intent=intent)
 
@@ -814,6 +856,20 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
     from .native_corpus import NativeCorpusAuthorityV1, NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
     from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
     attempts = [e for e in prefix if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
+    first_intent = attempts[0] if attempts and type(attempts[0]) is NativePlanAuthorScopeAuthorizedV1 and attempts[0].intent_opening else None
+    if first_intent is not None:
+        observations = [e for e in prefix if type(e) is NativePlanAuthorScopeObservedV1
+                        and e.controller_attempt_id == first_intent.provider_attempt_id]
+        if len(observations) != 1 or observations[0].scope_observation.requested_work is None:
+            raise ValueError("Plan intent requires its settled first response")
+        intent = observations[0]
+        if author_scope_event_id == intent.event_id:
+            if (author_scope_recheck or review_event_ids is not None or len(attempts) != 1
+                    or intent.scope_observation.requested_work != "discuss"):
+                raise ValueError("Only discussion can use the intent receipt without placement interpretation")
+        else:
+            attempts = attempts[1:]
+            prefix = tuple(e for e in prefix if e is not intent)
     if author_scope_event_id is not None:
         observations = [e for e in prefix if type(e) is NativePlanAuthorScopeObservedV1]
         allowed_counts = (2,) if review_event_ids is not None else (1,) if author_scope_recheck else (1, 2, 3)

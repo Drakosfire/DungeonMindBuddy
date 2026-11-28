@@ -121,7 +121,7 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             if locator is not None:
                 expected_state.add('existing_paragraph_locator')
                 assert body['state']['existing_paragraph_locator'] == locator
-            if any(scope.page_edit_intent for scope in scopes):
+            if any(scope.page_edit_intent or scope.requested_work == "discuss" for scope in scopes):
                 expected_state.add('author_page_edit_intent')
                 assert body['state']['author_page_edit_intent'] in {'page_edit', 'discussion', 'unresolved'}
         if any(candidate["kind"] == "Explicit admitted full-source read; metadata choice, not evidence"
@@ -1675,6 +1675,22 @@ def _shared_plan_authoring_case(
     class Choices(Finish):
         async def handle_async_request(self, request):
             body = json.loads(request.content)
+            if body["state"].get("surface") == "plan":
+                from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+                assert not self.calls
+                self.calls.append(request)
+                assert set(body["questions"]) == {"requested_work"}
+                criteria = body["questions"]["requested_work"]["criteria"]
+                assert criteria == opening_action_menu("plan", plan_operation=plan_adapter.request.plan_requested_operation)
+                assert set(body["state"]) <= {"surface", "user_utterance", "page_title", "selected_text",
+                                             "prior_dialogue", "explicit_editor_operation"}
+                choice = semantic_intent or ("discuss" if routing == "discuss" else "write_current_page")
+                return httpx2.Response(200, request=request, json={
+                    "model": body["model"], "usage": {"input_tokens": 31, "output_tokens": 7},
+                    "answers": {"requested_work": {"type": "choice", "choice": choice, "confidence": 1,
+                        "probabilities": {value: float(value == choice) for value in criteria}}},
+                })
             if 'existing_scope' in body['questions']:
                 assert set(body["questions"]) == {"page_edit_intent", "location_relation", "existing_scope"}
                 assert set(body["questions"]["page_edit_intent"]["criteria"]) == {
@@ -1881,6 +1897,8 @@ def _shared_plan_authoring_case(
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
     if author_scope_calls is None:
         author_scope_calls = 2 if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2 else 0
+    if author_scope_calls:
+        author_scope_calls = 1 if routing == "discuss" else author_scope_calls + 1
     if routing is not None:
         from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
         from application_state.plan_action_dialogue.repository import get_authoring_for_turn
@@ -1922,6 +1940,7 @@ def _shared_plan_authoring_case(
             scopes = [event for event in turn.graph_context_execution.events
                 if type(event) is NativePlanAuthorScopeObservedV1]
             assert len(scopes) == author_scope_calls
+            assert scopes[0].scope_observation.requested_work is not None
             assert selected[0].author_scope_binding.observation_event_id == scopes[-1].event_id
         assert selected[0].requested_work == ("write_current_page" if routing == "write_without_capture" else routing)
         assert selected[0].original_capture_sha256 == (None if routing == "write_without_capture" else capture.sha256)
@@ -2240,7 +2259,15 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
         async def handle_async_request(self, request):
             body = json.loads(request.content)
             questions = body["questions"]
-            if "existing_scope" in questions:
+            if body["state"].get("surface") == "plan":
+                from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+                assert not self.calls
+                assert set(questions) == {"requested_work"}
+                assert questions["requested_work"]["criteria"] == opening_action_menu("plan")
+                assert set(body["state"]) == {"surface", "user_utterance", "page_title"}
+                choices = {"requested_work": "write_current_page"}
+            elif "existing_scope" in questions:
                 choices = dict(
                     location_relation=("unstated_insertion_location" if caret_case
                         else "before_paragraph" if outcome == "relation_conflict" else "after_paragraph"),
@@ -2303,8 +2330,14 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
     turn = kwargs["conversation_service"].inspect_turn(
         world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id,
     )
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+    intent = next(event for event in turn.graph_context_execution.events
+                  if type(event) is NativePlanAuthorScopeObservedV1)
+    assert intent.scope_observation.requested_work == "write_current_page"
     [selection] = [event for event in turn.graph_context_execution.events
                    if type(event) is NativePlanOpeningSelectedV3]
+    assert intent.sequence < selection.sequence
     calls = len(decisions.calls), len(writer.calls)
     replay = execute_agent_turn(request, **kwargs)
     assert (len(decisions.calls), len(writer.calls)) == calls
