@@ -92,11 +92,11 @@ def _settled_read_batch(receipt, execution, selection_event_id, *, before_sequen
                 return None  # An empty or already attempted target is not a new successful read.
     saved_handles = {h for h in handles if h.startswith('saved-authored-page:')}
     if saved_handles:
-        from .build_related_pages import RelatedPageRead, catalog as page_catalog, plan_handle, plan_read_enabled
+        from .build_related_pages import RelatedPageRead, effective_catalog as page_catalog, plan_handle, plan_read_enabled
 
         if not plan_read_enabled(execution):
             return None
-        offered = {plan_handle(page): page for page in page_catalog(execution.policy)}
+        offered = {plan_handle(page): page for page in (page_catalog(execution) or ())}
         fulfilled = set()
         for read in after:
             if not isinstance(read, RelatedPageRead):

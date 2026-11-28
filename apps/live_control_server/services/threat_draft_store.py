@@ -7,7 +7,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Callable, Iterator, Literal
 
 from apps.live_control_server.models.statblock_mechanics_acceptance import (
     AcceptedMechanicsRefV1,
@@ -39,6 +39,7 @@ from live_store import load_json, write_json
 DEFAULT_STORE_REL = "out/threat_drafts"
 INDEX_NAME = "index.json"
 LOCK_NAME = ".store.lock"
+PURGE_FENCES_NAME = "purge-fences.json"
 
 
 class ThreatDraftStoreError(ValueError):
@@ -200,8 +201,24 @@ def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraft:
     return draft
 
 
-def _require_writable_draft(draft: ThreatDraft) -> None:
+def _purge_fences(root: Path) -> dict[str, str]:
+    path = threat_drafts_root(root) / PURGE_FENCES_NAME
+    try:
+        rows = load_json(path)
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError, TypeError) as exc:
+        raise _storage_unavailable() from exc
+    if not isinstance(rows, dict) or any(not isinstance(value, str) for value in rows.values()):
+        raise _storage_unavailable()
+    return rows
+
+
+def _require_writable_draft(root: Path, draft: ThreatDraft) -> None:
     ref = draft.accepted_mechanics_ref
+    fences = _purge_fences(root)
+    if draft.draft_id in fences or (ref is not None and ref.statblock_id in fences.values()):
+        raise ThreatDraftStoreError("This statblock is being deleted or has been deleted", status_code=409)
     if (not isinstance(draft, ThreatDraftV2) and ref is None) or not os.getenv(APPLICATION_STATE_DSN_ENV):
         return
     try:
@@ -223,7 +240,7 @@ def _save_draft_unlocked(root: Path, draft: ThreatDraft, *, as_draft_id: str) ->
             "threat draft identity mismatch",
             status_code=500,
         )
-    _require_writable_draft(draft)
+    _require_writable_draft(root, draft)
     path = _draft_path(root, cleaned)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -288,7 +305,7 @@ def create_threat_draft(
                 raise ThreatDraftStoreError("Draft creation identity belongs to another scope", status_code=409)
             if existing.creation_intent_sha256 != draft.creation_intent_sha256:
                 raise ThreatDraftStoreError("Draft creation intent changed", status_code=409)
-            _require_writable_draft(existing)
+            _require_writable_draft(root, existing)
             if draft.draft_id not in index.draft_ids:
                 index.draft_ids.append(draft.draft_id)
                 _save_index(root, index)
@@ -396,8 +413,8 @@ def verify_statblock_purge_owner(
 @contextmanager
 def locked_statblock_purge_owner(
     root: Path, *, world_id: str, draft_id: str, expected_version: int, statblock_id: str,
-) -> Iterator[None]:
-    """Pin the sole owning draft through the durable APP claim. No provider IO."""
+) -> Iterator[Callable[[], None]]:
+    """Pin ownership and let the caller fence filesystem writes before claiming in App."""
     with _store_lock(root):
         target = _load_draft_unlocked(root, _require_committed_draft_id(root, draft_id))
         ref = target.accepted_mechanics_ref
@@ -414,7 +431,33 @@ def locked_statblock_purge_owner(
                     "Saved mechanics are claimed by another draft", status_code=409,
                 )
 
-        yield
+        fences = _purge_fences(root)
+        path = threat_drafts_root(root) / PURGE_FENCES_NAME
+        added = False
+
+        def write_fences(rows: dict[str, str]) -> None:
+            try:
+                write_json(path, rows)
+            except OSError as exc:
+                raise _storage_unavailable() from exc
+
+        def persist_fence() -> None:
+            nonlocal added
+            existing = fences.get(target.draft_id)
+            if existing is None:
+                write_fences(fences | {target.draft_id: statblock_id})
+                added = True
+            elif existing != statblock_id:
+                raise ThreatDraftStoreError("Deletion fence belongs to different mechanics", status_code=409)
+
+        try:
+            yield persist_fence
+        except ApplicationStateConflictError:
+            # A rejected claim did not dispatch the canonical delete. Keep an
+            # earlier fence if this was already a retry.
+            if added:
+                write_fences(fences)
+            raise
 
 
 def remove_purged_threat_draft(

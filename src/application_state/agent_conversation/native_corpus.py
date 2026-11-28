@@ -318,6 +318,14 @@ class NativePlanRequestSearchAuthorizedV1(NativeBodyEvent):
     query_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
 
 
+def plan_intent_excludes_source_discovery(events):
+    from .native_plan_opening import NativePlanAuthorScopeObservedV1
+
+    return any(type(event) is NativePlanAuthorScopeObservedV1
+               and event.scope_observation.source_use == "conversation_only"
+               for event in events)
+
+
 def request_source_discovery_enabled(context, execution):
     from .native_context import NativePlanRequestAdmissionV1, SurfaceNativeContextReceiptV1
     from .native_execution import NativePlanActionV2, NativePlanActionV3
@@ -335,17 +343,43 @@ def validate_request_source_search(execution, grant):
     prefix = execution.events[:grant.sequence]
     action = execution.policy.action
     prior_attempts = [event for event in prefix if isinstance(event, t.ProviderAttemptAuthorizedEventV1)]
-    scope_attempt_ids = [event.controller_attempt_id for event in prefix
-                         if type(event) is NativePlanAuthorScopeObservedV1]
+    from .native_plan_graph_need import (
+        NativePlanGraphNeedObservedV1, NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1,
+        validate_graph_need_intent_prefix,
+    )
+    from .native_retrieval import NativePlanGraphNeedAuthorizedV1
+
+    graph_attempts = [event for event in prior_attempts if type(event) is NativePlanGraphNeedAuthorizedV1]
+    if graph_attempts:
+        graph = graph_attempts[0]
+        decisions = [event for event in prefix if type(event) is NativePlanGraphNeedObservedV1
+                     and event.controller_attempt_id == graph.provider_attempt_id]
+        terminal = [event for event in prefix if type(event) in
+                    (NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)]
+        if (len(graph_attempts) != 1 or len(decisions) != 1 or len(terminal) != 1
+                or (type(terminal[0]) is NativePlanGraphQueryClosedV1
+                    and terminal[0].need_event_id != decisions[0].event_id)
+                or not graph.sequence < decisions[0].sequence < terminal[0].sequence):
+            raise ValueError('Request discovery requires settled Plan Graph work')
+        validate_graph_need_intent_prefix(execution, prefix[:graph.sequence])
+        prior_attempts = [event for event in prior_attempts if event is not graph]
+    scope_observations = [event for event in prefix if type(event) is NativePlanAuthorScopeObservedV1]
+    if plan_intent_excludes_source_discovery(scope_observations):
+        raise ValueError("Conversation-only Plan intent cannot authorize source discovery")
+    scope_attempt_ids = [event.controller_attempt_id for event in scope_observations]
+    settlement = next((event for event in prefix if type(event) in (NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)), None)
     after_author_scope = (
         (type(action) is NativePlanActionV3 or all(getattr(event, "intent_opening", None) is True for event in prior_attempts))
         and all(type(event) is NativePlanAuthorScopeAuthorizedV1 for event in prior_attempts)
         and [event.provider_attempt_id for event in prior_attempts] == scope_attempt_ids
     )
+    settled_authority = settlement.source_authority if settlement is not None else None
+    authority_sha256 = (t.canonical_sha256(settled_authority) if settled_authority is not None
+                        else execution.policy.source_authority_sha256)
     if (type(action) not in (NativePlanActionV2, NativePlanActionV3)
             or grant.context_receipt_sha256 != execution.context_receipt_sha256
             or grant.execution_policy_sha256 != execution.execution_policy_sha256
-            or t.canonical_sha256(grant.authority) != execution.policy.source_authority_sha256
+            or t.canonical_sha256(grant.authority) != authority_sha256
             or grant.query_sha256 != sha256(action.intent.message.encode()).hexdigest()
             or (prior_attempts and not after_author_scope)
             or any(isinstance(e, (NativeBodySearchAuthorizedV1,
@@ -515,7 +549,11 @@ def validate_native_body_events(execution):
             raise ValueError('Pending body validation requires its actual source settlement')
         source_authority_sha256 = sha256(canonical(settlements[0].source_authority).encode()).hexdigest()
     else:
-        source_authority_sha256 = None
+        from .native_plan_graph_need import NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1
+
+        authority = next((event.source_authority for event in execution.events
+                          if type(event) in (NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)), None)
+        source_authority_sha256 = t.canonical_sha256(authority) if authority is not None else None
     def authority_commitment():
         # Legacy policies need this field only for the same search/direct-read
         # branches that required it before pending Build was introduced.

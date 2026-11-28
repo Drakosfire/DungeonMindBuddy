@@ -85,9 +85,9 @@ class PlanJevDriver:
                 self.node_kinds[node_id] = kind
 
     def _refresh_related_catalog(self):
-        from application_state.agent_conversation.build_related_pages import plan_catalog_available, catalog, plan_handle
+        from application_state.agent_conversation.build_related_pages import plan_catalog_available, effective_catalog, plan_handle
         a = self.adapter
-        self.related_saved_pages = ({plan_handle(p): p for p in catalog(a._broker_execution().policy)}
+        self.related_saved_pages = ({plan_handle(p): p for p in (effective_catalog(a._broker_execution()) or ())}
             if a.fence is not None and plan_catalog_available(a.fence.turn.graph_context_receipt, a._broker_execution()) else {})
 
     def _collect_candidates(self, session):
@@ -139,9 +139,32 @@ class PlanJevDriver:
             )
         )
 
+    def _plan_conversation_only(self):
+        if self.adapter.request.surface.surface_id != "plan" or self.adapter.fence is None:
+            return False
+        from application_state.agent_conversation.native_corpus import plan_intent_excludes_source_discovery
+
+        return plan_intent_excludes_source_discovery(self.adapter._broker_execution().events)
+
+    def _plan_saved_page_only(self):
+        if self.adapter.request.surface.surface_id != "plan" or self.adapter.fence is None:
+            return False
+        from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+        return any(type(event) is NativePlanAuthorScopeObservedV1
+                   and event.scope_observation.source_use == "saved_page_only"
+                   for event in self.adapter._broker_execution().events)
+
+    def _related_saved_page_candidates(self):
+        return tuple(RetrievalCandidate(handle=handle, label=page.title,
+            kind="Saved authored Worldbuilding page; read its exact current saved text, not played truth. New connected-page review needs a relevant saved page origin.")
+            for handle, page in self.related_saved_pages.items() if handle not in self.attempted_related_pages)
+
     def offered(self, *, object_catalog=None):
-        if self.finished or self._variant_approval():
+        if self.finished or self._variant_approval() or self._plan_conversation_only():
             return ()
+        if self._plan_saved_page_only():
+            return self._related_saved_page_candidates()
         if self._anchored_variant_draft():
             return self._saved_statblock_candidates()
         if self._anchored_discussion():
@@ -173,9 +196,7 @@ class PlanJevDriver:
                 kind='Reviewed native Graph assertion; select to read its qualifications and exact supporting evidence')
                 for match in query.assertion_matches if match.assertion_id not in self.native_assertion_attempts)
         result.extend(self._saved_build_sections())
-        result.extend(RetrievalCandidate(handle=handle, label=page.title,
-            kind="Saved authored Worldbuilding page; read its exact current saved text, not played truth. New connected-page review needs a relevant saved page origin.")
-            for handle,page in self.related_saved_pages.items() if handle not in self.attempted_related_pages)
+        result.extend(self._related_saved_page_candidates())
         result.extend(self._saved_statblock_candidates())
         result.extend(self.native_sources.offered())
         return tuple(result)
@@ -241,6 +262,11 @@ class PlanJevDriver:
                 or admitted.operation != selected.operation
                 or tuple(admitted.selected_handles) != tuple(selected.selected_handles)):
             raise ValueError("Plan acquisition decision is no longer current")
+        if selected.operation != "finish_retrieval" and self._plan_conversation_only():
+            raise ValueError("Conversation-only Plan intent cannot acquire sources")
+        if self._plan_saved_page_only() and (selected.operation == "discover_more"
+                or any(handle not in self.related_saved_pages for handle in selected.selected_handles)):
+            raise ValueError("Saved-page-only Plan intent cannot acquire other sources")
         self.current = None
         from application_state.agent_conversation.native_retrieval import NativePlayIntentSelectedV1
 
@@ -768,12 +794,15 @@ class PlanJevDriver:
             return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
                         allowed_operations=("discover_more", "finish_retrieval"),
                         play_intent_opening=True)
+        if self._plan_conversation_only():
+            return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
+                        allowed_operations=("select_candidates", "finish_retrieval"))
         if self._variant_approval():
             return dict(candidates=(), dialogue=self.dialogue, examined_candidates=(),
                         allowed_operations=("select_candidates", "finish_retrieval"))
         operations = (
             ('select_candidates', 'finish_retrieval')
-            if self.discovered or self._anchored_discussion() or self._anchored_variant_draft()
+            if self.discovered or self._anchored_discussion() or self._anchored_variant_draft() or self._plan_saved_page_only()
             else ('select_candidates', 'discover_more', 'finish_retrieval')
         )
         examined = [candidate for node, candidate in self.catalog.values() if node in self.attempted_nodes]

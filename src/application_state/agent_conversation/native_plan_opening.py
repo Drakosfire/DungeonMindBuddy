@@ -7,7 +7,7 @@ from typing import Literal
 import re
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from . import types as t
 from .native_statement_input import Strict
@@ -32,6 +32,16 @@ from .jev_retrieval_contract import Digest, NativePlanBatchDecisionInputV3, Retr
 class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecisionInputV3):
     schema_: Literal['dmb_native_plan_opening_input_v1'] = Field(
         default='dmb_native_plan_opening_input_v1', alias='schema')
+    source_requirement_guidance_version: Literal["v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+    work_choice_guidance_version: Literal['v1'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode='after')
+    def guidance_version_matches_opening(self):
+        if self.work_choice_guidance_version is not None and type(self) is not NativePlanOpeningInputV1:
+            raise ValueError('Work-choice guidance version belongs only to the V1 opening')
+        return self
 
 
 PageEditIntent = Literal['page_edit', 'discussion', 'unresolved']
@@ -81,6 +91,8 @@ class NativePlanIntentInputV1(Strict):
     dialogue: tuple[RetrievalDialogue, ...] = ()
     requested_operation: Literal["discuss", "write_current_page"] | None = None
 
+    source_use_version: Literal["v1", "v2"] | None = Field(default=None, exclude_if=lambda value: value is None)
+
     def prepare(self):
         from .surface_action_catalog import prepare_opening_intent
 
@@ -93,7 +105,24 @@ class NativePlanIntentInputV1(Strict):
             state["prior_dialogue"] = [row.model_dump() for row in self.dialogue]
         if self.requested_operation is not None:
             state["explicit_editor_operation"] = self.requested_operation
-        return prepare_opening_intent("plan", state, plan_operation=self.requested_operation)
+        request = prepare_opening_intent("plan", state, plan_operation=self.requested_operation)
+        if self.source_use_version is None:
+            return request
+        from generationengine.types import ChoiceDecisionQuestion
+        descriptions = {
+            "conversation_only": "Use only the supplied conversation and current Plan, or draft original material without lookup. Respect an explicit request to avoid search.",
+            "source_needed": "The request needs facts from a saved source, World evidence or Rules beyond the supplied context.",
+            "uncertain": "The supplied request does not establish which context should be used.",
+        }
+        if self.source_use_version == "v2":
+            descriptions["saved_page_only"] = "Read a saved authored page. No recap, World Graph facts, or Rules are requested."
+        source_use = ChoiceDecisionQuestion(
+            name="source_use",
+            options=tuple(descriptions),
+            option_descriptions=descriptions,
+            question="Does satisfying this request require consulting sources outside the supplied conversation and current Plan?",
+        )
+        return request.model_copy(update={"questions": (*request.questions, source_use)})
 
 
 class NativePlanAuthorScopeInputV1(Strict):
@@ -119,6 +148,7 @@ class NativePlanAuthorScopeObservationV1(Strict):
     """Interpretation evidence alone, with no source or placement authority."""
 
     requested_work: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    source_use: Literal["conversation_only", "source_needed", "uncertain", "saved_page_only"] | None = Field(default=None, exclude_if=lambda value: value is None)
     relation: str
     selected_alias: str
     scope: ScopeExpression
@@ -152,6 +182,8 @@ class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV
     schema_: Literal['dmb_native_plan_opening_input_v2'] = Field(
         default='dmb_native_plan_opening_input_v2', alias='schema')
     author_scope_binding: NativePlanOpeningScopeBindingV1 | None = Field(
+        default=None, exclude_if=lambda value: value is None)
+    captured_selection_version: Literal["v1"] | None = Field(
         default=None, exclude_if=lambda value: value is None)
     implicit_caret_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
     evidence_relevance_version: Literal['v1'] | None = Field(
@@ -311,7 +343,7 @@ class NativePlanAuthorScopeParentV1(NativePlanAuthorScopeInputV1):
         return t.canonical_sha256(self.model_dump(mode='json', by_alias=True))
 
 
-def plan_intent_input(action, dialogue):
+def plan_intent_input(action, dialogue, *, source_use_version=None):
     capture = action.authoring_capture
     selected = (getattr(capture, "selection_witness_text", None)
                 or (getattr(capture, "selected_text", None) if author_editor_focus(action) == "text_selection" else None))
@@ -319,6 +351,7 @@ def plan_intent_input(action, dialogue):
         question=action.intent.message, page_title=getattr(action, "document_title", None),
         selected_text=selected or None, dialogue=tuple(dialogue),
         requested_operation=getattr(action.intent, "plan_requested_operation", None),
+        source_use_version=source_use_version,
     )
 
 
@@ -559,7 +592,9 @@ def validate_author_scope_parent(context, execution, parent, authorization):
     if bool(authorization.intent_opening) != is_intent_opening:
         raise ValueError("Plan intent authorization differs from its exact producer")
     if is_intent_opening and (
-        parent.intent_opening != plan_intent_input(execution.policy.action, parent.dialogue)
+        parent.intent_opening != plan_intent_input(
+            execution.policy.action, parent.dialogue, source_use_version=parent.intent_opening.source_use_version
+        )
         or parent.prior_scope_event_id is not None or parent.scope_review is not None
     ):
         raise ValueError("Plan intent must be bound to the exact editor state")
@@ -592,11 +627,16 @@ def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
     if intent_input is not None:
         from .surface_action_catalog import opening_action_menu
 
-        choice = validated_choice_answers(result, {"requested_work"})["requested_work"]
+        questions = {"requested_work"}
+        if intent_input.source_use_version is not None:
+            questions.add("source_use")
+        answers = validated_choice_answers(result, questions)
+        choice = answers["requested_work"]
         if choice not in opening_action_menu("plan", plan_operation=intent_input.requested_operation):
             raise ValueError("Plan did not offer this requested work")
         return NativePlanAuthorScopeObservationV1(
-            requested_work=choice, relation="unresolved", selected_alias="none",
+            requested_work=choice, source_use=answers.get("source_use"),
+            relation="unresolved", selected_alias="none",
             scope=UnscopedLocation(),
         )
     expected = {'location_relation', 'existing_scope'}
@@ -716,6 +756,10 @@ def prepare_opening_decision(request):
     from .plan_authoring import _prepare_requested_work_only
     from .jev_retrieval_contract import prepare_decision
     from generationengine.types import DecisionRequest
+    # model_copy can bypass model validation; reject before constructing a wire.
+    if request.work_choice_guidance_version is not None and (
+            type(request) is not NativePlanOpeningInputV1 or request.work_choice_guidance_version != 'v1'):
+        raise ValueError('Unsupported work-choice guidance version')
     work = _composed_work_request(request) if type(request) is NativePlanOpeningInputV3 else _prepare_requested_work_only(request)
     navigation = prepare_decision(request)
     state = dict(navigation.state)
@@ -741,6 +785,26 @@ def prepare_opening_decision(request):
         'all independent candidate relevance votes exclude', 'all applicable candidate relevance votes exclude')})
         if q.name == 'operation' else q for q in navigation.questions)
     work_questions = work.questions
+    if request.work_choice_guidance_version is not None:
+        descriptions = {
+            'discuss': 'Answer, explain, or brainstorm in the conversation; a fictional subject alone does not request a page change.',
+            'clarify': 'Ask the author when the intended work or placement needs a necessary author decision.',
+            'different_destination': 'The requested work belongs on a different existing page or unsupported object, including a destination resolved from dialogue.',
+            'write_unavailable': 'The author requests writing on this Plan but an appropriate current-page placement is unavailable.',
+            'review_connected_page': 'The requested work is to create a new connected location page for review, including when resolved from dialogue.',
+        }
+        work_question = work_questions[0]
+        if work_question.name != 'requested_work':
+            raise ValueError('Work-choice guidance requires the requested-work question')
+        offered = {}
+        for option in work_question.options:
+            if option.startswith('write:'):
+                offered[option] = 'Write to the exact offered location on this Plan.'
+            elif option in descriptions:
+                offered[option] = descriptions[option]
+            else:
+                raise ValueError('Work-choice guidance encountered an unsupported option')
+        work_questions = (work_question.model_copy(update={'option_descriptions': offered}), *work_questions[1:])
     if type(request) is NativePlanOpeningInputV2 and request.evidence_relevance_version == 'v1':
         guidance = (
             " A factual question about a place, person, event, object, or source belongs in discussion, "
@@ -770,6 +834,14 @@ def prepare_opening_decision(request):
         )
         questions = tuple(q.model_copy(update={'question': q.question + guidance})
             if q.name in graph_votes else q for q in questions)
+    if request.source_requirement_guidance_version == "v1":
+        state["required_source_policy"] = (
+            "The author needs evidence outside the supplied conversation and current Plan. "
+            "If the request identifies a source to read or cite, include the offered candidate that "
+            "matches it. A familiar answer or overlapping Plan text does not replace the requested "
+            "source. Exclude adjacent sources unless they support another requested detail. "
+            "If the requested source is absent, keep that as an evidence gap."
+        )
     return DecisionRequest(provider=work.provider, model=work.model,
         state=state, questions=(*work_questions, *questions), max_transport_retries=0)
 
@@ -860,6 +932,7 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
         return
     from .native_corpus import NativeCorpusAuthorityV1, NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
     from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    intent_prefix = prefix
     attempts = [e for e in prefix if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
     first_intent = attempts[0] if attempts and type(attempts[0]) is NativePlanAuthorScopeAuthorizedV1 and attempts[0].intent_opening else None
     if first_intent is not None:
@@ -868,6 +941,26 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
         if len(observations) != 1 or observations[0].scope_observation.requested_work is None:
             raise ValueError("Plan intent requires its settled first response")
         intent = observations[0]
+        from .native_context import NativePlanGraphQueryPendingV1
+        from .native_plan_graph_need import (
+            NativePlanGraphNeedObservedV1, NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1,
+        )
+        from .native_retrieval import NativePlanGraphNeedAuthorizedV1
+
+        if type(context.native_query) is NativePlanGraphQueryPendingV1:
+            graph_attempts = [event for event in attempts if type(event) is NativePlanGraphNeedAuthorizedV1]
+            if graph_attempts:
+                graph_attempt = graph_attempts[0]
+                decisions = [event for event in prefix if type(event) is NativePlanGraphNeedObservedV1]
+                settlements = [event for event in prefix
+                               if type(event) in (NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)]
+                if (len(graph_attempts) != 1 or len(decisions) != 1 or len(settlements) != 1
+                        or decisions[0].controller_attempt_id != graph_attempt.provider_attempt_id
+                        or not intent.sequence < graph_attempt.sequence < decisions[0].sequence < settlements[0].sequence
+                        or any(event.sequence <= settlements[0].sequence
+                               for event in attempts if event is not first_intent and event is not graph_attempt)):
+                    raise ValueError('Plan opening requires Graph need to settle after intent')
+                attempts = [event for event in attempts if event is not graph_attempt]
         if author_scope_event_id == intent.event_id:
             if (author_scope_recheck or review_event_ids is not None or len(attempts) != 1
                     or intent.scope_observation.requested_work not in {"discuss", "clarify"}):
@@ -900,7 +993,15 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
     elif attempts:
         raise ValueError('Opening SDK must be the first actual provider attempt')
     grants = [e for e in prefix if isinstance(e, NativePlanRequestSearchAuthorizedV1)]
-    if isinstance(context.source_authority, NativeCorpusAuthorityV1):
+    from .native_corpus import plan_intent_excludes_source_discovery
+
+    if plan_intent_excludes_source_discovery(intent_prefix):
+        if grants:
+            raise ValueError("Conversation-only Plan intent cannot carry a source discovery grant")
+        return
+    from .native_plan_graph_need import effective_plan_source_authority
+
+    if isinstance(effective_plan_source_authority(context, prefix), NativeCorpusAuthorityV1):
         # Source-blind interpretation can precede discovery. Historical turns
         # with discovery already in the prefix still require exact settlement.
         if author_scope_recheck and not grants:
@@ -918,10 +1019,12 @@ def validate_opening_sdk_entry(execution, outcome, expected_authorization):
     This is the same real authorization already proven against prepared bytes,
     not a new receipt or permission to replay an interrupted provider.
     """
-    from .native_retrieval import NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1
+    from .native_retrieval import (NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1,
+        NativePlanGraphNeedAuthorizedV1)
     authorizations = [e for e in execution.events if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
     current = authorizations[-1] if authorizations else None
-    opening_entry = (type(current) in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1)
+    opening_entry = (type(current) in (NativePlanOpeningAuthorizedV1, NativePlanAuthorScopeAuthorizedV1,
+        NativePlanGraphNeedAuthorizedV1)
         and outcome.outcome == 'sdk_entered' and outcome.provider_attempt_id == current.provider_attempt_id)
     if opening_entry:
         if type(expected_authorization) is not type(current) or expected_authorization != current:
@@ -937,8 +1040,8 @@ def request_manifest(*, action, work_context, source_authority_sha256, native_qu
         intent=action.intent.model_dump(mode='json', by_alias=True),
         work_capabilities=dict(authoring_capture_sha256=action.authoring_capture.sha256 if action.authoring_capture is not None else None,
             placement_catalog_sha256=action.placement_catalog.sha256 if action.placement_catalog is not None else None,
-            related_page_catalog_sha256=t.canonical_sha256([p.model_dump(mode='json', by_alias=True)
-                for p in action.related_page_catalog]),
+            related_page_catalog_sha256=(None if action.related_page_catalog is None else
+                t.canonical_sha256([p.model_dump(mode='json', by_alias=True) for p in action.related_page_catalog])),
             **({'document_title': action.document_title} if type(action) is NativePlanActionV3 else {})),
         work_context=work_context.model_dump(mode='json', by_alias=True),
         provenance_sha256=provenance_sha256,
