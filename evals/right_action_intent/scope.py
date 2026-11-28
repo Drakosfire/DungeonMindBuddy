@@ -258,8 +258,15 @@ def retained_cohort(path):
                             )):
                         raise ValueError(f"Build wire changed for {case['id']} {arm}")
         fixtures = {case["id"]: case for case in groups[surface]}
+        captured_cases = {case["id"]: case for case in capture["cases"][surface]}
         for arm, data in capture["results"][surface].items():
             for row in data["rows"]:
+                fixture = fixtures.get(row["id"])
+                captured = captured_cases.get(row["id"])
+                if (fixture is None or captured is None
+                        or captured["input"] != fixture["input"]
+                        or row["tier"] != fixture["tier"]):
+                    raise ValueError(f"Retained fixture state or tier changed for {row['id']}")
                 if surface == "plan" and "plan_wire_state_by_case" in capture:
                     request = with_menu(plan_request(fixtures[row["id"]]["input"]), menus[surface][arm])
                     if request.state != capture["plan_wire_state_by_case"][row["id"]]:
