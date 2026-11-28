@@ -561,9 +561,8 @@ def validate_author_scope_parent(context, execution, parent, authorization):
     if is_intent_opening and (
         parent.intent_opening != plan_intent_input(execution.policy.action, parent.dialogue)
         or parent.prior_scope_event_id is not None or parent.scope_review is not None
-        or any(isinstance(event, t.ProviderAttemptAuthorizedEventV1) for event in prefix)
     ):
-        raise ValueError("Plan intent must be first and bound to the exact editor state")
+        raise ValueError("Plan intent must be bound to the exact editor state")
     review_ids = tuple(row.observation_event_id for row in parent.scope_review) if parent.scope_review else None
     if authorization.scope_review_event_ids != review_ids or (review_ids is not None and parent.prior_scope_event_id):
         raise ValueError('Author scope review differs from its authorized prior observations')
@@ -572,7 +571,8 @@ def validate_author_scope_parent(context, execution, parent, authorization):
             row.observation_event_id, row.observation)
     validate_opening_prefix(context, prefix,
         author_scope_event_id=review_ids[-1] if review_ids else authorization.prior_scope_event_id,
-        author_scope_recheck=True, review_event_ids=review_ids, author_question=parent.question)
+        author_scope_recheck=True, review_event_ids=review_ids, author_question=parent.question,
+        intent_opening=is_intent_opening)
 
 
 def decode_author_scope_decision(request: NativePlanAuthorScopeInputV1, result):
@@ -853,7 +853,11 @@ def validate_opening_parent(context, execution, parent, authorization):
 
 
 def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, author_scope_recheck=False,
-                            review_event_ids=None, author_question=''):
+                            review_event_ids=None, author_question='', intent_opening=False):
+    if intent_opening:
+        if any(type(event) is not t.BuildAuthoredReferencesCapturedV1 for event in prefix):
+            raise ValueError("Plan intent must precede source reads and all provider calls")
+        return
     from .native_corpus import NativeCorpusAuthorityV1, NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
     from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
     attempts = [e for e in prefix if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
@@ -985,7 +989,8 @@ def validate_request_admission(context, execution):
                 raise ValueError('Author scope recheck and review require different authorizations')
             validate_opening_prefix(context, execution.events[:event.sequence],
                 author_scope_event_id=review_ids[-1] if review_ids else event.prior_scope_event_id,
-                author_scope_recheck=True, review_event_ids=review_ids, author_question=action.intent.message)
+                author_scope_recheck=True, review_event_ids=review_ids, author_question=action.intent.message,
+                intent_opening=event.intent_opening is True)
         elif type(event) is NativePlanOpeningAuthorizedV1:
             validate_opening_prefix(context, execution.events[:event.sequence],
                 author_scope_event_id=event.author_scope_event_id, author_question=action.intent.message)

@@ -1097,3 +1097,18 @@ def test_contextual_plan_handoff_stops_after_first_intent(
         plan_adapter, tmp_path, monkeypatch, "place1", "base", routing="different_destination",
         dsn=application_state_dsn, placement_factory=native_paragraph_placement_fixture,
     )
+
+
+
+def test_plan_intent_prefix_allows_only_unread_reference_capture():
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_plan_opening import validate_opening_prefix
+
+    capture = t.BuildAuthoredReferencesCapturedV1.model_construct()
+    discovery = t.NativePlanRequestSearchAuthorizedV1.model_construct()
+    reference_read = t.NativeAuthoredSourceReadV1.model_construct()
+    validate_opening_prefix(None, (), intent_opening=True)
+    validate_opening_prefix(None, (capture,), intent_opening=True)
+    for prior in (discovery, reference_read):
+        with pytest.raises(ValueError, match="must precede source reads"):
+            validate_opening_prefix(None, (capture, prior), intent_opening=True)
