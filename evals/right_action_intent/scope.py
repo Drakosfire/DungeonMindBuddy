@@ -103,7 +103,7 @@ def with_menu(request, menu):
 
 def build_wire(state, menu, model, *, intent_only=False):
     from application_state.agent_conversation.build_intentional_response import (
-        SCOPED_BUILD_MENU_DIGEST, opening_work_question, source_need_question,
+        SCOPED_BUILD_MENU_DIGEST, opening_work_question, semantic_routing_state, source_need_question,
     )
 
     work = opening_work_question(SCOPED_BUILD_MENU_DIGEST)
@@ -112,15 +112,18 @@ def build_wire(state, menu, model, *, intent_only=False):
             work["criteria"][label] = None
             work["instructions"] += f"\n{label}: {meaning}"
     selection = state.get("selected_text")
+    interaction = {
+        "allowed_operations": ["answer_from_sources", "propose_build_insertion"],
+        "current_page": {"title": state.get("page_title", "Current Build page")},
+        "history": state.get("prior_dialogue", []),
+        "page_target": {"kind": "replace_selection", "text": selection} if selection else None,
+        "working_draft": None,
+    }
     return {
         "model": model,
-        "state": {"user_question": state["user_utterance"], "interaction": {
-            "allowed_operations": ["answer_from_sources", "propose_build_insertion"],
-            "current_page_title": state.get("page_title", "Current Build page"),
-            "history": state.get("prior_dialogue", []),
-            "page_target": {"kind": "replace_selection", "text": selection} if selection else None,
-            "working_draft_available": False,
-        }},
+        "state": semantic_routing_state(
+            state["user_utterance"], interaction, None, include_paragraph_catalog=not intent_only,
+        ),
         "questions": {
             "requested_work": work,
             **({} if intent_only else {"source_need": source_need_question()}),
@@ -218,6 +221,11 @@ def verify_build_followup_capture(path):
             raise ValueError(f"Build source follow-up pin changed: {name}")
         inputs[name] = json.loads(raw)
     intent = inputs["build-intent-only-cohort-jev.json"]
+    for case in intent["cases"]["build"]:
+        wire = build_wire(case["input"], intent["menus"]["build"]["scoped"], intent["model"], intent_only=True)
+        if (wire["state"] != intent["wire_states"][case["id"]]
+                or wire["questions"] != intent["wire_questions"]["scoped"]):
+            raise ValueError(f"Retained Build intent differs from runtime projection: {case['id']}")
     opening_rows = {row["id"]: row for row in intent["results"]["build"]["scoped"]["rows"]}
     gold = {row["id"]: row["expected"] for row in inputs["build-source-followup-cases.json"]["cases"]}
     if len(capture["rows"]) != len(gold) or {row["id"] for row in capture["rows"]} != set(gold):
