@@ -88,9 +88,8 @@ def select_pages(driver, prepared, response):
     from application_state.agent_conversation import types as t
 
     a = driver._adapter
-    policy = a._broker_execution().policy
-    from application_state.agent_conversation.build_related_pages import catalog
-    offered = catalog(policy) or []
+    from application_state.agent_conversation.build_related_pages import effective_catalog
+    offered = effective_catalog(a._broker_execution()) or []
     questions = json.loads(prepared.body)["questions"]
     selected = sorted(
         [
@@ -133,11 +132,11 @@ def select_pages(driver, prepared, response):
 def acquire_selected_pages(a):
     from .agent_turn_service import _require_fresh_execution_append
     from application_state.agent_conversation.build_related_pages import (
-        catalog,
+        effective_catalog,
         records,
     )
 
-    offered = catalog(a._broker_execution().policy)
+    offered = effective_catalog(a._broker_execution())
     if offered is None:
         return
     from application_state.agent_conversation.types import BuildReviewedActionSelectionV1

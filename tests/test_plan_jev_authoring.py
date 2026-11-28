@@ -101,6 +101,8 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             expected_state |= {"candidates", "relevance_guidance", "conditional_read_plan_policy"}
             if self.expect_examined:
                 expected_state.add("examined_subjects")
+        if self.adapter.request.authored_references is not None:
+            expected_state.add("author_selected_references")
         if self.adapter.request.plan_requested_operation is not None:
             expected_state.add('plan_requested_operation')
         contextual = 'placement_relation' in body['questions']
@@ -119,9 +121,12 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             if locator is not None:
                 expected_state.add('existing_paragraph_locator')
                 assert body['state']['existing_paragraph_locator'] == locator
-            if any(scope.page_edit_intent for scope in scopes):
+            if any(scope.page_edit_intent or scope.requested_work in {"discuss", "clarify"} for scope in scopes):
                 expected_state.add('author_page_edit_intent')
                 assert body['state']['author_page_edit_intent'] in {'page_edit', 'discussion', 'unresolved'}
+        if any(candidate["kind"] == "Explicit admitted full-source read; metadata choice, not evidence"
+               for candidate in body["state"].get("candidates", ())):
+            expected_state.update({"full_document_selection_guidance", "source_catalogue_guidance"})
         assert set(body["state"]) == expected_state
         assert body["state"]["user_request"] == self.adapter.request.message
         assert body["state"]["edit_target_available"] == (
@@ -1573,7 +1578,7 @@ def test_current_authorization_rejects_parent_contract_substitution(plan_adapter
 def _shared_plan_authoring_case(
     plan_adapter, tmp_path, monkeypatch, placement, mode, failure=None, *, routing=None, dsn=None,
     placement_factory=None, semantic_intent=None, semantic_compatible=None,
-    ordinary_caret=False, author_scope_calls=None,
+    ordinary_caret=False, author_scope_calls=None, first_intent=None,
 ):
     from application_state.agent_conversation import types as t
     from application_state.agent_conversation.native_plan_statements import (
@@ -1670,7 +1675,30 @@ def _shared_plan_authoring_case(
     class Choices(Finish):
         async def handle_async_request(self, request):
             body = json.loads(request.content)
+            if body["state"].get("surface") == "plan":
+                from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+                assert not self.calls
+                self.calls.append(request)
+                assert set(body["questions"]) == {"requested_work"}
+                criteria = body["questions"]["requested_work"]["criteria"]
+                assert criteria == opening_action_menu("plan", plan_operation=plan_adapter.request.plan_requested_operation)
+                assert set(body["state"]) <= {"surface", "user_utterance", "page_title", "selected_text",
+                                             "prior_dialogue", "explicit_editor_operation"}
+                choice = first_intent or semantic_intent or (
+                    routing if routing in {"discuss", "clarify", "different_destination"} else "write_current_page"
+                )
+                return httpx2.Response(200, request=request, json={
+                    "model": body["model"], "usage": {"input_tokens": 31, "output_tokens": 7},
+                    "answers": {"requested_work": {"type": "choice", "choice": choice, "confidence": 1,
+                        "probabilities": {value: float(value == choice) for value in criteria}}},
+                })
             if 'existing_scope' in body['questions']:
+                assert set(body["questions"]) == {"page_edit_intent", "location_relation", "existing_scope"}
+                assert set(body["questions"]["page_edit_intent"]["criteria"]) == {
+                    "page_edit", "discussion", "unresolved",
+                }
+                assert "candidates" not in body["state"]
                 self.calls.append(request)
                 catalog = plan_adapter.request.plan_placement_catalog
                 nominated = semantic_compatible or (placement,)
@@ -1694,6 +1722,13 @@ def _shared_plan_authoring_case(
                 return httpx2.Response(200, request=request, json=dict(model=body['model'], answers=answers,
                     usage=dict(input_tokens=31, output_tokens=7)))
             if "requested_work" in body["questions"]:
+                if "conditional_read_plan_policy" in body["state"] and "author_page_edit_intent" in body["state"]:
+                    from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+                    assert body["questions"]["requested_work"]["criteria"] == opening_action_menu(
+                        "plan", plan_operation=plan_adapter.request.plan_requested_operation,
+                    )
+                    assert "operation" in body["questions"]
                 self.calls.append(request)
                 return await SemanticWire(
                     wire.adapter, semantic_intent or (("write_current_page" if routing == "write_without_capture" else routing)
@@ -1864,6 +1899,9 @@ def _shared_plan_authoring_case(
     from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2
     if author_scope_calls is None:
         author_scope_calls = 2 if type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2 else 0
+    contextual = bool(author_scope_calls)
+    requested_first = first_intent or semantic_intent or routing
+    author_scope_calls = 1 if requested_first in {"discuss", "clarify"} else author_scope_calls + 1
     if routing is not None:
         from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
         from application_state.plan_action_dialogue.repository import get_authoring_for_turn
@@ -1871,9 +1909,26 @@ def _shared_plan_authoring_case(
         refused = {"different_destination": "plan_authoring_destination_unavailable",
             "write_without_capture": "plan_authoring_target_unavailable"}
         if routing in refused:
+            saved_before = snapshot_content(capture.document_id).markdown
             with pytest.raises(AgentTurnServiceError) as failed:
                 execute_agent_turn(plan_adapter.request, **kwargs)
             assert failed.value.code == refused[routing]
+            if routing == "different_destination" and author_scope_calls:
+                from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+                assert len(decisions.calls) == 1 and not writer.calls
+                turn = kwargs["conversation_service"].inspect_turn(
+                    world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id,
+                )
+                observations = [event.scope_observation for event in turn.graph_context_execution.events
+                                if type(event) is NativePlanAuthorScopeObservedV1]
+                assert [observation.requested_work for observation in observations] == ["different_destination"]
+                assert turn.completion is None
+                assert PlanActionDialogueService().get_by_key(capture.world_id, capture.idempotency_key) is None
+                assert not any(event.kind in {"native_plan_request_search_authorized_v1", "native_authored_source_read_v1"}
+                               for event in turn.graph_context_execution.events)
+                assert snapshot_content(capture.document_id).markdown == saved_before
+                return None
             assert not writer.calls and len(decisions.calls) == 1 + author_scope_calls
             response = None
         else:
@@ -1885,6 +1940,14 @@ def _shared_plan_authoring_case(
             assert response.answer.status == "ok" and response.plan_proposal is None
             assert "plan_proposal" not in response.model_dump(mode="json")
             assert len(writer.calls) == 1 and len(decisions.calls) == 1 + author_scope_calls
+        if routing == "clarify" and author_scope_calls:
+            import os
+            from pathlib import Path
+
+            if destination := os.environ.get("DMB_PLAN_OPENING_WIRE"):
+                Path(destination).write_text(json.dumps([
+                    json.loads(call.content) for call in decisions.calls
+                ], indent=2) + "\n")
         turn = kwargs["conversation_service"].inspect_turn(
             world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id)
         assert turn.graph_context_receipt.schema_ == "dmb_surface_native_context_receipt_v1"
@@ -1897,7 +1960,9 @@ def _shared_plan_authoring_case(
             scopes = [event for event in turn.graph_context_execution.events
                 if type(event) is NativePlanAuthorScopeObservedV1]
             assert len(scopes) == author_scope_calls
-            assert selected[0].author_scope_binding.observation_event_id == scopes[-1].event_id
+            assert scopes[0].scope_observation.requested_work is not None
+            if contextual:
+                assert selected[0].author_scope_binding.observation_event_id == scopes[-1].event_id
         assert selected[0].requested_work == ("write_current_page" if routing == "write_without_capture" else routing)
         assert selected[0].original_capture_sha256 == (None if routing == "write_without_capture" else capture.sha256)
         action = PlanActionDialogueService().get_by_key(
@@ -1990,7 +2055,7 @@ def _shared_plan_authoring_case(
         )
         assert (
             action is None
-            if failure == "changed_capture"
+            if failure in {"changed_capture", "changed_opening_intent"}
             else action.status == "indeterminate"
         )
         assert (
@@ -2001,6 +2066,10 @@ def _shared_plan_authoring_case(
             if action
             else True
         )
+        if failure == "changed_opening_intent":
+            assert len(decisions.calls) == 2
+            assert not any(isinstance(event, t.PlanRequestedWorkSelectedV2)
+                           for event in retained.graph_context_execution.events)
         calls = (len(decisions.calls), len(writer.calls))
         with pytest.raises(AgentTurnServiceError):
             execute_agent_turn(plan_adapter.request, **kwargs)
@@ -2084,6 +2153,13 @@ def test_current_shared_plan_caller_reserves_and_delivers_its_actual_edit(
     plan_adapter, tmp_path, monkeypatch, placement, mode
 ):
     _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, placement, mode)
+
+
+def test_plain_plan_cannot_write_after_discussion_intent(plan_adapter, tmp_path, monkeypatch):
+    _shared_plan_authoring_case(
+        plan_adapter, tmp_path, monkeypatch, "captured", "base",
+        failure="changed_opening_intent", first_intent="discuss",
+    )
 
 
 @pytest.mark.parametrize(
@@ -2215,7 +2291,15 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
         async def handle_async_request(self, request):
             body = json.loads(request.content)
             questions = body["questions"]
-            if "existing_scope" in questions:
+            if body["state"].get("surface") == "plan":
+                from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+                assert not self.calls
+                assert set(questions) == {"requested_work"}
+                assert questions["requested_work"]["criteria"] == opening_action_menu("plan")
+                assert set(body["state"]) == {"surface", "user_utterance", "page_title"}
+                choices = {"requested_work": "write_current_page"}
+            elif "existing_scope" in questions:
                 choices = dict(
                     location_relation=("unstated_insertion_location" if caret_case
                         else "before_paragraph" if outcome == "relation_conflict" else "after_paragraph"),
@@ -2278,8 +2362,14 @@ def test_composed_native_turn_retains_checked_slot_or_clarifies(plan_adapter, tm
     turn = kwargs["conversation_service"].inspect_turn(
         world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id,
     )
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+
+    intent = next(event for event in turn.graph_context_execution.events
+                  if type(event) is NativePlanAuthorScopeObservedV1)
+    assert intent.scope_observation.requested_work == "write_current_page"
     [selection] = [event for event in turn.graph_context_execution.events
                    if type(event) is NativePlanOpeningSelectedV3]
+    assert intent.sequence < selection.sequence
     calls = len(decisions.calls), len(writer.calls)
     replay = execute_agent_turn(request, **kwargs)
     assert (len(decisions.calls), len(writer.calls)) == calls

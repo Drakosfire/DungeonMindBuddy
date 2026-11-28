@@ -2,7 +2,7 @@
 import json
 
 
-INTENTS = ("discuss", "clarify", "write_current_page", "different_destination", "review_connected_page")
+from .surface_action_catalog import opening_action_menu
 RELATIONS = {
     'captured': 'Use the explicitly captured selection or explicitly requested caret.',
     'before_paragraph': 'Immediately before the named existing paragraph.',
@@ -63,9 +63,7 @@ def prepare_contextual_work(request):
         | {"schema": "dmb_plan_requested_work_input_v8"})
     base = _prepare_requested_work_only(legacy)
     operation = request.plan_requested_operation
-    choices = INTENTS if operation is None else (
-        ("discuss", "clarify") if operation == "discuss"
-        else ("clarify", "write_current_page", "different_destination"))
+    menu = opening_action_menu("plan", plan_operation=operation)
     # Reuse only semantic data projection, never historical instruction prose.
     state = {key: base.state[key] for key in (
         'user_request', 'current_page_title', 'dialogue_reference', 'edit_target_available',
@@ -116,16 +114,9 @@ def prepare_contextual_work(request):
         state['existing_paragraph_locator'] = locator
         if literal_paragraph_locator(request) is not None:
             state['existing_paragraph_locator_kind'] = 'verbatim_excerpt'
-    work_descriptions = {
-        'discuss': 'Answer, explain, critique or discuss in conversation without a requested page edit.',
-        'clarify': 'The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.',
-        'write_current_page': 'Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.',
-        'different_destination': 'Edit another existing page/object or create an unsupported object, rather than writing this Plan.',
-        'review_connected_page': 'Create a new connected location page through its existing review; further requested edits remain deferred.',
-    }
     return base.model_copy(update={"state": state, "questions": (
-        ChoiceDecisionQuestion(name="requested_work", options=choices,
-            option_descriptions={key: work_descriptions[key] for key in choices},
+        ChoiceDecisionQuestion(name="requested_work", options=tuple(menu),
+            option_descriptions=menu,
             question="What work does the current author request, independently of location availability?"),
         *target_questions(request),
         *description_questions(descriptions, headings))})
@@ -680,7 +671,7 @@ def resolve_anchor_targets(capture, catalog, intent, relation, anchors):
 
 def resolve_targets(capture, catalog, intent, selectors):
     from .plan_placement import PlanPlacementCatalogV2
-    if intent not in INTENTS or type(catalog) is not PlanPlacementCatalogV2 or capture is None:
+    if intent not in opening_action_menu("plan") or type(catalog) is not PlanPlacementCatalogV2 or capture is None:
         raise ValueError("Contextual resolution requires its actual intent, capture and catalog")
     catalog.require_original(capture)
     selectors = tuple(selectors)

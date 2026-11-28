@@ -15,6 +15,7 @@ from application_state.agent_conversation.plan_placement import (
 from tests.application_state.test_plan_authoring import capture_payload
 from tests.test_plan_jev_dispatch import plan_adapter as plan_adapter
 from tests.test_plan_jev_harness import unavailable_native_sources as unavailable_native_sources
+from tests.test_native_corpus_source_access import lane as lane
 
 
 def captured_catalog(*, selected=False, duplicate=False):
@@ -933,14 +934,55 @@ def test_contextual_completion_binds_sdk_final_instead_of_aggregate_commentary(
         assert '<fim_suffix>' not in result.plan_proposal.replacement_markdown
 
 
+@pytest.mark.parametrize("corpus_mode", ["unavailable", "populated", "attached"])
 def test_actual_model_multiple_nominations_clarify_without_reservation_or_factual_answer(
-    plan_adapter, tmp_path, monkeypatch, application_state_dsn,
+    plan_adapter, tmp_path, monkeypatch, application_state_dsn, lane, corpus_mode,
 ):
     import psycopg
     from application_state.agent_conversation import AgentConversationService
     from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV2
     from application_state.agent_conversation.plan_contextual_questions import decode_question, output_format
     from tests.test_plan_jev_authoring import _shared_plan_authoring_case
+
+    if corpus_mode != "unavailable":
+        from apps.live_control_server.integrations.dungeonmind.native_corpus_source import prepare_native_source_context
+        from apps.live_control_server.services import plan_source_turn
+        from tests.test_native_corpus_source_access import admit
+
+        lane.bound.managed_world_id = plan_adapter.world_id
+        admit(lane, body="# Park visit\n\nThe park has a walkway.\n")
+        def prepare(world, principal, **pins):
+            context = prepare_native_source_context(managed_world_id=world, principal=principal,
+                repository=lane.repo, resolve_identity=lambda _: lane.bound, **pins)
+            return context, context.authority
+
+        monkeypatch.setattr(plan_source_turn, "prepare", prepare)
+        if corpus_mode == "attached":
+            from types import SimpleNamespace
+            from dungeonmind.application.vnext import list_admitted_native_text_sources
+            from application_state.agent_conversation.authored_graph_references import (
+                AuthoredReferencesV2, AuthoredSourceReferenceV1,
+            )
+
+            context, authority = prepare(plan_adapter.world_id, SimpleNamespace(role="gm"))
+            member, = list_admitted_native_text_sources(context.access).sources
+            reference = AuthoredSourceReferenceV1(
+                managed_world_id=plan_adapter.world_id, native_world_id=lane.bound.native_world_id,
+                binding_version=lane.bound.binding_version, knowledge_revision=authority.revision_id,
+                source_artifact_id=member.source_artifact.source_artifact_id,
+                source_revision_id=member.source_revision.source_revision_id,
+                evidence_ref_id=member.evidence_ref_ids[0], content_sha256=member.source_revision.content_sha256,
+                selection_kind="full_document", label="Park visit",
+            )
+            from application_state.agent_conversation.types import PlanContextPolicyV2
+
+            plan_adapter.request = plan_adapter.request.model_copy(update={
+                "plan_context_policy": PlanContextPolicyV2(
+                    policy="auto_plan_world", graph_source="reviewed_native_graph",
+                ),
+                "authored_references": AuthoredReferencesV2(references=(reference,)),
+            })
+
 
     _shared_plan_authoring_case(plan_adapter, tmp_path, monkeypatch, 'place1', 'base', routing='clarify',
         dsn=application_state_dsn, placement_factory=two_native_locations,
@@ -950,6 +992,25 @@ def test_actual_model_multiple_nominations_clarify_without_reservation_or_factua
     turn = service.list_turns('world:one', pointer.active_conversation_id)[-1]
     from application_state.agent_conversation.native_plan_opening import validate_request_admission
     execution = turn.graph_context_execution
+    if corpus_mode != "unavailable":
+        from application_state.agent_conversation.native_corpus import (
+            NativeBodySearchObservedV1, NativePlanRequestSearchAuthorizedV1,
+        )
+        from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+        from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
+
+        scope = [event.sequence for event in execution.events if type(event) is NativePlanAuthorScopeObservedV1]
+        grant, = [event for event in execution.events if type(event) is NativePlanRequestSearchAuthorizedV1]
+        observed, = [event for event in execution.events if type(event) is NativeBodySearchObservedV1]
+        opening, = [event for event in execution.events if type(event) is NativePlanOpeningAuthorizedV1]
+        assert max(scope) < grant.sequence < observed.sequence < opening.sequence
+        assert observed.authorization_event_id == grant.event_id
+        if corpus_mode == "attached":
+            from application_state.agent_conversation.native_corpus import NativeAuthoredSourceReadV1
+
+            read, = [event for event in execution.events if type(event) is NativeAuthoredSourceReadV1]
+            assert max(scope) < read.sequence < grant.sequence
+            assert read.reference_index == 0
     assert execution.policy.action.document_title == 'Synthetic park Plan'
     assert validate_request_admission(turn.graph_context_receipt, execution)
     changed_action = execution.policy.action.model_copy(update={'document_title': 'Foreign title'})
@@ -984,3 +1045,70 @@ def test_actual_model_multiple_nominations_clarify_without_reservation_or_factua
             decode_question(invalid, turn.graph_context_execution)
     with psycopg.connect(application_state_dsn) as conn:
         assert conn.execute('SELECT count(*) FROM plan_action.action').fetchone()[0] == 0
+
+
+def test_request_discovery_can_follow_only_settled_author_scope():
+    from hashlib import sha256
+    from types import SimpleNamespace
+
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_corpus import (
+        NativeCorpusAuthorityV1, NativePlanRequestSearchAuthorizedV1,
+        validate_request_source_search,
+    )
+    from application_state.agent_conversation.native_execution import NativePlanActionV3
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+    from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
+
+    source = NativeCorpusAuthorityV1.model_construct(acquisition_epoch=194)
+    message = "What do we know about the ferry?"
+    action = NativePlanActionV3.model_construct(intent=SimpleNamespace(message=message))
+    policy = SimpleNamespace(action=action, source_authority_sha256=t.canonical_sha256(source))
+    scope_attempt = NativePlanAuthorScopeAuthorizedV1.model_construct(provider_attempt_id=uuid4())
+    observed = NativePlanAuthorScopeObservedV1.model_construct(controller_attempt_id=scope_attempt.provider_attempt_id)
+
+    def validate(prefix):
+        execution = SimpleNamespace(events=prefix, policy=policy,
+            context_receipt_sha256="a" * 64, execution_policy_sha256="b" * 64)
+        grant = NativePlanRequestSearchAuthorizedV1.model_construct(
+            sequence=len(prefix), authority=source, query_sha256=sha256(message.encode()).hexdigest(),
+            context_receipt_sha256=execution.context_receipt_sha256,
+            execution_policy_sha256=execution.execution_policy_sha256,
+        )
+        validate_request_source_search(execution, grant)
+
+    validate(())
+    validate((scope_attempt, observed))
+    with pytest.raises(ValueError, match="actual first admitted Plan request"):
+        validate((scope_attempt,))
+
+
+
+def test_contextual_plan_handoff_stops_after_first_intent(
+    plan_adapter, tmp_path, monkeypatch, application_state_dsn,
+):
+    from tests.application_state.test_plan_placement import native_paragraph_placement_fixture
+    from tests.test_plan_jev_authoring import _shared_plan_authoring_case
+
+    plan_adapter.request = plan_adapter.request.model_copy(update={
+        "message": "Revise the saved Ferry Crossing page in Build.",
+    })
+    _shared_plan_authoring_case(
+        plan_adapter, tmp_path, monkeypatch, "place1", "base", routing="different_destination",
+        dsn=application_state_dsn, placement_factory=native_paragraph_placement_fixture,
+    )
+
+
+
+def test_plan_intent_prefix_allows_only_unread_reference_capture():
+    from application_state.agent_conversation import types as t
+    from application_state.agent_conversation.native_plan_opening import validate_opening_prefix
+
+    capture = t.BuildAuthoredReferencesCapturedV1.model_construct()
+    discovery = t.NativePlanRequestSearchAuthorizedV1.model_construct()
+    reference_read = t.NativeAuthoredSourceReadV1.model_construct()
+    validate_opening_prefix(None, (), intent_opening=True)
+    validate_opening_prefix(None, (capture,), intent_opening=True)
+    for prior in (discovery, reference_read):
+        with pytest.raises(ValueError, match="must precede source reads"):
+            validate_opening_prefix(None, (capture, prior), intent_opening=True)

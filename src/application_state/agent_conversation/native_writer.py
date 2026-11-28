@@ -150,8 +150,11 @@ def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, pas
     query = effective_native_query(receipt, execution)
     from .native_context import NativeBuildQueryPendingV1
     if isinstance(query, NativeBuildQueryPendingV1):
-        if not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events):
-            raise ValueError("Native writer requires its Build query or conversation evidence admission")
+        from .build_intentional_response import split_build_clarification
+
+        if (split_build_clarification(execution) is None
+                and not any(isinstance(event, t.BuildPriorBodyEvidenceAdmittedV1) for event in execution.events)):
+            raise ValueError("Native writer requires its Build query, admitted conversation evidence, or clarification")
         query = None
     partial = (isinstance(receipt.source_authority, t.NativeCorpusUnavailableV1)
         or isinstance(query, statements.NativePlanQueryUnavailableV1)

@@ -1501,7 +1501,9 @@ def pending_runtime_freeze_case():
     from hashlib import sha256
     from application_state.agent_conversation.build_source_free import BuildSourceObservationV1, BuildConversationObservationV1
     from application_state.agent_conversation.native_context import BuildWorkContextV1
-    from application_state.agent_conversation.build_intentional_response import budget_fields, semantic_routing_state, semantic_request_id, decision_instructions, WORK
+    from application_state.agent_conversation.build_intentional_response import (
+        SCOPED_BUILD_MENU_DIGEST, budget_fields, opening_work_question, semantic_routing_state, semantic_request_id,
+    )
     from apps.live_control_server.services.build_jev_harness import BuildJevHarness
     from apps.live_control_server.services.build_jev_driver import DriverDecisionProjection
     from apps.live_control_server.services.agent_turn_service import _turn_idempotency_key
@@ -1526,8 +1528,8 @@ def pending_runtime_freeze_case():
         'current_page': {'document_id': source.document_id, 'title': source.title},
         'capability_sha256': None, 'conversation_id': str(conversation.conversation_id),
         'pointer_revision': conversation.pointer_revision, 'history': history, 'working_draft': None, 'page_target': None}
-    state = semantic_routing_state(request.message, host, None)
-    questions = {'requested_work': {'type': 'choice', 'instructions': decision_instructions(), 'criteria': dict.fromkeys(WORK)}}
+    state = semantic_routing_state(request.message, host, None, include_surface=True, include_paragraph_catalog=False)
+    questions = {'requested_work': opening_work_question(SCOPED_BUILD_MENU_DIGEST)}
     body = {'model': 'jev-1.14.0', 'state': state, 'questions': questions}
     raw = json.dumps(body)
     projection = DriverDecisionProjection(state_json=json.dumps(state), questions_json=json.dumps(questions),
@@ -5166,3 +5168,36 @@ def test_pending_app_prompt_capture_keeps_exact_authorization_and_family(monkeyp
             validate_prompt_authorization(prompt, execution, int(mutation == 'sequence'))
     else:
         validate_prompt_authorization(prompt, execution, 0)
+
+
+def test_pending_build_opening_intent_only_allows_its_dedicated_followup():
+    from application_state.agent_conversation.native_execution import BuildSourceScopeAuthorizedV1
+    from tests.test_surface_native_execution import controller, outcomes
+
+    receipt, policy = pending_execution_pair()
+    initial = controller("build", policy).model_copy(
+        update={"envelope_sha256": receipt.assembled_input.assembled_input_sha256},
+    )
+    from application_state.agent_conversation.build_decision_context import identity
+
+    initial = initial.model_copy(update={"dispatch_identity_sha256": identity(
+        envelope_sha256=initial.envelope_sha256, provider=initial.provider,
+        model=initial.model, api_mode=initial.api_mode, context_mode=initial.context_mode,
+    )})
+    intent = t.BuildOpeningIntentSelectedV1(
+        kind="build_opening_intent_selected_v1", event_id=uuid4(), sequence=3,
+        controller_attempt_id=initial.provider_attempt_id, controller_envelope_sha256=initial.envelope_sha256,
+        controller_response_sha256="b" * 64, requested_work="discuss",
+    )
+    prefix = [initial, *outcomes(initial, 1), intent]
+    generic = controller("build", policy, sequence=4)
+    followup = BuildSourceScopeAuthorizedV1.model_validate(
+        generic.model_dump() | {"kind": "build_source_scope_authorized_v1", "context_phase": "source_scope",
+                                "opening_intent_event_id": intent.event_id}
+    )
+    assert pending_execution(receipt, policy, [*prefix, followup]).events[-1] == followup
+    with pytest.raises(ValueError, match="precede work selection"):
+        pending_execution(receipt, policy, [*prefix, generic])
+    clarification = intent.model_copy(update={"requested_work": "clarify_request"})
+    with pytest.raises(ValueError, match="unresolved opening intent"):
+        pending_execution(receipt, policy, [*prefix[:-1], clarification, followup])

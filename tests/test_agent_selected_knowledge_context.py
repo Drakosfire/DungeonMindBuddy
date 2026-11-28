@@ -340,3 +340,25 @@ def test_route_propagates_authenticated_annotation_subject(context, monkeypatch)
     )
     assert route.post_agent_turn(request_for(context), request) == {"synthetic": True}
     assert captured["operator_subject"] == "operator:actual"
+
+
+def test_ordinary_ingest_selection_dispatch_is_conversation_only(
+    context, application_state_dsn, monkeypatch,
+):
+    from apps.live_control_server.services import hermes_agent_runtime
+    from tests.test_hermes_agent_runtime import _FakeHost, _hermes_ok_result
+
+    host = _FakeHost(_hermes_ok_result())
+    monkeypatch.setattr(hermes_agent_runtime, "get_hermes_graph_agent_host", lambda: host)
+    request = request_for(context)
+    response = execute(context, request, None, AgentConversationService())
+    assert response.answer.status == "ok"
+    dispatched, = host.calls
+    assert dispatched.input_kind == "server_assembled_saved_work"
+    assert dispatched.capability_policy.graph_scope is None
+    assert dispatched.capability_policy.enabled_tool_names == ()
+    assert "Ari 🐉" in dispatched.question
+    assert "not admitted World facts" in dispatched.question
+    replay = execute(context, request, None, AgentConversationService())
+    assert replay.answer.text == response.answer.text
+    assert len(host.calls) == 1

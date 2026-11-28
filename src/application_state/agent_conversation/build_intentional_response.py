@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 import math
 from types import MappingProxyType
+from .surface_action_catalog import UNIVERSAL_OPENING_ACTIONS
 
 import hashlib
 import json
@@ -90,11 +91,11 @@ class Work:
 
 WORK = MappingProxyType(
     {
-        "discuss": Work(
+        UNIVERSAL_OPENING_ACTIONS["discuss"]["build"]: Work(
             "discuss",
             "Answer, retrieve, compare, acknowledge, or explicitly discuss first.",
         ),
-        "clarify_request": Work(
+        UNIVERSAL_OPENING_ACTIONS["clarify_request"]["build"]: Work(
             "discuss",
             "Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.",
             review="questions",
@@ -227,6 +228,11 @@ SOURCE_NEED_GUIDANCE = _PAGE_SOURCE_NEED_GUIDANCE + (
 )
 
 
+def source_need_question():
+    return {"type": "choice", "instructions": SOURCE_NEED_GUIDANCE,
+            "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
+
+
 class UnresolvedDiscussionSource(ValueError):
     """The read-only work choice is settled, but its evidence scope is tied."""
 
@@ -235,7 +241,7 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
     question = request["questions"].get("source_need")
     if question is None:
         return None
-    expected = {"type": "choice", "criteria": dict.fromkeys(SOURCE_NEED_OPTIONS)}
+    expected = source_need_question()
     if question not in (expected | {"instructions": guidance}
                         for guidance in (SOURCE_NEED_GUIDANCE, _PAGE_SOURCE_NEED_GUIDANCE, _RETAINED_SOURCE_NEED_GUIDANCE)):
         raise ValueError("Build source scope differs from its offered decision")
@@ -243,6 +249,110 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
         response["answers"]["source_need"], SOURCE_NEED_OPTIONS,
         tie_fallback=tie_fallback, clarify_uncertain_tie=clarify_uncertain_tie,
     )
+
+
+def has_explicit_build_graph_reference(references):
+    from .authored_graph_references import AuthoredGraphReferenceV1
+
+    return references is not None and any(isinstance(ref, AuthoredGraphReferenceV1) for ref in references.references)
+
+
+def build_source_followup_wire(state, requested_work, *, menu_digest, write_capability=None, graph_reference=False, related_pages=None, image_move=None):
+    """Offer source scope for an already selected action, without offering reads."""
+    from .jev_retrieval_contract import MODEL
+
+    if requested_work not in _menu_work(menu_digest):
+        raise ValueError("Build source scope requires an offered action")
+    if requested_work in {"clarify_request", "clarify_creation"}:
+        raise ValueError("Build clarification requires no source-scope decision")
+    if set(state) != {"user_question", "interaction"}:
+        raise ValueError("Build source scope requires the opening semantic state")
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+    from application_state.build_proposal.prose_decision import OPENING_STATE_KEY, build_boundary_opening
+
+    followup_state = deepcopy(state) | {"selected_work": requested_work}
+    questions = {"source_need": source_need_question()}
+    catalog = catalog_for_build_capability(write_capability)
+    if requested_work == "write_current_page" and catalog is not None:
+        placement_state, placement = build_boundary_opening(
+            state["user_question"], state["interaction"]["current_page_title"], catalog,
+            caret=write_capability.basis.caret,
+        )
+        followup_state["interaction"][OPENING_STATE_KEY] = placement_state
+        questions.update({
+            choice.name: {"type": "choice", "instructions": choice.question,
+                          "criteria": dict.fromkeys(choice.options)}
+            for choice in placement
+        })
+        if graph_reference and write_capability.basis.visibility == "internal":
+            from application_state.build_proposal.graph_reference_decision import GRAPH_REFERENCE_OPENING
+
+            choice = GRAPH_REFERENCE_OPENING
+            questions[choice.name] = {
+                "type": "choice", "instructions": choice.question, "criteria": dict.fromkeys(choice.options),
+            }
+    if image_move is not None and requested_work == "write_current_page":
+        from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY as IMAGE_STATE_KEY
+
+        if image_move.question != state["user_question"]:
+            raise ValueError("Build image follow-up differs from the opening utterance")
+        followup_state["interaction"][IMAGE_STATE_KEY] = image_move.semantic_state()
+        questions.update(image_move.wire_questions())
+    if related_pages is not None:
+        from .build_related_pages import question_name, question_text
+
+        followup_state["interaction"]["related_page_labels"] = [page.title for page in related_pages]
+        questions.update({
+            question_name(index): {"type": "choice", "instructions": question_text(page, semantic=True),
+                                   "criteria": {"read": None, "skip": None}}
+            for index, page in enumerate(related_pages)
+        })
+    return {
+        "model": MODEL,
+        "state": followup_state,
+        "questions": questions,
+    }
+
+
+def verify_build_intent_opening(opening_wire, opening_response, *, menu_digest):
+    """Validate the intent ballot before any downstream decision is needed."""
+    from generationengine.types import DecisionResult
+    from .jev_retrieval_contract import MODEL, validated_choice_answers
+
+    question = opening_wire.get("questions", {}).get("requested_work")
+    if (
+        set(opening_wire) != {"model", "state", "questions"}
+        or opening_wire["model"] != MODEL
+        or set(opening_wire["questions"]) != {"requested_work"}
+        or question != opening_work_question(menu_digest)
+        or tuple(question["criteria"]) != tuple(_menu_work(menu_digest))
+    ):
+        raise ValueError("Build opening request differs from the intent-only ballot")
+
+    state = opening_wire["state"]
+    if not isinstance(state, dict) or set(state) != {"user_question", "interaction"}:
+        raise ValueError("Build opening request requires the semantic routing state")
+    validated_choice_answers(DecisionResult.model_validate(opening_response), {"requested_work"})
+    return selected(opening_response, menu=menu_digest)
+
+
+def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response, write_capability=None, graph_reference=False, related_pages=None, image_move=None):
+    from generationengine.types import DecisionResult
+    from .jev_retrieval_contract import validated_choice_answers
+
+    requested_work = verify_build_intent_opening(opening_wire, opening_response, menu_digest=menu_digest)
+    expected = build_source_followup_wire(opening_wire["state"], requested_work, menu_digest=menu_digest,
+        write_capability=write_capability, graph_reference=graph_reference, related_pages=related_pages, image_move=image_move)
+    if wire != expected or tuple(wire["questions"]["source_need"]["criteria"]) != SOURCE_NEED_OPTIONS:
+        raise ValueError("Build source-scope request differs from the verified intent context")
+    result = DecisionResult.model_validate(response)
+    validated_choice_answers(result, set(expected["questions"]))
+    if image_move is not None and requested_work == "write_current_page":
+        from application_state.build_proposal.image_move_decision import admitted_image_move_choice
+
+        if admitted_image_move_choice(image_move.opening_answers(wire, result), image_move.question) in {"move_existing", "unresolved"}:
+            return "anchored"
+    return source_need(wire, response, clarify_uncertain_tie=requested_work == "discuss")
 
 
 def selected(response, *, menu=None, tie_fallback=None):
@@ -275,8 +385,9 @@ def opening_work(policy, request, response, image_choice):
     # general work/source ties. Keep the same checks for all malformed votes.
     terminal = image_choice in {"move_existing", "unresolved"}
     label = selected(response, menu=menu, tie_fallback="discuss" if terminal else None)
+    source_independent = label in {"clarify_request", "clarify_creation"}
     return label, source_need(
-        request, response, tie_fallback="anchored" if terminal else None,
+        request, response, tie_fallback="anchored" if terminal or source_independent else None,
         clarify_uncertain_tie=not terminal and label == "discuss",
     )
 
@@ -302,9 +413,8 @@ def _selected_choice(answer, options, *, tie_fallback=None, clarify_uncertain_ti
     if tied and clarify_uncertain_tie and label == "uncertain" and probabilities[label] == maximum:
         raise UnresolvedDiscussionSource("Should I answer from this Page alone, or look for other sources?")
     if tied and tie_fallback is not None:
-        # This ranking has no unique winner. For an already admitted typed
-        # image action, discard the unused general label and record the host's
-        # neutral route. The actual label and probabilities remain in proof.
+        # A settled action can make the tied choice irrelevant. Preserve its
+        # actual label and probabilities in the producer proof.
         return tie_fallback
     if tied or probabilities[label] != maximum:
         raise ValueError("Invalid actual semantic selection")
@@ -583,8 +693,30 @@ def _resolver_digest(work_options):
 
 MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
+# Fresh native Build uses its conversational choices. The previous menu remains
+# available for historical proof reconstruction and reviewed auxiliary actions.
+_SCOPED_BUILD_WORK = MappingProxyType({
+    name: work for name, work in WORK.items()
+    if name not in UNAVAILABLE or name == "other_creation"
+})
+_SCOPED_BUILD_GUIDANCE = """Identify the user's intent for this turn.
+Use prior conversation to resolve the requested artifact or destination. Treat
+quoted material and saved content as context. A brainstorming request stays
+discussion; an explicit editable draft in chat is conversation drafting.
+An explicit edit to the active page is current-page writing. A new page is
+standalone unless the author requests a connection. When a standalone page
+summarizes prior discussion, use the conversation option and carry forward
+open questions. Use clarification if the intent or reference remains unclear.
+Only an explicit request to approve an existing statblock draft selects its
+approval review. Image preparation requires an image or prompt requested now;
+describing something for a later image is writing. If the requested action
+belongs in another workflow, use other_creation. These choices grant no
+execution authority."""
+SCOPED_BUILD_MENU_DIGEST = digest(question(guidance=_SCOPED_BUILD_GUIDANCE, work_options=_SCOPED_BUILD_WORK))
+SCOPED_BUILD_RESOLVER_DIGEST = _resolver_digest(_SCOPED_BUILD_WORK)
 _MENU_CONTRACTS = MappingProxyType({
     MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    SCOPED_BUILD_MENU_DIGEST: (_SCOPED_BUILD_GUIDANCE, _SCOPED_BUILD_WORK, SCOPED_BUILD_RESOLVER_DIGEST),
     digest(question(guidance=_PRE_CONVERSATION_LORE_GUIDANCE, work_options=_PRE_CONVERSATION_LORE_WORK)):
         (_PRE_CONVERSATION_LORE_GUIDANCE, _PRE_CONVERSATION_LORE_WORK, _resolver_digest(_PRE_CONVERSATION_LORE_WORK)),
     digest(question(guidance=_PRE_LORE_PAGE_GUIDANCE, work_options=_PRE_LORE_PAGE_WORK)):
@@ -688,7 +820,9 @@ def validate_resolution_metadata(event, policy):
     if (capture is None) != (event.typed_image_move is None):
         raise ValueError("Retained image move choice requires its exact Build capture")
     placement = event.paragraph_placement
-    if (catalog is None) != (placement is None):
+    if ((placement is not None and catalog is None)
+            or (placement is None and catalog is not None and event.requested_work == "write_current_page"
+                and event.typed_graph_reference != "place_existing_reference")):
         raise ValueError("Build paragraph placement differs from its frozen capability")
     if placement is not None and placement.target is not None:
         alias, _, _ = placement.target.alias.partition(":")
@@ -770,6 +904,24 @@ def selected_contract(execution):
     return {key: value for key, value in choice.resolution.items() if key != "source_scope"}
 
 
+def split_build_clarification(execution):
+    """Find question-only work bound to the acknowledged intent ballot itself."""
+    from . import types as t
+
+    openings = [event for event in execution.events if type(event) is t.BuildOpeningIntentSelectedV1]
+    resolutions = [event for event in execution.events if type(event) is t.BuildRequestedWorkResolutionV1]
+    if len(openings) != 1 or len(resolutions) != 1:
+        return None
+    opening, = openings
+    resolution, = resolutions
+    if (opening.requested_work in {"clarify_request", "clarify_creation"}
+            and resolution.requested_work == opening.requested_work
+            and resolution.controller_attempt_id == opening.controller_attempt_id
+            and resolution.resolution.get("source_scope") == "anchored"):
+        return resolution
+    return None
+
+
 def validate_native_action_events(execution):
     """Native Build action ordering through the existing semantic owner.
 
@@ -777,15 +929,32 @@ def validate_native_action_events(execution):
     steps additionally require their existing review/reservation admission.
     """
     from . import types as t
-    caps,capability,_,_=_captured_semantics(execution.policy)
-    latest=outcome=selection=None
+    from .native_execution import BuildSourceScopeAuthorizedV1
+
+    caps,capability,menu,_=_captured_semantics(execution.policy)
+    latest=outcome=selection=opening_intent=None
     for event in execution.events:
         if isinstance(event,t.BuildReviewedActionSelectionV1):
             if (selection is not None or latest is not None or event.capability_sha256!=capability
                     or event.operation not in caps.operations):
                 raise ValueError('Reviewed action lacks its unique pre-provider capability binding')
             selection=event
+        elif isinstance(event, t.BuildOpeningIntentSelectedV1):
+            if (
+                selection is not None or opening_intent is not None
+                or type(latest) is not t.ProviderAttemptAuthorizedEventV5
+                or latest.context_phase != "select" or outcome != "response_received"
+                or latest.provider_attempt_id != event.controller_attempt_id
+                or latest.envelope_sha256 != event.controller_envelope_sha256
+                or (latest.provider, latest.model, latest.api_mode)
+                != execution.policy.provider_roles.controller.identity()
+                or event.requested_work not in _menu_work(menu)
+            ):
+                raise ValueError("Build opening intent differs from its acknowledged controller")
+            opening_intent = event
         elif isinstance(event,t.BuildRequestedWorkResolutionV1):
+            if opening_intent is not None and event.requested_work != opening_intent.requested_work:
+                raise ValueError("Build resolution cannot replace the retained opening intent")
             if (selection is not None or latest is None or outcome!='response_received'
                     or latest.provider_attempt_id!=event.controller_attempt_id
                     or latest.envelope_sha256!=event.controller_envelope_sha256
@@ -794,6 +963,23 @@ def validate_native_action_events(execution):
             validate_resolution_metadata(event,execution.policy)
             selection=event
         elif isinstance(event,t.ProviderAttemptAuthorizedEventV1):
+            if type(event) is BuildSourceScopeAuthorizedV1:
+                if (opening_intent is None or selection is not None
+                        or opening_intent.sequence + 1 != event.sequence
+                        or event.opening_intent_event_id != opening_intent.event_id
+                        or opening_intent.requested_work in {"clarify_request", "clarify_creation"}
+                        or (event.provider, event.model, event.api_mode)
+                        != execution.policy.provider_roles.controller.identity()):
+                    raise ValueError("Build source scope requires its unresolved opening intent")
+                pages = event.discovered_pages
+                action = execution.policy.action
+                if pages is not None and (
+                        action.related_page_catalog is not None
+                        or not has_explicit_build_graph_reference(getattr(action.intent, "authored_references", None))
+                        or len({page.document_id for page in pages}) != len(pages)
+                        or any(page.world_id != action.intent.world_id
+                               or str(page.document_id) == str(action.intent.primary_work.object_id) for page in pages)):
+                    raise ValueError("Deferred related pages differ from the admitted Build action")
             if getattr(selection, "typed_image_move", None) in {"move_existing", "unresolved"}:
                 raise ValueError("Typed image movement cannot authorize another provider call")
             if (event.provider,event.model,event.api_mode)==execution.policy.provider_roles.writer.identity():
@@ -806,15 +992,15 @@ def validate_native_action_events(execution):
             outcome=event.outcome
 
 
-def validate_selection(turn, event, proof, trace):
+def validate_selection(turn, event, proof, trace, *, image_move=None):
     from .native_context import is_semantic_build_input
     return validate_selection_records(turn.graph_context_execution,event,proof,trace,
         user_text=turn.user_text,turn_id=turn.turn_id,attempt=turn.attempt,
         semantic_input=is_semantic_build_input(turn.graph_context_receipt),
-        idempotency_key=turn.idempotency_key)
+        idempotency_key=turn.idempotency_key, image_move=image_move)
 
 
-def validate_selection_records(execution, event, proof, trace, *, user_text, turn_id, attempt, semantic_input=False, idempotency_key=None):
+def validate_selection_records(execution, event, proof, trace, *, user_text, turn_id, attempt, semantic_input=False, idempotency_key=None, image_move=None):
     from application_state.build_proposal.graph_reference_decision import resolve_graph_reference_opening
     from application_state.build_proposal.prose_catalog import catalog_for_build_capability
     from .source_writer_output import strict_json
@@ -823,14 +1009,44 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
 
     policy = execution.policy
     caps,capability,menu,resolver=_captured_semantics(policy)
-    if (
-        not isinstance(proof, dict)
-        or set(proof) != {"request_json", "response_json"}
-    ):
+    openings = [row for row in execution.events[:event.sequence] if type(row) is t.BuildOpeningIntentSelectedV1]
+    split = openings[0] if len(openings) == 1 else None
+    followup = split is not None and split.controller_attempt_id != event.controller_attempt_id
+    fields = {"request_json", "response_json"}
+    if followup:
+        fields |= {"opening_request_json", "opening_response_json"}
+    if not isinstance(proof, dict) or set(proof) != fields:
         raise ValueError("Semantic selection requires its exact producing proof")
-    request = strict_json(proof["request_json"])
-    raw_response = strict_json(proof["response_json"])
+    produced_request = strict_json(proof["request_json"])
+    produced_response = strict_json(proof["response_json"])
+    request = strict_json(proof["opening_request_json"]) if followup else produced_request
+    raw_response = strict_json(proof["opening_response_json"]) if followup else produced_response
     response = DecisionResult.model_validate(raw_response)
+    if split is not None:
+        if (hashlib.sha256(proof["opening_request_json" if followup else "request_json"].encode()).hexdigest()
+                != split.controller_envelope_sha256
+                or hashlib.sha256(proof["opening_response_json" if followup else "response_json"].encode()).hexdigest()
+                != split.controller_response_sha256):
+            raise ValueError("Build resolution differs from its saved opening proof")
+        label = verify_build_intent_opening(request, raw_response, menu_digest=menu)
+        if label != split.requested_work:
+            raise ValueError("Build resolution differs from its saved opening action")
+        if followup:
+            from .native_execution import BuildSourceScopeAuthorizedV1
+            source_auth = [row for row in execution.events[:event.sequence]
+                if type(row) is BuildSourceScopeAuthorizedV1
+                and row.provider_attempt_id == event.controller_attempt_id]
+            if len(source_auth) != 1 or source_auth[0].opening_intent_event_id != split.event_id:
+                raise ValueError("Build resolution requires its authorized source ballot")
+            source_scope = verify_build_source_followup(request, raw_response, menu_digest=menu,
+                wire=produced_request, response=produced_response, write_capability=policy.action.write_capability,
+                graph_reference=has_explicit_build_graph_reference(getattr(policy.action.intent, "authored_references", None)),
+                related_pages=(source_auth[0].discovered_pages if source_auth[0].discovered_pages is not None
+                               else policy.action.related_page_catalog), image_move=image_move)
+        elif label in {"clarify_request", "clarify_creation"}:
+            source_scope = "anchored"
+        else:
+            raise ValueError("Build resolution requires the separate source ballot")
     capture = getattr(getattr(policy, "action", None), "image_move_capture", None)
     from application_state.build_proposal.image_move_decision import (
         CONTEXTUAL_IDENTITY, IMAGE_MOVE_AFFIRMATION, OPENING_STATE_KEY,
@@ -838,7 +1054,16 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     )
     image_offer = request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY)
     image_answers = {name: value for name, value in response.answers.items() if name.startswith("image_move_")}
-    if capture is None:
+    if split is not None and capture is not None:
+        expected_image = "other"
+        if followup and label == "write_current_page":
+            if image_move is None:
+                raise ValueError("Build image resolution requires the locked image offer")
+            expected_image = admitted_image_move_choice(
+                image_move.opening_answers(produced_request, DecisionResult.model_validate(produced_response)), user_text)
+        if event.typed_image_move != expected_image:
+            raise ValueError("Image move choice differs from its downstream decision")
+    elif capture is None:
         if event.typed_image_move is not None or image_answers or image_offer is not None:
             raise ValueError("Image move choices require a captured Build Page")
     else:
@@ -879,16 +1104,26 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
                     and admitted_image_move_choice(choices, user_text) == retained
                 ))):
             raise ValueError("Image move choice differs from its actual native selection")
-    graph_reference = resolve_graph_reference_opening(request, response)
+    graph_reference_request = produced_request if followup else request
+    graph_reference_response = DecisionResult.model_validate(produced_response) if followup else response
+    graph_reference = resolve_graph_reference_opening(graph_reference_request, graph_reference_response)
     if graph_reference != event.typed_graph_reference or (graph_reference is not None and (
         not semantic_input or capability is None
         or catalog_for_build_capability(policy.action.write_capability) is None
         or policy.action.write_capability.basis.visibility != "internal"
     )):
         raise ValueError("Build Graph reference opening differs from its actual native selection")
-    label, source_scope = opening_work(policy, request, raw_response, event.typed_image_move)
+    if split is None:
+        label, source_scope = opening_work(policy, request, raw_response, event.typed_image_move)
     resolution = resolution_for(policy, label, source_scope=source_scope)
-    if event.paragraph_placement != paragraph_placement_for(policy, request, response, user_text, label):
+    placement = None
+    if split is None and (graph_reference != "place_existing_reference" or event.paragraph_placement is not None):
+        placement = paragraph_placement_for(policy, request, response, user_text, label)
+    elif followup and label == "write_current_page" and graph_reference != "place_existing_reference":
+        placement = paragraph_placement_for(
+            policy, produced_request, DecisionResult.model_validate(produced_response), user_text, label,
+        )
+    if event.paragraph_placement != placement:
         raise ValueError("Build paragraph placement differs from its actual opening selection")
     prior = [
         e
@@ -902,13 +1137,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     if (len(prior)!=1 or not providers or providers[-1]!=prior[0] or acknowledged[-1:]!=['response_received']
             or (prior[0].provider,prior[0].model,prior[0].api_mode)!=policy.provider_roles.controller.identity()):
         raise ValueError('Semantic selection lacks its exact acknowledged controller')
-    # DecisionIntent's installed SDK converter places criterion descriptions in the
-    # instruction text; the finite options remain genuine semantic alternatives.
-    wire_question = {
-        "type": "choice",
-        "instructions": decision_instructions(menu),
-        "criteria": {name: None for name in _menu_work(menu)},
-    }
+    wire_question = opening_work_question(menu)
     state = request.get("state", {})
     decision = state.get("decision", {})
     if semantic_input:
@@ -924,7 +1153,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
             raise ValueError('Semantic Build routing differs from its locked submission')
     if (
         len(prior) != 1
-        or request.get("model") != prior[0].model
+        or produced_request.get("model") != prior[0].model
         or hashlib.sha256(proof["request_json"].encode()).hexdigest()
         != event.controller_envelope_sha256
         or event.controller_envelope_sha256 != prior[0].envelope_sha256
@@ -960,16 +1189,20 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
         raise ValueError(
             "Semantic resolution differs from its actual admitted request/response"
         )
+    require_captured_controller_response(trace, event.controller_attempt_id, proof["response_json"])
+
+
+def require_captured_controller_response(trace, attempt_id, response_json, *, receipt_sha256=None):
+    """Require the unique protected response for this attempt and optional exact receipt."""
+    prefix = f"unvalidated-controller-decision:{attempt_id}:"
     captured = [
-        m
-        for o in (trace or {}).get("observations", [])
-        if o.get("kind") == "context_snapshot"
-        for m in o.get("materials", [])
-        if m.get("item_id", "").startswith(
-            f"unvalidated-controller-decision:{event.controller_attempt_id}:"
-        )
+        material for observation in (trace or {}).get("observations", [])
+        if observation.get("kind") == "context_snapshot"
+        for material in observation.get("materials", [])
+        if (material.get("item_id", "").startswith(prefix) if receipt_sha256 is None
+            else material.get("item_id") == prefix + receipt_sha256)
     ]
-    if len(captured) != 1 or captured[0].get("text") != proof["response_json"]:
+    if len(captured) != 1 or captured[0].get("text") != response_json:
         raise ValueError("Semantic provider response was not captured for this attempt")
 
 
@@ -987,6 +1220,15 @@ def decision_instructions(menu_digest=MENU_DIGEST):
         + "\n"
         + "\n".join(f"{name}: {w.family}: {w.meaning}" for name, w in _menu_work(menu_digest).items())
     )
+
+
+def opening_work_question(menu_digest=MENU_DIGEST):
+    """Exact provider-facing choice for the frozen Build menu."""
+    return {
+        "type": "choice",
+        "instructions": decision_instructions(menu_digest),
+        "criteria": dict.fromkeys(_menu_work(menu_digest)),
+    }
 
 
 def output_schema(packet):
@@ -1460,7 +1702,7 @@ def semantic_collaboration(card):
     return {key: deepcopy(card[key]) for key in card if key in fields}
 
 
-def semantic_routing_state(question, interaction, references, *, write_capability=None):
+def semantic_routing_state(question, interaction, references, *, write_capability=None, include_paragraph_catalog=True, include_surface=False, include_related_catalog=True):
     """Project typed parent context, never scrub arbitrary user/source strings."""
     from .dialogue_projection import expand_dialogue
     from .authored_graph_references import AuthoredSourceReferenceV1
@@ -1473,20 +1715,23 @@ def semantic_routing_state(question, interaction, references, *, write_capabilit
         "current_page_title": interaction["current_page"]["title"],
         "history": history, "page_target": interaction["page_target"],
         "working_draft_available": interaction["working_draft"] is not None}
+    if include_surface:
+        context["surface"] = "build"
     if references is not None:
         context["author_selected_references"] = [
             {"kind": "source", "label": ref.label, "selection_kind": ref.selection_kind}
             if isinstance(ref, AuthoredSourceReferenceV1) else {"kind": "graph_object", "label": ref.label}
             for ref in references.references]
-    if "related_page_catalog" in interaction:
+    if include_related_catalog and "related_page_catalog" in interaction:
         context["related_page_labels"] = [page["title"] for page in interaction["related_page_catalog"]]
     from application_state.build_proposal.prose_catalog import catalog_for_build_capability
     from application_state.build_proposal.prose_decision import OPENING_STATE_KEY, build_boundary_opening
 
     catalog = catalog_for_build_capability(write_capability)
     if catalog is not None:
-        context[OPENING_STATE_KEY], _ = build_boundary_opening(
-            question, context["current_page_title"], catalog, caret=write_capability.basis.caret)
+        if include_paragraph_catalog:
+            context[OPENING_STATE_KEY], _ = build_boundary_opening(
+                question, context["current_page_title"], catalog, caret=write_capability.basis.caret)
         context["page_target"] = {"kind": "contextual_paragraph"}
     return {"user_question": question, "interaction": context}
 

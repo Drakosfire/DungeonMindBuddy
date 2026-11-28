@@ -144,6 +144,19 @@ class NativePlayRetrievalDecisionInputV1(NativeRetrievalDecisionInputV2):
         return self
 
 
+class NativePlayIntentDecisionInputV1(NativePlayRetrievalDecisionInputV1):
+    """Run-bound opening with no candidate votes."""
+    schema_: Literal["dmb_native_play_intent_decision_input_v1"] = Field(
+        default="dmb_native_play_intent_decision_input_v1", alias="schema")
+
+    @model_validator(mode="after")
+    def opening_scope(self):
+        if (self.candidates or self.examined_candidates
+                or self.allowed_operations != ("discover_more", "finish_retrieval")):
+            raise ValueError("Play intent opening cannot carry candidate votes")
+        return self
+
+
 _SHARED_RELEVANCE = (
     "include if this option is a relevant next step toward locating or obtaining "
     "a requested detail or necessary relationship; otherwise exclude. "
@@ -167,6 +180,8 @@ def parse_native_retrieval_input(raw, *, surface_id):
         if isinstance(raw, dict) and raw.get('schema') == 'dmb_native_plan_opening_input_v1'
         else NativePlanBatchDecisionInputV3
         if isinstance(raw, dict) and raw.get("schema") == "dmb_native_plan_batch_decision_input_v3"
+        else NativePlayIntentDecisionInputV1
+        if isinstance(raw,dict) and raw.get("schema")=="dmb_native_play_intent_decision_input_v1"
         else NativePlayRetrievalDecisionInputV1
         if isinstance(raw,dict) and raw.get("schema")=="dmb_native_play_retrieval_decision_input_v1"
         else NativeBuildRetrievalDecisionInputV4
@@ -185,7 +200,7 @@ def parse_native_retrieval_input(raw, *, surface_id):
         raise ValueError("Build authoring relevance belongs only to its actual Build owner")
     if isinstance(parent,NativePlayRetrievalDecisionInputV1) and surface_id != 'play':
         raise ValueError('Play work belongs only to its actual Run surface')
-    if surface_id=='play' and type(parent) is not NativePlayRetrievalDecisionInputV1:
+    if surface_id=='play' and not isinstance(parent, NativePlayRetrievalDecisionInputV1):
         raise ValueError('Play retrieval requires its exact Run work input')
     return parent
 
@@ -232,6 +247,11 @@ def fallback_options(request: RetrievalDecisionInput) -> tuple[str, str]:
 
 def prepare_decision(request: RetrievalDecisionInput, *, controller_accounting=None) -> DecisionRequest:
     """One typed batch, without Plan bodies, host metadata or writer instructions."""
+    if type(request) is NativePlayIntentDecisionInputV1:
+        from .native_play_opening import NativePlayOpeningInputV1, prepare_play_opening
+
+        return prepare_play_opening(NativePlayOpeningInputV1(
+            question=request.question, dialogue=request.dialogue))
     shared_relevance = ((type(request) in _SHARED_RELEVANCE_TYPES or _planned_input(request))
         and any(c.kind != KEYWORD_KIND for c in request.candidates))
     questions = [ChoiceDecisionQuestion(
@@ -412,6 +432,14 @@ def validated_choice_answers(result: DecisionResult, expected) -> dict[str, str]
 
 def decode_selection(request: RetrievalDecisionInput, result: DecisionResult) -> RetrievalSelection:
     """Decode actual typed GE choices. Confidence is never evidence authority."""
+    if type(request) is NativePlayIntentDecisionInputV1:
+        from .native_play_opening import decode_play_opening
+
+        work = decode_play_opening(result)
+        return RetrievalSelection(
+            operation="discover_more" if work == "read_source" else "finish_retrieval",
+            selected_handles=(),
+        )
     expected = {"operation", *(f"candidate_{i}" for i in range(len(request.candidates)))}
     if _planned_input(request):
         expected.add('post_read_plan')
@@ -424,6 +452,8 @@ def retrieval_exclusions_for_replay(request, result, *, requested_work=None):
     from .neighborhood_replay import ExcludedReplayCandidate, RetrievalExclusionReplay
     from .native_plan_opening import NativePlanOpeningInputV2, NativePlanOpeningInputV3
 
+    if type(request) is NativePlayIntentDecisionInputV1:
+        return None
     if type(request) in (NativePlanOpeningInputV2, NativePlanOpeningInputV3) and requested_work != "discuss":
         return None
     if requested_work is not None and requested_work not in {"discuss", "clarify"}:
@@ -547,6 +577,8 @@ def validate_wire_body(request: RetrievalDecisionInput, raw: bytes, *, controlle
         parse_constant=lambda _value: (_ for _ in ()).throw(ValueError("Nonfinite decision request")))
     expected = prepare_decision(request, controller_accounting=controller_accounting)
     questions = {q.name: {"type": "choice", "instructions": q.question,
-                         "criteria": {option: None for option in q.options}} for q in expected.questions}
+                         "criteria": {option: (q.option_descriptions or {}).get(option) if
+                                      type(request) is NativePlayIntentDecisionInputV1 else None
+                                      for option in q.options}} for q in expected.questions}
     if body != {"model": MODEL, "state": expected.state, "questions": questions}:
         raise ValueError("Prepared decision question, catalog or choices changed")

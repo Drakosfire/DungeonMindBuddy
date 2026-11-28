@@ -241,12 +241,21 @@ def _join_pending_turn_fields(receipt, execution, provenance, intent_fingerprint
     if t.submitted_turn_intent_fingerprint_v2(execution.policy.action.intent) != intent_fingerprint:
         raise ValueError("Pending stored request fingerprint differs from admission")
     if completion is None:
-        if assistant_text is not None or any(type(event) is t.CompletionBindingEventV1 for event in execution.events):
+        if assistant_text is not None or any(type(event) in (t.CompletionBindingEventV1,
+                t.BuildImageMoveCompletionBindingV1) for event in execution.events):
             raise ValueError("Pending prefix has no registered terminal output owner")
     else:
         from .native_completion import SurfaceNativeCompletionV1, validate_retained_completion
         if type(completion) is SurfaceNativeCompletionV1:
             validate_retained_completion(completion, receipt, execution, completion.producing_provider_attempt_id, {})
+        elif type(completion) is t.BuildImageMoveCompletionV1:
+            binding = execution.events[-1] if execution.events else None
+            if type(binding) is not t.BuildImageMoveCompletionBindingV1:
+                raise ValueError("Pending image review requires its typed completion binding")
+            validate_retained_completion(completion, receipt, execution, binding.provider_attempt_id, {})
+            if assistant_text != "\n".join(segment.text for segment in completion.answer_segments):
+                raise ValueError("Pending image review differs from its completion text")
+            return
         elif type(completion) is t.BuildAuthoringCompletionV1:
             from .build_authoring import validate_native_authoring_binding
             validate_native_authoring_binding(completion, receipt, execution, completion.provider_attempt_id, {})

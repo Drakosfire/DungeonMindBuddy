@@ -117,6 +117,9 @@ TASKS = {
         'Describe these steps as available after their prerequisites, never as already performed. '
         'The requested actions are not factual evidence questions. Leave limitations and '
         'requested_detail_gaps empty.'),
+    "play_scene_edit_handoff": ResponsePromptComponent("play_scene_edit_handoff_task", "1",
+        "Direct the user to the scene edit control in Play to review a change to the current scene. "
+        "Keep the requested change in conversation. Do not claim that a proposal was saved or applied."),
     'different_destination': ResponsePromptComponent('destination_task', '1',
         'Explain the requested destination and what is needed to continue there. '
         'Do not draft into the current page or imply that another page was created or changed.'),

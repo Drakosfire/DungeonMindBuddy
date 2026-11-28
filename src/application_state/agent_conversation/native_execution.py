@@ -31,7 +31,7 @@ from .plan_placement import PlanPlacementCatalog
 
 from .native_retrieval import (
     NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1, NativeReadBatchConcludedV1,
-    NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2,
+    NativePlayIntentSelectedV1, NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2,
 )
 from .native_plan_opening import (
     NativePlanAuthorScopeObservedV1, NativePlanOpeningScopeBindingV1, bind_opening_author_scope,
@@ -491,6 +491,14 @@ class NativeBuildQuerySettledV1(Strict):
     query: NativeGraphQueryV4
 
 
+class BuildSourceScopeAuthorizedV1(t.ProviderAttemptAuthorizedEventV5):
+    """A source-scope ballot tied to a previously saved Build intent."""
+    kind: Literal["build_source_scope_authorized_v1"] = "build_source_scope_authorized_v1"
+    context_phase: Literal["source_scope"] = "source_scope"
+    opening_intent_event_id: UUID
+    discovered_pages: tuple[PagePointer, ...] | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
 class BuildAppPageSelectionAuthorizedV1(t.ProviderAttemptAuthorizedEventV5):
     """A distinct later App metadata decision, never reopening initial work."""
     kind: Literal["build_app_page_selection_authorized_v1"] = "build_app_page_selection_authorized_v1"
@@ -540,17 +548,30 @@ def effective_native_query(context, execution):
             raise ValueError("A settled-on-admission query cannot acquire a second catalog")
         return query
 
+    from .build_intentional_response import has_explicit_build_graph_reference, split_build_clarification
+
     action = execution.policy.action
+    references = getattr(action.intent, "authored_references", None)
     if (type(action) is not NativeBuildActionV1 or action.intent.reviewed_step is not None
-            or getattr(action.intent, "authored_references", None) is not None
+            or (references is not None and not has_explicit_build_graph_reference(references))
             or query.question != action.intent.message
             or action.intent.graph_request.revision_pin not in (None, query.authority.revision_id)):
         raise ValueError("Pending Graph query differs from the admitted Build request")
     if len(settlements) > 1:
         raise ValueError("Build can settle its pending Graph query only once")
     settlement = settlements[0] if settlements else None
-    conversation_work = prior_conversation_work(execution.events, allow_discussion=True)
-    if settlement is None and conversation_work is not None:
+    conversation_work = (split_build_clarification(execution)
+        or prior_conversation_work(execution.events, allow_discussion=True))
+    image_work = next((event for event in execution.events
+        if type(event) is t.BuildRequestedWorkResolutionV1
+        and event.typed_image_move in {"move_existing", "unresolved"}), None)
+    if settlement is None and image_work is not None:
+        tail = execution.events[image_work.sequence + 1:]
+        if tail and (len(tail) != 1 or type(tail[0]) is not t.BuildImageMoveCompletionBindingV1
+                or tail[0].opening_event_id != image_work.event_id):
+            raise ValueError("A local image review cannot acquire additional work or evidence")
+        events = execution.events[:image_work.sequence]
+    elif settlement is None and conversation_work is not None:
         from .native_retrieval import NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2
 
         if any(isinstance(event, (*t.NATIVE_BODY_EVENTS, NativeRetrievalAuthorizedV1,
@@ -563,12 +584,17 @@ def effective_native_query(context, execution):
     authorization = None
     responded = False
     for event in events:
-        if type(event) is t.BuildDraftContextCapturedV1 and authorization is None:
+        if type(event) in (t.BuildDraftContextCapturedV1, t.BuildAuthoredReferencesCapturedV1) and authorization is None:
             continue
         if (type(event) is t.ProviderAttemptAuthorizedEventV5 and authorization is None
                 and event.context_phase == "select"
                 and (event.provider, event.model, event.api_mode) == execution.policy.provider_roles.controller.identity()):
             authorization = event
+            continue
+        if type(event) is t.BuildOpeningIntentSelectedV1 and authorization is not None and responded:
+            continue
+        if type(event) is BuildSourceScopeAuthorizedV1 and authorization is not None and responded:
+            authorization, responded = event, False
             continue
         if (type(event) is t.ProviderOutcomeEventV1 and authorization is not None
                 and event.provider_attempt_id == authorization.provider_attempt_id):
@@ -580,8 +606,7 @@ def effective_native_query(context, execution):
     if (authorization is None or not responded
             or settlement.controller_attempt_id != authorization.provider_attempt_id
             or settlement.query.authority != query.authority
-            or settlement.query.question != query.question
-            or settlement.query.authored_targets):
+            or settlement.query.question != query.question):
         raise ValueError("Settled Graph query differs from its opening Build authorization")
     return settlement.query
 
@@ -595,7 +620,7 @@ SurfaceNativeEvent = Annotated[
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
     | t.BuildGraphReferenceCompletionBindingV1
     | t.BuildImageMoveCompletionBindingV1
-    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3 | NativePlanOpeningSelectedV1 | NativePlanOpeningSelectedV2 | NativePlanOpeningSelectedV3
+    | t.PlanJevRetrievalSelectionV1 | NativeRetrievalSelectedV1 | NativeRetrievalSelectedV2 | NativePlayIntentSelectedV1 | NativeReadBatchConcludedV1 | t.PlanRequestedWorkSelectedV2 | NativePlanRequestedWorkSelectedV3 | NativePlanOpeningSelectedV1 | NativePlanOpeningSelectedV2 | NativePlanOpeningSelectedV3
     | t.NativeBodySearchAuthorizedV1 | t.NativeInitialSourceSearchAuthorizedV1 | t.NativePlanRequestSearchAuthorizedV1 | t.NativeBodySearchObservedV1
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1 | t.NativeAuthoredSourceReadV1
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
@@ -604,6 +629,7 @@ SurfaceNativeEvent = Annotated[
     | t.BuildDraftContextCapturedV1 | NativeBuildQuerySettledV1 | t.BuildPriorBodyEvidenceAdmittedV1 | t.BuildPriorBodyEvidenceAdmittedV2 | t.BuildPriorBodyEvidenceAdmittedV3
     | t.BuildSectionReadAuthorizationV1 | t.ValidatedBuildSectionReadV1
     | t.BuildRequestedWorkResolutionV1 | t.BuildReviewedActionSelectionV2 | t.BuildReviewedActionSelectionV1
+    | t.BuildOpeningIntentSelectedV1 | BuildSourceScopeAuthorizedV1
     | t.BuildWriterEvidenceSelectionV1 | t.BuildWriterEvidenceSelectionV2 | t.BuildPlanOutputContractV2
     | t.RelatedPagesSelection | t.RelatedPageRead | BuildSavedStatblockReadV1
     | t.BuildAuthoredReferencesCapturedV1 | BuildAuthoredReferenceAuthorizedV2
@@ -615,7 +641,7 @@ SurfaceNativeEvent = Annotated[
 _BUILD_WORK_EVENTS = (
     t.BuildDraftContextCapturedV1, NativeBuildQuerySettledV1, t.BuildPriorBodyEvidenceAdmittedV1,
     t.BuildSectionReadAuthorizationV1, t.ValidatedBuildSectionReadV1,
-    t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1,
+    t.BuildRequestedWorkResolutionV1, t.BuildReviewedActionSelectionV1, t.BuildOpeningIntentSelectedV1, BuildSourceScopeAuthorizedV1,
     t.BuildWriterEvidenceSelectionV1, t.BuildPlanOutputContractV2,
     t.RelatedPagesSelection, BuildSavedStatblockReadV1,
 )
@@ -633,8 +659,8 @@ from .build_pending_app_coverage import (BuildAppCoverageAuthorizedV1, BuildAppC
 # Native acquisition/terminal owners still need integration; the pending writer
 # is confined to its admitted retained closure and empty acquired catalog.
 BuildPendingPrefixEventV1 = Annotated[
-    t.ProviderAttemptAuthorizedEventV5 | BuildAppPageSelectionAuthorizedV1 | BuildAppCoverageAuthorizedV1 | BuildAppCoverageDecidedV1 | t.ProviderOutcomeEventV1
-    | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1
+    t.ProviderAttemptAuthorizedEventV5 | BuildSourceScopeAuthorizedV1 | BuildAppPageSelectionAuthorizedV1 | BuildAppCoverageAuthorizedV1 | BuildAppCoverageDecidedV1 | t.ProviderOutcomeEventV1
+    | t.RelatedPagesSelection | t.RelatedPageRead | t.BuildDraftContextCapturedV1 | t.BuildRequestedWorkResolutionV1 | t.BuildOpeningIntentSelectedV1
     | NativeBuildSourceSettledV1 | BuildAppPageCatalogObservedV1 | t.BuildPriorBodyEvidenceAdmittedV3
     | NativeRetrievalAuthorizedV1 | NativeRetrievalSelectedV1
     | t.NativeDirectSourceAuthorizedV1 | t.NativeDirectSourceObservedV1
@@ -642,7 +668,8 @@ BuildPendingPrefixEventV1 = Annotated[
     | t.NativeBodyReadAuthorizedV1 | t.NativeBodyReadObservedV1
     | t.NativePlanStatementReadAuthorizedV1 | t.NativePlanStatementReadObservedV1
     | t.NativePlanAssertionReadAuthorizedV1 | t.NativePlanAssertionReadObservedV1
-    | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2 | t.CompletionBindingEventV1,
+    | t.BuildWriterEvidenceSelectionV2 | NativeBuildWriterAuthorizedV2 | t.CompletionBindingEventV1
+    | t.BuildImageMoveCompletionBindingV1,
     Field(discriminator="kind"),
 ]
 
@@ -672,10 +699,20 @@ class BuildPendingExecutionV1(Strict):
         settled = False
         app_catalog_observed = False
         work_selected = False
+        intent_selected = False
         app_catalog = page_controller = page_outcome = page_selection = None
         page_reads = set()
         writer = None
+        image_work = None
         for event in self.events:
+            if image_work is not None and (
+                    type(event) is not t.BuildImageMoveCompletionBindingV1
+                    or event.opening_event_id != image_work.event_id
+                    or event.sequence != image_work.sequence + 1
+                    or event.provider_attempt_id != image_work.controller_attempt_id):
+                raise ValueError("Local image review closes further acquisition and dispatch")
+            if type(event) is t.BuildImageMoveCompletionBindingV1 and image_work is None:
+                raise ValueError("Local image review requires its acknowledged image decision")
             if type(event) in (BuildAppPageCatalogObservedV1, BuildAppPageSelectionAuthorizedV1,
                     t.RelatedPagesSelection, t.RelatedPageRead) and any(
                     type(prior) is BuildAppCoverageAuthorizedV1 for prior in self.events[:event.sequence]):
@@ -697,6 +734,9 @@ class BuildPendingExecutionV1(Strict):
                             or (event.provider, event.model, event.api_mode)
                             != self.policy.provider_roles.controller.identity()):
                         raise ValueError('Pending retrieval requires its settled source and actual Build controller')
+                elif type(event) is BuildSourceScopeAuthorizedV1:
+                    if settled:
+                        raise ValueError("Build source scope cannot follow source preparation")
                 elif type(event) is BuildAppCoverageAuthorizedV1:
                     if settled:
                         raise ValueError('App coverage cannot follow native source preparation')
@@ -709,7 +749,8 @@ class BuildPendingExecutionV1(Strict):
                             != self.policy.provider_roles.controller.identity()):
                         raise ValueError("App page controller requires its unique unresolved captured catalog phase")
                     page_controller, page_outcome = event, None
-                elif (settled or work_selected or (event.provider, event.model, event.api_mode)
+                elif (settled or work_selected or intent_selected or event.context_phase == "source_scope"
+                        or (event.provider, event.model, event.api_mode)
                         != self.policy.provider_roles.controller.identity()):
                     raise ValueError("Pending controller authorization must precede work selection")
                 if (event.included_assertion_ids or event.included_relationship_ids
@@ -719,8 +760,12 @@ class BuildPendingExecutionV1(Strict):
                     raise ValueError("Pending controller cannot include unacquired source evidence")
             elif type(event) is BuildAppCoverageDecidedV1:
                 validate_coverage_decision(self, event)
+            elif type(event) is t.BuildOpeningIntentSelectedV1:
+                intent_selected = True
             elif type(event) is t.BuildRequestedWorkResolutionV1:
                 work_selected = True
+                if event.typed_image_move in {"move_existing", "unresolved"}:
+                    image_work = event
             elif type(event) is t.CompletionBindingEventV1:
                 from .build_source_free import validate_pending_completion_binding
                 validate_pending_completion_binding(self, event)

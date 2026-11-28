@@ -940,7 +940,7 @@ def test_exact_selected_play_source_admits_no_aggregate_token_ceiling(source_cas
     assert updated.graph_context_execution.policy.max_provider_attempts > 0
 
 
-@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","object","mixed","unknown","writer_failure","source_failure","forged_work"])
+@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","object","mixed","unknown","writer_failure","source_failure","forged_work","forged_choice","clarify","handoff","scene_edit"])
 def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answer(
     application_state_dsn,monkeypatch,tmp_path,source_case,mode,request,
 ):
@@ -964,7 +964,12 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         from tests.test_native_plan_statements import query
         query_context,query_result=query(graph_lane,scope_mode='world')
     core=ref=None
-    if mode in {'selected','automatic','source_failure'}:
+    deferred_work = {
+        "clarify": ("clarify_request", "Ask focused questions needed to resolve the current request"),
+        "handoff": ("different_destination", "Explain the requested destination"),
+        "scene_edit": ("play_edit", "Direct the user to the scene edit control"),
+    }
+    if mode in {'selected','automatic','source_failure'} or mode in deferred_work:
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source as native_owner
         from tests.test_native_corpus_source_access import GM
         old,ref,_sections=selected(source_case)
@@ -974,7 +979,7 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         ref=ref.model_copy(update={'managed_world_id':world})
     from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredSourceReferenceV1
     references=()
-    if mode in {'selected','source_failure'}:
+    if mode in {'selected','source_failure'} or mode in deferred_work:
         references=(ref,)
     if mode in {'object','mixed'}:
         authority=query_result.authority
@@ -1009,6 +1014,12 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     if mode in {'graph','object','mixed'}:intent=intent.model_copy(update={'message':query_result.question})
     if mode=='rules':
         intent=intent.model_copy(update={'message':'Can I end my move in an occupied space?'})
+    if mode in deferred_work:
+        intent = intent.model_copy(update={"message": {
+            "clarify": "Can you do that now?",
+            "handoff": "Revise the Corrupted Edge page in Build.",
+            "scene_edit": "Revise the current scene to begin after sunset.",
+        }[mode]})
     request=AgentTurnRequest.model_validate_json(json.dumps(dict(
         schema='dmb_agent_turn_request_v1',graph_selection=None,
         client_thread_id='shared-play-native',turn_id=str(uuid4()),message=intent.message,
@@ -1032,12 +1043,19 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
             if mode=='unknown':
                 self.calls.append(request)
                 raise httpx2.ReadTimeout('Synthetic ambiguous Play controller outcome',request=request)
-            if mode not in {'automatic','rules','graph'}:return await super().handle_async_request(request)
-            self.calls.append(request);body=json.loads(request.content)
+            body=json.loads(request.content)
+            opening=body["state"].get("surface")=="play"
+            if not opening and mode not in {'automatic','rules','graph'}:
+                return await super().handle_async_request(request)
+            self.calls.append(request)
             answers={}
             for name,question in body['questions'].items():
-                include=name.startswith('candidate_') and body['state']['candidates'][int(name.split('_')[1])]['kind']==('public_rules_lookup' if mode=='rules' else 'Native Graph object; open its complete admitted statement and assertion support' if mode=='graph' else 'Explicit admitted full-source read; metadata choice, not evidence') and len(self.calls)==1
-                choice='finish_retrieval' if name=='operation' else 'include' if include else 'exclude'
+                include=name.startswith('candidate_') and body['state']['candidates'][int(name.split('_')[1])]['kind']==('public_rules_lookup' if mode=='rules' else 'Native Graph object; open its complete admitted statement and assertion support' if mode=='graph' else 'Explicit admitted full-source read; metadata choice, not evidence') and len(self.calls)==2
+                if opening:
+                    choice = (deferred_work[mode][0] if mode in deferred_work else
+                              'read_source' if mode in {'automatic','rules','graph'} else 'discuss')
+                else:
+                    choice='finish_retrieval' if name=='operation' else 'include' if include else 'exclude'
                 answers[name]={'type':'choice','choice':choice,'confidence':1,
                     'probabilities':{key:float(key==choice) for key in question['criteria']}}
             return httpx2.Response(200,request=request,json={'model':'jev-1.14.0','answers':answers,
@@ -1104,14 +1122,28 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
             proof['source_frame']=play_source_frame(tuple(frames)).model_dump(mode='json',by_alias=True)
             return proof
         monkeypatch.setattr(plan_source_turn,'play_work_proof',forged)
-    if mode in {'unknown','writer_failure','source_failure','forged_work'}:
+    if mode == "forged_choice":
+        from application_state.agent_conversation import native_retrieval
+
+        original = native_retrieval.verify_selection
+
+        def verify_forged_choice(turn, event, proof, trace):
+            if type(event) is native_retrieval.NativePlayIntentSelectedV1:
+                event = event.model_copy(update={"requested_work": "different_destination"})
+            return original(turn, event, proof, trace)
+
+        monkeypatch.setattr(native_retrieval, "verify_selection", verify_forged_choice)
+    if mode in {'unknown','writer_failure','source_failure','forged_work','forged_choice'}:
         from apps.live_control_server.services.agent_turn_service import AgentTurnServiceError
         with pytest.raises(AgentTurnServiceError):execute_agent_turn(request,**kwargs)
         kept=service.list_turns(world,wire.adapter.fence.turn.conversation_id)[-1]
         assert kept.status in {'interrupted','failed'} and kept.completion is None
-        assert len(decisions.calls)==(0 if mode in {'source_failure','forged_work'} else 1)
+        assert len(decisions.calls)==(0 if mode == 'forged_work' else 1)
         assert len(wire.calls)==(1 if mode=='writer_failure' else 0)
         if mode=='unknown':assert any(getattr(e,'outcome',None)=='outcome_unknown' for e in kept.graph_context_execution.events)
+        if mode == "forged_choice":
+            assert not any(e.kind == "native_play_intent_selected_v1"
+                           for e in kept.graph_context_execution.events)
         trace=service.list_context_trace_attempts(world_id=world,turn_id=kept.turn_id)[-1]
         assert trace.capture_status!='recording'
         before=(len(decisions.calls),len(wire.calls))
@@ -1123,8 +1155,16 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     delivered=response.rules_context.base_context if mode=='rules' else response.play_context
     assert type(delivered.receipt) is SurfaceNativeContextReceiptV1
     assert delivered.delivery_replay is False
-    assert len(decisions.calls)==(2 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
-    assert not any('requested_work' in json.loads(call.content)['questions'] for call in decisions.calls)
+    assert len(decisions.calls)==(3 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
+    openings=[json.loads(call.content) for call in decisions.calls
+              if 'requested_work' in json.loads(call.content)['questions']]
+    assert len(openings) == 1
+    if openings:
+        assert set(openings[0]['questions'])=={'requested_work'}
+        from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+        assert openings[0]["state"]["surface"] == "play"
+        assert openings[0]["questions"]["requested_work"]["criteria"] == opening_action_menu("play")
+        assert 'candidates' not in openings[0]['state']
     for call in [*decisions.calls,*wire.calls]:
         assert 'max_output_tokens' not in json.loads(call.content)
         raw=call.content.decode()
@@ -1134,9 +1174,20 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     replay=execute_agent_turn(request,**kwargs)
     assert (replay.rules_context.base_context if mode=='rules' else replay.play_context).delivery_replay is True
     assert replay.answer.text==response.answer.text
-    assert len(decisions.calls)==(2 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
+    assert len(decisions.calls)==(3 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
     stored=AgentConversationService().list_turns(world,wire.adapter.turn.conversation_id)[-1]
     if mode=='rules':stored=stored.base_projection.turn
+    if openings:
+        from application_state.agent_conversation.native_retrieval import NativePlayIntentSelectedV1
+
+        recorded = [event.requested_work for event in stored.graph_context_execution.events
+                    if type(event) is NativePlayIntentSelectedV1]
+        assert recorded == [deferred_work[mode][0] if mode in deferred_work else
+                            "read_source" if mode in {"automatic", "rules", "graph"} else "discuss"]
+    if mode in deferred_work:
+        assert deferred_work[mode][1] in wire.calls[0].content.decode()
+        assert not any(isinstance(event, t.NativeAuthoredSourceReadV1)
+                       for event in stored.graph_context_execution.events)
     assert stored.play_context_receipt==sub.play_context_receipt
     assert stored.completion.answer_segments[0].source_kind=='play'
     # Exercise the actual saved-history consumer, not only execution replay.
@@ -1161,18 +1212,22 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         next_reply=execute_agent_turn(followup,**kwargs)
         assert next_reply.answer.status=='ok'
         state=json.loads(decisions.calls[-1].content)['state']
-        assert state['dialogue_reference']==[dict(role='user',content=request.message),
+        assert state['prior_dialogue']==[dict(role='user',content=request.message),
             dict(role='assistant',content=response.answer.text)]
-        assert 'dialogue_reference' not in state['surface_work']
+        assert 'surface_work' not in state
     if mode in {'selected','automatic','mixed'}:assert stored.completion.native_body_citations
+    if mode in {"selected", "mixed"}:
+        events = stored.graph_context_execution.events
+        choice = next(event.sequence for event in events if event.kind == "native_play_intent_selected_v1")
+        assert choice < next(event.sequence for event in events if isinstance(event, t.NativeAuthoredSourceReadV1))
     if mode=='memory':assert stored.completion.answer_segments[-1].kind=='session_summary'
     if mode in {'graph','object','mixed'}:assert stored.completion.native_assertion_citations
     if mode in {'object','mixed'}:
         assert stored.graph_context_execution.policy.action.intent.authored_references.references==references
         events=stored.graph_context_execution.events
         assert len([event for event in events if event.kind=='build_authored_reference_read_v3'])==1
-        assert next(event.sequence for event in events if event.kind=='build_authored_reference_read_v3') < next(
-            event.sequence for event in events if isinstance(event,t.ProviderAttemptAuthorizedEventV1))
+        assert next(event.sequence for event in events if event.kind == "native_play_intent_selected_v1") < next(
+            event.sequence for event in events if event.kind == "build_authored_reference_read_v3")
     if mode=='selected':
         import os
         from pathlib import Path

@@ -252,14 +252,17 @@ class BuildJevHarness:
                 from application_state.errors import ApplicationStateConflictError
                 from .agent_turn_service import AgentTurnServiceError
 
-                principal = getattr(adapter.native_query_context, "principal", None)
+                principal = adapter.native_principal
                 if principal is None or principal.role != "gm":
                     raise AgentTurnServiceError("Image movement requires World edit access.",
                                                 code="build_image_move_forbidden", status_code=403)
                 turn = adapter.fence.turn
-                def admit_image_move(_conn, review):
-                    if review.placement.basis.world_id != adapter.native_source_authority.managed_world_id:
+                def admit_image_move(conn, review):
+                    if review.placement.basis.world_id != turn.world_id:
                         raise ApplicationStateConflictError("The image move changed the authorized World")
+                    access = adapter.pending_build_access
+                    if callable(access) and access(conn, turn, None) is not True:
+                        raise ApplicationStateConflictError("Current World access no longer permits image review")
 
                 try:
                     adapter.turn = adapter.service.complete_build_image_move_turn(
@@ -295,6 +298,9 @@ class BuildJevHarness:
                 raise ValueError("The image reference requires an edit to the selected passage.")
             from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
             if type(adapter._broker_receipt()) is BuildPendingContextReceiptV1:
+                return self._native_completion(adapter, driver)
+            from application_state.agent_conversation.build_intentional_response import split_build_clarification
+            if split_build_clarification(adapter._broker_execution()) is not None:
                 return self._native_completion(adapter, driver)
             from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
             if (adapter.native_source_authority is not None
@@ -664,7 +670,7 @@ class BuildJevHarness:
             body = json.loads(prepared.body)
             return DecisionContextMode(accounting.context_mode(body, host_phase=getattr(plan,"host_phase",None)))
 
-        prepare_deferred_query = (None if getattr(plan, "host_phase", None) == "graph_reference"
+        prepare_deferred_query = (None if getattr(plan, "host_phase", None) in {"graph_reference", "source_scope"}
                                   else getattr(adapter, "prepare_deferred_build_query", None))
         pending_query = None
         opening_dispatched = False
@@ -682,6 +688,10 @@ class BuildJevHarness:
             # Starting Graph while that decision is in flight violates anchored
             # discussion even when its writer later chooses retained context.
             wait_for_work = wait_for_work or any(q.name == "source_need" for q in intent.questions)
+            # Pending intent-only Build cannot start Graph preparation while
+            # the opening ballot is still deciding what the user wants.
+            if getattr(driver, "split_opening", False):
+                wait_for_work = True
 
         def dispatch_started():
             nonlocal pending_query, opening_dispatched
@@ -722,15 +732,42 @@ class BuildJevHarness:
             # Retain actual received bytes before a host gate can reject them.
             # This protected, unvalidated Debug channel grants no answer authority.
             if isinstance(adapter._broker_execution().policy, (ledger.BuildSelectedSourceActionControllerWriterPolicyV1, SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1)):
-                adapter.context_capture.controller_decision_response(
-                    canonical(result.model_dump(mode="json")),
-                    producing_provider_attempt_id=adapter.last_provider_attempt_id,
-                )
+                self._capture_controller_decision(adapter, plan, result)
+            split_proof = None
+            if getattr(driver, "split_opening", False):
+                from .build_pending_source_scope import PendingBuildSourceScopeDriver
+
+                intent = adapter._broker_execution().events[-1]
+                if type(intent) is not ledger.BuildOpeningIntentSelectedV1:
+                    raise ValueError("Build source handling requires its saved intent")
+                request = adapter._prepared_build_decision.body.decode()
+                split_proof = {"intent": intent.requested_work, "opening_request": request, "scope": "anchored"}
+                if intent.requested_work not in {"clarify_request", "clarify_creation"}:
+                    followup = PendingBuildSourceScopeDriver(adapter, request, result.model_dump(mode="json"),
+                        image_move=getattr(driver, "image_move", None))
+                    await self._decide(adapter, followup)
+                    split_proof.update(scope=followup.result, response=followup.response)
+                    if followup.image_move is not None and intent.requested_work == "write_current_page":
+                        from generationengine.types import DecisionResult
+                        from application_state.build_proposal.image_move_decision import admitted_image_move_choice
+
+                        image_answers = followup.image_move.opening_answers(
+                            json.loads(followup.prepared.body), DecisionResult.model_validate_json(followup.response),
+                        )
+                        split_proof["image_move"] = admitted_image_move_choice(image_answers, adapter.request.message)
             if prepare_deferred_query is not None:
                 if not opening_dispatched:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
                 conversation_only = False
-                if wait_for_work:
+                if split_proof is not None:
+                    from application_state.agent_conversation.native_corpus import is_prior_conversation_work
+
+                    conversation_only = (
+                        split_proof.get("image_move") in {"move_existing", "unresolved"}
+                        or split_proof["intent"] in {"clarify_request", "clarify_creation"}
+                        or is_prior_conversation_work(split_proof["intent"], split_proof["scope"], allow_discussion=True)
+                    )
+                elif wait_for_work:
                     from application_state.agent_conversation.build_intentional_response import (
                         UnresolvedDiscussionSource, opening_image_choice, opening_work,
                     )
@@ -743,8 +780,9 @@ class BuildJevHarness:
                                      if getattr(driver, "image_move", None) is not None else None)
                     policy = adapter._broker_execution().policy
                     image_choice = opening_image_choice(policy, response, image_opening, adapter.request.message)
-                    if (image_choice not in {"move_existing", "unresolved"}
-                            and resolve_graph_reference_opening(request, result) != "place_existing_reference"):
+                    if image_choice in {"move_existing", "unresolved"}:
+                        conversation_only = True
+                    elif resolve_graph_reference_opening(request, result) != "place_existing_reference":
                         try:
                             conversation_only = is_prior_conversation_work(
                                 *opening_work(policy, request, response, image_choice), allow_discussion=True,
@@ -767,7 +805,8 @@ class BuildJevHarness:
                 if isinstance(driver, WriterSelectionDriver):
                     driver.accept_response(result)
                 else:
-                    driver.accept_decision(decision_policy.MODEL, sdk_answers(result), actual_response=result)
+                    options = {"split_proof": split_proof} if split_proof is not None else {}
+                    driver.accept_decision(decision_policy.MODEL, sdk_answers(result), actual_response=result, **options)
             except Exception:
                 if adapter.context_capture:
                     adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
@@ -795,6 +834,41 @@ class BuildJevHarness:
                 else:
                     pending_query.cancel()
             await client.aclose()
+
+    @staticmethod
+    def _capture_controller_decision(adapter, projection, result):
+        from hashlib import sha256
+        from uuid import UUID, uuid4
+        from application_state.agent_conversation.build_intentional_response import verify_build_intent_opening
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1
+        from application_state.agent_conversation.types import BuildOpeningIntentSelectedV1
+        from .agent_turn_service import _require_fresh_execution_append
+
+        response = result.model_dump(mode="json")
+        raw = canonical(response)
+        adapter.context_capture.controller_decision_response(
+            raw, producing_provider_attempt_id=adapter.last_provider_attempt_id,
+        )
+        if (projection.host_phase != "select" or set(projection.questions()) != {"requested_work"}
+                or type(adapter._broker_receipt()) not in (BuildPendingContextReceiptV1, SurfaceNativeContextReceiptV1)):
+            return
+        access = getattr(adapter, "build_intent_access", None) or adapter.pending_build_access
+        if not callable(access):
+            raise ValueError("Build intent requires its current World access owner")
+        prepared = adapter._prepared_build_decision
+        execution = adapter._broker_execution()
+        request = prepared.body.decode()
+        choice = verify_build_intent_opening(json.loads(request), response,
+            menu_digest=execution.policy.action.requested_work_menu_sha256)
+        event = BuildOpeningIntentSelectedV1(
+            kind="build_opening_intent_selected_v1", event_id=uuid4(), sequence=len(execution.events),
+            controller_attempt_id=UUID(prepared.attempt_id), controller_envelope_sha256=prepared.body_sha256,
+            controller_response_sha256=sha256(raw.encode()).hexdigest(), requested_work=choice,
+        )
+        adapter.turn = _require_fresh_execution_append(adapter.fence.commit(
+            "record_pending_build_opening_intent", decision=event, request_json=request,
+            response_json=raw, authorize_current_access=access,
+        ))
 
     @staticmethod
     def _acquire(adapter, driver):

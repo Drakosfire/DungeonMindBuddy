@@ -389,8 +389,13 @@ def native_conversation_terminal(turn):
 def native_work_terminal(turn):
     from .build_source_free import pending_source_free_terminal, pending_native_terminal
     from .build_pending_app_coverage import pending_app_writer_terminal
+    from .build_intentional_response import split_build_clarification
+
+    source_free = pending_source_free_terminal(turn.graph_context_execution)
+    if source_free is None and native_build(turn) and split_build_clarification(turn.graph_context_execution) is not None:
+        return {"status": "ready", "reason": "build_intent_requires_clarification"}
     return (native_approval_terminal(turn) or native_conversation_terminal(turn)
-        or pending_source_free_terminal(turn.graph_context_execution)
+        or source_free
         or pending_app_writer_terminal(turn.graph_context_execution)
         or pending_native_terminal(turn.graph_context_execution))
 
@@ -483,7 +488,7 @@ def validate_selection_proof(turn, selection, trace, proof):
         if native_build(turn) and (scoped_terminal is not None
                 or selection.terminal_disposition.get("reason") in {
                     "native_variant_approval_requires_no_retrieval", "native_lore_page_from_conversation",
-                    "native_lore_page_from_conversation_with_open_questions",
+                    "native_lore_page_from_conversation_with_open_questions", "build_intent_requires_clarification",
                 }) and selection.terminal_disposition != scoped_terminal:
             raise ValueError("Empty scoped catalog must bind to the acknowledged work decision")
         judgments, historical, semantic = {}, {}, False

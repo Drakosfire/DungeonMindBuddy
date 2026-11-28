@@ -1596,6 +1596,19 @@ class AgentTurnExecutionPersistencePort(Protocol):
         authorize_current_access: Callable[..., bool],
     ) -> tuple[Turn, bool]: ...
 
+    def record_pending_build_opening_intent(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, decision: Any,
+        request_json: str, response_json: str, authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
+    def authorize_pending_build_source_scope(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, authorization: Any,
+        request_json: str, initial_request_json: str,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
     def authorize_pending_app_coverage(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, authorization: Any,
@@ -7923,9 +7936,18 @@ def execute_agent_turn(
         if (native_graph_query_resolver is not None and (
                 isinstance(frozen, (graph_types.PlanNativeContextReceiptV1,graph_types.SurfaceNativeContextReceiptV1))
                 or frozen is None and (_governed_build_turn(request) or request.surface.surface_id=='play' or isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)))):
+            from application_state.agent_conversation.build_intentional_response import has_explicit_build_graph_reference
+            from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+
+            deferred_explicit_reference = (
+                callable(authorize_build_world)
+                and has_explicit_build_graph_reference(request.build_authored_references)
+                and catalog_for_build_capability(request.build_write_capability) is not None
+            )
             can_defer = (_governed_build_turn(request) and request.retry_of is None
                 and isinstance(submitted_intent, BuildGraphIntentV1) and submitted_intent.reviewed_step is None
-                and request.build_authored_references is None and native_corpus_context is not None)
+                and (request.build_authored_references is None or deferred_explicit_reference)
+                and native_corpus_context is not None)
             if resumes_deferred and not can_defer:
                 raise AgentTurnServiceError("The retained opening Graph authority is no longer available.",
                     code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)
@@ -8383,8 +8405,13 @@ def execute_agent_turn(
                 "The selected Agent Harness cannot authorize provider requests.",
                 code="plan_graph_execution_unavailable", status_code=503,
             )
+        deferred_pages = pending_build or (
+            prepare_deferred_build_query is not None and deferred_explicit_reference
+            and (durable_turn is None
+                 or durable_turn.graph_context_execution.policy.action.related_page_catalog is None)
+        )
         budget = (selected_runtime.configured_budget(request, defer_related_pages=True)
-            if pending_build and isinstance(selected_runtime, BuildJevHarness)
+            if deferred_pages and isinstance(selected_runtime, BuildJevHarness)
             else selected_runtime.configured_budget(request) if isinstance(selected_runtime, (BuildJevHarness, PlanJevHarness))
             else _policy_request_budget())
         if pending_build and not isinstance(selected_runtime, BuildJevHarness):
@@ -8426,6 +8453,9 @@ def execute_agent_turn(
                 'pending_build_source_preparation': pending_build_source_preparation} if pending_build else {}),
         )
         if isinstance(selected_runtime, BuildJevHarness):
+            adapter.build_intent_access = pending_build_access
+            if adapter.build_intent_access is None and callable(authorize_build_world):
+                adapter.build_intent_access = _pending_build_app_access(canonical_world_id, authorize_build_world)
             adapter.prepare_deferred_build_query = prepare_deferred_build_query
             adapter.build_image_owner = operator_subject
             return selected_runtime.execute_response(adapter, owner=owner or {}, trace=trace)

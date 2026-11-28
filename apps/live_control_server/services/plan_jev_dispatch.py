@@ -63,7 +63,7 @@ def verify_initial_input(view, request, work, parent):
     from .agent_turn_service import _governed_graph_turn
     from application_state.agent_conversation.jev_retrieval_contract import NativePlayRetrievalDecisionInputV1
     if request.surface.surface_id=='play':
-        if (type(parent) is not NativePlayRetrievalDecisionInputV1 or not _governed_graph_turn(request)
+        if (not isinstance(parent, NativePlayRetrievalDecisionInputV1) or not _governed_graph_turn(request)
                 or work.play_context_receipt is None or parent.question!=request.message
                 or (view.get('provider'),view.get('model'),view.get('apiMode'))!=(PROVIDER,MODEL,'decision')):
             raise ValueError('Play Jev requires its exact governed Run question and provider')
@@ -89,7 +89,7 @@ class PlanJevDispatch:
     No retries or fallback. The parent creates the candidate catalog; neither
     returned labels nor model choices create evidence or authorize a source read.
     """
-    def __init__(self, adapter, candidates, *, dialogue=(), examined_candidates=(), allowed_operations=("select_candidates", "discover_more", "finish_retrieval")):
+    def __init__(self, adapter, candidates, *, dialogue=(), examined_candidates=(), allowed_operations=("select_candidates", "discover_more", "finish_retrieval"), play_intent_opening=False):
         self.adapter = adapter
         fields = dict(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="0" * 64,
             question=adapter.request.message, dialogue=tuple(dialogue), candidates=tuple(candidates),
@@ -97,7 +97,9 @@ class PlanJevDispatch:
         receipt = adapter.fence.turn.graph_context_receipt if adapter.fence is not None else None
         authority = getattr(adapter, "native_source_authority", None)
         if adapter.request.surface.surface_id=='play' and authority is not None:
-            from application_state.agent_conversation.jev_retrieval_contract import NativePlayRetrievalDecisionInputV1
+            from application_state.agent_conversation.jev_retrieval_contract import (
+                NativePlayIntentDecisionInputV1, NativePlayRetrievalDecisionInputV1,
+            )
             from application_state.agent_conversation.native_play_work import project_work
             from application_state.agent_conversation.native_context import PlayWorkContextV1
             from .plan_source_turn import play_work_proof
@@ -116,7 +118,8 @@ class PlanJevDispatch:
             pins=dict(source_authority_status='available' if available else 'unavailable',
                 source_revision=authority.revision_id if available else None,
                 graph_revision=query.authority.revision_id if isinstance(query,NativePlanQueryV1) else None)
-            self.parent=NativePlayRetrievalDecisionInputV1(**fields,**pins,play_work=project_work(
+            codec = NativePlayIntentDecisionInputV1 if play_intent_opening else NativePlayRetrievalDecisionInputV1
+            self.parent=codec(**fields,**pins,play_work=project_work(
                 work,provenance,_turn_idempotency_key(adapter.world_id,adapter.request.turn_id),proof))
         elif type(receipt) is t.SurfaceNativeContextReceiptV1:
             from application_state.agent_conversation.native_retrieval import source_expansion_selected, source_pins
@@ -200,19 +203,21 @@ class PlanJevDispatch:
         return controller_accounting(self.adapter.fence.turn.graph_context_execution)
 
     @classmethod
-    def author_scope(cls, adapter, *, dialogue=(), prior_scope=None, review_scope=()):
+    def author_scope(cls, adapter, *, dialogue=(), prior_scope=None, review_scope=(), intent_opening=False):
         from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
-        from application_state.agent_conversation.native_execution import NativePlanActionV3
+        from application_state.agent_conversation.native_execution import NativePlanActionV2, NativePlanActionV3
         from application_state.agent_conversation.native_plan_opening import (
             NativePlanAuthorScopeObservedV1, NativePlanAuthorScopeParentV1,
             NativePlanOpeningInputV2, NativePlanOpeningInputV3, NativePlanOpeningScopeBindingV1, opening_input_type,
-            author_editor_focus, require_retained_author_scope,
+            author_editor_focus, plan_intent_input, require_retained_author_scope,
         )
 
         turn = adapter.fence.turn
         admission = turn.graph_context_receipt.assembled_input
         if (type(admission) is not NativePlanRequestAdmissionV1
-                or type(turn.graph_context_execution.policy.action) is not NativePlanActionV3):
+                or type(turn.graph_context_execution.policy.action) not in (
+                    (NativePlanActionV2, NativePlanActionV3) if intent_opening else (NativePlanActionV3,)
+                )):
             raise ValueError('Author scope requires an admitted contextual Plan turn')
         if prior_scope is not None and review_scope:
             raise ValueError('Author scope recheck and review require separate stages')
@@ -237,7 +242,8 @@ class PlanJevDispatch:
             max_span_attempts=2048, request_id=uuid4(), parent_attempt_id=uuid4(),
             scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256,
             prior_scope_event_id=prior_scope.event_id if prior_scope is not None else None,
-            scope_review=review or None)
+            scope_review=review or None,
+            intent_opening=plan_intent_input(turn.graph_context_execution.policy.action, dialogue) if intent_opening else None)
         return dispatch
 
     def _host_phase(self):
@@ -288,8 +294,13 @@ class PlanJevDispatch:
                     raise
                 finally:
                     a._active_plan_jev_request = None
-            if a.request.surface.surface_id=='play' and not any(isinstance(e,t.ProviderAttemptAuthorizedEventV1)
-                    for e in a.fence.turn.graph_context_execution.events):
+            from application_state.agent_conversation.jev_retrieval_contract import NativePlayIntentDecisionInputV1
+
+            play_opening = type(self.parent) is NativePlayIntentDecisionInputV1
+            if a.request.surface.surface_id == "play" and not play_opening and not any(
+                isinstance(e, t.ProviderAttemptAuthorizedEventV1)
+                for e in a.fence.turn.graph_context_execution.events
+            ):
                 from .native_authored_references import acquire
                 acquire(a)
             turn = a.fence.turn
@@ -318,6 +329,10 @@ class PlanJevDispatch:
                 auth_type, auth_kind = NativePlanAuthorScopeAuthorizedV1, 'native_plan_author_scope_authorized_v1'
             scope_binding = getattr(self.parent, 'author_scope_binding', None)
             opening_fields = {'author_scope_event_id': scope_binding.observation_event_id} if scope_binding else {}
+            if play_opening:
+                opening_fields["play_intent_opening"] = True
+            if author_scope and self.parent.intent_opening is not None:
+                opening_fields["intent_opening"] = True
             if author_scope and self.parent.prior_scope_event_id is not None:
                 opening_fields['prior_scope_event_id'] = self.parent.prior_scope_event_id
             if author_scope and self.parent.scope_review is not None:
@@ -414,6 +429,7 @@ class PlanJevDispatch:
                 NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3,
             )
             from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
+            from application_state.agent_conversation.jev_retrieval_contract import NativePlayIntentDecisionInputV1
             planned = type(self.parent) is NativePlanBatchDecisionInputV3
             if planned:
                 selected_fields['post_read_plan'] = selected.post_read_plan
@@ -439,6 +455,12 @@ class PlanJevDispatch:
                 event_type, kind = t.PlanRequestedWorkSelectedV2, 'plan_requested_work_selected_v2'
             elif semantic:
                 event_type, kind = t.PlanRequestedWorkSelectedV1, 'plan_requested_work_selected_v1'
+            elif type(self.parent) is NativePlayIntentDecisionInputV1:
+                from application_state.agent_conversation.native_play_opening import decode_play_opening
+                from application_state.agent_conversation.native_retrieval import NativePlayIntentSelectedV1
+
+                selected_fields["requested_work"] = decode_play_opening(result)
+                event_type, kind = NativePlayIntentSelectedV1, 'native_play_intent_selected_v1'
             elif planned:
                 event_type, kind = NativeRetrievalSelectedV2, 'native_retrieval_selected_v2'
             elif native:
@@ -457,7 +479,9 @@ class PlanJevDispatch:
             a.turn = _require_fresh_execution_append(a.fence.append('record_plan_requested_work_selection' if semantic else 'record_plan_jev_retrieval_selection', "selection", event,
                 producer_proof={"parent_request_json": self.parent.model_dump_json(by_alias=True),
                     "request_json": self.prepared.body.decode(), "response_json": raw}))
-            if not semantic and selected.operation == "finish_retrieval" and result.answers["operation"].selected == "finish_with_gaps":
+            fallback = result.answers.get("operation")
+            if (not semantic and selected.operation == "finish_retrieval"
+                    and fallback is not None and fallback.selected == "finish_with_gaps"):
                 a.context_capture.observe({"kind": "failure", "phase": "graph_retrieval",
                                            "code": "controller_finished_with_gaps"})
             self.selection_event = event

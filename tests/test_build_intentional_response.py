@@ -449,3 +449,106 @@ def test_lore_page_request_cannot_fall_through_to_connected_location_review(work
     assert c.selected(response, menu=prior) == "review_connected_page"
     with pytest.raises(ValueError, match="Invalid actual semantic selection"):
         c.selected(response, menu=c.MENU_DIGEST)
+
+
+
+def test_tied_source_need_does_not_override_build_clarification(monkeypatch):
+    monkeypatch.setattr(c, "_captured_semantics", lambda _: (None, None, c.SCOPED_BUILD_MENU_DIGEST, None))
+    menu = c.opening_work_question(c.SCOPED_BUILD_MENU_DIGEST)["criteria"]
+    request = {"questions": {"source_need": c.source_need_question()}}
+    source_vote = {"selected": "uncertain", "probabilities": {
+        "anchored": .24, "source_lookup": .38, "uncertain": .38,
+    }}
+
+    def response(label):
+        return {"answers": {
+            "requested_work": {"selected": label, "probabilities": {k: float(k == label) for k in menu}},
+            "source_need": source_vote,
+        }}
+
+    assert c.opening_work(None, request, response("clarify_request"), None) == (
+        "clarify_request", "anchored",
+    )
+    with pytest.raises(c.UnresolvedDiscussionSource):
+        c.opening_work(None, request, response("discuss"), None)
+    del source_vote["probabilities"]["anchored"]
+    with pytest.raises(ValueError, match="Invalid actual semantic selection"):
+        c.opening_work(None, request, response("clarify_request"), None)
+
+
+def test_opening_intent_requires_the_acknowledged_response(monkeypatch):
+    from types import SimpleNamespace
+
+    identity = ("typesafe", "jev-1.14.0", "typesafe_decision")
+    policy = SimpleNamespace(provider_roles=SimpleNamespace(
+        controller=SimpleNamespace(identity=lambda: identity),
+        writer=SimpleNamespace(identity=lambda: ("openai", "writer", "responses")),
+    ))
+    monkeypatch.setattr(c, "_captured_semantics", lambda _: (None, None, c.SCOPED_BUILD_MENU_DIGEST, None))
+    attempt = t.ProviderAttemptAuthorizedEventV5.model_construct(
+        context_phase="select", provider_attempt_id=uuid4(), envelope_sha256="a" * 64,
+        provider=identity[0], model=identity[1], api_mode=identity[2],
+    )
+    response = t.ProviderOutcomeEventV1(
+        kind="provider_outcome", event_id=uuid4(), sequence=1, provider_attempt_id=attempt.provider_attempt_id,
+        outcome="response_received", response_sha256="b" * 64,
+    )
+    intent = t.BuildOpeningIntentSelectedV1(
+        kind="build_opening_intent_selected_v1", event_id=uuid4(), sequence=2,
+        controller_attempt_id=attempt.provider_attempt_id, controller_envelope_sha256=attempt.envelope_sha256,
+        controller_response_sha256=response.response_sha256, requested_work="discuss",
+    )
+    c.validate_native_action_events(SimpleNamespace(policy=policy, events=[attempt, response, intent]))
+
+    for events in (
+        [attempt, intent],
+        [attempt, response, intent.model_copy(update={"controller_envelope_sha256": "c" * 64})],
+        [attempt, response, intent, intent],
+        [attempt, response, intent.model_copy(update={"requested_work": "not_offered"})],
+    ):
+        with pytest.raises(ValueError, match="acknowledged controller"):
+            c.validate_native_action_events(SimpleNamespace(policy=policy, events=events))
+
+
+def test_build_followup_offers_paragraph_placement_only_for_page_edit(monkeypatch):
+    from types import SimpleNamespace
+
+    from application_state.build_proposal import prose_catalog, prose_decision
+
+    capability = SimpleNamespace(basis=SimpleNamespace(caret=4))
+    catalog = object()
+    monkeypatch.setattr(prose_catalog, "catalog_for_build_capability", lambda cap: catalog if cap is capability else None)
+
+    def opening(question, title, captured, *, caret):
+        assert (question, title, captured, caret) == ("Add a line.", "Edge", catalog, 4)
+        return {}, (SimpleNamespace(name="paragraph_work", question="Place text?", options=("place", "skip")),)
+
+    monkeypatch.setattr(prose_decision, "build_boundary_opening", opening)
+    state = {"user_question": "Add a line.", "interaction": {"current_page_title": "Edge"}}
+    kwargs = {"menu_digest": c.SCOPED_BUILD_MENU_DIGEST, "write_capability": capability}
+    discussion = c.build_source_followup_wire(state, "discuss", **kwargs)
+    edit = c.build_source_followup_wire(state, "write_current_page", **kwargs)
+    assert set(discussion["questions"]) == {"source_need"}
+    assert edit["questions"]["paragraph_work"]["criteria"] == {"place": None, "skip": None}
+
+
+def test_build_image_followup_projects_only_the_captured_offer():
+    from types import SimpleNamespace
+
+    state = {"user_question": "Move this map right.", "interaction": {"surface": "build"}}
+    image_move = SimpleNamespace(
+        question=state["user_question"],
+        semantic_state=lambda: {"author_selected_occurrence": "image1"},
+        wire_questions=lambda: {"image_move_occurrence": {
+            "type": "choice", "instructions": "Which occurrence?", "criteria": {"image1": None},
+        }},
+    )
+    wire = c.build_source_followup_wire(state, "write_current_page",
+        menu_digest=c.SCOPED_BUILD_MENU_DIGEST, image_move=image_move)
+    assert wire["state"]["interaction"]["image_move"] == image_move.semantic_state()
+    assert wire["questions"]["image_move_occurrence"] == image_move.wire_questions()["image_move_occurrence"]
+    assert "image_move" not in state["interaction"]
+    image_move.question = "Change the prose."
+    with pytest.raises(ValueError, match="opening utterance"):
+        c.build_source_followup_wire(state, "write_current_page",
+            menu_digest=c.SCOPED_BUILD_MENU_DIGEST, image_move=image_move)

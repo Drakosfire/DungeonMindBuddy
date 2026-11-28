@@ -28,6 +28,15 @@ def _require_guest_discussion_selection(adapter, selected):
         )
 
 
+def _destination_unavailable():
+    from .agent_turn_service import AgentTurnServiceError
+
+    return AgentTurnServiceError(
+        "This request needs another page or object. The request is retained; choose that destination before generating.",
+        code="plan_authoring_destination_unavailable", status_code=409,
+    )
+
+
 class PlanJevHarness:
     descriptor = AgentRuntimeDescriptor('buddy-plan-jev','generationengine','plan-jev-one-writer','graph')
 
@@ -45,7 +54,7 @@ class PlanJevHarness:
     def run_with_provider_authorization(self, *args, **kwargs):
         raise ValueError('Plan Jev requires its trusted parent orchestration')
 
-    def _interpret_author_scope(self, adapter, dialogue, calls):
+    def _interpret_author_scope(self, adapter, dialogue, calls, *, contextual):
         from application_state.agent_conversation.native_plan_opening import (
             author_scope_review_required, can_skip_author_scope_recheck,
         )
@@ -58,6 +67,11 @@ class PlanJevHarness:
                     calls.append(dispatch.call)
             return dispatch.selection_event
 
+        intent = observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, intent_opening=True))
+        if intent.scope_observation.requested_work == "different_destination":
+            raise _destination_unavailable()
+        if not contextual or intent.scope_observation.requested_work in {"discuss", "clarify"}:
+            return intent
         first_dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue)
         first = observe(first_dispatch)
         if can_skip_author_scope_recheck(
@@ -103,20 +117,21 @@ class PlanJevHarness:
                 if type(action) is NativePlanActionV3:
                     page_title = action.document_title or ''
                 from .native_authored_references import acquire
+
+                adapter.fence.begin_plan_opening()
+                contextual = type(action) is NativePlanActionV3
+                first = self._interpret_author_scope(adapter, dialogue, author_scope_calls, contextual=contextual)
+                author_scope = first if contextual else None
                 acquire(adapter)
                 driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
                 driver.native_sources.discover_initial()
-                adapter.fence.begin_plan_opening()
-                author_scope = (self._interpret_author_scope(adapter, dialogue, author_scope_calls)
-                    if type(action) is NativePlanActionV3 else None)
                 with measure("plan_opening_candidate_preparation"):
                     semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title,
                         author_scope=author_scope, **driver.decision_arguments())
             selected, _ = asyncio.run(semantic.run(transport=self.decision_transport, api_key=self.decision_api_key))
             _require_guest_discussion_selection(adapter, selected)
             if selected == 'different_destination':
-                raise AgentTurnServiceError('This request needs another page or object. The request is retained; choose that destination before generating.',
-                    code='plan_authoring_destination_unavailable', status_code=409)
+                raise _destination_unavailable()
             if selected == 'write_current_page':
                 capture = adapter.request.plan_authoring_capture
                 selector = semantic.selection_event.placement_selector

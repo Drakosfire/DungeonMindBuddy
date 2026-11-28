@@ -32,6 +32,45 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
+@pytest.mark.parametrize("work", ["clarify_request", "discuss"])
+def test_pending_build_clarifies_without_source_acquisition(lane, tmp_path, monkeypatch, work):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from apps.live_control_server.services import build_related_pages, plan_source_turn
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Clarification attempted new source acquisition")
+
+    monkeypatch.setattr(build_related_pages, "discover", forbidden)
+    monkeypatch.setattr(native_corpus_source, "prepare_native_source_context", forbidden)
+    monkeypatch.setattr(plan_source_turn, "prepare_native_source_context", forbidden)
+    monkeypatch.setattr(native_corpus_source, "turn_source_repository", lambda **kwargs: lane.repo)
+
+    def send(client, world, body, _decisions):
+        body["build_authored_references"] = None
+        return client.post("/api/live/agent/turn", json=body)
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, "discussion_source_tie" if work == "discuss" else None,
+        True, False, False, message="Make that work.", requested_work=work,
+        dispatch=send, capture_pending=True,
+    )
+    calls = [json.loads(call.content) for call in case.decisions.calls]
+    if work == "discuss":
+        assert case.response.status_code == 409, case.response.text
+        assert case.response.json()["detail"]["code"] == "build_discussion_source_uncertain"
+        assert [set(call["questions"]) for call in calls] == [{"requested_work"}, {"source_need"}]
+        assert not case.writer.calls
+        return
+    assert case.response.status_code == 200, case.response.text
+    opening, = calls
+    assert set(opening["questions"]) == {"requested_work"}
+    assert case.turn.status == "completed"
+    assert case.turn.completion.collaboration.kind == "questions"
+    intent, = [event for event in case.turn.graph_context_execution.events
+               if type(event) is t.BuildOpeningIntentSelectedV1]
+    assert intent.requested_work == "clarify_request"
+
+
 @pytest.mark.parametrize('mode', ['legacy', 'pending', 'recover', 'cited-recover'])
 def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, mode):
     table = (
@@ -60,7 +99,7 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
         monkeypatch.setattr(plan_source_turn, 'prepare_native_source_context', forbidden)
         monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **kwargs: lane.repo)
 
-        def send(client, world, body):
+        def send(client, world, body, decision_requests):
             body['build_authored_references'] = None
             if mode != 'recover':
                 capability = body['build_write_capability']
@@ -79,7 +118,9 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
             key = UUID(body['build_write_capability']['idempotency_key'])
             stored = BuildProposalService().get(world, key)
             assert stored.state == 'proposed'
+            attempts = len(decision_requests.calls)
             recovered = client.post('/api/live/agent/turn', json=body)
+            assert len(decision_requests.calls) == attempts
             assert recovered.status_code == 200, recovered.text
             assert recovered.json()['knowledge_context']['delivery_replay'] is True
             assert BuildProposalService().get(world, key) == stored
@@ -100,6 +141,15 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
         assert case.turn.graph_context_receipt.schema_ == 'dmb_build_pending_context_receipt_v1'
         assert case.turn.status == 'completed'
         assert len(case.writer.calls) == 1
+        if mode in {'pending', 'cited-recover'}:
+            opening, followup = [json.loads(call.content) for call in case.decisions.calls[:2]]
+            assert set(opening["questions"]) == {"requested_work"}
+            assert set(followup["questions"]) == {"source_need"}
+            assert followup["state"] == opening["state"] | {"selected_work": "write_current_page"}
+            assert opening["state"]["interaction"]["surface"] == "build"
+            assert "related_page_labels" not in opening["state"]["interaction"]
+            page_reads = [event for event in case.turn.graph_context_execution.events if isinstance(event, t.RelatedPageRead)]
+            assert len(page_reads) == int(mode == 'cited-recover')
         if mode == 'pending':
             request = json.loads(case.writer.calls[0].content)
             target = json.loads(request['input'])['surface_work']['build_work']['edit_target']
@@ -127,19 +177,110 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
 
 
 @pytest.mark.parametrize("source_scope", ["anchored", "source_lookup"])
-def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, monkeypatch, source_scope):
+@pytest.mark.parametrize("contextual", [False, "unique"])
+def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, monkeypatch, source_scope, contextual):
     from evals.negative_retrieval.related_page_probe import observe_related_page_owners
 
     with observe_related_page_owners() as observations:
         _fresh_case(
             lane, tmp_path, monkeypatch, None, True, False, True,
-            message="Add a copper lamp here for review.",
+            message=("Add a copper lamp for review after the orchid paragraph in East."
+                     if contextual else "Add a copper lamp here for review."),
+            contextual=contextual,
             requested_work="write_current_page",
             source_need=source_scope,
             read_optional_page=True,
         )
     opened = any(row["owner"] == "related_page_materialization" for row in observations)
     assert opened == (source_scope == "source_lookup")
+
+
+@pytest.mark.parametrize("interrupted", [False, True], ids=["ordinary", "recovered"])
+def test_contextual_build_reopens_deferred_page_citation(lane, tmp_path, monkeypatch, interrupted):
+    from application_state.agent_conversation.build_related_pages import PagePointer
+    from application_state.agent_conversation.native_execution import BuildSourceScopeAuthorizedV1
+    from application_state.build_proposal.service import BuildProposalService
+
+    def dispatch(client, world, body, decisions):
+        def stop_before_completion(*_args, **_kwargs):
+            raise RuntimeError("Synthetic interruption after durable proposal")
+
+        with monkeypatch.context() as cut:
+            cut.setattr(AgentConversationService, "complete_native_base_turn", stop_before_completion)
+            first = client.post("/api/live/agent/turn", json=body)
+        assert first.status_code == 503, first.text
+        key = UUID(body["build_write_capability"]["idempotency_key"])
+        saved = BuildProposalService().get(world, key)
+        assert saved.state == "proposed" and len(saved.proposal.citations) == 1
+        attempts = len(decisions.calls)
+        recovered = client.post("/api/live/agent/turn", json=body)
+        assert len(decisions.calls) == attempts
+        assert recovered.status_code == 200, recovered.text
+        assert recovered.json()["knowledge_context"]["delivery_replay"] is True
+        assert BuildProposalService().get(world, key) == saved
+        return recovered
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, True,
+        contextual="unique", requested_work="write_current_page", source_need="source_lookup",
+        message="After the orchid paragraph in East, add a supply note and cite the towel count from Optional lore.",
+        proposal_markdown="Set out six towels.",
+        capture_pending=True, read_optional_page=True, cite_optional_page=True,
+        dispatch=dispatch if interrupted else None,
+    )
+    assert case.response.status_code == 200, case.response.text
+    assert len(case.writer.calls) == 1
+    execution = case.turn.graph_context_execution
+    ballot, = [event for event in execution.events if type(event) is BuildSourceScopeAuthorizedV1]
+    proposed, = BuildProposalService().list(case.world, case.turn.conversation_id)
+    citation, = proposed.proposal.citations
+    pointer = PagePointer.model_validate(citation.page.model_dump(exclude={"content_sha256"}))
+    assert pointer in ballot.discovered_pages
+    route = f"/api/live/agent/worlds/{case.world}/conversation/turns/{case.turn.turn_id}/related-pages"
+    opened = case.client.get(f"{route}/{citation.read_id}")
+    assert opened.status_code == 200, opened.text
+    assert opened.json()["markdown"] == citation.quote == "The linen inventory lists six towels."
+    assert opened.json()["page"] == citation.page.model_dump(mode="json")
+
+
+@pytest.mark.parametrize("work", ["write_current_page", "clarify_request"])
+def test_pending_build_resolves_paragraph_after_intent(lane, tmp_path, monkeypatch, work):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from application_state.build_proposal.service import BuildProposalService
+
+    monkeypatch.setattr(native_corpus_source, "turn_source_repository", lambda **kwargs: lane.repo)
+
+    def send(client, world, body, _decisions):
+        body["build_authored_references"] = None
+        return client.post("/api/live/agent/turn", json=body)
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
+        message=("After the orchid paragraph in East, add a line about a copper lamp."
+                 if work == "write_current_page" else "Can you take care of that?"),
+        requested_work=work, source_need="anchored", dispatch=send, capture_pending=True,
+    )
+    assert case.response.status_code == 200, case.response.text
+    if work == "clarify_request":
+        opening, = [json.loads(call.content) for call in case.decisions.calls]
+        assert set(opening["questions"]) == {"requested_work"}
+        assert opening["state"]["interaction"]["page_target"] == {"kind": "contextual_paragraph"}
+        assert "paragraph_placement" not in opening["state"]["interaction"]
+        assert case.turn.completion.collaboration.kind == "questions"
+        assert not BuildProposalService().list(case.world, case.turn.conversation_id)
+        return
+    opening, followup = [json.loads(call.content) for call in case.decisions.calls[:2]]
+    assert set(opening["questions"]) == {"requested_work"}
+    assert "paragraph_placement" not in opening["state"]["interaction"]
+    assert opening["state"]["interaction"]["page_target"] == {"kind": "contextual_paragraph"}
+    assert followup["state"]["interaction"]["paragraph_placement"]["existing_passages"]
+    assert "paragraph_work" in followup["questions"]
+    assert "requested_work" not in followup["questions"]
+    resolution, = [event for event in case.turn.graph_context_execution.events
+                   if type(event) is t.BuildRequestedWorkResolutionV1]
+    assert resolution.paragraph_placement.disposition == "unique"
+    proposal, = BuildProposalService().list(case.world, case.turn.conversation_id)
+    assert proposal.state == "proposed"
 
 
 def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_path, monkeypatch):
@@ -171,14 +312,14 @@ def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, 
     )
 
 
-@pytest.mark.parametrize("disposition", ["ready", "wrong_kind", "different_page", "remapped_inventory"])
+@pytest.mark.parametrize("disposition", ["ready", "wrong_kind", "different_page", "remapped_inventory", "foreign_catalog"])
 def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, monkeypatch, disposition):
     request = ("Insert a reference to the selected object on the separate Lanterns page."
                if disposition == "different_page"
                else "Insert a reference to the selected object after the orchid paragraph in East.")
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
                 message=request,
-                graph_reference=disposition)
+                graph_reference=disposition, read_optional_page=True)
 
 
 @pytest.mark.parametrize(("message", "disposition"), [
@@ -194,8 +335,21 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
     ("Move the Harbour map beside the departure advice to the empty slot on its right.", "duplicate_context"),
 ])
 def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):
+    if disposition in {"ready", "tied_menu", "duplicate_context", "different_row"}:
+        from apps.live_control_server.services import build_related_pages, native_graph_reads
+
+        def unexpected_graph_preparation(*_args, **_kwargs):
+            pytest.fail("A local image Review prepared a Graph query")
+
+        def unexpected_page_discovery(*_args, **_kwargs):
+            pytest.fail("A local image Review discovered saved pages")
+
+        monkeypatch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
+        monkeypatch.setattr(build_related_pages, "discover", unexpected_page_discovery)
     _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
-                message=message, image_move=disposition)
+                message=message, image_move=disposition,
+                requested_work=("write_current_page" if disposition in {"ready", "different_row", "duplicate_context"}
+                                else None))
 
 
 def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_path, monkeypatch):
@@ -204,6 +358,36 @@ def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_p
         message="Describe what the image shows and how it relates to the surrounding notes.",
         requested_work="discuss",
     )
+
+
+def test_native_image_clarification_uses_only_the_intent_ballot(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services import build_related_pages, native_graph_reads
+
+    def unexpected_graph_preparation(*_args, **_kwargs):
+        pytest.fail("Image clarification prepared a Graph query")
+
+    monkeypatch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
+    def unexpected_page_discovery(*_args, **_kwargs):
+        pytest.fail("Image clarification discovered saved pages")
+
+    monkeypatch.setattr(build_related_pages, "discover", unexpected_page_discovery)
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Can you do that to the picture?", requested_work="clarify_request",
+        image_move="clarification", capture_pending=True,
+    )
+    assert case.response.status_code == 200, case.response.text
+    opening, = [json.loads(call.content) for call in case.decisions.calls]
+    assert set(opening["questions"]) == {"requested_work"}
+    from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+    assert opening["state"]["interaction"]["surface"] == "build"
+    assert opening["questions"]["requested_work"]["criteria"] == dict.fromkeys(opening_action_menu("build"))
+    assert "related_page_labels" not in opening["state"]["interaction"]
+    assert case.turn.graph_context_receipt.schema_ == "dmb_build_pending_context_receipt_v1"
+    assert case.turn.completion.collaboration.kind == "questions"
+    assert not any(event.kind == "native_build_query_settled_v1"
+                   for event in case.turn.graph_context_execution.events)
 
 
 def test_deferred_image_advice_clarifies_before_graph_preparation(lane, tmp_path, monkeypatch):
@@ -523,8 +707,24 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
     if graph_reference:
-        from apps.live_control_server.services import build_graph_reference
+        from apps.live_control_server.services import build_graph_reference, build_related_pages
 
+        def unexpected_related_page_read(*_args, **_kwargs):
+            pytest.fail("Graph-reference review opened an unrelated authoring page")
+
+        monkeypatch.setattr(build_related_pages, "materialize", unexpected_related_page_read)
+        discover_pages = build_related_pages.discover
+
+        def discover_after_intent(request):
+            opening, = decisions.calls
+            assert set(json.loads(opening.content)["questions"]) == {"requested_work"}
+            pages = discover_pages(request)
+            if graph_reference == "foreign_catalog":
+                first, *rest = pages
+                return [first | {"world_id": "foreign-world"}, *rest]
+            return pages
+
+        monkeypatch.setattr(build_related_pages, "discover", discover_after_intent)
         reference = selected.references[0].model_copy(update={"graph_revision": current_revision})
         selected = selected.model_copy(update={"references": (reference,)})
         identities = [{"node_id": reference.node_id, "label": reference.label, "kind": "threat", "selectable": True}]
@@ -542,11 +742,29 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 return original_complete(service, decision=altered, **kwargs)
 
             monkeypatch.setattr(AgentConversationService, "complete_build_graph_reference_turn", complete_with_remap)
-        monkeypatch.setattr(build_graph_reference, "authoring_identities", lambda scope, principal: {
-            "scope": {"managed_world_id": world, "native_world_id": world, "binding_version": 1,
-                      "revision_id": current_revision, "scope_mode": "world", "campaign_id": None},
-            "identities": identities,
-        })
+        def read_reference_inventory(scope, principal):
+            ballots = [json.loads(call.content)["questions"] for call in decisions.calls]
+            assert len(ballots) >= 2
+            assert set(ballots[0]) == {"requested_work"}
+            assert "typed_graph_reference" in ballots[1]
+            return {
+                "scope": {"managed_world_id": world, "native_world_id": world, "binding_version": 1,
+                          "revision_id": current_revision, "scope_mode": "world", "campaign_id": None},
+                "identities": identities,
+            }
+
+        monkeypatch.setattr(build_graph_reference, "authoring_identities", read_reference_inventory)
+
+        prepare_query = native.prepare_query
+
+        def prepare_after_ballot(*args, **kwargs):
+            ballots = [json.loads(call.content)["questions"] for call in decisions.calls]
+            assert len(ballots) == 2
+            assert set(ballots[0]) == {"requested_work"}
+            assert "typed_graph_reference" in ballots[1]
+            return prepare_query(*args, **kwargs)
+
+        monkeypatch.setattr(native, "prepare_query", prepare_after_ballot)
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
@@ -622,6 +840,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     else:
                         title = next(row["title"] for row in body["state"]["saved_pages"] if row["choice"] == name)
                         chosen = "read" if title == "Optional lore" else "skip"
+                    answers[name] = dict(type="choice", choice=chosen, confidence=1,
+                        probabilities={key: float(key == chosen) for key in choices})
+                    continue
+                if cite_optional_page and name.startswith("related_page_"):
+                    chosen = "read" if "Optional lore" in question["instructions"] else "skip"
                     answers[name] = dict(type="choice", choice=chosen, confidence=1,
                         probabilities={key: float(key == chosen) for key in choices})
                     continue
@@ -726,7 +949,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
             placement_question = contextual in {"ambiguous", "missing"} and self.adapter.request.message == message
-            if placement_question:
+            if placement_question or requested_work == "clarify_request":
                 mode = False
             assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
             current_work = requested_work(self.adapter.request.message) if callable(requested_work) else requested_work
@@ -827,7 +1050,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if mode:
                     assert body['input'].count(json.dumps(expected_draft, ensure_ascii=False)[1:-1]) == 1
                 else:
-                    draft_in_input = json.dumps(expected_draft, ensure_ascii=False)[1:-1] if placement_question else expected_draft
+                    draft_in_input = json.dumps(expected_draft, ensure_ascii=False)[1:-1] if placement_question or current_work == "clarify_request" else expected_draft
                     assert sum(draft_in_input in row['content'] for row in body['input']) == 1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or getattr(self.adapter._broker_execution().policy.action.intent, "authored_references", None) is None
@@ -869,7 +1092,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                     if cite_optional_page:
                         handle, = properties["citations"]["items"]["properties"]["source"]["enum"]
                         candidate["citations"].append({"source": handle,
-                            "quote": "The linen inventory lists six towels.", "supports": "| towels | 6 |"})
+                            "quote": "The linen inventory lists six towels.",
+                            "supports": proposal_markdown if contextual else "| towels | 6 |"})
                 if failure == 'target_unavailable' and len(self.calls) == 1:
                     candidate.update(target='unavailable', replacement_markdown='', summary='Untrusted provider summary.')
                 if mode=='image':
@@ -888,6 +1112,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
                 answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,supporting_quotes=[source_text(r) for r in sections])] if saved else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
+            if current_work == "clarify_request":
+                candidate.update(answer_segments=[], collaboration={
+                    "kind": "questions", "questions": [{"text": "What should I change?"}],
+                })
             if placement_question:
                 assert "preserve any anchor, section, or before/after direction" in body["instructions"]
                 question = {
@@ -897,7 +1125,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 candidate.update(answer_segments=[], collaboration={
                     "kind": "questions", "questions": [{"text": question}],
                 })
-            if image_move == "other_discussion":
+            if image_move in {"discussion", "other_discussion"}:
                 candidate["answer_segments"] = [
                     dict(kind="discussion", text="The image would sit to the right of the nearby material."),
                 ]
@@ -1370,7 +1598,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         save_page(tmp_path, page.document_id, source.markdown + "\nA newer saved paragraph.\n")
     elif contextual == "foreign":
         body["build_write_capability"]["basis"]["world_id"] = "foreign-world"
-    response = (dispatch(client, world, body) if dispatch else client.post('/api/live/agent/turn', json=body))
+    response = (dispatch(client, world, body, decisions) if dispatch and capture_pending
+                else dispatch(client, world, body) if dispatch
+                else client.post('/api/live/agent/turn', json=body))
     if capture_pending:
         turn = AgentConversationService().inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
         assert not classic_calls
@@ -1382,12 +1612,21 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError
 
-        if image_move == "other_discussion":
+        if image_move in {"tied_menu", "other_discussion_tied_work"}:
+            assert response.status_code == 503, response.text
+            assert len(decisions.calls) == 1 and not writer.calls
+            with pytest.raises(ApplicationStateNotFoundError):
+                BuildImageMoveReviewService().get(world, writer.adapter.turn.turn_id)
+            return
+        if image_move in {"discussion", "other_discussion"}:
             assert response.status_code == 200, response.text
             context = response.json()["knowledge_context"]
             assert context["completion"]["schema"] != "dmb_build_image_move_completion_v1"
             assert "The image would sit to the right" in str(context["completion"])
             assert len(writer.calls) == 1
+            ballots = [set(json.loads(call.content)["questions"]) for call in decisions.calls]
+            assert ballots[0] == {"requested_work"}
+            assert not any(name.startswith("image_move_") for ballot in ballots for name in ballot)
             with pytest.raises(ApplicationStateNotFoundError):
                 BuildImageMoveReviewService().get(world, writer.adapter.turn.turn_id)
             counts = len(decisions.calls), len(writer.calls)
@@ -1407,8 +1646,19 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         expected = {"tied_menu": "ready", "duplicate_context": "ready",
                     "other_discussion_tied_work": "discussion"}.get(image_move, image_move)
         assert completion["disposition"] == expected
+        opening = json.loads(decisions.calls[0].content)
+        assert opening["state"]["interaction"]["surface"] == "build"
+        assert set(opening["questions"]) == {"requested_work"}
+        assert "image_move" not in opening["state"]["interaction"]
+        assert "current-page edit" in opening["state"]["interaction"]["image_editor"]["available_work"]
+        if expected in {"ready", "different_row"}:
+            followup = json.loads(decisions.calls[1].content)
+            assert "image_move_occurrence" in followup["questions"]
+            assert "requested_work" not in followup["questions"]
         turn_id = writer.adapter.turn.turn_id
         if expected == "ready":
+            assert not any(event.kind == "native_build_query_settled_v1"
+                           for event in writer.adapter.turn.graph_context_execution.events)
             review = BuildImageMoveReviewService().get(world, turn_id)
             assert completion["action_id"] == str(turn_id) and review.state == "editing"
             assert review.placement.image_block_id == "map-block"
@@ -1448,7 +1698,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         replay = client.post("/api/live/agent/turn", json=body)
         assert replay.status_code == 200, replay.text
         assert replay.json()["knowledge_context"]["completion"] == completion
-        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 1
+        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 2
         assert not writer.calls
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         return
@@ -1457,9 +1707,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from application_state.errors import ApplicationStateNotFoundError
 
         store = BuildGraphReferenceReviewService()
+        if graph_reference == "foreign_catalog":
+            assert response.status_code in {409, 503}, response.text
+            assert len(decisions.calls) == 1 and not writer.calls
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            return
         if graph_reference == "remapped_inventory":
             assert response.status_code == 503, response.text
-            assert len(decisions.calls) == 2 and not writer.calls
+            assert len(decisions.calls) == 3 and not writer.calls
             with pytest.raises(ApplicationStateNotFoundError):
                 store.get(world, writer.adapter.turn.turn_id)
             assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
@@ -1467,9 +1722,22 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert response.status_code == 200, response.text
         completion = response.json()["knowledge_context"]["completion"]
         assert completion["disposition"] == graph_reference
-        assert len(decisions.calls) == 2 and not writer.calls
+        assert len(decisions.calls) == 3 and not writer.calls
+        opening, followup, nomination = [json.loads(call.content) for call in decisions.calls]
+        assert opening["state"]["interaction"]["surface"] == "build"
+        assert set(opening["questions"]) == {"requested_work"}
+        assert "related_page_labels" not in opening["state"]["interaction"]
+        assert "typed_graph_reference" in followup["questions"]
+        assert any(name.startswith("related_page_") for name in followup["questions"])
+        assert "reference_nomination" in nomination["questions"]
         turn = writer.adapter.turn
         assert turn.status == "completed"
+        assert not any(isinstance(event, (t.RelatedPagesSelection, t.RelatedPageRead))
+                       for event in turn.graph_context_execution.events)
+        selection, = [event for event in turn.graph_context_execution.events
+                      if type(event) is t.BuildRequestedWorkResolutionV1]
+        assert selection.typed_graph_reference == "place_existing_reference"
+        assert selection.paragraph_placement is None
         if graph_reference == "ready":
             review = store.get(world, turn.turn_id)
             assert completion["action_id"] == str(review.action_id)
@@ -1493,7 +1761,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         replay = client.post('/api/live/agent/turn', json=body)
         assert replay.status_code == 200, replay.text
         assert replay.json()["knowledge_context"]["completion"] == completion
-        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 2
+        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 3
         return
     if contextual in {"stale", "foreign"}:
         from application_state.build_proposal.service import BuildProposalService
@@ -1606,7 +1874,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             "code": "build_discussion_source_uncertain",
             "message": "Should I answer from this Page alone, or look for other sources?",
         }
-        assert len(decisions.calls) == 1 and not writer.calls and not classic_calls
+        assert len(decisions.calls) == (2 if image_move else 1) and not writer.calls and not classic_calls
         assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
         assert lane.repo.get_head(world).head_revision_id == current_revision
         return
@@ -1806,11 +2074,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert context['receipt']['native_query']['reason']=='native_graph_binding_unavailable'
     else:
         assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
-    if authored_source!='source_only' and saved_statblock != 'by-name' and failure != 'deferred_graph_citation':
-        assert context['receipt']['native_query']['authored_targets'][0]['selection_revision_id'] == original_revision
     service = AgentConversationService()
     turn = service.inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
     assert turn.status == 'completed' and type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+    if authored_source!='source_only' and saved_statblock != 'by-name' and failure != 'deferred_graph_citation':
+        from application_state.agent_conversation.native_execution import effective_native_query
+
+        query = effective_native_query(turn.graph_context_receipt, turn.graph_context_execution)
+        assert query.authored_targets[0].selection_revision_id == original_revision
     if authored_source:
         from application_state.agent_conversation.native_corpus import NativeAuthoredSourceReadV1
         reads=[e for e in turn.graph_context_execution.events if isinstance(e,NativeAuthoredSourceReadV1)]
@@ -1851,8 +2122,14 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert captured.record.snapshot==draft.snapshot
         assert captured.sequence < next(e.sequence for e in turn.graph_context_execution.events if isinstance(e,t.ProviderAttemptAuthorizedEventV1))
         if contextual:
-            assert "unsaved orchid" in decisions.calls[0].content.decode()
-            assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[1:])
+            opening = json.loads(decisions.calls[0].content)
+            if set(opening["questions"]) == {"requested_work"}:
+                assert "unsaved orchid" not in decisions.calls[0].content.decode()
+                assert "unsaved orchid" in decisions.calls[1].content.decode()
+                assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[2:])
+            else:
+                assert "unsaved orchid" in decisions.calls[0].content.decode()
+                assert all("unsaved orchid" not in req.content.decode() for req in decisions.calls[1:])
             assert all("boundary_editor_json" not in req.content.decode() for req in decisions.calls)
         else:
             assert all('unsaved orchid' not in req.content.decode() for req in decisions.calls)
@@ -2380,9 +2657,28 @@ def test_ordinary_build_human_source_reaches_writer_and_reopens_exact_citation(l
     _fresh_case(lane,tmp_path,monkeypatch,None,False,False,False,authored_source=selection)
 
 
+def _capture_opening_wire(case, label):
+    import os
+    from pathlib import Path
+
+    if destination := os.environ.get("DMB_BUILD_OPENING_WIRE_DIR"):
+        Path(destination, f"build-{label}-opening.json").write_bytes(case.decisions.calls[0].content)
+
+
 def test_ordinary_build_source_status_guidance_reaches_the_provider(lane, tmp_path, monkeypatch):
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
                        authored_source="full_document")
+    from application_state.agent_conversation.build_intentional_response import (
+        MENU_DIGEST, SCOPED_BUILD_MENU_DIGEST, opening_work_question,
+    )
+    from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+    _capture_opening_wire(case, "attached-source")
+    opening = json.loads(case.decisions.calls[0].content)["questions"]["requested_work"]
+    assert opening == opening_work_question(SCOPED_BUILD_MENU_DIGEST)
+    assert tuple(opening["criteria"]) == tuple(opening_action_menu("build"))
+    assert "build_encounter" not in opening["criteria"]
+    assert "build_encounter" in opening_work_question(MENU_DIGEST)["criteria"]
     assert len(case.writer.calls) == 1
     request = json.loads(case.writer.calls[0].content)
     assert "next-session pickup or resume instruction" in request["instructions"]
