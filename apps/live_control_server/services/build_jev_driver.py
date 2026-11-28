@@ -556,7 +556,6 @@ class BuildJevDriver:
         split_reference = (
             callable(getattr(a, "build_intent_access", None))
             and self._boundary_catalog is not None
-            and not self._interaction.get("related_page_catalog")
             and has_explicit_build_graph_reference(a.request.build_authored_references)
         )
         self.split_opening = fresh and capture is None and (pending or split_reference)
@@ -564,7 +563,7 @@ class BuildJevDriver:
             from application_state.agent_conversation.build_intentional_response import semantic_routing_state
             state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references,
                 write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening,
-                include_surface=True)
+                include_surface=True, include_related_catalog=not self.split_opening)
         questions = (DecisionQuestion(name='requested_work',kind='choice',question=work_question["instructions"],options=tuple(work_question["criteria"])),)
         if capture is not None:
             from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
@@ -604,7 +603,7 @@ class BuildJevDriver:
 
                 q = GRAPH_REFERENCE_OPENING
                 questions += (DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options),)
-        if 'related_page_catalog' in self._interaction:
+        if 'related_page_catalog' in self._interaction and not self.split_opening:
             from application_state.agent_conversation.build_related_pages import PagePointer, question_name, question_text
             questions += tuple(DecisionQuestion(name=question_name(i),kind='choice',
                 question=question_text(PagePointer.model_validate(page), semantic=fresh),options=('read','skip'))
@@ -1173,7 +1172,7 @@ class BuildJevDriver:
                 from .agent_turn_service import _turn_idempotency_key
                 expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references,
                     write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening,
-                    include_surface=True)
+                    include_surface=True, include_related_catalog=not self.split_opening)
                 if self.image_move is not None:
                     from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
                     expected["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
@@ -1411,13 +1410,13 @@ class BuildJevDriver:
                     is_anchored_conversation_draft, is_anchored_current_page_edit,
                 )
                 from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
-                if ('related_page_catalog' in self._interaction and split_proof is None
+                if ('related_page_catalog' in self._interaction and (split_proof is None or prepared.attempt_id != self._attempt)
                         and not ((conversation_route_can_admit(a._broker_receipt(), a._broker_execution())
                                   and prior_conversation_work((event,), allow_discussion=True) is not None)
                                  or is_anchored_discussion(event) or is_variant_approval(event)
                                  or is_anchored_current_page_edit(event)
                                  or is_anchored_conversation_draft(a._broker_execution(), event))):
-                    select_pages(self, prepared, actual_response)
+                    select_pages(self, prepared, followup_response if split_proof is not None else actual_response)
             else:
                 _require_guest_build_discussion(a, label=None, graph_reference=None, image_move=None)
                 question = self._selection_intent.questions[0]

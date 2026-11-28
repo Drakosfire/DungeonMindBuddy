@@ -3610,7 +3610,8 @@ class AgentConversationService:
                 expected = build_source_followup_wire(opening["state"], intent.requested_work,
                     menu_digest=execution.policy.action.requested_work_menu_sha256,
                     write_capability=execution.policy.action.write_capability,
-                    graph_reference=has_explicit_build_graph_reference(getattr(execution.policy.action.intent, "authored_references", None)))
+                    graph_reference=has_explicit_build_graph_reference(getattr(execution.policy.action.intent, "authored_references", None)),
+                    related_pages=execution.policy.action.related_page_catalog)
                 validate_prepared(authorization, execution, request_json, host_phase="source_scope")
                 if strict_json(request_json) != expected:
                     raise ValueError('Build source scope differs from the admitted opening')

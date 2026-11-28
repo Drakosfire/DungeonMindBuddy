@@ -268,7 +268,7 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
                else "Insert a reference to the selected object after the orchid paragraph in East.")
     _fresh_case(lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
                 message=request,
-                graph_reference=disposition)
+                graph_reference=disposition, read_optional_page=True)
 
 
 @pytest.mark.parametrize(("message", "disposition"), [
@@ -620,9 +620,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
     if graph_reference:
-        from apps.live_control_server.services import build_graph_reference, build_related_pages
-
-        monkeypatch.setattr(build_related_pages, "discover", lambda _request: [])
+        from apps.live_control_server.services import build_graph_reference
         reference = selected.references[0].model_copy(update={"graph_revision": current_revision})
         selected = selected.model_copy(update={"references": (reference,)})
         identities = [{"node_id": reference.node_id, "label": reference.label, "kind": "threat", "selectable": True}]
@@ -1579,7 +1577,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         opening, followup, nomination = [json.loads(call.content) for call in decisions.calls]
         assert opening["state"]["interaction"]["surface"] == "build"
         assert set(opening["questions"]) == {"requested_work"}
+        assert "related_page_labels" not in opening["state"]["interaction"]
         assert "typed_graph_reference" in followup["questions"]
+        assert any(name.startswith("related_page_") for name in followup["questions"])
         assert "reference_nomination" in nomination["questions"]
         turn = writer.adapter.turn
         assert turn.status == "completed"

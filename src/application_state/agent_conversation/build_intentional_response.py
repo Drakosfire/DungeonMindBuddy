@@ -257,7 +257,7 @@ def has_explicit_build_graph_reference(references):
     return references is not None and any(isinstance(ref, AuthoredGraphReferenceV1) for ref in references.references)
 
 
-def build_source_followup_wire(state, requested_work, *, menu_digest, write_capability=None, graph_reference=False):
+def build_source_followup_wire(state, requested_work, *, menu_digest, write_capability=None, graph_reference=False, related_pages=None):
     """Offer source scope for an already selected action, without offering reads."""
     from .jev_retrieval_contract import MODEL
 
@@ -291,6 +291,15 @@ def build_source_followup_wire(state, requested_work, *, menu_digest, write_capa
             questions[choice.name] = {
                 "type": "choice", "instructions": choice.question, "criteria": dict.fromkeys(choice.options),
             }
+    if related_pages is not None:
+        from .build_related_pages import question_name, question_text
+
+        followup_state["interaction"]["related_page_labels"] = [page.title for page in related_pages]
+        questions.update({
+            question_name(index): {"type": "choice", "instructions": question_text(page, semantic=True),
+                                   "criteria": {"read": None, "skip": None}}
+            for index, page in enumerate(related_pages)
+        })
     return {
         "model": MODEL,
         "state": followup_state,
@@ -320,13 +329,13 @@ def verify_build_intent_opening(opening_wire, opening_response, *, menu_digest):
     return selected(opening_response, menu=menu_digest)
 
 
-def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response, write_capability=None, graph_reference=False):
+def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response, write_capability=None, graph_reference=False, related_pages=None):
     from generationengine.types import DecisionResult
     from .jev_retrieval_contract import validated_choice_answers
 
     requested_work = verify_build_intent_opening(opening_wire, opening_response, menu_digest=menu_digest)
     expected = build_source_followup_wire(opening_wire["state"], requested_work, menu_digest=menu_digest,
-        write_capability=write_capability, graph_reference=graph_reference)
+        write_capability=write_capability, graph_reference=graph_reference, related_pages=related_pages)
     if wire != expected or tuple(wire["questions"]["source_need"]["criteria"]) != SOURCE_NEED_OPTIONS:
         raise ValueError("Build source-scope request differs from the verified intent context")
     validated_choice_answers(DecisionResult.model_validate(response), set(expected["questions"]))
@@ -991,7 +1000,8 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
                 raise ValueError("Build resolution requires its authorized source ballot")
             source_scope = verify_build_source_followup(request, raw_response, menu_digest=menu,
                 wire=produced_request, response=produced_response, write_capability=policy.action.write_capability,
-                graph_reference=has_explicit_build_graph_reference(getattr(policy.action.intent, "authored_references", None)))
+                graph_reference=has_explicit_build_graph_reference(getattr(policy.action.intent, "authored_references", None)),
+                related_pages=policy.action.related_page_catalog)
         elif label in {"clarify_request", "clarify_creation"}:
             source_scope = "anchored"
         else:
@@ -1642,7 +1652,7 @@ def semantic_collaboration(card):
     return {key: deepcopy(card[key]) for key in card if key in fields}
 
 
-def semantic_routing_state(question, interaction, references, *, write_capability=None, include_paragraph_catalog=True, include_surface=False):
+def semantic_routing_state(question, interaction, references, *, write_capability=None, include_paragraph_catalog=True, include_surface=False, include_related_catalog=True):
     """Project typed parent context, never scrub arbitrary user/source strings."""
     from .dialogue_projection import expand_dialogue
     from .authored_graph_references import AuthoredSourceReferenceV1
@@ -1662,7 +1672,7 @@ def semantic_routing_state(question, interaction, references, *, write_capabilit
             {"kind": "source", "label": ref.label, "selection_kind": ref.selection_kind}
             if isinstance(ref, AuthoredSourceReferenceV1) else {"kind": "graph_object", "label": ref.label}
             for ref in references.references]
-    if "related_page_catalog" in interaction:
+    if include_related_catalog and "related_page_catalog" in interaction:
         context["related_page_labels"] = [page["title"] for page in interaction["related_page_catalog"]]
     from application_state.build_proposal.prose_catalog import catalog_for_build_capability
     from application_state.build_proposal.prose_decision import OPENING_STATE_KEY, build_boundary_opening

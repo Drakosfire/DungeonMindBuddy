@@ -30,6 +30,7 @@ class PendingBuildSourceScopeDriver:
         self.wire = build_source_followup_wire(
             self.opening_wire["state"], self.intent.requested_work, menu_digest=self.menu,
             write_capability=self.before.policy.action.write_capability, graph_reference=self.graph_reference,
+            related_pages=self.before.policy.action.related_page_catalog,
         )
         self.step = DecisionIntent(
             request_id="build-source-scope:" + digest(self.wire), phase="source_scope",
@@ -93,6 +94,7 @@ class PendingBuildSourceScopeDriver:
                 self.opening_wire, self.opening_response, menu_digest=self.menu,
                 wire=json.loads(self.prepared.body), response=actual_response.model_dump(mode="json"),
                 write_capability=self.before.policy.action.write_capability, graph_reference=self.graph_reference,
+            related_pages=self.before.policy.action.related_page_catalog,
             )
         except UnresolvedDiscussionSource as exc:
             from .agent_turn_service import AgentTurnServiceError
