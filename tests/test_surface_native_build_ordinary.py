@@ -620,7 +620,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
     if graph_reference:
-        from apps.live_control_server.services import build_graph_reference
+        from apps.live_control_server.services import build_graph_reference, build_related_pages
+
+        def unexpected_related_page_read(*_args, **_kwargs):
+            pytest.fail("Graph-reference review opened an unrelated authoring page")
+
+        monkeypatch.setattr(build_related_pages, "materialize", unexpected_related_page_read)
         reference = selected.references[0].model_copy(update={"graph_revision": current_revision})
         selected = selected.model_copy(update={"references": (reference,)})
         identities = [{"node_id": reference.node_id, "label": reference.label, "kind": "threat", "selectable": True}]
@@ -1583,6 +1588,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert "reference_nomination" in nomination["questions"]
         turn = writer.adapter.turn
         assert turn.status == "completed"
+        assert not any(isinstance(event, (t.RelatedPagesSelection, t.RelatedPageRead))
+                       for event in turn.graph_context_execution.events)
         selection, = [event for event in turn.graph_context_execution.events
                       if type(event) is t.BuildRequestedWorkResolutionV1]
         assert selection.typed_graph_reference == "place_existing_reference"
