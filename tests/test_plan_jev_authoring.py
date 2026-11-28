@@ -188,8 +188,9 @@ class SemanticWire(httpx2.AsyncBaseTransport):
             assert selected in question["criteria"]
             answers[name] = dict(type="choice", choice=selected, confidence=1.0,
                 probabilities={option: float(option == selected) for option in question["criteria"]})
+        assert body["model"] in {"jev-1.14.0", "typesafe-ai/jev-1.14.0"}
         return httpx2.Response(200, request=request, json={
-            "model": "jev-1.14.0", "answers": answers,
+            "model": body["model"], "answers": answers,
             "usage": {"input_tokens": 31, "output_tokens": 7},
         })
 
@@ -1639,11 +1640,12 @@ def _shared_plan_authoring_case(
                         confidence=1,
                         probabilities={o: float(o == choice) for o in q["criteria"]},
                     )
+                assert body["model"] in {"jev-1.14.0", "typesafe-ai/jev-1.14.0"}
                 return httpx2.Response(
                     200,
                     request=request,
                     json=dict(
-                        model="jev-1.14.0",
+                        model=body["model"],
                         answers=answers,
                         usage=dict(input_tokens=31, output_tokens=7),
                     ),
@@ -1667,6 +1669,7 @@ def _shared_plan_authoring_case(
                         and type(plan_adapter.request.plan_placement_catalog) is PlanPlacementCatalogV2
                         else "answer")
                 assert payload["instructions"] == (compose_response_prompt(task=task, generic_reply_limits=payload["text"]["format"]["name"] != "plan_contextual_question_v1").instructions
+                    + "\n\nLocal campaign aliases identify scopes; they are not campaign names."
                     + ("\nRepresent reply-level evidence limitations with the supplied codes. "
                        "Do not return requested_detail_gaps or reproduce phrases from any user question. "
                        "A limitation may stand alone when the supplied evidence cannot support a useful fact."
