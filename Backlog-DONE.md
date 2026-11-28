@@ -74,3 +74,20 @@ The independent hosted Rename issue is tracked separately in [#5011](https://git
 
 - [Backend #4860](https://github.com/Drakosfire/DungeonMindBuddy/pull/4860) and [delete controls #4868](https://github.com/Drakosfire/DungeonMindBuddy/pull/4868)
 - [Combined release #5010 and hosted evidence](https://github.com/Drakosfire/DungeonMindBuddy/pull/5010) and [production activation](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/46104134466)
+
+## [DONE] Delete the current Build page — 2026-11-28
+
+Verified both direct toolbar actions in hosted Buddy Cloud Pilot on healthy release
+`e217670f9b47f0e0c5f00a95f8afbddad5aea9ce`.
+[Deployment evidence](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/46167726548)
+
+- Page Delete moved the open disposable page to World Trash and returned to the
+  Build workspace. Restore removed it from Trash, and reopening its saved URL
+  displayed the original content.
+- Statblock Delete archived the open disposable Clockwork Mote from discovery
+  and returned to Build. After reload, the picker omitted the fixture and still
+  listed an unrelated saved page. The exact saved statblock URL still rendered
+  its mechanics. The archive has no World Trash restore action.
+- The statblock fixture used a saved Workbench revision associated with a
+  disposable World creature. This verification did not require PDF review
+  writes or a production database grant.
