@@ -261,7 +261,7 @@ def test_build_native_paragraph_proposal_replays_exact_boundary(lane, tmp_path, 
     )
 
 
-@pytest.mark.parametrize("disposition", ["ready", "wrong_kind", "different_page", "remapped_inventory"])
+@pytest.mark.parametrize("disposition", ["ready", "wrong_kind", "different_page", "remapped_inventory", "foreign_catalog"])
 def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, monkeypatch, disposition):
     request = ("Insert a reference to the selected object on the separate Lanterns page."
                if disposition == "different_page"
@@ -662,6 +662,18 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             pytest.fail("Graph-reference review opened an unrelated authoring page")
 
         monkeypatch.setattr(build_related_pages, "materialize", unexpected_related_page_read)
+        discover_pages = build_related_pages.discover
+
+        def discover_after_intent(request):
+            opening, = decisions.calls
+            assert set(json.loads(opening.content)["questions"]) == {"requested_work"}
+            pages = discover_pages(request)
+            if graph_reference == "foreign_catalog":
+                first, *rest = pages
+                return [first | {"world_id": "foreign-world"}, *rest]
+            return pages
+
+        monkeypatch.setattr(build_related_pages, "discover", discover_after_intent)
         reference = selected.references[0].model_copy(update={"graph_revision": current_revision})
         selected = selected.model_copy(update={"references": (reference,)})
         identities = [{"node_id": reference.node_id, "label": reference.label, "kind": "threat", "selectable": True}]
@@ -1638,6 +1650,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from application_state.errors import ApplicationStateNotFoundError
 
         store = BuildGraphReferenceReviewService()
+        if graph_reference == "foreign_catalog":
+            assert response.status_code in {409, 503}, response.text
+            assert len(decisions.calls) == 1 and not writer.calls
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            return
         if graph_reference == "remapped_inventory":
             assert response.status_code == 503, response.text
             assert len(decisions.calls) == 3 and not writer.calls

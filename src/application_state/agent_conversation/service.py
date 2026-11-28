@@ -3634,14 +3634,15 @@ class AgentConversationService:
                     menu_digest=execution.policy.action.requested_work_menu_sha256,
                     write_capability=execution.policy.action.write_capability,
                     graph_reference=has_explicit_build_graph_reference(getattr(execution.policy.action.intent, "authored_references", None)),
-                    related_pages=execution.policy.action.related_page_catalog,
+                    related_pages=(authorization.discovered_pages if authorization.discovered_pages is not None
+                                   else execution.policy.action.related_page_catalog),
                     image_move=self._build_image_offer_locked(conn, turn))
                 validate_prepared(authorization, execution, request_json, host_phase="source_scope")
                 if strict_json(request_json) != expected:
                     raise ValueError('Build source scope differs from the admitted opening')
             except (ValueError, TypeError, KeyError, AttributeError) as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
-            if authorize_current_access(conn, turn, None) is not True:
+            if authorize_current_access(conn, turn, authorization.discovered_pages) is not True:
                 raise ApplicationStateConflictError('Current App access does not authorize source scope')
             return self._append_pending_checked(conn, turn, authorization, expected_revision, allow_native_build_intent=True)
 

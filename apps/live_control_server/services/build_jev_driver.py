@@ -1422,12 +1422,14 @@ class BuildJevDriver:
                     is_anchored_conversation_draft, is_anchored_current_page_edit,
                 )
                 from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
-                if ('related_page_catalog' in self._interaction and (split_proof is None or prepared.attempt_id != self._attempt)
+                from application_state.agent_conversation.build_related_pages import effective_catalog
+                if (effective_catalog(a._broker_execution()) is not None and (split_proof is None or prepared.attempt_id != self._attempt)
                         and not ((conversation_route_can_admit(a._broker_receipt(), a._broker_execution())
                                   and prior_conversation_work((event,), allow_discussion=True) is not None)
                                  or is_anchored_discussion(event) or is_variant_approval(event)
                                  or is_anchored_current_page_edit(event)
                                  or is_anchored_conversation_draft(a._broker_execution(), event))):
+                    from .build_related_pages import select_pages
                     select_pages(self, prepared, followup_response if split_proof is not None else actual_response)
             else:
                 _require_guest_build_discussion(a, label=None, graph_reference=None, image_move=None)
