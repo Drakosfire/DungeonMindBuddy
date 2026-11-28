@@ -260,6 +260,8 @@ def apply_verified(*,world_id,encounter_id,request,snapshot,origin,scope=None,au
             isinstance(request, AdoptMechanicsRequest) and request.draft_id!=snapshot.draft_id
         ):
             raise ApplicationStateIntegrityError('Verified mechanics differ from the selected version')
+        from application_state.mechanics_revisions.purge import require_available_statblocks
+        require_available_statblocks(conn, (snapshot.locator.statblock_id,))
         draft,transitions=_replace(conn,world_id,before,request,snapshot,origin)
         if authorize is not None:
             authorize()

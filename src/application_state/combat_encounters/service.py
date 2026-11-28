@@ -168,6 +168,12 @@ def save_encounter(
             except ValueError as exc:
                 raise ApplicationStateValidationError(str(exc)) from exc
         existing = {entity.id: entity for entity in before.draft.entities}
+        from application_state.mechanics_revisions.purge import require_available_statblocks
+        require_available_statblocks(conn, (
+            entity.mechanics_snapshot.locator.statblock_id
+            for entity in request.draft.entities
+            if entity.id not in existing and entity.mechanics_snapshot is not None
+        ))
         new_snapshots = []
         for entity in request.draft.entities:
             prior = existing.get(entity.id)
