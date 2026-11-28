@@ -40,8 +40,12 @@ def delete_saved_statblock(
         with locked_statblock_purge_owner(
             root, world_id=target.world_id, draft_id=str(target.draft_id),
             expected_version=target.draft_version, statblock_id=target.statblock_id,
-        ):
-            if purge.claim(target, authorize=authorize):
+        ) as persist_fence:
+            def authorize_and_fence() -> None:
+                authorize()
+                persist_fence()
+
+            if purge.claim(target, authorize=authorize_and_fence):
                 return
 
     authorize()
