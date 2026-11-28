@@ -38,6 +38,18 @@ def find_receipt(*, world_id: str, draft_id: UUID) -> tuple[PurgeTarget, bool] |
     return PurgeTarget(statblock_id, bound_world, bound_draft, draft_version, revision_id), complete
 
 
+def assert_draft_writable(*, draft_id: UUID, statblock_id: str | None) -> None:
+    """Use the durable receipt to exclude draft updates and new claims of its mechanics."""
+    with unit_of_work(_dsn()) as conn:
+        blocked = conn.execute(
+            """SELECT 1 FROM mechanics_revision.purge
+               WHERE draft_id=%s OR statblock_id=%s LIMIT 1""",
+            (draft_id, statblock_id),
+        ).fetchone()
+    if blocked:
+        raise ApplicationStateConflictError("This statblock is being deleted or has been deleted")
+
+
 def _lock(conn, statblock_id: str) -> None:
     conn.execute(
         "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
