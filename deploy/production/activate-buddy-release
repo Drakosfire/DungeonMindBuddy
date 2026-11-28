@@ -169,6 +169,78 @@ activate() {
     verify_serving "$2" && verify_public_ready
 }
 
+# App-fence packets prepare exact copies of the service and transfer its name
+# after draining the old container. Renaming does not change Compose labels.
+retire_fence_containers() {
+  local live ids id observed details name image status restart oneoff number mounts live_mounts
+  local paths diff line path mount_path known live_count=0
+  local -a retired=()
+  local slot='{{.Id}} {{.Name}} {{.Image}} {{.State.Status}} {{.HostConfig.RestartPolicy.Name}} {{index .Config.Labels "com.docker.compose.oneoff"}} {{index .Config.Labels "com.docker.compose.container-number"}}'
+  local bind_mounts='{{range .Mounts}}{{.Type}} {{json .Source}} {{json .Destination}} {{.RW}} {{.Propagation}}{{println}}{{end}}'
+  local destinations='{{range .Mounts}}{{println .Destination}}{{end}}'
+
+  details=$(docker inspect --format "$slot" buddy-buddy-1) || return 1
+  read -r live name image status restart oneoff number <<< "$details" || return 1
+  [[ "$live" =~ ^[0-9a-f]{64}$ && "$image" == "$rollback_id" &&
+    "$name $status $oneoff $number" == '/buddy-buddy-1 running False 1' ]] || return 1
+  live_mounts=$(docker inspect --format "$bind_mounts" "$live" | sed '/^$/d' | LC_ALL=C sort) || return 1
+  paths=$(docker inspect --format "$destinations" "$live") || return 1
+
+  ids=$(docker container ls --all --quiet --no-trunc \
+    --filter label=com.docker.compose.project=buddy \
+    --filter label=com.docker.compose.service=buddy) || return 1
+  for id in $ids; do
+    if [[ "$id" == "$live" ]]; then
+      ((live_count += 1))
+      continue
+    fi
+    [[ "$id" =~ ^[0-9a-f]{64}$ ]] || return 1
+    details=$(docker inspect --format "$slot" "$id") || return 1
+    read -r observed name image status restart oneoff number <<< "$details" || return 1
+    [[ "$observed" == "$id" ]] || return 1
+    [[ "$oneoff" != True ]] || continue
+    [[ "$image" =~ ^sha256:[0-9a-f]{64}$ && "$oneoff $number" == 'False 1' ]] || return 1
+    case "$status" in
+      created)
+        [[ "$name" =~ ^/buddy-(dogfood|erasure)[0-9]+-(candidate|recovery)-${image:7:12}$ ]] || return 1 ;;
+      exited)
+        [[ "$restart" == no && "$name" =~ ^/buddy-((dogfood|erasure)[0-9]+-(promote-)?stopped|onboard-prior)-${id:0:12}$ ]] || return 1 ;;
+      *) return 1 ;;
+    esac
+    mounts=$(docker inspect --format "$bind_mounts" "$id" | sed '/^$/d' | LC_ALL=C sort) || return 1
+    [[ "$mounts" == "$live_mounts" && "$mounts" == bind\ * ]] || return 1
+    if grep -qv '^bind ' <<< "$mounts"; then return 1; fi
+
+    # Docker materializes init and bind-mount targets in the writable layer.
+    # Preserve a container with any other filesystem changes for inspection.
+    diff=$(docker diff "$id") || return 1
+    while IFS= read -r line; do
+      [[ -n "$line" ]] || continue
+      case "$line" in
+        'C /usr'|'C /usr/sbin'|'A /usr/sbin/docker-init') continue ;;
+        'A /'*|'C /'*) path=${line:2} ;;
+        *) return 1 ;;
+      esac
+      known=0
+      while IFS= read -r mount_path; do
+        if [[ "$mount_path" == "$path" || "$mount_path" == "$path/"* ]]; then
+          known=1
+          break
+        fi
+      done <<< "$paths"
+      [[ "$known" == 1 ]] || return 1
+    done <<< "$diff"
+    retired+=("$id")
+  done
+  [[ "$live_count" == 1 ]] || return 1
+
+  # Validate all siblings first. Remove by full ID, with no force or volumes.
+  for id in "${retired[@]}"; do
+    docker container rm "$id" >/dev/null || return 1
+    printf 'BUDDY_FENCE_CONTAINER_RETIRED %s\n' "$id"
+  done
+}
+
 record_serving() {
   local receipt
   receipt=$(mktemp "$config_dir/.serving.XXXXXX") || return 1
@@ -324,6 +396,7 @@ if verify_serving "$candidate_id"; then
   exit 0
 fi
 verify_serving "$rollback_id" || fail "serving Buddy does not match the healthy approved rollback"
+retire_fence_containers || fail "Buddy Compose slot contains an unverified container; serving rollback was left running"
 
 rollback() {
   local status=$?
