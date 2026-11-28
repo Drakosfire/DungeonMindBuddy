@@ -208,7 +208,8 @@ def retained_cohort(path):
         if surface == "build" and "wire_questions" in capture:
             for case in groups[surface]:
                 for arm, menu in menus[surface].items():
-                    wire = build_wire(case["input"], menu, manifest["model"])
+                    wire = build_wire(case["input"], menu, manifest["model"],
+                        intent_only=capture.get("build_intent_only", False))
                     if (wire["state"] != capture["wire_states"][case["id"]]
                             or wire["questions"] != capture["wire_questions"][arm]
                             or tuple(wire["questions"]["requested_work"]["criteria"]) != tuple(
@@ -340,8 +341,6 @@ async def main():
                 "play_edit": "Request a change to the current live session scene in Play.",
                 "different_destination": "Request work on a different surface or target, such as editing a saved page outside the live scene, or using a separate operator control.",
             })
-    if args.build_intent_only:
-        menus["build"] = {"scoped": menus["build"]["scoped"]}
     if args.validate_only:
         print(digest, {surface: len(rows) for surface, rows in groups.items()})
         return
@@ -381,11 +380,22 @@ async def main():
     if args.reuse:
         prior = json.loads((args.reuse / "frozen-inputs.json").read_bytes())
         prior_report = json.loads((args.reuse / "results.json").read_bytes())
-        if (any(prior.get(key) != frozen.get(key) for key in ("model", "prompt", "menus", "play_prompt", "play_question", "plan_prompt", "plan_question", "plan_wire_state_by_case", "build_wire_by_case"))
-            or any(tuple(menu) != tuple(menus[surface][arm])
+        if (any(prior.get(key) != frozen.get(key) for key in (
+                "model", "prompt", "play_prompt", "play_question", "plan_prompt",
+                "plan_question", "plan_wire_state_by_case",
+            ))
+            or any(list(menu.items()) != list(menus.get(surface, {}).get(arm, {}).items())
                    for surface, arms in prior["menus"].items() for arm, menu in arms.items())
         ):
-            raise ValueError("Reuse requires the exact model, prompt and menus")
+            raise ValueError("Reuse requires the exact model, prompt and retained menus")
+        current_wires = frozen.get("build_wire_by_case", {})
+        for case_id, arms in prior.get("build_wire_by_case", {}).items():
+            for arm, wire in arms.items():
+                current = current_wires.get(case_id, {}).get(arm)
+                if (wire != current
+                        or tuple(wire["questions"]["requested_work"]["criteria"])
+                        != tuple(current["questions"]["requested_work"]["criteria"])):
+                    raise ValueError(f"Retained Build request changed for {case_id} {arm}")
         for surface, cases in prior["cases"].items():
             by_id = {case["id"]: case for case in cases}
             retained[surface] = {}

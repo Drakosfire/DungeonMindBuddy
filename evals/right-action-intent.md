@@ -429,3 +429,16 @@ improved, regressed, or had a provider error. On the wire-shaped roster,
 seven improved and one regressed. The regression was the Build map-description
 request, which the scoped ballot unnecessarily deferred. That case passed in
 the separate intent-only ablation.
+
+### Frozen intent-only menu comparison
+
+The [intent-only roster](right_action_intent/surface-cohort-frozen-intent.json)
+replaces the earlier combined Build opening with the matching intent-only
+pair. It reuses all 36 scoped Build results after exact request verification and
+adds 36 full-menu results. Both arms carry the same Build state and source
+scope is absent from both. Plan and Play reuse their earlier pinned pairs.
+
+Build scored **34/36 scoped versus 29/36 full**, with median decision times of
+197.56 ms and 200.16 ms respectively. Across Build, Plan and Play the comparison
+is **56/60 scoped versus 49/60 full**. Build arms were captured at different
+times. These times describe the decision call, separately from downstream routing.
