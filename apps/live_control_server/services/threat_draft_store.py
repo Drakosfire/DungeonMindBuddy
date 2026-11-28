@@ -460,6 +460,20 @@ def locked_statblock_purge_owner(
             raise
 
 
+def ensure_statblock_purge_fence(
+    root: Path, *, world_id: str, draft_id: str, expected_version: int, statblock_id: str,
+) -> None:
+    """Repin a receipt created without a local fence before dispatching a retry."""
+    with _store_lock(root):
+        if _purge_fences(root).get(draft_id) == statblock_id:
+            return
+    with locked_statblock_purge_owner(
+        root, world_id=world_id, draft_id=draft_id, expected_version=expected_version,
+        statblock_id=statblock_id,
+    ) as persist_fence:
+        persist_fence()
+
+
 def remove_purged_threat_draft(
     root: Path, *, world_id: str, draft_id: str, expected_version: int, statblock_id: str,
 ) -> None:
