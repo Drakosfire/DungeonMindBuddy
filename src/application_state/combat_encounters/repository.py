@@ -100,6 +100,20 @@ def list_encounters(conn: psycopg.Connection, *, world_id: str) -> list[CombatEn
     return [_record(row) for row in rows]
 
 
+def lock_encounters_with_statblock(
+    conn: psycopg.Connection, *, world_id: str, statblock_id: str,
+) -> list[CombatEncounterRecord]:
+    pattern = {"entities": [{"mechanics_snapshot": {"locator": {"statblock_id": statblock_id}}}]}
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""SELECT {_COLUMNS} FROM combat.encounter
+                WHERE world_id = %s AND draft @> %s
+                ORDER BY encounter_id FOR UPDATE""",
+            (world_id, Jsonb(pattern)),
+        )
+        return [_record(row) for row in cur.fetchall()]
+
+
 def cas_replace_draft(
     conn: psycopg.Connection,
     *,
