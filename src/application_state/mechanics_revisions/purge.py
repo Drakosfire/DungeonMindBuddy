@@ -45,10 +45,14 @@ def _receipt(conn, target: PurgeTarget):
 
 
 def claim(target: PurgeTarget, *, authorize) -> bool:
-    """Return whether this exact deletion has already completed."""
+    """Return whether this exact deletion has already completed.
+
+    The caller pins the draft before claiming and holds its filesystem lock
+    through the claim. Authorization runs before acquiring APP locks.
+    """
+    authorize()
     with unit_of_work(_dsn()) as conn:
         _lock(conn, target.statblock_id)
-        authorize()
         complete = _receipt(conn, target)
         if complete is not None:
             return complete
@@ -70,17 +74,14 @@ def claim(target: PurgeTarget, *, authorize) -> bool:
 
 def settle_after_cleanup(target: PurgeTarget, *, authorize) -> None:
     """Drop local revision request copies after downstream cleanup is verified."""
+    authorize()
     with unit_of_work(_dsn()) as conn:
         _lock(conn, target.statblock_id)
-        authorize()
         if _receipt(conn, target) is None:
             raise ApplicationStateConflictError("Deletion has not been claimed")
-        conn.execute(
-            """DELETE FROM mechanics_revision.operation
-               WHERE statblock_id=%s AND world_id=%s AND draft_id=%s""",
-            (target.statblock_id, target.world_id, target.draft_id),
-        )
-        conn.execute(
-            "UPDATE mechanics_revision.purge SET complete=true WHERE statblock_id=%s",
-            (target.statblock_id,),
-        )
+        completed = conn.execute(
+            "SELECT mechanics_revision.complete_statblock_purge(%s,%s,%s,%s,%s)",
+            target.key(),
+        ).fetchone()[0]
+        if not completed:
+            raise ApplicationStateConflictError("Deletion receipt changed")

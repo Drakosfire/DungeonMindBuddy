@@ -20,11 +20,31 @@ def upgrade():
         )
     """)
     op.execute("""
+        CREATE FUNCTION mechanics_revision.complete_statblock_purge(text, text, uuid, integer, text)
+        RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS $$
+            WITH exact_receipt AS (
+                UPDATE mechanics_revision.purge SET complete=true
+                WHERE statblock_id=$1 AND world_id=$2 AND draft_id=$3
+                  AND draft_version=$4 AND expected_revision_id=$5
+                RETURNING statblock_id, world_id, draft_id
+            ), removed AS (
+                DELETE FROM mechanics_revision.operation AS operation USING exact_receipt AS receipt
+                WHERE operation.statblock_id=receipt.statblock_id AND operation.world_id=receipt.world_id
+                  AND operation.draft_id=receipt.draft_id
+            )
+            SELECT EXISTS (SELECT FROM exact_receipt)
+        $$;
+        REVOKE EXECUTE ON FUNCTION mechanics_revision.complete_statblock_purge(text, text, uuid, integer, text)
+            FROM PUBLIC;
+    """)
+    op.execute("""
         DO $$ BEGIN
             IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'dmb_app_runtime') THEN
-                GRANT SELECT, INSERT ON mechanics_revision.purge TO dmb_app_runtime;
-                GRANT UPDATE (complete) ON mechanics_revision.purge TO dmb_app_runtime;
-                GRANT DELETE ON mechanics_revision.operation TO dmb_app_runtime;
+                GRANT SELECT ON mechanics_revision.purge TO dmb_app_runtime;
+                GRANT INSERT (statblock_id, world_id, draft_id, draft_version, expected_revision_id)
+                    ON mechanics_revision.purge TO dmb_app_runtime;
+                GRANT EXECUTE ON FUNCTION mechanics_revision.complete_statblock_purge(text, text, uuid, integer, text)
+                    TO dmb_app_runtime;
             END IF;
         END $$
     """)
@@ -36,4 +56,5 @@ def downgrade():
         "SELECT EXISTS (SELECT FROM mechanics_revision.purge)"
     ).scalar_one():
         raise RuntimeError("Cannot discard statblock deletion receipts")
+    op.execute("DROP FUNCTION mechanics_revision.complete_statblock_purge(text, text, uuid, integer, text)")
     op.execute("DROP TABLE mechanics_revision.purge")

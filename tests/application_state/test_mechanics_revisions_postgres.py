@@ -139,3 +139,18 @@ def test_purge_receipt_serializes_with_revision_writes_and_erases_request_copy(a
             purge.PurgeTarget(target.statblock_id, "other", target.draft_id, 2, result.revision_id),
             authorize=authorize,
         )
+
+
+def test_hosted_purge_role_cannot_delete_without_exact_receipt(application_state_dsn):
+    import psycopg
+
+    with psycopg.connect(application_state_dsn) as conn:
+        if not conn.execute("SELECT 1 FROM pg_roles WHERE rolname='dmb_app_runtime'").fetchone():
+            pytest.skip("Hosted runtime role is not installed in this disposable cluster")
+        privileges = conn.execute("""
+            SELECT has_table_privilege('dmb_app_runtime', 'mechanics_revision.operation', 'DELETE'),
+                   has_column_privilege('dmb_app_runtime', 'mechanics_revision.purge', 'complete', 'INSERT'),
+                   has_function_privilege('dmb_app_runtime',
+                    'mechanics_revision.complete_statblock_purge(text,text,uuid,integer,text)', 'EXECUTE')
+        """).fetchone()
+        assert privileges == (False, False, True)
