@@ -167,7 +167,7 @@ def test_hosted_purge_role_cannot_delete_without_exact_receipt(application_state
         assert privileges == (False, False, True)
 
 
-def test_purge_receipt_blocks_draft_edits_and_recreation(application_state_dsn, tmp_path):
+def test_purge_receipt_blocks_draft_edits_and_recreation(application_state_dsn, tmp_path, monkeypatch):
     from application_state.mechanics_revisions import purge
     from apps.live_control_server.models.statblock_mechanics_acceptance import AcceptedMechanicsRefV1
     from apps.live_control_server.services import threat_draft_store as drafts
@@ -192,7 +192,14 @@ def test_purge_receipt_blocks_draft_edits_and_recreation(application_state_dsn, 
     target = purge.PurgeTarget(
         record.origin.statblock_id, saved.world_id, record.draft_id, saved.version, record.origin.revision_id,
     )
-    with drafts.locked_statblock_purge_owner(tmp_path, **owned):
+    with pytest.raises(ApplicationStateConflictError, match="stale claim"):
+        with drafts.locked_statblock_purge_owner(tmp_path, **owned) as persist_fence:
+            persist_fence()
+            raise ApplicationStateConflictError("stale claim")
+    assert drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id) == saved
+
+    with drafts.locked_statblock_purge_owner(tmp_path, **owned) as persist_fence:
+        persist_fence()
         assert purge.claim(target, authorize=lambda: None) is False
 
     with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
@@ -201,6 +208,17 @@ def test_purge_receipt_blocks_draft_edits_and_recreation(application_state_dsn, 
         )
     with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
         drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id)
+
+    with monkeypatch.context() as missing_app:
+        from application_state.config import APPLICATION_STATE_DSN_ENV
+
+        missing_app.delenv(APPLICATION_STATE_DSN_ENV)
+        with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+            drafts.update_threat_draft(
+                tmp_path, saved.draft_id, _update_request(saved, description="Edit", expected_version=saved.version),
+            )
+        with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+            drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id)
 
     drafts.remove_purged_threat_draft(tmp_path, **owned)
     with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
