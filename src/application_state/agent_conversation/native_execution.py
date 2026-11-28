@@ -373,6 +373,8 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
     author_scope_binding: NativePlanOpeningScopeBindingV1 | None = Field(
         default=None, exclude_if=lambda value: value is None)
     scope_document_title: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    captured_selection_version: Literal["v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
     source_placement_relation: str | None = Field(default=None, exclude_if=lambda value: value is None)
     scope_description_matches: dict[int, tuple[str, ...]] | None = Field(
         default=None, exclude_if=lambda value: value is None)
@@ -418,11 +420,13 @@ class NativePlanOpeningSelectedV2(NativePlanOpeningSelectedV1):
                 document_title=self.scope_document_title, description_matches=self.scope_description_matches,
                 excluded_description_matches=self.excluded_scope_description_matches,
                 locator_passages=self.locator_passage_selectors, literal_excerpt=self.literal_paragraph_excerpt,
-                scope_refused=self.scope_refused is True, page_edit_intent=self.author_scope_binding.page_edit_intent)
+                scope_refused=self.scope_refused is True, page_edit_intent=self.author_scope_binding.page_edit_intent,
+                captured_selection_version=self.captured_selection_version)
         else:
             if any(value is not None for value in (self.source_placement_relation, self.scope_document_title,
                     self.scope_description_matches, self.excluded_scope_description_matches,
-                    self.locator_passage_selectors, self.literal_paragraph_excerpt, self.scope_refused)):
+                    self.locator_passage_selectors, self.literal_paragraph_excerpt, self.scope_refused,
+                    self.captured_selection_version)):
                 raise ValueError('Source relation, title and description matches require retained author scope')
             fields = resolve_component_targets(capture, catalog, self.requested_intent,
                 self.requested_placement_relation, self.requested_paragraph_scope,

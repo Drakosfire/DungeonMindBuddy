@@ -181,6 +181,8 @@ class NativePlanOpeningInputV2(PlanRequestedWorkInputV9, NativePlanOpeningInputV
         default='dmb_native_plan_opening_input_v2', alias='schema')
     author_scope_binding: NativePlanOpeningScopeBindingV1 | None = Field(
         default=None, exclude_if=lambda value: value is None)
+    captured_selection_version: Literal["v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
     implicit_caret_version: Literal['v1'] | None = Field(default=None, exclude_if=lambda value: value is None)
     evidence_relevance_version: Literal['v1'] | None = Field(
         default=None, exclude_if=lambda value: value is None)

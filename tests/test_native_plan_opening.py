@@ -274,3 +274,41 @@ def test_conversation_only_intent_refuses_request_source_grant():
         graph_context_receipt=context, graph_context_execution=prefix,
     )))
     navigation.discover_initial()
+
+
+def test_plan_exact_replacement_survives_unresolved_later_relation():
+    from tests.application_state.test_plan_placement import original_capture
+    from application_state.agent_conversation.plan_authoring import PlanAuthoringCaptureV1, text_digest
+    from application_state.agent_conversation.plan_placement import PlanPlacementCatalogV2, PlanPlacementOptionV2
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservationV1
+    from application_state.agent_conversation.plan_author_location import UnscopedLocation
+    from application_state.agent_conversation.plan_contextual_targets import (
+        component_inventory, resolve_author_scope_targets,
+    )
+
+    payload = original_capture().model_dump(mode="json", by_alias=True)
+    selection = '{"type":"text","anchor":1,"head":8}'
+    payload.update(selection_json=selection, selection_sha256=text_digest(selection),
+        target_kind="replace_selection", selected_text="Objecti", **{"from": 1, "to": 8})
+    capture = PlanAuthoringCaptureV1.model_validate(payload)
+    option = PlanPlacementOptionV2(selector="captured", kind="captured_target",
+        label="Replace only the captured selection", source_root_index=None,
+        root_boundary=None, position=None, target_capture_sha256=capture.sha256)
+    catalog = PlanPlacementCatalogV2(original_capture_sha256=capture.sha256,
+        editor_sha256=capture.editor_sha256, entries=(option,))
+    direct, = component_inventory(capture, catalog)["direct"]
+    anchor = direct["view"]["selector"]
+    observation = NativePlanAuthorScopeObservationV1(relation="replace_explicit_selection",
+        selected_alias="none", scope=UnscopedLocation(), page_edit_intent="page_edit")
+    arguments = {"document_title": None, "page_edit_intent": "page_edit"}
+    resolve = resolve_author_scope_targets
+    legacy = resolve(capture, catalog, "write_current_page", "unresolved",
+        observation, [anchor], [], **arguments)
+    assert legacy["requested_work"] == "clarify"
+    result = resolve(capture, catalog, "write_current_page", "unresolved",
+        observation, [anchor], [], captured_selection_version="v1", **arguments)
+    assert result["requested_work"] == "write_current_page"
+    assert result["target_capture_sha256"] == capture.sha256
+    missing_anchor = resolve(capture, catalog, "write_current_page", "unresolved",
+        observation, [], [], captured_selection_version="v1", **arguments)
+    assert missing_anchor["requested_work"] == "clarify"

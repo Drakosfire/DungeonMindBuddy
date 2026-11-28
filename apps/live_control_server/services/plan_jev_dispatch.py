@@ -177,6 +177,10 @@ class PlanJevDispatch:
             navigation['evidence_relevance_version'] = 'v1'
             navigation['opening_graph_relevance_version'] = 'v1'
             navigation['implicit_caret_version'] = 'v1'
+            from application_state.agent_conversation.native_context import NativePlanSourcePendingV1
+
+            if type(adapter.fence.turn.graph_context_receipt.source_authority) is NativePlanSourcePendingV1:
+                navigation["captured_selection_version"] = "v1"
         elif parent_type is NativePlanOpeningInputV3:
             navigation['column_scope_version'] = 'v1'
             navigation['implicit_caret_version'] = 'v1'
