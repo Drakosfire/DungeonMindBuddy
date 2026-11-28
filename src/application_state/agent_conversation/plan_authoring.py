@@ -531,17 +531,17 @@ def _prepare_requested_work_only(request: PlanRequestedWorkInputV1):
 
     from .plan_placement import PlanPlacementCatalogV2, PlanRequestedWorkInputV2, PlanRequestedWorkInputV3, PlanRequestedWorkInputV6, PlanRequestedWorkInputV7, PlanRequestedWorkInputV8
     placement = isinstance(request, PlanRequestedWorkInputV2)
-    choices = ("discuss", "clarify", "different_destination") + (
-        tuple("write:" + entry.selector for entry in request.placement_catalog.entries)
-        if placement and request.placement_catalog is not None else ("write_unavailable",)
-    ) if placement else ("discuss", "clarify", "write_current_page", "different_destination")
+    from .surface_action_catalog import plan_work_options
+
+    write_choices = None
+    if placement:
+        write_choices = (
+            tuple("write:" + entry.selector for entry in request.placement_catalog.entries)
+            if request.placement_catalog is not None else ("write_unavailable",)
+        )
     operation = getattr(request, "plan_requested_operation", None)
-    if operation == "discuss":
-        choices = ("discuss", "clarify")
-    elif operation == "write_current_page":
-        choices = tuple(choice for choice in choices if choice != "discuss")
-    if isinstance(request, PlanRequestedWorkInputV8) and operation is None:
-        choices = (*choices, 'review_connected_page')
+    choices = plan_work_options(operation,
+        write_choices=write_choices, connected_page=isinstance(request, PlanRequestedWorkInputV8))
     placement_state = {"offered_page_locations": request.placement_catalog.model_choices()
         if request.placement_catalog is not None else [],
         "placement_policy": "Choose write:<selector> only for requested current-page writing at that exact offered location. "
