@@ -360,7 +360,11 @@ async def main():
                         help="Validate the retained Build follow-up capture without calling a provider")
     parser.add_argument("--image-direct-action", action="store_true",
                         help="Test explicit edit versus hypothetical wording in the image intent context")
+    parser.add_argument("--image-move-action", action="store_true",
+                        help="Test a distinct action for moving existing artwork")
     args = parser.parse_args()
+    if args.image_move_action and not (args.build_intent_only and args.tier in {"image_editor", "image_heldout"}):
+        parser.error("--image-move-action requires an image fixture tier and intent-only Build")
     if args.image_direct_action and not args.build_intent_only:
         parser.error("--image-direct-action requires an intent-only Build request")
     if args.verify_build_followup:
@@ -402,6 +406,16 @@ async def main():
                 "play_edit": "Request a change to the current live session scene in Play.",
                 "different_destination": "Request work on a different surface or target, such as editing a saved page outside the live scene, or using a separate operator control.",
             })
+    if args.image_move_action:
+        for menu in menus["build"].values():
+            menu["move_existing_image"] = (
+                "Review a requested change to the position of existing artwork on the active page. "
+                "Questions about possible changes are discussion. New artwork is image preparation."
+            )
+        groups["build"] = [
+            case | {"expected": "move_existing_image"} if case["expected"] == "write_current_page" else case
+            for case in groups["build"]
+        ]
     if args.validate_only:
         print(digest, {surface: len(rows) for surface, rows in groups.items()})
         return

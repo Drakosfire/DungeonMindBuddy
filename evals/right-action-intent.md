@@ -487,3 +487,11 @@ by classifying the hypothetical as discussion. The exact named Harbour map
 move still chose other creation. On the four held-out cases, both arms
 scored 4/4 with either wording. Keep the production wording pinned. This
 pilot shows a development improvement without a held-out gain.
+
+The [explicit image-move action trial](right_action_intent/build-image-move-action-jev.json)
+offers a distinct move review in each menu. Both scored 3/4 on development
+and 4/4 on the held-out pair of moves and controls. The named Harbour map
+move recovered, while the hypothetical still selected an edit. The
+action-only and wording-only variants each fixed a different case.
+Neither showed a gain on held-out fixtures, so the new action remains
+experimental.
