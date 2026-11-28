@@ -156,7 +156,7 @@ def safe_reclaimable_graph_need_prefix(turn):
                 return False
             validate_graph_need_intent_prefix(execution, events[:4], require_source_use=False, allow_clarify=True)
             events = events[4:]
-            if not events:
+            if not events or (len(events) == 1 and type(events[0]) is PlanPageCatalogObservedV1):
                 return True
     except (ValueError, TypeError, KeyError, AttributeError):
         return False

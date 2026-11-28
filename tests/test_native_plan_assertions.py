@@ -627,6 +627,7 @@ def _ordinary_native_case(
                     "answers": answers,
                 })
             if set(body["questions"]) == {"graph_need"}:
+                assert not saved_page_only
                 assert len(decision_requests) == 2
                 graph_choice = "no_graph" if saved_page_only else "require_graph"
                 return httpx2.Response(200, request=req, json={
@@ -635,6 +636,8 @@ def _ordinary_native_case(
                         "probabilities": {key: float(key == graph_choice) for key in body["questions"]["graph_need"]["criteria"]}}},
                 })
             candidates=body.get('state',{}).get('candidates',[])
+            if saved_page_only:
+                assert all(row['kind'].startswith('Saved authored Worldbuilding page') for row in candidates)
             if extra_name is not None and any(c['kind'].startswith('Native Graph object') for c in candidates):
                 encoded=json.dumps(candidates,ensure_ascii=False)
                 assert 'Multiple recorded names' in encoded and extra_name in encoded

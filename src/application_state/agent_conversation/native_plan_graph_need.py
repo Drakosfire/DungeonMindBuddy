@@ -242,7 +242,7 @@ def validate_graph_need_intent_prefix(execution, events, *, require_source_use=T
                 or observed.scope_observation.requested_work in (None, 'different_destination')
                 or (not allow_clarify and observed.scope_observation.requested_work == 'clarify')):
             raise ValueError('Graph-need dispatch requires the exact eligible Plan intent')
-        if require_source_use and observed.scope_observation.source_use in ("conversation_only", "uncertain"):
+        if require_source_use and observed.scope_observation.source_use in ("conversation_only", "uncertain", "saved_page_only"):
             raise ValueError("Plan intent did not authorize Graph-need dispatch")
         return observed
 
@@ -414,7 +414,7 @@ def validate_pending_graph(context, execution):
         candidate = events[3]
         if (type(candidate) is NativePlanAuthorScopeObservedV1
                 and (candidate.scope_observation.requested_work == 'clarify'
-                     or candidate.scope_observation.source_use in {'conversation_only', 'uncertain'})
+                     or candidate.scope_observation.source_use in {'conversation_only', 'uncertain', 'saved_page_only'})
                 and not object_selections(native_references(execution))):
             source_free_intent = validate_graph_need_intent_prefix(
                 execution, events[:4], require_source_use=False, allow_clarify=True)

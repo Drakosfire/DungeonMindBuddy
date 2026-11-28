@@ -924,12 +924,16 @@ class SurfaceNativeExecutionV1(Strict):
                 from .native_plan_opening import NativePlanAuthorScopeObservedV1
 
                 source_needed = any(type(row) is NativePlanAuthorScopeObservedV1
-                                    and row.scope_observation.source_use in {"source_needed", "saved_page_only"} for row in prefix)
+                                    and row.scope_observation.source_use == "source_needed" for row in prefix)
+                saved_page_intents = [row for row in prefix if type(row) is NativePlanAuthorScopeObservedV1
+                                      and row.scope_observation.source_use == "saved_page_only"
+                                      and row.scope_observation.requested_work != "clarify"]
                 settlements = [row for row in prefix if type(row) is NativePlanGraphQuerySettledV1
                                or (source_needed and type(row) is NativePlanGraphQueryClosedV1)]
+                authority = [*saved_page_intents, *settlements]
                 if (type(action) not in (NativePlanActionV2, NativePlanActionV3)
                         or action.related_page_catalog is not None
-                        or len(settlements) != 1 or settlements[0].event_id != event.graph_settlement_event_id
+                        or len(authority) != 1 or authority[0].event_id != event.source_decision_event_id
                         or any(type(row) is PlanPageCatalogObservedV1 for row in prefix)
                         or len({page.document_id for page in event.pages}) != len(event.pages)
                         or any(page.world_id != action.intent.world_id

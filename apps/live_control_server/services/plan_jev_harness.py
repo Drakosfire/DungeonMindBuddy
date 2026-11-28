@@ -149,6 +149,8 @@ class PlanJevHarness:
                     from application_state.agent_conversation.native_plan_graph_need import NativePlanGraphNeedObservedV1
                     from application_state.agent_conversation.native_retrieval import NativePlanGraphNeedAuthorizedV1
                     intent = self._interpret_opening_intent(adapter, dialogue, author_scope_calls)
+                    saved_page_only = (intent.scope_observation.requested_work != "clarify"
+                                       and intent.scope_observation.source_use == "saved_page_only")
                     events = adapter.fence.turn.graph_context_execution.events
                     observed_events = [event for event in events if type(event) is NativePlanGraphNeedObservedV1]
                     if observed_events:
@@ -159,7 +161,7 @@ class PlanJevHarness:
                     else:
                         observed = None
                         if (intent.scope_observation.requested_work != 'clarify'
-                                and intent.scope_observation.source_use not in {'conversation_only', 'uncertain'}):
+                                and intent.scope_observation.source_use not in {'conversation_only', 'uncertain', 'saved_page_only'}):
                             graph_need = PlanGraphNeedDispatch(adapter, dialogue=dialogue)
                             try:
                                 observed = asyncio.run(graph_need.run(
@@ -179,8 +181,8 @@ class PlanJevHarness:
                             prepare_corpus=prepare_corpus)
                         if clarification is not None:
                             return clarification
-                    if observed is not None and (observed.choice == "require_graph"
-                            or intent.scope_observation.source_use in {"source_needed", "saved_page_only"}):
+                    if saved_page_only or (observed is not None and (observed.choice == "require_graph"
+                            or intent.scope_observation.source_use == "source_needed")):
                         from uuid import uuid4
                         from .agent_turn_service import _require_fresh_execution_append
                         from .build_related_pages import discover
@@ -192,9 +194,12 @@ class PlanJevHarness:
                         execution = adapter.fence.turn.graph_context_execution
                         if (execution.policy.action.related_page_catalog is None
                                 and not any(type(event) is PlanPageCatalogObservedV1 for event in execution.events)):
-                            settled, = [event for event in execution.events if type(event) in (NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)]
+                            source_decision = intent
+                            if not saved_page_only:
+                                source_decision, = [event for event in execution.events
+                                    if type(event) in (NativePlanGraphQueryClosedV1, NativePlanGraphQuerySettledV1)]
                             event = PlanPageCatalogObservedV1(
-                                event_id=uuid4(), sequence=len(execution.events), graph_settlement_event_id=settled.event_id,
+                                event_id=uuid4(), sequence=len(execution.events), source_decision_event_id=source_decision.event_id,
                                 pages=tuple(PagePointer.model_validate(row) for row in discover(adapter.request)),
                             )
                             adapter.turn = _require_fresh_execution_append(

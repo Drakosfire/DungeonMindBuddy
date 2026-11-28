@@ -30,7 +30,7 @@ class PlanPageCatalogObservedV1(Frozen):
     kind: Literal["plan_page_catalog_observed_v1"] = "plan_page_catalog_observed_v1"
     event_id: UUID
     sequence: int = Field(strict=True, ge=0)
-    graph_settlement_event_id: UUID
+    source_decision_event_id: UUID
     pages: tuple[PagePointer, ...]
 
 
