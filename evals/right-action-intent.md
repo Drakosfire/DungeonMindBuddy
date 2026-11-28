@@ -464,7 +464,8 @@ retained Jev image pilot measures classification, including remaining misses.
 Explicit Graph-reference placement pins its native World and revision before
 intent. The ordinary controls verify that query preparation and identity
 inventory reads wait for the intent and reference-type ballots. Saved-page
-catalog discovery on this route still precedes intent.
+discovery also follows intent. The scope authorization binds the precise
+page revisions offered, and a foreign World pointer blocks the scope call.
 
 The frozen report includes decision counts and latency by surface, expected
 action, and difficulty tier. Its paired changes list identifies cases that
