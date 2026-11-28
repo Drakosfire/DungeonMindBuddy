@@ -902,13 +902,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     if (len(prior)!=1 or not providers or providers[-1]!=prior[0] or acknowledged[-1:]!=['response_received']
             or (prior[0].provider,prior[0].model,prior[0].api_mode)!=policy.provider_roles.controller.identity()):
         raise ValueError('Semantic selection lacks its exact acknowledged controller')
-    # DecisionIntent's installed SDK converter places criterion descriptions in the
-    # instruction text; the finite options remain genuine semantic alternatives.
-    wire_question = {
-        "type": "choice",
-        "instructions": decision_instructions(menu),
-        "criteria": {name: None for name in _menu_work(menu)},
-    }
+    wire_question = opening_work_question(menu)
     state = request.get("state", {})
     decision = state.get("decision", {})
     if semantic_input:
@@ -987,6 +981,15 @@ def decision_instructions(menu_digest=MENU_DIGEST):
         + "\n"
         + "\n".join(f"{name}: {w.family}: {w.meaning}" for name, w in _menu_work(menu_digest).items())
     )
+
+
+def opening_work_question(menu_digest=MENU_DIGEST):
+    """Exact provider-facing choice for the frozen Build menu."""
+    return {
+        "type": "choice",
+        "instructions": decision_instructions(menu_digest),
+        "criteria": dict.fromkeys(_menu_work(menu_digest)),
+    }
 
 
 def output_schema(packet):

@@ -39,9 +39,10 @@ def plan_work_options(operation, *, write_choices=None, connected_page=True):
 def opening_action_menu(surface, *, plan_operation=None):
     """Project the offered intent labels and definitions from the owning contract."""
     if surface == "build":
-        from .build_intentional_response import question
+        from .build_intentional_response import opening_work_question, question
 
-        return question()["criteria"]
+        definition = question()["criteria"]
+        return {name: definition[name] for name in opening_work_question()["criteria"]}
     if surface == "plan":
         return {name: _PLAN_DESCRIPTIONS[name] for name in plan_work_options(plan_operation)}
     raise ValueError(f"No opening action catalog registered for {surface!r}")
