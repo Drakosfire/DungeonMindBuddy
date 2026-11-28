@@ -433,3 +433,26 @@ it.each(['bound', 'foreign-receipt', 'unexpected-citations'])(
     expect(isBuildPendingContext(context, buildWork, () => true)).toBe(mode === 'bound');
   },
 );
+it('accepts a pending Plan no-Graph proposal without invented citation membership',()=>{
+  const c=structuredClone(openingWire.context);
+  const pending={schema:'dmb_native_plan_graph_query_pending_v1',authority:c.receipt.native_query.authority,question:c.receipt.native_query.question};
+  const answer={...c.completion!,answer_context_status:'creative_proposal',
+    answer_segments:[{kind:'proposal',label:'invented_idea',text:'A quiet harbor.'}],
+    native_clause_citations:[],native_assertion_citations:[],native_body_citations:[]};
+  expect(isSurfaceNativeContext({...c,receipt:{...c.receipt,native_query:pending},completion:answer},work,()=>true)).toBe(true);
+});
+
+it.each(['valid','wrong-question','foreign-receipt','foreign-surface','wrong-query','extra','citation'])('validates host uncertainty clarification without claims: %s', mutation=>{
+  const c=structuredClone(openingWire.context), q=c.receipt.native_query;
+  const pending={schema:'dmb_native_plan_graph_query_pending_v1',authority:q.authority,question:q.question};
+  const completion={schema:'dmb_plan_graph_need_clarification_v1',surface_id:'plan',
+    context_receipt_sha256:c.receipt.context_receipt_sha256,observation_event_id:'11111111-1111-4111-8111-111111111111',
+    answer_context_status:'discussion',answer_segments:[{kind:'clarification',text:'What context would you like me to use for this request?'}]};
+  if(mutation==='wrong-question')completion.answer_segments[0]!.text='May I search your World?';
+  if(mutation==='foreign-receipt')completion.context_receipt_sha256='0'.repeat(64);
+  if(mutation==='foreign-surface')completion.surface_id='build';
+  if(mutation==='wrong-query')Object.assign(pending,{schema:'dmb_native_build_query_pending_v1'});
+  if(mutation==='extra')Object.assign(completion,{other:'untrusted'});
+  if(mutation==='citation')Object.assign(completion,{native_assertion_citations:[{}]});
+  expect(isSurfaceNativeContext({...c,receipt:{...c.receipt,native_query:pending},completion},work,()=>true)).toBe(mutation==='valid');
+});

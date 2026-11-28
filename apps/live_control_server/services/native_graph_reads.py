@@ -260,6 +260,18 @@ def pending_build_query(managed_world_id, question, source_context):
     )
 
 
+def pending_plan_query(managed_world_id, question, source_context):
+    """Pin Plan Graph authority without running discovery or materialization."""
+    from application_state.agent_conversation.native_context import NativePlanGraphQueryPendingV1
+
+    if source_context.authority.managed_world_id != managed_world_id:
+        raise ValueError('Plan Graph and exact source authority differ')
+    pinned = pending_build_query(managed_world_id, question, source_context)
+    if pinned is None:
+        return None
+    return NativePlanGraphQueryPendingV1(authority=pinned.authority, question=pinned.question)
+
+
 _NAMED_RECAP_ENDPOINT = re.compile(
     r"\b(?:by|at) the end of the ([\w-]+(?:[ \t]+[\w-]+){0,5}) recap\s*[?.!]?\s*$", re.I,
 )

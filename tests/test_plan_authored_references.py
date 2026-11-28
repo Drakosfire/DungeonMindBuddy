@@ -88,10 +88,12 @@ def test_explicit_operation_changes_frozen_intent_fingerprint():
     assert len({submitted_turn_intent_fingerprint_v2(intent) for intent in intents})==2
 
 
+@pytest.mark.parametrize(("recover_after_intent", "saved_page_only"), [(False, False), (True, False), (False, True)])
 def test_ordinary_plan_reads_saved_worldbuilding_and_reopens_exact_capture(
-        lane,tmp_path,monkeypatch,native_read_admission_probes):
+        lane,tmp_path,monkeypatch,native_read_admission_probes,recover_after_intent,saved_page_only,application_state_dsn):
     _ordinary_native_case(lane,tmp_path,monkeypatch,False,False,None,None,False,
-        native_read_admission_probes,related_page=True)
+        native_read_admission_probes,related_page=True,saved_page_only=saved_page_only,
+        recovery_dsn=application_state_dsn if recover_after_intent else None)
 
 
 @pytest.mark.parametrize('mixed',[False,True])
