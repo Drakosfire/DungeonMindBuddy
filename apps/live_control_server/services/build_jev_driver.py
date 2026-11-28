@@ -572,11 +572,10 @@ class BuildJevDriver:
             state["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()
             questions += tuple(DecisionQuestion(name=q.name, kind="choice", question=q.question, options=q.options)
                                for q in self.image_move.questions())
-        self.split_opening = (
-            fresh and getattr(a, "pending_build_source_observation", None) is not None
-            and self._boundary_catalog is None and capture is None
-            and "related_page_catalog" not in self._interaction
-        )
+        pending = getattr(a, "pending_build_source_observation", None) is not None
+        if pending and "related_page_catalog" in self._interaction:
+            raise ValueError("Pending Build discovers related pages only after selecting work")
+        self.split_opening = fresh and pending and self._boundary_catalog is None and capture is None
         if fresh and not self.split_opening:
             from application_state.agent_conversation.build_intentional_response import source_need_question
 

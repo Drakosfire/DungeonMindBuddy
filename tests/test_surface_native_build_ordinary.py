@@ -137,6 +137,9 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
             assert set(opening["questions"]) == {"requested_work"}
             assert set(followup["questions"]) == {"source_need"}
             assert followup["state"] == opening["state"] | {"selected_work": "write_current_page"}
+            assert "related_page_labels" not in opening["state"]["interaction"]
+            page_reads = [event for event in case.turn.graph_context_execution.events if isinstance(event, t.RelatedPageRead)]
+            assert len(page_reads) == int(mode == 'cited-recover')
         if mode == 'pending':
             request = json.loads(case.writer.calls[0].content)
             target = json.loads(request['input'])['surface_work']['build_work']['edit_target']
