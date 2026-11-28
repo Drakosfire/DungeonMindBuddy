@@ -98,6 +98,27 @@ reviewed statblock. See the [case and action-level evidence](right_action_intent
 The combined arm uses the union of the available Build and Plan menus, so it
 does not establish performance against an all-surface menu.
 
+### Surface coverage and dispatch boundaries
+
+The [canonical action catalog](plan-authoring-benchmark.md#action-catalog)
+records workflow capabilities and their strongest evidence. The table below
+records which of those choices this benchmark can measure at the first
+decision. It accounts for every surface ID in the
+[agent turn request](../apps/live_control_server/models/agent_turn.py).
+
+| Surface | First decision or operator boundary | Benchmark disposition |
+| --- | --- | --- |
+| Build | The [native Build owner](../src/application_state/agent_conversation/build_intentional_response.py) offers the scoped requested-work ballot. Specific proposal, review and save paths have their own authority. | 36 intent cases. Edits that refer to selected text pin the page and exact selection. |
+| Plan | The [Plan harness](../apps/live_control_server/services/plan_jev_harness.py) uses a contextual opening. It can assemble more than the requested-work question, depending on the Plan request. | Seven cases measure the requested-work menu. Exact parity with the whole opening request still needs separate evidence. |
+| Play | The [Play harness](../apps/live_control_server/services/play_jev_harness.py) sends the shared intent menu. Live scene revision goes through the [Play proposal control](../apps/live_control_server/routes/play_runs.py). | Discussion, lookup, clarification and handoff cases. Scene-edit intent scores referral to review. |
+| Index | The [Index composer](../apps/live-control-ui/src/agentInteraction/IndexAgentConversation.tsx) submits an ordinary conversation turn with no work object and no Graph request. The [runtime selector](../apps/live_control_server/services/agent_turn_service.py) routes it to Hermes. | Unqualified for paired Jev scoring. Capture its ordinary first dispatch before assigning an Index menu or claiming shared catalog parity. |
+| Ingest | The [Ingest surface](../apps/live-control-ui/src/ingestSurface/MemoryIngestPage.tsx) presents operator review and publication controls. A selected-knowledge conversation uses a distinct input contract in the agent turn request. | Score review and publication in workflow benchmarks. Qualify the selected-knowledge conversation separately before giving it an intent menu. |
+| Combat | [Encounter creation, inspection and mechanics adoption](../apps/live_control_server/routes/combat_encounters.py) use explicit operator endpoints. | Score these controls as workflow steps. A Play request to switch to Combat can be scored as a handoff. |
+
+[Image generation](../apps/live_control_server/routes/media_images.py) is an
+Image Studio operator action. Build can choose to prepare an image direction.
+That choice earns credit for preparation only.
+
 ### Play discussion and evidence lookup
 
 The current surface cohort adds four Play intent cases. The ordinary Play
