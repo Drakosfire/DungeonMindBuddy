@@ -37,6 +37,35 @@ def append_version(conn, record):
         VALUES(%s,%s,%s,%s,%s)""", (record.encounter_id,record.revision,digest(payload),record.updated_at,Jsonb(payload)))
 
 
+def redact_saved_versions(conn, *, world_id: str, statblock_id: str) -> None:
+    from application_state.mechanics_revisions.purge import redact_combat_draft
+
+    pattern = {"draft": {"entities": [{"mechanics_snapshot": {"locator": {"statblock_id": statblock_id}}}]}}
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("""
+            SELECT version.* FROM combat.scene_template_version AS version
+            JOIN combat.scene_template AS owner USING (encounter_id)
+            WHERE owner.world_id=%s AND version.payload @> %s
+            ORDER BY version.encounter_id, version.revision FOR UPDATE OF version
+        """, (world_id, Jsonb(pattern)))
+        versions = cur.fetchall()
+    for version in versions:
+        current = version["payload"]
+        if digest(current) != (version["redacted_digest"] or version["digest"]):
+            raise ApplicationStateIntegrityError("Prepared encounter version digest is invalid")
+        record = decode_combat_record(current)
+        if (record.world_id, record.encounter_id, record.revision) != (
+            world_id, version["encounter_id"], version["revision"],
+        ):
+            raise ApplicationStateIntegrityError("Prepared encounter snapshot identity is invalid")
+        updated = record.model_copy(update={"draft": redact_combat_draft(record.draft, statblock_id)})
+        payload = updated.model_dump(mode="json", by_alias=True)
+        conn.execute("""
+            UPDATE combat.scene_template_version SET payload=%s, redacted_digest=%s
+            WHERE encounter_id=%s AND revision=%s
+        """, (Jsonb(payload), digest(payload), record.encounter_id, record.revision))
+
+
 def _scene_ids(markdown):
     try:
         return {scene["scene_id"] for scene in structure_signature(markdown)["membership"]["scenes"]}
@@ -91,8 +120,21 @@ def _view(conn,binding):
     return SceneTemplateView(binding=binding,encounter=encounter,versions=versions,scene_present=_present(conn,binding))
 
 
+def _require_available_encounter_mechanics(conn, record) -> None:
+    from application_state.mechanics_revisions.purge import require_available_statblocks
+
+    require_available_statblocks(conn, (
+        actor.mechanics_snapshot.locator.statblock_id
+        for actor in record.draft.entities if actor.mechanics_snapshot is not None
+    ))
+
+
 def _copy_saved_encounter(conn, *, world_id, request, now):
     source_id = request.source_encounter_id
+    # Take statblock locks before the source row lock, matching deletion order.
+    observed = repo.get_encounter(conn, world_id=world_id, encounter_id=source_id)
+    if observed is not None:
+        _require_available_encounter_mechanics(conn, observed)
     owned = _row(conn, """
         SELECT source.encounter_id
         FROM combat.encounter AS source
@@ -111,7 +153,7 @@ def _copy_saved_encounter(conn, *, world_id, request, now):
     if source is None:
         raise ApplicationStateIntegrityError("Locked Combat encounter is missing")
     _require_integrity(source)
-    if source.revision != request.expected_revision:
+    if source.revision != request.expected_revision or observed is None or source.revision != observed.revision:
         raise ApplicationStateConflictError("The saved Combat encounter changed; review its current revision")
     return type(source).model_validate({
         **source.model_dump(mode="json", by_alias=True),
@@ -200,9 +242,10 @@ def read_version(*,world_id,document_id,scene_id,revision):
         if saved is None:
             raise ApplicationStateNotFoundError("Prepared encounter version not found")
         record=decode_combat_record(saved['payload'])
-        if record.encounter_id!=binding.encounter_id or record.world_id!=world_id or record.revision!=revision or digest(saved['payload'])!=saved['digest']:
+        if record.encounter_id!=binding.encounter_id or record.world_id!=world_id or record.revision!=revision or digest(saved['payload'])!=(saved['redacted_digest'] or saved['digest']):
             raise ApplicationStateIntegrityError("Prepared encounter version identity/digest is invalid")
         _require_integrity(record)
+        _require_available_encounter_mechanics(conn, record)
         return record
 
 
@@ -243,10 +286,11 @@ def read_snapshot(conn, *, world_id, document_id, scene_id, pin, require_head=Fa
                  (pin.encounter_id, pin.revision))
     if saved is None:
         raise ApplicationStateNotFoundError('Prepared encounter version not found')
-    if saved['digest'] != pin.digest or digest(saved['payload']) != pin.digest:
+    if saved['digest'] != pin.digest or digest(saved['payload']) != (saved['redacted_digest'] or pin.digest):
         raise ApplicationStateIntegrityError('Prepared encounter version digest is invalid')
     record = decode_combat_record(saved['payload'])
     if record.encounter_id != pin.encounter_id or record.world_id != world_id or record.revision != pin.revision:
         raise ApplicationStateIntegrityError('Prepared encounter snapshot identity is invalid')
     _require_integrity(record)
+    _require_available_encounter_mechanics(conn, record)
     return record

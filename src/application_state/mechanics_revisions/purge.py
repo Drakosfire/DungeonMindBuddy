@@ -121,10 +121,28 @@ def require_available_statblocks(conn, statblock_ids: Iterable[str]) -> None:
             raise ApplicationStateConflictError("This statblock is being deleted or has been deleted")
 
 
+def redact_combat_draft(draft, statblock_id: str):
+    """Preserve every tracker value while replacing the exact source payload."""
+    from application_state.combat_encounters.types import DeletedCombatMechanics
+
+    entities = []
+    for actor in draft.entities:
+        snapshot = actor.mechanics_snapshot
+        if snapshot is not None and snapshot.locator.statblock_id == statblock_id:
+            actor = actor.model_copy(update={
+                "mechanics_snapshot": None,
+                "deleted_mechanics": DeletedCombatMechanics(
+                    statblock_id=statblock_id, revision_id=snapshot.locator.revision_id,
+                ),
+            })
+        entities.append(actor)
+    return draft.model_copy(update={"entities": entities})
+
+
 def remove_current_combat_copies(target: PurgeTarget) -> None:
     """Replace live encounter copies with identifier-only references under the App receipt."""
     from application_state.combat_encounters import repository
-    from application_state.combat_encounters.types import DeletedCombatMechanics
+    from application_state.combat_encounters.scene_templates import redact_saved_versions
     from application_state.errors import ApplicationStateIntegrityError
 
     with unit_of_work(_dsn()) as conn:
@@ -135,18 +153,7 @@ def remove_current_combat_copies(target: PurgeTarget) -> None:
             conn, world_id=target.world_id, statblock_id=target.statblock_id,
         )
         for encounter in encounters:
-            entities = []
-            for actor in encounter.draft.entities:
-                snapshot = actor.mechanics_snapshot
-                if snapshot is not None and snapshot.locator.statblock_id == target.statblock_id:
-                    actor = actor.model_copy(update={
-                        "mechanics_snapshot": None,
-                        "deleted_mechanics": DeletedCombatMechanics(
-                            statblock_id=target.statblock_id, revision_id=snapshot.locator.revision_id,
-                        ),
-                    })
-                entities.append(actor)
-            draft = encounter.draft.model_copy(update={"entities": entities})
+            draft = redact_combat_draft(encounter.draft, target.statblock_id)
             saved = repository.cas_replace_draft(
                 conn, world_id=encounter.world_id, encounter_id=encounter.encounter_id,
                 expected_revision=encounter.revision, draft=draft.model_dump(mode="json", by_alias=True),
@@ -154,6 +161,7 @@ def remove_current_combat_copies(target: PurgeTarget) -> None:
             )
             if saved is None:
                 raise ApplicationStateIntegrityError("Locked encounter changed during statblock deletion")
+        redact_saved_versions(conn, world_id=target.world_id, statblock_id=target.statblock_id)
 
 
 def settle_after_cleanup(target: PurgeTarget, *, authorize) -> None:
