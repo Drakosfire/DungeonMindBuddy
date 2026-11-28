@@ -70,7 +70,7 @@ class PlanJevHarness:
         intent = observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, intent_opening=True))
         if intent.scope_observation.requested_work == "different_destination":
             raise _destination_unavailable()
-        if not contextual or intent.scope_observation.requested_work == "discuss":
+        if not contextual or intent.scope_observation.requested_work in {"discuss", "clarify"}:
             return intent
         first_dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue)
         first = observe(first_dispatch)
