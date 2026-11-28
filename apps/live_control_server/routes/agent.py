@@ -3123,6 +3123,7 @@ def get_published_pdf_statblock(
 def post_pdf_statblock_publication(
     world_id: str, review_id: UUID, request: Request, expected_revision: int = Query(ge=1),
 ):
+    from application_state.mechanics_revisions import pdf_portraits
     from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
     from application_state.world_mechanics.types import AssociateWorldMechanicsRequest, MechanicsLocator
     from apps.live_control_server.models.native_threat_creation import ConfirmNativeThreat, PrepareNativeThreat
@@ -3164,6 +3165,14 @@ def post_pdf_statblock_publication(
 
     call(verify_source)
     principal = recheck_review()
+    artwork = (review.get("artwork") or {}).get("jpeg_base64")
+    if artwork:
+        call(
+            lambda _root: pdf_portraits.retain(
+                statblock_id=locator.statblock_id, world_id=world_id, draft_id=draft_id,
+                review_id=review_id, artwork=artwork,
+            ),
+        )
     result = call(creature.status, draft_id, world_id, principal, authorize_write=recheck_review)
     if result is None:
         principal = recheck_review()
