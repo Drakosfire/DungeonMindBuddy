@@ -115,3 +115,27 @@ remain unqualified for Play fulfillment.
 The [new paired capture](right_action_intent/surface-cohort-play-jev.json)
 pins all 47 cases and reports by action. The earlier Build/Plan result used
 its 43-case ancestor and a different combined menu. Keep the records separate.
+
+### Play clarification and edit handoffs
+
+Three cases pin Play and the current scene title. They ask for clarification,
+an edit to a named Build page, or a change to the current Play scene. The two
+edit cases distinguish a cross-surface handoff from a handoff to the existing
+Play scene review control. Neither case scores a saved edit.
+
+The [50-case paired capture](right_action_intent/surface-cohort-play-handoff-jev.json)
+reuses all 47 prior pairs with the same model, instructions, menus and case
+state. Clarification and the current-scene handoff passed in both arms. Both
+arms chose the current-scene edit for the named Build page. Keep this as a
+classification miss. The requested destination, active surface, and current
+scene were explicit.
+
+| Surface | Combined correct | Scoped correct | Combined median | Scoped median |
+| --- | ---: | ---: | ---: | ---: |
+| Build | 29/36 | 33/36 | 211.01 ms | 189.38 ms |
+| Plan | 7/7 | 7/7 | 186.91 ms | 188.30 ms |
+| Play | 6/7 | 6/7 | 271.90 ms | 217.37 ms |
+
+The Play timing mixes reused calls with the new cases and does not establish
+a latency change in ordinary Buddy. The ordinary Play tests exercise the
+serialized opening menu and the response path using simulated provider outputs.

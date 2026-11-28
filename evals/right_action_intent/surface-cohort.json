@@ -547,6 +547,39 @@
       },
       "expected": "read_source",
       "reason": "The user explicitly requests evidence from an earlier recap."
+    },
+    {
+      "id": "play-clarify-current-request",
+      "tier": "surface_contrast",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Can you do that now?",
+        "current_scene_title": "Arrival at Corrupted Edge"
+      },
+      "expected": "clarify_request",
+      "reason": "The scene is visible, but neither the task nor its target follows from the request."
+    },
+    {
+      "id": "play-to-build-handoff",
+      "tier": "surface_contrast",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Revise the saved Corrupted Edge page in Build to add an opening paragraph about the swamp.",
+        "current_scene_title": "Arrival at Corrupted Edge"
+      },
+      "expected": "different_destination",
+      "reason": "The user names a saved Build page. Continue on that surface without changing the live scene."
+    },
+    {
+      "id": "play-scene-edit-handoff",
+      "tier": "surface_contrast",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Change this scene so it begins after sunset.",
+        "current_scene_title": "Arrival at Corrupted Edge"
+      },
+      "expected": "play_edit",
+      "reason": "The current live scene supplies the target. Direct the user to the Play scene edit review control."
     }
   ]
 }

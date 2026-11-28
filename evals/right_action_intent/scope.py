@@ -27,7 +27,7 @@ def prepare(path):
     for case in cases:
         state = case["input"]
         if set(state) - {"surface", "user_utterance", "page_title", "page_markdown",
-                         "selected_text", "prior_dialogue"}:
+                         "selected_text", "prior_dialogue", "current_scene_title"}:
             raise ValueError(f"Invalid model input fields in {case['id']}")
         if not state["user_utterance"].strip() or not case["reason"].strip():
             raise ValueError(f"Missing utterance or expected-action rationale in {case['id']}")
@@ -38,6 +38,10 @@ def prepare(path):
         ):
             raise ValueError(f"Selection must resolve exactly once in {case['id']}")
         surface = state["surface"]
+        if "current_scene_title" in state and (
+            surface != "play" or not state["current_scene_title"].strip()
+        ):
+            raise ValueError(f"Invalid current scene in {case['id']}")
         if surface not in scopes:
             scopes[surface] = opening_action_menu(surface)
         if case["expected"] not in scopes[surface]:
