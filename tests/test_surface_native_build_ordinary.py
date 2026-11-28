@@ -305,6 +305,26 @@ def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_p
     )
 
 
+def test_native_image_clarification_uses_only_the_intent_ballot(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.services import native_graph_reads
+
+    def unexpected_graph_preparation(*_args, **_kwargs):
+        pytest.fail("Image clarification prepared a Graph query")
+
+    monkeypatch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Can you do that to the picture?", requested_work="clarify_request",
+        image_move="clarification", capture_pending=True,
+    )
+    assert case.response.status_code == 200, case.response.text
+    opening, = [json.loads(call.content) for call in case.decisions.calls]
+    assert set(opening["questions"]) == {"requested_work"}
+    assert case.turn.completion.collaboration.kind == "questions"
+    assert not any(event.kind == "native_build_query_settled_v1"
+                   for event in case.turn.graph_context_execution.events)
+
+
 def test_deferred_image_advice_clarifies_before_graph_preparation(lane, tmp_path, monkeypatch):
     from apps.live_control_server.services.agent_turn_service import _PolicyExecutionAdapter
 
