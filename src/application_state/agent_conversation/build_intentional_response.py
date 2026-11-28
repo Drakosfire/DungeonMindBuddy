@@ -784,7 +784,8 @@ def validate_resolution_metadata(event, policy):
     if (capture is None) != (event.typed_image_move is None):
         raise ValueError("Retained image move choice requires its exact Build capture")
     placement = event.paragraph_placement
-    if (catalog is None) != (placement is None):
+    if ((placement is not None and catalog is None)
+            or (placement is None and catalog is not None and event.requested_work == "write_current_page")):
         raise ValueError("Build paragraph placement differs from its frozen capability")
     if placement is not None and placement.target is not None:
         alias, _, _ = placement.target.alias.partition(":")
