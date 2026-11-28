@@ -182,6 +182,33 @@ def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, 
     assert opened == (source_scope == "source_lookup")
 
 
+def test_pending_build_resolves_paragraph_after_intent(lane, tmp_path, monkeypatch):
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from application_state.build_proposal.service import BuildProposalService
+
+    monkeypatch.setattr(native_corpus_source, "turn_source_repository", lambda **kwargs: lane.repo)
+
+    def send(client, world, body, _decisions):
+        body["build_authored_references"] = None
+        return client.post("/api/live/agent/turn", json=body)
+
+    case = _fresh_case(
+        lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
+        message="After the orchid paragraph in East, add a line about a copper lamp.",
+        source_need="anchored", dispatch=send, capture_pending=True,
+    )
+    assert case.response.status_code == 200, case.response.text
+    opening, followup = [json.loads(call.content) for call in case.decisions.calls[:2]]
+    assert set(opening["questions"]) == {"requested_work"}
+    assert "paragraph_work" in followup["questions"]
+    assert "requested_work" not in followup["questions"]
+    resolution, = [event for event in case.turn.graph_context_execution.events
+                   if type(event) is t.BuildRequestedWorkResolutionV1]
+    assert resolution.paragraph_placement.disposition == "unique"
+    proposal, = BuildProposalService().list(case.world, case.turn.conversation_id)
+    assert proposal.state == "proposed"
+
+
 def test_build_proposal_without_a_target_returns_selection_guidance(lane, tmp_path, monkeypatch):
     _fresh_case(lane, tmp_path, monkeypatch, "target_unavailable", True, False, True)
 

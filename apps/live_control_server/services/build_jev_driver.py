@@ -575,7 +575,7 @@ class BuildJevDriver:
         pending = getattr(a, "pending_build_source_observation", None) is not None
         if pending and "related_page_catalog" in self._interaction:
             raise ValueError("Pending Build discovers related pages only after selecting work")
-        self.split_opening = fresh and pending and self._boundary_catalog is None and capture is None
+        self.split_opening = fresh and pending and capture is None
         if fresh and not self.split_opening:
             from application_state.agent_conversation.build_intentional_response import source_need_question
 
@@ -583,7 +583,7 @@ class BuildJevDriver:
             questions += (DecisionQuestion(name="source_need", kind=source_question["type"],
                                            question=source_question["instructions"],
                                            options=tuple(source_question["criteria"])),)
-        if self._boundary_catalog is not None:
+        if self._boundary_catalog is not None and not self.split_opening:
             _, placement_questions = build_boundary_opening(
                 a.request.message, self._interaction["current_page"]["title"], self._boundary_catalog,
                 caret=a.request.build_write_capability.basis.caret,
@@ -1353,7 +1353,12 @@ class BuildJevDriver:
                     ) from exc
                 _require_guest_build_discussion(a, label=label, graph_reference=graph_reference, image_move=image_move)
                 resolution = resolution_for(execution.policy, label, source_scope=source_scope)
-                placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
+                placement = None
+                if split_proof is None:
+                    placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
+                elif label == "write_current_page":
+                    placement = paragraph_placement_for(execution.policy, json.loads(prepared.body),
+                        DecisionResult.model_validate_json(split_proof["response"]), a.request.message, label)
                 _, _, menu, resolver = _captured_semantics(execution.policy)
                 selected = resolution['operation']
                 authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == a.last_provider_attempt_id)
