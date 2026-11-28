@@ -129,6 +129,8 @@ class StatblockV1Client(Protocol):
 
     def append_revision(self, statblock_id: str, body: dict[str, Any]) -> ExactRevisionResourceV1: ...
 
+    def purge_statblock_revisions(self, statblock_id: str, expected_revision_id: str) -> None: ...
+
 
 class DungeonMindStatblockV1Client:
     """Authenticated transport for DungeonMindServer statblock v1 routes."""
