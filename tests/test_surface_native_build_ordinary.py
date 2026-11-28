@@ -195,10 +195,30 @@ def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, 
     assert opened == (source_scope == "source_lookup")
 
 
-def test_contextual_build_reopens_deferred_page_citation(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize("interrupted", [False, True], ids=["ordinary", "recovered"])
+def test_contextual_build_reopens_deferred_page_citation(lane, tmp_path, monkeypatch, interrupted):
     from application_state.agent_conversation.build_related_pages import PagePointer
     from application_state.agent_conversation.native_execution import BuildSourceScopeAuthorizedV1
     from application_state.build_proposal.service import BuildProposalService
+
+    def dispatch(client, world, body, decisions):
+        def stop_before_completion(*_args, **_kwargs):
+            raise RuntimeError("Synthetic interruption after durable proposal")
+
+        with monkeypatch.context() as cut:
+            cut.setattr(AgentConversationService, "complete_native_base_turn", stop_before_completion)
+            first = client.post("/api/live/agent/turn", json=body)
+        assert first.status_code == 503, first.text
+        key = UUID(body["build_write_capability"]["idempotency_key"])
+        saved = BuildProposalService().get(world, key)
+        assert saved.state == "proposed" and len(saved.proposal.citations) == 1
+        attempts = len(decisions.calls)
+        recovered = client.post("/api/live/agent/turn", json=body)
+        assert len(decisions.calls) == attempts
+        assert recovered.status_code == 200, recovered.text
+        assert recovered.json()["knowledge_context"]["delivery_replay"] is True
+        assert BuildProposalService().get(world, key) == saved
+        return recovered
 
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, True, False, True,
@@ -206,8 +226,10 @@ def test_contextual_build_reopens_deferred_page_citation(lane, tmp_path, monkeyp
         message="After the orchid paragraph in East, add a supply note and cite the towel count from Optional lore.",
         proposal_markdown="Set out six towels.",
         capture_pending=True, read_optional_page=True, cite_optional_page=True,
+        dispatch=dispatch if interrupted else None,
     )
     assert case.response.status_code == 200, case.response.text
+    assert len(case.writer.calls) == 1
     execution = case.turn.graph_context_execution
     ballot, = [event for event in execution.events if type(event) is BuildSourceScopeAuthorizedV1]
     proposed, = BuildProposalService().list(case.world, case.turn.conversation_id)
