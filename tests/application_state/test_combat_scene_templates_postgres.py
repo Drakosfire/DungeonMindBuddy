@@ -221,3 +221,51 @@ def test_copy_refuses_run_instance(scene_case):
     with pytest.raises(ApplicationStateNotFoundError, match="unavailable"):
         service.create(world_id=world_id, request=request.model_copy(update={"pin": target, "operation_id": uuid4()}))
     assert service.read(world_id=world_id, document_id=plan.work_object_id, scene_id="scene:gate") is None
+
+
+def test_deleted_statblock_is_removed_from_scene_history_under_original_pin(scene_case, adoption_case):
+    from types import SimpleNamespace
+    from uuid import UUID
+
+    from application_state.combat_encounters.service import get_encounter
+    from application_state.errors import ApplicationStateConflictError
+    from application_state.mechanics_revisions import purge
+    from application_state.unit_of_work import unit_of_work
+
+    p = adoption_case
+    world_id = "elderwyld"
+    source = get_encounter(world_id=world_id, encounter_id=p.before["encounter_id"])
+    request = copy_intent(scene_case, source.encounter_id, source.revision)
+    template = service.create(world_id=world_id, request=request)
+    start = template.versions[0]
+    pin = SimpleNamespace(encounter_id=template.binding.encounter_id, revision=start.revision, digest=start.digest)
+    scope = dict(world_id=world_id, document_id=request.pin.document_id, scene_id=request.pin.scene_id)
+    target = purge.PurgeTarget(
+        p.original["locator"]["statblock_id"], world_id, UUID(p.draft.draft_id),
+        p.draft.version, p.locator["revision_id"],
+    )
+    with unit_of_work() as deleting, unit_of_work() as opening:
+        purge._lock(deleting, target.statblock_id)
+        opening.execute("SELECT encounter_id FROM combat.encounter WHERE encounter_id=%s FOR SHARE", (pin.encounter_id,))
+        with pytest.raises(ApplicationStateConflictError, match="Retry opening the encounter"):
+            service.read_snapshot(opening, **scope, pin=pin, require_head=True)
+
+    assert purge.claim(target, authorize=lambda: None) is False
+    with pytest.raises(ApplicationStateConflictError, match="being deleted"):
+        service.read_version(**scope, revision=start.revision)
+
+    purge.remove_current_combat_copies(target)
+    reopened = service.read_version(**scope, revision=start.revision)
+    assert reopened.draft.groups == source.draft.groups
+    assert all(actor.mechanics_snapshot is None and actor.deleted_mechanics for actor in reopened.draft.entities)
+    with unit_of_work() as conn:
+        assert service.read_snapshot(conn, **scope, pin=pin) == reopened
+        digest, payload, redacted_digest = conn.execute("""
+            SELECT digest, payload, redacted_digest FROM combat.scene_template_version
+            WHERE encounter_id=%s AND revision=%s
+        """, (pin.encounter_id, pin.revision)).fetchone()
+    assert digest == pin.digest
+    assert redacted_digest == service.digest(payload)
+    assert all(actor["mechanics_snapshot"] is None for actor in payload["draft"]["entities"])
+    purge.remove_current_combat_copies(target)
+    assert service.read_version(**scope, revision=start.revision) == reopened
