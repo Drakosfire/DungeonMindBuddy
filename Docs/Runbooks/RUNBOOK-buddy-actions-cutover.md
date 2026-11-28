@@ -349,6 +349,24 @@ must use the qualified forward recovery or stop for coordinated recovery. Never
 automatically restore over production. Include the exact recovery images/artifacts
 in the packet's preparation; the transport pulls only the candidate registry digest.
 
+The operator may retain a drained predecessor and a never-started recovery
+container for investigation. Docker rename preserves Compose labels, so these
+copies are still members of the production Buddy service. For a new packet,
+use `buddy-erasure<revision>-stopped-<container-id-prefix>` or
+`buddy-dogfood<revision>-stopped-<container-id-prefix>` for the predecessor and
+`buddy-erasure<revision>-recovery-<image-id-prefix>` or
+`buddy-dogfood<revision>-recovery-<image-id-prefix>` for recovery. Use the
+numeric App revision and a 12-character hex prefix. Disable the drained
+predecessor's restart policy and keep durable state in bind mounts.
+
+Before an image-only cutover, the activator confirms the healthy rollback is
+running and checks its Compose service slot under the deployment lock. It
+removes only recognized stopped fence containers whose bind mounts match the
+running service and whose writable layer shows only Docker init or mount
+scaffolding. This step leaves the images and mounts in place. If inspection
+finds an unexpected container or writable state, retain it and investigate
+before retrying. The healthy rollback keeps serving.
+
 The transport rechecks the sealed packet around both phases, requires the expected
 healthy serving identity before preparation and after it, and validates the pulled
 candidate's image, source, platform, serving-parent and guest labels. It emits

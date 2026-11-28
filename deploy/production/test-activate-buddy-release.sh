@@ -19,6 +19,14 @@ printf -v staged '%040d' 5
 printf -v staged_id 'sha256:%064d' 5
 printf -v staged_alias '%040d' 6
 export obsolete obsolete_id referenced referenced_id staged_alias staged_id
+printf -v live_container '%064x' 16
+printf -v drained_container '%064x' 17
+printf -v recovery_container '%064x' 18
+printf -v oneoff_container '%064x' 19
+# Use distinct leading prefixes, just as Docker-generated identifiers do.
+drained_container="d${drained_container:1}"
+recovery_container="e${recovery_container:1}"
+export live_container drained_container recovery_container oneoff_container
 export buddy_cache=kawf9lmjnqr7xnpceypatjkyx
 mkdir -p "$scratch/releases" "$scratch/bin"
 sed -e "s|/etc/buddy-deploy|$scratch|" \
@@ -106,10 +114,45 @@ case "$1 $2" in
     [[ ${FAIL_RETENTION:-0} != 1 ]] || exit 100
     printf '%s\n' "${*: -1}" >> "$TEST_ROOT/removals" ;;
   'ps -aq') printf 'stopped-container\n' ;;
+  'container ls')
+    [[ "$*" == 'container ls --all --quiet --no-trunc --filter label=com.docker.compose.project=buddy --filter label=com.docker.compose.service=buddy' ]] || exit 105
+    printf '%s\n' "$live_container" "$oneoff_container"
+    if [[ ${TEST_FENCE_REMNANTS:-0} == 1 ]]; then
+      for id in "$drained_container" "$recovery_container"; do
+        [[ -e "$TEST_ROOT/removed-$id" ]] || printf '%s\n' "$id"
+      done
+    fi ;;
+  'container rm')
+    [[ $# == 3 && ( "$3" == "$drained_container" || "$3" == "$recovery_container" ) ]] || exit 106
+    [[ $(cat "$TEST_ROOT/serving") == "$rollback_id" && ! -s "$TEST_ROOT/activations" ]] || exit 107
+    if flock -n "$TEST_ROOT/lock" true; then exit 108; fi
+    touch "$TEST_ROOT/removed-$3" ;;
+  'diff '*)
+    [[ "$2" == "$drained_container" || "$2" == "$recovery_container" ]] || exit 109
+    if [[ "$2" == "$recovery_container" && ${EXTRA_FS_DATA:-0} == 1 ]]; then
+      printf 'A /app/user-data\n'
+    else
+      printf 'C /usr\nC /usr/sbin\nA /usr/sbin/docker-init\nC /var/lib\nA /var/lib/buddy\n'
+    fi ;;
   'compose ps') printf 'buddy-container\n' ;;
   'compose port') printf '127.0.0.1:8000\n' ;;
   'inspect --format')
-    if [[ "${*: -1}" == stopped-container ]]; then
+    if [[ "$3" == *'.State.Status'* ]]; then
+      case "${*: -1}" in
+        buddy-buddy-1) printf '%s /buddy-buddy-1 %s running no False 1\n' "$live_container" "$(cat "$TEST_ROOT/serving")" ;;
+        "$drained_container")
+          printf '%s /buddy-erasure215-stopped-%s %s %s no False 1\n' "$drained_container" "${drained_container:0:12}" "$referenced_id" "${DRAINED_STATUS:-exited}" ;;
+        "$recovery_container")
+          printf '%s %s %s created unless-stopped False 1\n' "$recovery_container" "${RECOVERY_NAME:-/buddy-erasure215-recovery-${candidate_id:7:12}}" "$candidate_id" ;;
+        "$oneoff_container") printf '%s /buddy-qa %s running no True -\n' "$oneoff_container" "$rollback_id" ;;
+        *) exit 110 ;;
+      esac
+    elif [[ "$3" == *'{{range .Mounts}}{{.Type}}'* ]]; then
+      printf 'bind {"Type":"bind","Destination":"/var/lib/buddy"}\n\n'
+      if [[ "${*: -1}" == "$recovery_container" && ${EXTRA_MOUNT:-0} == 1 ]]; then printf 'volume {"Type":"volume"}\n'; fi
+    elif [[ "$3" == *'println .Destination'* ]]; then
+      printf '/var/lib/buddy\n'
+    elif [[ "${*: -1}" == stopped-container ]]; then
       printf '%s\n' "$referenced_id"
     elif [[ "${3:-}" == *'.Config.Env'* ]]; then
       if [[ "${GUEST_ENV_MISSING:-0}" != 1 ]]; then
@@ -131,6 +174,9 @@ case "$1 $2" in
     fi ;;
   'compose -f')
     [[ "$*" == 'compose -f - up -d --no-deps --no-build --pull never --wait --wait-timeout 330 buddy' ]] || exit 93
+    if [[ ${TEST_FENCE_REMNANTS:-0} == 1 ]]; then
+      [[ -e "$TEST_ROOT/removed-$drained_container" && -e "$TEST_ROOT/removed-$recovery_container" ]] || exit 111
+    fi
     payload=$(cat)
     case "$payload" in
       *"image: dungeonmindbuddy:$candidate"*) id=$candidate_id ;;
@@ -159,6 +205,18 @@ reset "$rollback_id"
 run
 grep -Fx "BUDDY_LIVE $candidate $candidate_id" "$scratch/stdout"
 [[ $(cat "$scratch/activations") == "$candidate_id" ]]
+
+reset "$rollback_id"
+for unsafe in DRAINED_STATUS=running RECOVERY_NAME=/unknown EXTRA_MOUNT=1 EXTRA_FS_DATA=1; do
+  if env TEST_FENCE_REMNANTS=1 "$unsafe" bash "$scratch/activate" "$candidate" > "$scratch/stdout" 2> "$scratch/stderr"; then exit 1; fi
+  grep -F 'Buddy Compose slot contains an unverified container; serving rollback was left running' "$scratch/stderr"
+  [[ ! -s "$scratch/activations" && $(cat "$scratch/serving") == "$rollback_id" ]]
+  [[ ! -e "$scratch/removed-$drained_container" && ! -e "$scratch/removed-$recovery_container" ]]
+done
+TEST_FENCE_REMNANTS=1 run
+grep -Fx "BUDDY_FENCE_CONTAINER_RETIRED $drained_container" "$scratch/stdout"
+grep -Fx "BUDDY_FENCE_CONTAINER_RETIRED $recovery_container" "$scratch/stdout"
+grep -Fx "BUDDY_LIVE $candidate $candidate_id" "$scratch/stdout"
 
 reset "$candidate_id"
 run
