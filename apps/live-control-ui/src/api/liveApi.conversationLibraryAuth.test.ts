@@ -99,3 +99,27 @@ it.each(['resume', 'archive', 'trash', 'restore', 'delete'] as const)(
   })).rejects.toThrow(/exact same-origin HTTPS route/);
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+
+it('admits only the exact same-origin hosted conversation name write',async()=>{
+ vi.stubGlobal('window',{location:{href:'https://buddy.example/build'},dispatchEvent:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn()});
+ const {live,library}=await modules();
+ live.setNativeGraphAccessToken('synthetic-local-token');
+ const fetch=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json(meta));
+ const path='/api/live/agent/worlds/world-one/conversations/'+id+'/name';
+ const change={title:'Work',expected_revision:0};
+ await expect(library.renameConversation('world-one',id,change.title,change.expected_revision)).resolves.toMatchObject(meta);
+ expect(fetch).toHaveBeenCalledExactlyOnceWith(path,expect.objectContaining({
+  method:'PUT',body:JSON.stringify(change),credentials:'same-origin',redirect:'error',
+ }));
+ expect(new Headers(fetch.mock.calls[0][1]?.headers).has('Authorization')).toBe(false);
+ for(const [target,method,body] of [
+  [path,'POST',change],
+  [path+'?extra=1','PUT',change],
+  [path,'PUT',{...change,expected_revision:-1}],
+  [path,'PUT',{...change,world_id:'foreign'}],
+ ] as const) {
+  await expect(live.authenticatedApiFetch(target,{method,body:JSON.stringify(body)})).rejects.toThrow(/exact same-origin HTTPS route/);
+ }
+ expect(fetch).toHaveBeenCalledTimes(1);
+});

@@ -156,7 +156,7 @@ def list_library(
         }
 
 
-def rename(world: str, conversation: UUID, change: NameChange):
+def rename(world: str, conversation: UUID, change: NameChange, *, authorize_write=None):
     with unit_of_work(_ready_dsn()) as conn:
         conn.row_factory = dict_row
         parent = conn.execute(
@@ -182,6 +182,8 @@ def rename(world: str, conversation: UUID, change: NameChange):
             raise ApplicationStateConflictError(
                 "Conversation name changed. Reload its name before replacing it."
             )
+        if authorize_write is not None:
+            authorize_write()
         row = conn.execute(
             """INSERT INTO agent.conversation_name(conversation_id,world_id,title,revision,updated_at)
             VALUES(%s,%s,%s,1,clock_timestamp()) ON CONFLICT(conversation_id,world_id) DO UPDATE
