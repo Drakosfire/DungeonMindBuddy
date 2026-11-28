@@ -101,3 +101,19 @@ source owner. Require intent entry first, require no source preparation for
 a conversation-only answer, and require source preparation after intent for
 a citation request. Keep the captured placement and replay controls in the
 same qualification. Benchmark reruns remain gated on these checks.
+
+The focused current-main compatibility run passed 35 cases before stopping at
+`test_no_graph_writer_authorization_roundtrips_and_rejects_late_graph_events`.
+Its serving-shaped fixture puts Graph need before the Plan opening and has no
+prior intent observation. Main rejects that prefix with “Opening SDK must be the
+first actual provider attempt”. Keep that protection. Update the producer and
+the ordinary fixture together so the stored prefix starts with an acknowledged
+intent, then establishes Graph need and writer authority in that order.
+
+The producer has the reciprocal restriction in
+`native_plan_graph_producer.validate_prepared_authorization`: any earlier
+provider authorization currently rejects Graph need. The new path must
+require the exact acknowledged Plan intent as its predecessor instead of
+accepting an arbitrary earlier attempt. The legacy Graph-first replay path
+must retain its existing authorization shape. Cover a missing, unsettled,
+foreign, and successfully settled intent at this boundary.
