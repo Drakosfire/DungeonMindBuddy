@@ -44,6 +44,8 @@ def prepare(path):
             raise ValueError(f"Invalid current scene in {case['id']}")
         if surface not in scopes:
             scopes[surface] = opening_action_menu(surface)
+        if surface == "play":
+            play_request(state, scopes[surface])
         if case["expected"] not in scopes[surface]:
             raise ValueError(f"{case['id']} expects a choice unavailable on {surface}")
         groups[surface].append(case)
@@ -62,6 +64,26 @@ def prepare(path):
     return sha256(raw).hexdigest(), groups, menus
 
 
+def play_request(state, menu):
+    from application_state.agent_conversation.native_play_opening import (
+        NativePlayOpeningInputV1,
+        prepare_play_opening,
+    )
+
+    request = prepare_play_opening(NativePlayOpeningInputV1(
+        question=state["user_utterance"],
+        current_scene_title=state.get("current_scene_title"),
+    ))
+    if state != request.state:
+        raise ValueError("Play fixture state differs from Buddy's opening request")
+    question = request.questions[0]
+    if dict(question.option_descriptions) == menu and question.options == tuple(menu):
+        return request
+    return request.model_copy(update={"questions": (question.model_copy(update={
+        "options": tuple(menu), "option_descriptions": menu,
+    }),)})
+
+
 async def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixtures", type=Path, default=Path(__file__).with_name("surface-probe.json"))
@@ -69,8 +91,12 @@ async def main():
     parser.add_argument("--credential-file", type=Path)
     parser.add_argument("--reuse", type=Path, help="Reuse exact fixtures and menus from this capture")
     parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument("--surface", choices=("build", "plan", "play"))
     args = parser.parse_args()
     digest, groups, menus = prepare(args.fixtures)
+    if args.surface:
+        groups = {args.surface: groups[args.surface]}
+        menus = {args.surface: menus[args.surface]}
     if args.validate_only:
         print(digest, {surface: len(rows) for surface, rows in groups.items()})
         return
@@ -88,12 +114,17 @@ async def main():
     args.output.mkdir()
     frozen = {"fixture_sha256": digest, "model": model, "prompt": PROMPT,
               "menus": menus, "cases": groups}
+    if "play" in groups:
+        sample = groups["play"][0]["input"]
+        play = play_request(sample, menus["play"]["scoped"])
+        frozen["play_prompt"] = play.questions[0].question
+        frozen["play_question"] = play.questions[0].name
     (args.output / "frozen-inputs.json").write_text(json.dumps(frozen, indent=2) + "\n")
     retained = {}
     if args.reuse:
         prior = json.loads((args.reuse / "frozen-inputs.json").read_bytes())
         prior_report = json.loads((args.reuse / "results.json").read_bytes())
-        if (any(prior[key] != frozen[key] for key in ("model", "prompt", "menus"))
+        if (any(prior.get(key) != frozen.get(key) for key in ("model", "prompt", "menus", "play_prompt", "play_question"))
             or any(tuple(menu) != tuple(menus[surface][arm])
                    for surface, arms in prior["menus"].items() for arm, menu in arms.items())
         ):
@@ -111,9 +142,11 @@ async def main():
         menu = body["action_definitions"]
         payload = {"model": model, "state": body["state"], "questions": {"intent": {
             "question": body["instructions"], "options": list(menu), "option_descriptions": menu}}}
-        result = (await client.decide(DecisionRequest.model_validate(sdk_request(payload)))).model_dump(mode="json")
+        request = (play_request(body["state"], menu) if body["state"]["surface"] == "play"
+                   else DecisionRequest.model_validate(sdk_request(payload)))
+        result = (await client.decide(request)).model_dump(mode="json")
         try:
-            return selection(result, "intent"), result
+            return selection(result, request.questions[0].name), result
         except (KeyError, TypeError, ValueError):
             return None, result
 

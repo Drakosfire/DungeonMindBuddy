@@ -139,3 +139,17 @@ scene were explicit.
 The Play timing mixes reused calls with the new cases and does not establish
 a latency change in ordinary Buddy. The ordinary Play tests exercise the
 serialized opening menu and the response path using simulated provider outputs.
+
+#### Play request parity
+
+The [runtime-request comparison](right_action_intent/surface-cohort-play-runtime-jev.json)
+runs the same seven Play fixtures with the ordinary Play request builder.
+The scoped arm uses its request unchanged. The combined arm replaces only
+the options and their descriptions. The previous paired run used the generic
+benchmark instruction, which named an unavailable deferral label, so this
+comparison needed fresh calls.
+
+Both arms again passed 6/7 and misclassified the explicit Build edit as a
+current-scene edit. The mismatch persists with the actual Play instructions.
+Median decision wall time was 278.32 ms combined and 179.78 ms scoped on
+these seven pairs. This small sample measures provider decisions only.
