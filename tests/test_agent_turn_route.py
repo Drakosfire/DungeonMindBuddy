@@ -4232,7 +4232,17 @@ def test_full_application_http_route_and_legacy_route_cardinality(
     from apps.live_control_server.routes import agent as agent_route
     from apps.live_control_server.routes import live as live_route
 
-    runtime = FakeRuntime()
+    from apps.live_control_server.services import hermes_agent_runtime
+    from tests.test_hermes_agent_runtime import _FakeHost, _hermes_ok_result
+
+    monkeypatch.setenv("DMB_DEPLOYMENT_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AUTH_MODE", "local_operator")
+    auth_token = "test-index-local-operator-token"
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", auth_token)
+    host = _FakeHost(_hermes_ok_result())
+    monkeypatch.setattr(hermes_agent_runtime, "get_hermes_graph_agent_host", lambda: host)
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
     monkeypatch.setattr(agent_route, "_owner_resolver", lambda _body: None)
@@ -4243,7 +4253,6 @@ def test_full_application_http_route_and_legacy_route_cardinality(
 
     monkeypatch.setattr(live_route, "load_session", forbidden_packet_load)
     app = create_app()
-    app.state.agent_turn_runtime = runtime
     agent_routes = [
         route
         for route in app.routes
@@ -4277,23 +4286,26 @@ def test_full_application_http_route_and_legacy_route_cardinality(
 
     async def post_turn() -> httpx.Response:
         # ASGITransport exercises the full HTTP app without starting its
-        # provider-worker lifespan; this test injects a deterministic runtime.
+        # provider-worker lifespan; only the Hermes host is simulated.
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://test"
+            transport=transport, base_url="http://127.0.0.1"
         ) as client:
-            return await client.post("/api/live/agent/turn", json=_payload())
+            return await client.post("/api/live/agent/turn", json=_payload(),
+                headers={"Authorization": f"Bearer {auth_token}"})
 
     response = asyncio.run(post_turn())
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.json()
     body = response.json()
     assert body["surface"]["surface_id"] == "index"
     assert body["graph"]["status"] == "not_requested"
     assert body["answer"]["graph_grounded"] is False
-    assert runtime.invocations[0].context_packet.surface_context.surface_id == "index"
-    assert runtime.invocations[0].context_packet.world_scope is None
-    assert runtime.invocations[0].context_packet.retrieval_session is None
+    dispatched, = host.calls
+    assert dispatched.capability_policy.graph_scope is None
+    assert dispatched.capability_policy.enabled_tool_names == ()
+    assert not dispatched.provider_authorization_required
+
 
 
 def test_fresh_verified_world_graph_turn_retires_through_http(
