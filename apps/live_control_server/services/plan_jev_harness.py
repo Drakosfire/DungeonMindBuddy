@@ -54,33 +54,42 @@ class PlanJevHarness:
     def run_with_provider_authorization(self, *args, **kwargs):
         raise ValueError('Plan Jev requires its trusted parent orchestration')
 
-    def _interpret_author_scope(self, adapter, dialogue, calls, *, contextual):
+    def _observe_author_scope(self, dispatch, calls):
+        try:
+            asyncio.run(dispatch.run(transport=self.decision_transport, api_key=self.decision_api_key))
+        finally:
+            if dispatch.call is not None:
+                calls.append(dispatch.call)
+        return dispatch.selection_event
+
+    def _interpret_opening_intent(self, adapter, dialogue, calls):
+        dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue, intent_opening=True)
+        intent = self._observe_author_scope(dispatch, calls)
+        if intent.scope_observation.requested_work == "different_destination":
+            raise _destination_unavailable()
+        return intent
+
+    def _interpret_author_scope(self, adapter, dialogue, calls, *, contextual=True):
         from application_state.agent_conversation.native_plan_opening import (
             author_scope_review_required, can_skip_author_scope_recheck,
         )
 
-        def observe(dispatch):
-            try:
-                asyncio.run(dispatch.run(transport=self.decision_transport, api_key=self.decision_api_key))
-            finally:
-                if dispatch.call is not None:
-                    calls.append(dispatch.call)
-            return dispatch.selection_event
-
-        intent = observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, intent_opening=True))
-        if intent.scope_observation.requested_work == "different_destination":
-            raise _destination_unavailable()
+        intent = self._interpret_opening_intent(adapter, dialogue, calls)
         if not contextual or intent.scope_observation.requested_work in {"discuss", "clarify"}:
             return intent
         first_dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue)
-        first = observe(first_dispatch)
+        first = self._observe_author_scope(first_dispatch, calls)
         if can_skip_author_scope_recheck(
             first_dispatch.parent, first.scope_observation, adapter.request.plan_authoring_capture
         ):
             return first
-        second = observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, prior_scope=first))
+        second = self._observe_author_scope(
+            PlanJevDispatch.author_scope(adapter, dialogue=dialogue, prior_scope=first), calls
+        )
         if author_scope_review_required(adapter.request.message, first.scope_observation, second.scope_observation):
-            return observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, review_scope=(first, second)))
+            return self._observe_author_scope(
+                PlanJevDispatch.author_scope(adapter, dialogue=dialogue, review_scope=(first, second)), calls
+            )
         return second
 
     def execute(self, adapter, *, dialogue=(), retained_navigation=()):
