@@ -1671,6 +1671,11 @@ def _shared_plan_authoring_case(
         async def handle_async_request(self, request):
             body = json.loads(request.content)
             if 'existing_scope' in body['questions']:
+                assert set(body["questions"]) == {"page_edit_intent", "location_relation", "existing_scope"}
+                assert set(body["questions"]["page_edit_intent"]["criteria"]) == {
+                    "page_edit", "discussion", "unresolved",
+                }
+                assert "candidates" not in body["state"]
                 self.calls.append(request)
                 catalog = plan_adapter.request.plan_placement_catalog
                 nominated = semantic_compatible or (placement,)
@@ -1694,6 +1699,13 @@ def _shared_plan_authoring_case(
                 return httpx2.Response(200, request=request, json=dict(model=body['model'], answers=answers,
                     usage=dict(input_tokens=31, output_tokens=7)))
             if "requested_work" in body["questions"]:
+                if "conditional_read_plan_policy" in body["state"] and "author_page_edit_intent" in body["state"]:
+                    from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+                    assert body["questions"]["requested_work"]["criteria"] == opening_action_menu(
+                        "plan", plan_operation=plan_adapter.request.plan_requested_operation,
+                    )
+                    assert "operation" in body["questions"]
                 self.calls.append(request)
                 return await SemanticWire(
                     wire.adapter, semantic_intent or (("write_current_page" if routing == "write_without_capture" else routing)
@@ -1885,6 +1897,14 @@ def _shared_plan_authoring_case(
             assert response.answer.status == "ok" and response.plan_proposal is None
             assert "plan_proposal" not in response.model_dump(mode="json")
             assert len(writer.calls) == 1 and len(decisions.calls) == 1 + author_scope_calls
+        if routing == "clarify" and author_scope_calls:
+            import os
+            from pathlib import Path
+
+            if destination := os.environ.get("DMB_PLAN_OPENING_WIRE"):
+                Path(destination).write_text(json.dumps([
+                    json.loads(call.content) for call in decisions.calls
+                ], indent=2) + "\n")
         turn = kwargs["conversation_service"].inspect_turn(
             world_id=capture.world_id, turn_id=wire.adapter.turn.turn_id)
         assert turn.graph_context_receipt.schema_ == "dmb_surface_native_context_receipt_v1"
