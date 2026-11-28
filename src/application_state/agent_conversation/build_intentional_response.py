@@ -267,10 +267,12 @@ def build_source_followup_wire(state, requested_work, *, menu_digest):
     }
 
 
-def verify_build_source_followup(state, requested_work, *, menu_digest, wire, response):
+def verify_build_source_followup(state, opening_response, *, menu_digest, wire, response):
     from generationengine.types import DecisionResult
     from .jev_retrieval_contract import validated_choice_answers
 
+    validated_choice_answers(DecisionResult.model_validate(opening_response), {"requested_work"})
+    requested_work = selected(opening_response, menu=menu_digest)
     expected = build_source_followup_wire(state, requested_work, menu_digest=menu_digest)
     if wire != expected or tuple(wire["questions"]["source_need"]["criteria"]) != SOURCE_NEED_OPTIONS:
         raise ValueError("Build source-scope request differs from the verified intent context")
