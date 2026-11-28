@@ -451,3 +451,20 @@ pending Build packet. Both arms were captured in the same run. Build scored
 **34/36 scoped and 30/36 full**, with median decision times of **205.03 ms**
 and **200.87 ms**, respectively. With the pinned Plan and Play pairs this
 is **56/60 scoped and 50/60 full**. The earlier roster remains available.
+
+### Build controls awaiting intent-only scoring
+
+These cases run through ordinary Build today. Their current specialized
+questions share an opening with the general action choice. Keep their
+workflow evidence alongside the frozen intent comparison.
+
+| Case | Visible Build state to pin | Expected behavior | Current evidence |
+| --- | --- | --- | --- |
+| “Move the Harbour map to the empty slot on its right.” | Current composed page, Harbour map occurrence, and adjacent empty slot | Stage a review for moving the existing image. | The ordinary image-move test opens and reopens the review with zero Graph query preparation. |
+| “What would happen if we moved the Harbour map to the right?” | Same page and image context | Discuss the effect in conversation. | The ordinary image discussion controls exercise the review boundary. |
+| “Insert a reference to the selected object after the orchid paragraph in East.” | Current composed page, exact selected Graph object, and paragraph anchor | Stage a Graph-reference placement review bound to that object. | The ordinary Graph-reference test completes through nomination and review without calling the writer. |
+
+The intent classifier needs offered choices that distinguish these reviews
+from preparing new artwork and writing prose. “Discussion” is already an
+offered choice. Include the matching controls when the review choices are
+available, and let downstream ballots resolve the exact slot or paragraph.
