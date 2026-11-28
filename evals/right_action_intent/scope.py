@@ -218,21 +218,21 @@ def verify_build_followup_capture(path):
             raise ValueError(f"Build source follow-up pin changed: {name}")
         inputs[name] = json.loads(raw)
     intent = inputs["build-intent-only-cohort-jev.json"]
-    actions = {row["id"]: row["choice"] for row in intent["results"]["build"]["scoped"]["rows"]}
+    opening_rows = {row["id"]: row for row in intent["results"]["build"]["scoped"]["rows"]}
     gold = {row["id"]: row["expected"] for row in inputs["build-source-followup-cases.json"]["cases"]}
     if len(capture["rows"]) != len(gold) or {row["id"] for row in capture["rows"]} != set(gold):
         raise ValueError("Build source follow-up case coverage changed")
     count = Counter()
     for row in capture["rows"]:
         case_id, action = row["id"], row["action"]
-        if actions[case_id] != action:
+        if opening_rows[case_id]["choice"] != action:
             raise ValueError("Build source follow-up action differs from its retained first result")
         if action in {"clarify_request", "clarify_creation"}:
             if "request" in row or "response" in row:
                 raise ValueError("Build clarification dispatched a source-scope decision")
             choice = "skip"
         else:
-            choice = verify_build_source_followup(intent["wire_states"][case_id], action,
+            choice = verify_build_source_followup(intent["wire_states"][case_id], opening_rows[case_id]["response"],
                 menu_digest=SCOPED_BUILD_MENU_DIGEST, wire=row["request"], response=row["response"])
         if choice != row["choice"] or gold[case_id] != row["expected"]:
             raise ValueError("Build source follow-up scoring differs from retained evidence")
