@@ -453,11 +453,16 @@ The provider responses in these tests are simulated.
 - A tied discussion source vote keeps the existing clarification response.
   The turn stops before acquisition or writer dispatch.
 
-Image movement and explicit Graph-reference placement are outside the 36-case
-wire parity claim. The ordinary controls exercise their existing review routes,
-whose opening requests still contain specialized questions. Scoring those
-as intent-only cases requires the visible image selection or Graph reference
-and a menu that can distinguish the requested review from prose writing.
+Image movement and explicit Graph-reference placement have separate ordinary
+transport controls. Their first request carries the visible image affordance
+or reference and asks for intent. Follow-up requests resolve the specialized
+action. The image clarification control finishes after one decision with
+saved-page discovery and Graph preparation disabled. The deferred image move
+controls also cover reopening the exact stored review.
+These simulated-provider checks establish the runtime boundary. The separate
+retained Jev image pilot measures classification, including remaining misses.
+Explicit Graph-reference placement still prepares native source state before
+its intent call.
 
 The frozen report includes decision counts and latency by surface, expected
 action, and difficulty tier. Its paired changes list identifies cases that
