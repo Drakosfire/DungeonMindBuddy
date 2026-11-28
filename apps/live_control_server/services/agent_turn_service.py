@@ -7247,6 +7247,7 @@ def _pending_build_startup_eligible(request, *, principal, durable_turn, authori
     if not _governed_build_turn(request):
         return False
     eligible = (callable(authorize_world) and principal is not None and principal.role == 'gm'
+        and getattr(request, 'build_image_move_capture', None) is None
         and (pending_retained or durable_turn is None and request.retry_of is None
             and request.reviewed_step is None and request.build_authored_references is None
             and request.selected_knowledge is None and request.graph_selection is None

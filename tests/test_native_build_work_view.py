@@ -516,6 +516,10 @@ def test_scope_reader_validates_explicit_question_in_actual_selection_proof():
     from tests.test_build_source_free_routing import pending_execution_pair
     _, original, event, proof, trace, work = sdk_case()
     _, policy = pending_execution_pair()
+    provider_roles = policy.provider_roles.model_copy(
+        update={'controller': original.policy.provider_roles.controller},
+    )
+    policy = policy.model_copy(update={'provider_roles': provider_roles})
     request, response = json.loads(proof['request_json']), json.loads(proof['response_json'])
     decision = request['state']['decision']
     decision['state']['user_question'] = policy.action.intent.message
