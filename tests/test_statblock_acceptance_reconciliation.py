@@ -737,6 +737,27 @@ def test_purged_statblock_local_cleanup_resumes_after_index_commit(tmp_path, mon
         create_request_digest=active.create_request_digest, terminal_code="invalid_request",
         failure_category="downstream_invalid_request", http_status=422,
     )
+    reconciled = AcceptanceOperationV1(**_operation_kwargs(draft_id=target.draft_id))
+    reconciled = reconciled.model_copy(update={
+        "authority_state": "reconciled",
+        "locator": locator,
+        "materialization": reconciled.materialization.model_copy(update={"draft_ref": "attached"}),
+    })
+    journal._write_operation_unlocked(tmp_path, reconciled)
+
+    operation_id = str(uuid.uuid4())
+    body = _body(operation_id)
+    claim_args = dict(
+        draft_id=target.draft_id,
+        expected_draft_version=target.version,
+        operation_id=operation_id,
+        create_request_digest=create_request_digest_for_body(body),
+        request_body=body,
+        validation_receipt_digest="sha256:" + "c" * 64,
+        source_candidate_id=None,
+    )
+    assert claim_acceptance_operation(tmp_path, **claim_args) == ("acceptance_busy", None)
+
     other_operation = AcceptanceOperationV1(**_operation_kwargs(draft_id=other.draft_id))
     journal._write_operation_unlocked(tmp_path, other_operation)
 
@@ -750,6 +771,9 @@ def test_purged_statblock_local_cleanup_resumes_after_index_commit(tmp_path, mon
     with pytest.raises(drafts.ThreatDraftStoreError, match="not found"):
         drafts.get_threat_draft(tmp_path, target.draft_id)
     assert drafts._draft_path(tmp_path, target.draft_id).exists()
+    with pytest.raises(AcceptanceReconciliationError, match="not found"):
+        claim_acceptance_operation(tmp_path, **claim_args)
+
 
     journal.remove_purged_acceptance(tmp_path, **args)
     journal.remove_purged_acceptance(tmp_path, **args)
