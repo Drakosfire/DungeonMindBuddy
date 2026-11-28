@@ -120,6 +120,13 @@ def test_purge_receipt_serializes_with_revision_writes_and_erases_request_copy(a
     unknown = service.settle(record, state="outcome_unknown")
     service.settle(unknown, state="committed", result=result)
 
+    stale_target = purge.PurgeTarget(
+        target.statblock_id, target.world_id, target.draft_id,
+        target.draft_version, record.base.revision_id,
+    )
+    with pytest.raises(ApplicationStateConflictError, match="changed before deletion"):
+        purge.claim(stale_target, authorize=authorize)
+
     assert purge.claim(target, authorize=authorize) is False
     assert purge.claim(target, authorize=authorize) is False
     with pytest.raises(ApplicationStateConflictError, match="being deleted"):
