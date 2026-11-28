@@ -287,9 +287,9 @@ def test_unmarked_parent_and_wire_preserve_historical_identity():
     old = _exclusion_guidance_parent()
     assert 'exclusion_guidance_version' not in old.model_dump(mode='json', by_alias=True)
     assert old.digest == '66dc21f6b47a8fb1d2d035f836876a64a8c69e596a3a024491aa8d6f4fb3843e'
-    wire = canonical_wire(old)
+    wire = canonical_wire(old, expected_model="typesafe-ai/jev-1.14.0")
     assert sha256(wire).hexdigest() == '91f3a8aeeb039a5298c457bf53e439c087f77dc996aa816ab553e52c3c459892'
-    validate_wire(old, wire)
+    validate_wire(old, wire, expected_model="typesafe-ai/jev-1.14.0")
 
 
 def test_marked_wire_changes_only_descriptions_and_is_bound_to_its_parent():
