@@ -232,7 +232,12 @@ def verify_build_followup_capture(path):
                 raise ValueError("Build clarification dispatched a source-scope decision")
             choice = "skip"
         else:
-            choice = verify_build_source_followup(intent["wire_states"][case_id], opening_rows[case_id]["response"],
+            opening_wire = {
+                "model": intent["model"],
+                "state": intent["wire_states"][case_id],
+                "questions": intent["wire_questions"]["scoped"],
+            }
+            choice = verify_build_source_followup(opening_wire, opening_rows[case_id]["response"],
                 menu_digest=SCOPED_BUILD_MENU_DIGEST, wire=row["request"], response=row["response"])
         if choice != row["choice"] or gold[case_id] != row["expected"]:
             raise ValueError("Build source follow-up scoring differs from retained evidence")
