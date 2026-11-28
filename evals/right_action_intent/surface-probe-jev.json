@@ -6,7 +6,7 @@
         "dispositions": {
           "correct": 4
         },
-        "median_decision_ms": 338.28
+        "median_decision_ms": 463.63
       },
       "rows": [
         {
@@ -15,7 +15,7 @@
           "expected": "write_current_page",
           "choice": "write_current_page",
           "status": "correct",
-          "elapsed_ms": 406.99
+          "elapsed_ms": 501.95
         },
         {
           "id": "build-chat-draft",
@@ -23,7 +23,7 @@
           "expected": "draft_in_conversation",
           "choice": "draft_in_conversation",
           "status": "correct",
-          "elapsed_ms": 327.56
+          "elapsed_ms": 416.26
         },
         {
           "id": "build-clarify",
@@ -31,7 +31,7 @@
           "expected": "clarify_request",
           "choice": "clarify_request",
           "status": "correct",
-          "elapsed_ms": 335.33
+          "elapsed_ms": 431.0
         },
         {
           "id": "build-discuss",
@@ -39,7 +39,7 @@
           "expected": "discuss",
           "choice": "discuss",
           "status": "correct",
-          "elapsed_ms": 341.23
+          "elapsed_ms": 496.26
         }
       ]
     },
@@ -49,7 +49,7 @@
         "dispositions": {
           "correct": 4
         },
-        "median_decision_ms": 197.52
+        "median_decision_ms": 210.68
       },
       "rows": [
         {
@@ -58,7 +58,7 @@
           "expected": "write_current_page",
           "choice": "write_current_page",
           "status": "correct",
-          "elapsed_ms": 191.1
+          "elapsed_ms": 236.33
         },
         {
           "id": "build-chat-draft",
@@ -66,7 +66,7 @@
           "expected": "draft_in_conversation",
           "choice": "draft_in_conversation",
           "status": "correct",
-          "elapsed_ms": 158.44
+          "elapsed_ms": 190.25
         },
         {
           "id": "build-clarify",
@@ -74,7 +74,7 @@
           "expected": "clarify_request",
           "choice": "clarify_request",
           "status": "correct",
-          "elapsed_ms": 203.94
+          "elapsed_ms": 197.52
         },
         {
           "id": "build-discuss",
@@ -82,7 +82,7 @@
           "expected": "discuss",
           "choice": "discuss",
           "status": "correct",
-          "elapsed_ms": 220.01
+          "elapsed_ms": 223.83
         }
       ]
     }
@@ -94,7 +94,7 @@
         "dispositions": {
           "correct": 5
         },
-        "median_decision_ms": 237.0
+        "median_decision_ms": 197.43
       },
       "rows": [
         {
@@ -103,7 +103,7 @@
           "expected": "write_current_page",
           "choice": "write_current_page",
           "status": "correct",
-          "elapsed_ms": 246.6
+          "elapsed_ms": 234.16
         },
         {
           "id": "plan-clarify",
@@ -111,7 +111,7 @@
           "expected": "clarify",
           "choice": "clarify",
           "status": "correct",
-          "elapsed_ms": 210.55
+          "elapsed_ms": 203.43
         },
         {
           "id": "plan-discuss",
@@ -119,7 +119,7 @@
           "expected": "discuss",
           "choice": "discuss",
           "status": "correct",
-          "elapsed_ms": 203.13
+          "elapsed_ms": 181.82
         },
         {
           "id": "plan-other-destination",
@@ -127,7 +127,7 @@
           "expected": "different_destination",
           "choice": "different_destination",
           "status": "correct",
-          "elapsed_ms": 237.0
+          "elapsed_ms": 197.43
         },
         {
           "id": "plan-connected-page",
@@ -135,7 +135,7 @@
           "expected": "review_connected_page",
           "choice": "review_connected_page",
           "status": "correct",
-          "elapsed_ms": 246.74
+          "elapsed_ms": 179.37
         }
       ]
     },
@@ -143,10 +143,9 @@
       "summary": {
         "cases": 5,
         "dispositions": {
-          "correct": 4,
-          "wrong_action": 1
+          "correct": 5
         },
-        "median_decision_ms": 207.53
+        "median_decision_ms": 203.65
       },
       "rows": [
         {
@@ -155,15 +154,15 @@
           "expected": "write_current_page",
           "choice": "write_current_page",
           "status": "correct",
-          "elapsed_ms": 150.07
+          "elapsed_ms": 252.46
         },
         {
           "id": "plan-clarify",
           "tier": "plan",
           "expected": "clarify",
-          "choice": "plan",
-          "status": "wrong_action",
-          "elapsed_ms": 234.19
+          "choice": "clarify",
+          "status": "correct",
+          "elapsed_ms": 181.9
         },
         {
           "id": "plan-discuss",
@@ -171,7 +170,7 @@
           "expected": "discuss",
           "choice": "discuss",
           "status": "correct",
-          "elapsed_ms": 249.61
+          "elapsed_ms": 203.65
         },
         {
           "id": "plan-other-destination",
@@ -179,7 +178,7 @@
           "expected": "different_destination",
           "choice": "different_destination",
           "status": "correct",
-          "elapsed_ms": 207.53
+          "elapsed_ms": 214.05
         },
         {
           "id": "plan-connected-page",
@@ -187,7 +186,7 @@
           "expected": "review_connected_page",
           "choice": "review_connected_page",
           "status": "correct",
-          "elapsed_ms": 178.13
+          "elapsed_ms": 188.67
         }
       ]
     }

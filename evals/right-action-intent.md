@@ -62,11 +62,13 @@ python -m evals.right_action_intent.scope --validate-only
 python -m evals.right_action_intent.scope --credential-file /path/to/.env --output /path/to/new-directory
 ```
 
-Jev 1.14.0 scored Build 4/4 in each arm and Plan 4/5 with the full menu versus
-5/5 with the scoped menu. In Plan, the full-menu response chose a work plan
-when asked to clarify an ending before preparing the scene. The small sample
-does not establish a latency trend. See the [pair results](right_action_intent/surface-probe-jev.json)
-and [exact menus and prompt](right_action_intent/surface-probe-pin.json).
+On the updated runtime menu, Jev 1.14.0 scored Build 4/4 and Plan 5/5
+in both arms. The earlier probe with the 18-choice Build catalog found
+a Plan clarification error in the full arm. After the Build catalog
+dropped five actions owned elsewhere, the combined menu also changed.
+The small sample does not establish a latency trend. See the current
+[pair results](right_action_intent/surface-probe-jev.json) and
+[exact menus and prompt](right_action_intent/surface-probe-pin.json).
 
 This probe uses the Build and contextual Plan menus. Play conversational routes
 currently enter through a retrieval controller, so they still need an ordinary
