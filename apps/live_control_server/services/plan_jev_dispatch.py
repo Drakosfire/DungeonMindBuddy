@@ -203,13 +203,13 @@ class PlanJevDispatch:
         return controller_accounting(self.adapter.fence.turn.graph_context_execution)
 
     @classmethod
-    def author_scope(cls, adapter, *, dialogue=(), prior_scope=None, review_scope=()):
+    def author_scope(cls, adapter, *, dialogue=(), prior_scope=None, review_scope=(), intent_opening=False):
         from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
         from application_state.agent_conversation.native_execution import NativePlanActionV3
         from application_state.agent_conversation.native_plan_opening import (
             NativePlanAuthorScopeObservedV1, NativePlanAuthorScopeParentV1,
             NativePlanOpeningInputV2, NativePlanOpeningInputV3, NativePlanOpeningScopeBindingV1, opening_input_type,
-            author_editor_focus, require_retained_author_scope,
+            author_editor_focus, plan_intent_input, require_retained_author_scope,
         )
 
         turn = adapter.fence.turn
@@ -240,7 +240,8 @@ class PlanJevDispatch:
             max_span_attempts=2048, request_id=uuid4(), parent_attempt_id=uuid4(),
             scope_sha256=scope_digest(turn), request_manifest_sha256=admission.manifest_sha256,
             prior_scope_event_id=prior_scope.event_id if prior_scope is not None else None,
-            scope_review=review or None)
+            scope_review=review or None,
+            intent_opening=plan_intent_input(turn.graph_context_execution.policy.action, dialogue) if intent_opening else None)
         return dispatch
 
     def _host_phase(self):
@@ -328,6 +329,8 @@ class PlanJevDispatch:
             opening_fields = {'author_scope_event_id': scope_binding.observation_event_id} if scope_binding else {}
             if play_opening:
                 opening_fields["play_intent_opening"] = True
+            if author_scope and self.parent.intent_opening is not None:
+                opening_fields["intent_opening"] = True
             if author_scope and self.parent.prior_scope_event_id is not None:
                 opening_fields['prior_scope_event_id'] = self.parent.prior_scope_event_id
             if author_scope and self.parent.scope_review is not None:

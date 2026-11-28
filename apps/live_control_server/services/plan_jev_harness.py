@@ -58,6 +58,7 @@ class PlanJevHarness:
                     calls.append(dispatch.call)
             return dispatch.selection_event
 
+        observe(PlanJevDispatch.author_scope(adapter, dialogue=dialogue, intent_opening=True))
         first_dispatch = PlanJevDispatch.author_scope(adapter, dialogue=dialogue)
         first = observe(first_dispatch)
         if can_skip_author_scope_recheck(
