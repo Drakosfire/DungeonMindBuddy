@@ -284,6 +284,13 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
     ("Move the Harbour map beside the departure advice to the empty slot on its right.", "duplicate_context"),
 ])
 def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):
+    if disposition in {"ready", "tied_menu", "duplicate_context", "different_row"}:
+        from apps.live_control_server.services import native_graph_reads
+
+        def unexpected_graph_preparation(*_args, **_kwargs):
+            pytest.fail("A local image Review prepared a Graph query")
+
+        monkeypatch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
     _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
                 message=message, image_move=disposition)
 
