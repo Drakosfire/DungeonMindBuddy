@@ -261,7 +261,10 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
     """Capture actual Build work and its first prepared semantic wire, without a Graph packet."""
     from application_state.agent_conversation.native_context import BuildWorkContextV1, NativeBuildProviderInputV2, NativeReviewedActionInputV1
     from application_state.agent_conversation.native_execution import NativeBuildActionV1
-    from application_state.agent_conversation.build_intentional_response import MENU_DIGEST, RESOLVER_DIGEST
+    from application_state.agent_conversation.build_intentional_response import (
+        MENU_DIGEST, RESOLVER_DIGEST, SCOPED_BUILD_MENU_DIGEST,
+        SCOPED_BUILD_RESOLVER_DIGEST, opening_work_question,
+    )
     basis = work.build_source
     if request.surface.surface_id!='build' or basis is None or accounting is None:
         raise ValueError('Native Build requires its actual saved work and accounting')
@@ -274,6 +277,8 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
                 or request.build_authored_references is not None):
             raise ValueError('Pending Build requires observations without acquired authority, references or reviewed admission')
     reviewed=reviewed_admission is not None
+    menu, resolver = ((MENU_DIGEST, RESOLVER_DIGEST) if reviewed else
+                      (SCOPED_BUILD_MENU_DIGEST, SCOPED_BUILD_RESOLVER_DIGEST))
     if reviewed:
         from application_state.agent_conversation.reviewed_action import admission_manifest,digest
         if (view is not None or reviewed_admission!=submitted_intent or submitted_intent.reviewed_step is None):
@@ -287,6 +292,7 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
         raw=view['payloadJson'].encode()
         if (len(raw)!=view['payloadUtf8Bytes'] or sha256(raw).hexdigest()!=view['payloadSha256']
                 or body['state']!=projection.state() or body['questions']!=projection.questions()
+                or body['questions'].get('requested_work') != opening_work_question(menu)
                 or (view['provider'],view['model'],view['apiMode'])!=('typesafe','jev-1.14.0','typesafe_decision')):
             raise ValueError('Native Build initial prepared request changed before capture')
         accounting.validate(body,raw,context_mode=view['contextMode'],host_phase=getattr(projection,'host_phase',None))
@@ -305,8 +311,8 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
     action = NativeBuildActionV1(intent=submitted_intent, write_capability=request.build_write_capability,
         image_move_capture=request.build_image_move_capture,
         capabilities=caps, related_page_catalog=related,
-        saved_source_char_count=len(basis.markdown), requested_work_menu_sha256=MENU_DIGEST,
-        response_resolver_sha256=RESOLVER_DIGEST)
+        saved_source_char_count=len(basis.markdown), requested_work_menu_sha256=menu,
+        response_resolver_sha256=resolver)
     if not reviewed:
         if getattr(projection,'host_phase',None)!='select':
             raise ValueError('Fresh native Build requires semantic initial input')

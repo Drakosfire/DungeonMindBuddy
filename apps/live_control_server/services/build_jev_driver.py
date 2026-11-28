@@ -534,13 +534,13 @@ class BuildJevDriver:
 
     def _init_native(self):
         """Build selects its own work; shared native retrieval owns acquisition."""
-        from application_state.agent_conversation.build_intentional_response import POLICY, opening_work_question
-        work_question = opening_work_question()
+        from application_state.agent_conversation.build_intentional_response import POLICY, MENU_DIGEST, SCOPED_BUILD_MENU_DIGEST, opening_work_question
         a = self._adapter
+        fresh = a.submitted_intent.reviewed_step is None
+        work_question = opening_work_question(SCOPED_BUILD_MENU_DIGEST if fresh else MENU_DIGEST)
         self._interaction = freeze_interaction(a)
         state = dict(user_question=a.request.message, interaction=self._interaction,
             rules=work_question['instructions'], requested_work_policy=POLICY)
-        fresh = a.submitted_intent.reviewed_step is None
         from application_state.build_proposal.prose_catalog import catalog_for_build_capability
         from application_state.build_proposal.prose_decision import build_boundary_opening
 
@@ -1307,7 +1307,7 @@ class BuildJevDriver:
                 return self.step
             if (a.budget.get('buildJevActions') or {}).get('intentional_response_policy') is not None:
                 from application_state.agent_conversation.build_intentional_response import (
-                    MENU_DIGEST, RESOLVER_DIGEST, UnresolvedDiscussionSource,
+                    _captured_semantics, UnresolvedDiscussionSource,
                     opening_image_choice, opening_work, operation_id, resolution_for,
                 )
                 from generationengine.types import DecisionResult
@@ -1345,12 +1345,13 @@ class BuildJevDriver:
                 _require_guest_build_discussion(a, label=label, graph_reference=graph_reference, image_move=image_move)
                 resolution = resolution_for(execution.policy, label, source_scope=source_scope)
                 placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
+                _, _, menu, resolver = _captured_semantics(execution.policy)
                 selected = resolution['operation']
                 authorization = next(e for e in execution.events if isinstance(e, ledger.ProviderAttemptAuthorizedEventV3) and e.provider_attempt_id == a.last_provider_attempt_id)
                 event = ledger.BuildRequestedWorkResolutionV1(kind='build_requested_work_resolved_v1', event_id=uuid4(), sequence=len(execution.events),
                     controller_attempt_id=authorization.provider_attempt_id, controller_envelope_sha256=authorization.envelope_sha256,
                     controller_response_sha256=hashlib.sha256(raw.encode()).hexdigest(), machine_request_id=plan.request_id,
-                    requested_work=label, intent_family=resolution['intent_family'], menu_sha256=MENU_DIGEST, resolver_sha256=RESOLVER_DIGEST,
+                    requested_work=label, intent_family=resolution['intent_family'], menu_sha256=menu, resolver_sha256=resolver,
                     response_capabilities_sha256=(digest(asdict(execution.policy.action.capabilities)) if self._native else execution.policy.response_capabilities_sha256), resolution=resolution,
                     paragraph_placement=placement,
                     typed_graph_reference=graph_reference,

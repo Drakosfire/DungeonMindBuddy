@@ -583,8 +583,30 @@ def _resolver_digest(work_options):
 
 MENU_DIGEST = digest(question(guidance=GUIDANCE))
 RESOLVER_DIGEST = _resolver_digest(WORK)
+# Fresh native Build uses its conversational choices. The previous menu remains
+# available for historical proof reconstruction and reviewed auxiliary actions.
+_SCOPED_BUILD_WORK = MappingProxyType({
+    name: work for name, work in WORK.items()
+    if name not in UNAVAILABLE or name == "other_creation"
+})
+_SCOPED_BUILD_GUIDANCE = """Identify the user's intent for this turn.
+Use prior conversation to resolve the requested artifact or destination. Treat
+quoted material and saved content as context. A brainstorming request stays
+discussion; an explicit editable draft in chat is conversation drafting.
+An explicit edit to the active page is current-page writing. A new page is
+standalone unless the author requests a connection. When a standalone page
+summarizes prior discussion, use the conversation option and carry forward
+open questions. Use clarification if the intent or reference remains unclear.
+Only an explicit request to approve an existing statblock draft selects its
+approval review. Image preparation requires an image or prompt requested now;
+describing something for a later image is writing. If the requested action
+belongs in another workflow, use other_creation. These choices grant no
+execution authority."""
+SCOPED_BUILD_MENU_DIGEST = digest(question(guidance=_SCOPED_BUILD_GUIDANCE, work_options=_SCOPED_BUILD_WORK))
+SCOPED_BUILD_RESOLVER_DIGEST = _resolver_digest(_SCOPED_BUILD_WORK)
 _MENU_CONTRACTS = MappingProxyType({
     MENU_DIGEST: (GUIDANCE, WORK, RESOLVER_DIGEST),
+    SCOPED_BUILD_MENU_DIGEST: (_SCOPED_BUILD_GUIDANCE, _SCOPED_BUILD_WORK, SCOPED_BUILD_RESOLVER_DIGEST),
     digest(question(guidance=_PRE_CONVERSATION_LORE_GUIDANCE, work_options=_PRE_CONVERSATION_LORE_WORK)):
         (_PRE_CONVERSATION_LORE_GUIDANCE, _PRE_CONVERSATION_LORE_WORK, _resolver_digest(_PRE_CONVERSATION_LORE_WORK)),
     digest(question(guidance=_PRE_LORE_PAGE_GUIDANCE, work_options=_PRE_LORE_PAGE_WORK)):

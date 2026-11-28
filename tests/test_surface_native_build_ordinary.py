@@ -2383,6 +2383,16 @@ def test_ordinary_build_human_source_reaches_writer_and_reopens_exact_citation(l
 def test_ordinary_build_source_status_guidance_reaches_the_provider(lane, tmp_path, monkeypatch):
     case = _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
                        authored_source="full_document")
+    from application_state.agent_conversation.build_intentional_response import (
+        MENU_DIGEST, SCOPED_BUILD_MENU_DIGEST, opening_work_question,
+    )
+    from application_state.agent_conversation.surface_action_catalog import opening_action_menu
+
+    opening = json.loads(case.decisions.calls[0].content)["questions"]["requested_work"]
+    assert opening == opening_work_question(SCOPED_BUILD_MENU_DIGEST)
+    assert tuple(opening["criteria"]) == tuple(opening_action_menu("build"))
+    assert "build_encounter" not in opening["criteria"]
+    assert "build_encounter" in opening_work_question(MENU_DIGEST)["criteria"]
     assert len(case.writer.calls) == 1
     request = json.loads(case.writer.calls[0].content)
     assert "next-session pickup or resume instruction" in request["instructions"]
