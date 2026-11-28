@@ -135,10 +135,10 @@ export async function resumeConversation(command:ResumeConversationCommand){
  return value;
 }
 
-export type ConversationLifecycleOperation='archive'|'trash'|'restore';
+export type ConversationLifecycleOperation='archive'|'trash'|'restore'|'delete';
 export async function changeConversationLifecycle(command:ResumeConversationCommand,operation:ConversationLifecycleOperation){
  const value=await read(path(command.world_id)+'/'+encodeURIComponent(command.conversation_id)+'/'+operation,{method:'POST',body:JSON.stringify(command)});
- const active=operation!=='restore'&&command.expected_active_conversation_id===command.conversation_id?null:command.expected_active_conversation_id;
+ const active=(operation==='archive'||operation==='trash')&&command.expected_active_conversation_id===command.conversation_id?null:command.expected_active_conversation_id;
  if(!exactObject(value,['world_id','command_id','command_kind','conversation_id','active_conversation_id','pointer_revision','recorded_at'])
   ||value.world_id!==command.world_id||value.command_id!==command.command_id||value.command_kind!==operation
   ||value.conversation_id!==command.conversation_id||value.active_conversation_id!==active

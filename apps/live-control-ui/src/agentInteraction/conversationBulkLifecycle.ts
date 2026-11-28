@@ -1,7 +1,7 @@
 import {changeConversationLifecycle, type ConversationLifecycleOperation} from '../api/conversationLibraryApi';
 import {LiveApiError} from '../api/liveApi';
 
-export type BulkConversationOperation = Extract<ConversationLifecycleOperation, 'trash' | 'restore'>;
+export type BulkConversationOperation = Extract<ConversationLifecycleOperation, 'trash' | 'restore' | 'delete'>;
 
 export interface BulkConversationTarget {
   conversationId: string;
