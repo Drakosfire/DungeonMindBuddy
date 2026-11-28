@@ -7270,6 +7270,7 @@ def _pending_build_startup_eligible(request, *, principal, durable_turn, authori
     eligible = (callable(authorize_world) and principal is not None and principal.role == 'gm'
         and (pending_retained or durable_turn is None and request.retry_of is None
             and request.reviewed_step is None and request.build_authored_references is None
+            and request.build_image_move_capture is None
             and request.selected_knowledge is None and request.graph_selection is None
             and request.graph_request.focus.kind == 'none'
             and getattr(request.build_write_capability, 'reference_image_id', None) is None))
