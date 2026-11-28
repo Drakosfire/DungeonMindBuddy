@@ -24,6 +24,20 @@ class PurgeTarget:
         )
 
 
+def find_receipt(*, world_id: str, draft_id: UUID) -> tuple[PurgeTarget, bool] | None:
+    """Read the exact retry target after the draft has left the store."""
+    with unit_of_work(_dsn()) as conn:
+        row = conn.execute(
+            """SELECT statblock_id, world_id, draft_id, draft_version, expected_revision_id, complete
+               FROM mechanics_revision.purge WHERE world_id=%s AND draft_id=%s""",
+            (world_id, draft_id),
+        ).fetchone()
+    if row is None:
+        return None
+    statblock_id, bound_world, bound_draft, draft_version, revision_id, complete = row
+    return PurgeTarget(statblock_id, bound_world, bound_draft, draft_version, revision_id), complete
+
+
 def _lock(conn, statblock_id: str) -> None:
     conn.execute(
         "SELECT pg_advisory_xact_lock(hashtextextended(%s,0))",
