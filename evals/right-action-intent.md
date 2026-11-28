@@ -97,3 +97,21 @@ Build requests for a chat revision, a connected page, and saving a previously
 reviewed statblock. See the [case and action-level evidence](right_action_intent/surface-cohort-jev.json).
 The combined arm uses the union of the available Build and Plan menus, so it
 does not establish performance against an all-surface menu.
+
+### Play discussion and evidence lookup
+
+The current surface cohort adds four Play intent cases. The ordinary Play
+owner checks verify a single candidate-free intent request, a conversational
+reply, an explicit Rules lookup, and exact replay. Explicit preselected source
+references still use their established route. Edit and destination handoffs
+remain unqualified for Play fulfillment.
+
+| Surface | Combined menu | Scoped menu |
+| --- | ---: | ---: |
+| Build | 29/36 | 33/36 |
+| Plan | 7/7 | 7/7 |
+| Play | 4/4 | 4/4 |
+
+The [new paired capture](right_action_intent/surface-cohort-play-jev.json)
+pins all 47 cases and reports by action. The earlier Build/Plan result used
+its 43-case ancestor and a different combined menu. Keep the records separate.

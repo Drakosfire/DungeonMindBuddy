@@ -507,6 +507,46 @@
       },
       "expected": "clarify",
       "reason": "The user requests a clarifying question before proceeding."
+    },
+    {
+      "id": "play-discuss",
+      "tier": "surface_contrast",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Let’s brainstorm how to introduce the guard between scenes. Keep it in chat."
+      },
+      "expected": "discuss",
+      "reason": "The request supplies a premise and asks for conversation."
+    },
+    {
+      "id": "play-scene-discuss",
+      "tier": "surface_contrast",
+      "input": {
+        "surface": "play",
+        "user_utterance": "What are a few fun directions this current scene could take? We’re just talking possibilities."
+      },
+      "expected": "discuss",
+      "reason": "The user asks for ideas without a new factual lookup or a Run edit."
+    },
+    {
+      "id": "play-rules-lookup",
+      "tier": "surface_contrast",
+      "input": {
+        "surface": "play",
+        "user_utterance": "Can I end my move in an occupied space? Check the published rules."
+      },
+      "expected": "read_source",
+      "reason": "The user explicitly requests rules evidence."
+    },
+    {
+      "id": "play-lore-lookup",
+      "tier": "surface_contrast",
+      "input": {
+        "surface": "play",
+        "user_utterance": "What did Torbin promise at the end of the previous session? Check the saved recap."
+      },
+      "expected": "read_source",
+      "reason": "The user explicitly requests evidence from an earlier recap."
     }
   ]
 }

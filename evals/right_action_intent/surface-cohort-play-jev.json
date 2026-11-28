@@ -1,0 +1,1202 @@
+{
+  "fixture_sha256": "34f60db8011a66a219cae17124d054cf3b308ead46f01ef8c6f32bcdf82c87ff",
+  "model": "jev-1.14.0",
+  "prompt": "Identify the user's intent for this turn. Use the supplied dialogue where needed. If the available evidence leaves the intent unclear, choose needs_context_to_choose. Return one action family. Target binding, available tools, and execution are downstream.",
+  "menus": {
+    "build": {
+      "scoped": {
+        "discuss": "discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.",
+        "clarify_request": "discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "write_current_page": "create: Concrete current-page prose, proposed list/table, addition or selected-range revision.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_connected_page": "create: Prepare review to create a different connected page.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion."
+      },
+      "full": {
+        "discuss": "discuss: Answer, retrieve, compare, acknowledge, or explicitly discuss first.",
+        "clarify_request": "discuss: Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "write_current_page": "create: Concrete current-page prose, proposed list/table, addition or selected-range revision.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_connected_page": "create: Prepare review to create a different connected page.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion.",
+        "different_destination": "The request belongs to another surface or to an explicit operator control.",
+        "read_source": "Consult Rules or saved sources for facts the user needs.",
+        "play_edit": "Prepare a reviewable change to the current session scene."
+      }
+    },
+    "plan": {
+      "scoped": {
+        "discuss": "Answer, explain, critique or discuss in conversation without a requested page edit.",
+        "clarify": "The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.",
+        "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+        "different_destination": "Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+        "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred."
+      },
+      "full": {
+        "discuss": "Answer, explain, critique or discuss in conversation without a requested page edit.",
+        "clarify": "The intended work or content needs an author decision. Missing or ambiguous placement alone is not this intent.",
+        "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+        "different_destination": "Edit another existing page/object or create an unsupported object, rather than writing this Plan.",
+        "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion.",
+        "read_source": "Consult Rules or saved sources for facts the user needs.",
+        "play_edit": "Prepare a reviewable change to the current session scene."
+      }
+    },
+    "play": {
+      "scoped": {
+        "discuss": "Discuss, explain, or brainstorm using the supplied conversation.",
+        "clarify_request": "Ask what the user wants when the action or referent remains unclear.",
+        "read_source": "Consult Rules or saved sources for facts the user needs.",
+        "play_edit": "Prepare a reviewable change to the current session scene.",
+        "different_destination": "The request belongs to another surface or to an explicit operator control."
+      },
+      "full": {
+        "discuss": "Discuss, explain, or brainstorm using the supplied conversation.",
+        "clarify_request": "Ask what the user wants when the action or referent remains unclear.",
+        "read_source": "Consult Rules or saved sources for facts the user needs.",
+        "play_edit": "Prepare a reviewable change to the current session scene.",
+        "different_destination": "The request belongs to another surface or to an explicit operator control.",
+        "plan": "create: Prepare an editable plan/checklist for author choice, not execution.",
+        "write_current_page": "Draft, revise or place usable writing on this Plan, even when its destination is missing or ambiguous.",
+        "prepare_image": "create: Prepare image, illustration or map-image prompt review; not coordinates.",
+        "review_connected_page": "Create a new connected location page through its existing review; further requested edits remain deferred.",
+        "review_relationship": "create: Prepare a saved-page relationship review; not publication.",
+        "other_creation": "create: A concrete action/artifact outside the defined work kinds.",
+        "clarify_creation": "create: Creation is requested but its artifact or target is unresolved.",
+        "draft_in_conversation": "discuss: Write an explicitly requested editable draft for review in chat.",
+        "review_variant_approval": "create: Open confirmation for a statblock variant already drafted for review in this conversation.",
+        "review_lore_page": "create: Review a new standalone authored page, initially blank or populated, or continue its review.",
+        "review_lore_page_from_conversation": "create: Review a new standalone page using the preceding discussion."
+      }
+    }
+  },
+  "results": {
+    "build": {
+      "full": {
+        "summary": {
+          "cases": 36,
+          "dispositions": {
+            "correct": 29,
+            "wrong_action": 7
+          },
+          "median_decision_ms": 211.01
+        },
+        "rows": [
+          {
+            "id": "build-selection",
+            "tier": "build",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 578.35
+          },
+          {
+            "id": "build-chat-draft",
+            "tier": "build",
+            "expected": "draft_in_conversation",
+            "choice": "draft_in_conversation",
+            "status": "correct",
+            "elapsed_ms": 506.05
+          },
+          {
+            "id": "build-clarify",
+            "tier": "build",
+            "expected": "clarify_request",
+            "choice": "clarify_request",
+            "status": "correct",
+            "elapsed_ms": 514.1
+          },
+          {
+            "id": "build-discuss",
+            "tier": "build",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 527.18
+          },
+          {
+            "id": "discuss-direct",
+            "tier": "direct",
+            "expected": "discuss",
+            "choice": "draft_in_conversation",
+            "status": "wrong_action",
+            "elapsed_ms": 182.06
+          },
+          {
+            "id": "discuss-paraphrase",
+            "tier": "paraphrase",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 195.34
+          },
+          {
+            "id": "clarify_request-direct",
+            "tier": "direct",
+            "expected": "clarify_request",
+            "choice": "clarify_request",
+            "status": "correct",
+            "elapsed_ms": 206.58
+          },
+          {
+            "id": "clarify_request-paraphrase",
+            "tier": "paraphrase",
+            "expected": "clarify_request",
+            "choice": "clarify_request",
+            "status": "correct",
+            "elapsed_ms": 214.12
+          },
+          {
+            "id": "draft_in_conversation-direct",
+            "tier": "direct",
+            "expected": "draft_in_conversation",
+            "choice": "draft_in_conversation",
+            "status": "correct",
+            "elapsed_ms": 167.85
+          },
+          {
+            "id": "draft_in_conversation-paraphrase",
+            "tier": "paraphrase",
+            "expected": "draft_in_conversation",
+            "choice": "write_current_page",
+            "status": "wrong_action",
+            "elapsed_ms": 194.07
+          },
+          {
+            "id": "write_current_page-direct",
+            "tier": "direct",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 198.18
+          },
+          {
+            "id": "write_current_page-paraphrase",
+            "tier": "paraphrase",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 203.16
+          },
+          {
+            "id": "review_lore_page-direct",
+            "tier": "direct",
+            "expected": "review_lore_page",
+            "choice": "review_lore_page",
+            "status": "correct",
+            "elapsed_ms": 237.36
+          },
+          {
+            "id": "review_lore_page-paraphrase",
+            "tier": "paraphrase",
+            "expected": "review_lore_page_from_conversation",
+            "choice": "review_lore_page_from_conversation",
+            "status": "correct",
+            "elapsed_ms": 223.77
+          },
+          {
+            "id": "review_connected_page-direct",
+            "tier": "direct",
+            "expected": "review_connected_page",
+            "choice": "draft_in_conversation",
+            "status": "wrong_action",
+            "elapsed_ms": 233.66
+          },
+          {
+            "id": "review_connected_page-paraphrase",
+            "tier": "paraphrase",
+            "expected": "review_connected_page",
+            "choice": "review_connected_page",
+            "status": "correct",
+            "elapsed_ms": 228.23
+          },
+          {
+            "id": "plan-paraphrase",
+            "tier": "paraphrase",
+            "expected": "plan",
+            "choice": "plan",
+            "status": "correct",
+            "elapsed_ms": 194.87
+          },
+          {
+            "id": "review_relationship-direct",
+            "tier": "direct",
+            "expected": "review_relationship",
+            "choice": "review_relationship",
+            "status": "correct",
+            "elapsed_ms": 206.14
+          },
+          {
+            "id": "review_relationship-paraphrase",
+            "tier": "paraphrase",
+            "expected": "review_relationship",
+            "choice": "review_relationship",
+            "status": "correct",
+            "elapsed_ms": 182.21
+          },
+          {
+            "id": "review_variant_approval-direct",
+            "tier": "direct",
+            "expected": "review_variant_approval",
+            "choice": "review_variant_approval",
+            "status": "correct",
+            "elapsed_ms": 198.16
+          },
+          {
+            "id": "review_variant_approval-paraphrase",
+            "tier": "paraphrase",
+            "expected": "review_variant_approval",
+            "choice": "write_current_page",
+            "status": "wrong_action",
+            "elapsed_ms": 262.65
+          },
+          {
+            "id": "prepare_image-direct",
+            "tier": "direct",
+            "expected": "prepare_image",
+            "choice": "prepare_image",
+            "status": "correct",
+            "elapsed_ms": 296.95
+          },
+          {
+            "id": "prepare_image-paraphrase",
+            "tier": "paraphrase",
+            "expected": "prepare_image",
+            "choice": "prepare_image",
+            "status": "correct",
+            "elapsed_ms": 266.9
+          },
+          {
+            "id": "DISCUSS-1-U",
+            "tier": "retained_utterance",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 348.31
+          },
+          {
+            "id": "CLARIFY-2-U",
+            "tier": "retained_utterance",
+            "expected": "clarify_request",
+            "choice": "clarify_request",
+            "status": "correct",
+            "elapsed_ms": 192.09
+          },
+          {
+            "id": "PAGE-EDIT-2-U",
+            "tier": "retained_utterance",
+            "expected": "write_current_page",
+            "choice": "play_edit",
+            "status": "wrong_action",
+            "elapsed_ms": 235.76
+          },
+          {
+            "id": "CLARIFY-2-playful-H",
+            "tier": "retained_dialogue",
+            "expected": "draft_in_conversation",
+            "choice": "draft_in_conversation",
+            "status": "correct",
+            "elapsed_ms": 207.22
+          },
+          {
+            "id": "PAGE-EDIT-2-do-that-H",
+            "tier": "retained_dialogue",
+            "expected": "write_current_page",
+            "choice": "play_edit",
+            "status": "wrong_action",
+            "elapsed_ms": 185.33
+          },
+          {
+            "id": "DISCUSS-1-do-that-H",
+            "tier": "retained_dialogue",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 190.45
+          },
+          {
+            "id": "DISCUSS-1-distractor-U",
+            "tier": "retained_utterance",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 228.76
+          },
+          {
+            "id": "PAGE-EDIT-2-external-U",
+            "tier": "retained_utterance",
+            "expected": "write_current_page",
+            "choice": "play_edit",
+            "status": "wrong_action",
+            "elapsed_ms": 208.93
+          },
+          {
+            "id": "image-not-generate",
+            "tier": "contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 361.1
+          },
+          {
+            "id": "mechanics-as-text",
+            "tier": "contrast",
+            "expected": "draft_in_conversation",
+            "choice": "draft_in_conversation",
+            "status": "correct",
+            "elapsed_ms": 298.23
+          },
+          {
+            "id": "no-combat-effect",
+            "tier": "contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 177.19
+          },
+          {
+            "id": "map-description",
+            "tier": "contrast",
+            "expected": "draft_in_conversation",
+            "choice": "draft_in_conversation",
+            "status": "correct",
+            "elapsed_ms": 158.16
+          },
+          {
+            "id": "review-not-publish",
+            "tier": "contrast",
+            "expected": "review_relationship",
+            "choice": "review_relationship",
+            "status": "correct",
+            "elapsed_ms": 213.1
+          }
+        ],
+        "reused": [],
+        "by_action": {
+          "clarify_request": {
+            "cases": 4,
+            "dispositions": {
+              "correct": 4
+            },
+            "median_decision_ms": 210.35
+          },
+          "discuss": {
+            "cases": 8,
+            "dispositions": {
+              "correct": 7,
+              "wrong_action": 1
+            },
+            "median_decision_ms": 212.05
+          },
+          "draft_in_conversation": {
+            "cases": 6,
+            "dispositions": {
+              "correct": 5,
+              "wrong_action": 1
+            },
+            "median_decision_ms": 200.64
+          },
+          "plan": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 194.87
+          },
+          "prepare_image": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "median_decision_ms": 281.92
+          },
+          "review_connected_page": {
+            "cases": 2,
+            "dispositions": {
+              "wrong_action": 1,
+              "correct": 1
+            },
+            "median_decision_ms": 230.94
+          },
+          "review_lore_page": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 237.36
+          },
+          "review_lore_page_from_conversation": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 223.77
+          },
+          "review_relationship": {
+            "cases": 3,
+            "dispositions": {
+              "correct": 3
+            },
+            "median_decision_ms": 206.14
+          },
+          "review_variant_approval": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 1,
+              "wrong_action": 1
+            },
+            "median_decision_ms": 230.4
+          },
+          "write_current_page": {
+            "cases": 6,
+            "dispositions": {
+              "correct": 3,
+              "wrong_action": 3
+            },
+            "median_decision_ms": 206.05
+          }
+        }
+      },
+      "scoped": {
+        "summary": {
+          "cases": 36,
+          "dispositions": {
+            "correct": 33,
+            "wrong_action": 3
+          },
+          "median_decision_ms": 189.38
+        },
+        "rows": [
+          {
+            "id": "build-selection",
+            "tier": "build",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 208.93
+          },
+          {
+            "id": "build-chat-draft",
+            "tier": "build",
+            "expected": "draft_in_conversation",
+            "choice": "draft_in_conversation",
+            "status": "correct",
+            "elapsed_ms": 230.44
+          },
+          {
+            "id": "build-clarify",
+            "tier": "build",
+            "expected": "clarify_request",
+            "choice": "clarify_request",
+            "status": "correct",
+            "elapsed_ms": 195.64
+          },
+          {
+            "id": "build-discuss",
+            "tier": "build",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 165.66
+          },
+          {
+            "id": "discuss-direct",
+            "tier": "direct",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 185.97
+          },
+          {
+            "id": "discuss-paraphrase",
+            "tier": "paraphrase",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 147.73
+          },
+          {
+            "id": "clarify_request-direct",
+            "tier": "direct",
+            "expected": "clarify_request",
+            "choice": "clarify_request",
+            "status": "correct",
+            "elapsed_ms": 156.29
+          },
+          {
+            "id": "clarify_request-paraphrase",
+            "tier": "paraphrase",
+            "expected": "clarify_request",
+            "choice": "clarify_request",
+            "status": "correct",
+            "elapsed_ms": 151.92
+          },
+          {
+            "id": "draft_in_conversation-direct",
+            "tier": "direct",
+            "expected": "draft_in_conversation",
+            "choice": "draft_in_conversation",
+            "status": "correct",
+            "elapsed_ms": 203.91
+          },
+          {
+            "id": "draft_in_conversation-paraphrase",
+            "tier": "paraphrase",
+            "expected": "draft_in_conversation",
+            "choice": "write_current_page",
+            "status": "wrong_action",
+            "elapsed_ms": 175.8
+          },
+          {
+            "id": "write_current_page-direct",
+            "tier": "direct",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 189.41
+          },
+          {
+            "id": "write_current_page-paraphrase",
+            "tier": "paraphrase",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 208.36
+          },
+          {
+            "id": "review_lore_page-direct",
+            "tier": "direct",
+            "expected": "review_lore_page",
+            "choice": "review_lore_page",
+            "status": "correct",
+            "elapsed_ms": 194.86
+          },
+          {
+            "id": "review_lore_page-paraphrase",
+            "tier": "paraphrase",
+            "expected": "review_lore_page_from_conversation",
+            "choice": "review_lore_page_from_conversation",
+            "status": "correct",
+            "elapsed_ms": 189.36
+          },
+          {
+            "id": "review_connected_page-direct",
+            "tier": "direct",
+            "expected": "review_connected_page",
+            "choice": "draft_in_conversation",
+            "status": "wrong_action",
+            "elapsed_ms": 201.87
+          },
+          {
+            "id": "review_connected_page-paraphrase",
+            "tier": "paraphrase",
+            "expected": "review_connected_page",
+            "choice": "review_connected_page",
+            "status": "correct",
+            "elapsed_ms": 159.66
+          },
+          {
+            "id": "plan-paraphrase",
+            "tier": "paraphrase",
+            "expected": "plan",
+            "choice": "plan",
+            "status": "correct",
+            "elapsed_ms": 175.35
+          },
+          {
+            "id": "review_relationship-direct",
+            "tier": "direct",
+            "expected": "review_relationship",
+            "choice": "review_relationship",
+            "status": "correct",
+            "elapsed_ms": 191.87
+          },
+          {
+            "id": "review_relationship-paraphrase",
+            "tier": "paraphrase",
+            "expected": "review_relationship",
+            "choice": "review_relationship",
+            "status": "correct",
+            "elapsed_ms": 222.93
+          },
+          {
+            "id": "review_variant_approval-direct",
+            "tier": "direct",
+            "expected": "review_variant_approval",
+            "choice": "review_variant_approval",
+            "status": "correct",
+            "elapsed_ms": 194.06
+          },
+          {
+            "id": "review_variant_approval-paraphrase",
+            "tier": "paraphrase",
+            "expected": "review_variant_approval",
+            "choice": "write_current_page",
+            "status": "wrong_action",
+            "elapsed_ms": 183.97
+          },
+          {
+            "id": "prepare_image-direct",
+            "tier": "direct",
+            "expected": "prepare_image",
+            "choice": "prepare_image",
+            "status": "correct",
+            "elapsed_ms": 162.56
+          },
+          {
+            "id": "prepare_image-paraphrase",
+            "tier": "paraphrase",
+            "expected": "prepare_image",
+            "choice": "prepare_image",
+            "status": "correct",
+            "elapsed_ms": 203.3
+          },
+          {
+            "id": "DISCUSS-1-U",
+            "tier": "retained_utterance",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 174.36
+          },
+          {
+            "id": "CLARIFY-2-U",
+            "tier": "retained_utterance",
+            "expected": "clarify_request",
+            "choice": "clarify_request",
+            "status": "correct",
+            "elapsed_ms": 169.02
+          },
+          {
+            "id": "PAGE-EDIT-2-U",
+            "tier": "retained_utterance",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 166.81
+          },
+          {
+            "id": "CLARIFY-2-playful-H",
+            "tier": "retained_dialogue",
+            "expected": "draft_in_conversation",
+            "choice": "draft_in_conversation",
+            "status": "correct",
+            "elapsed_ms": 193.52
+          },
+          {
+            "id": "PAGE-EDIT-2-do-that-H",
+            "tier": "retained_dialogue",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 200.49
+          },
+          {
+            "id": "DISCUSS-1-do-that-H",
+            "tier": "retained_dialogue",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 190.14
+          },
+          {
+            "id": "DISCUSS-1-distractor-U",
+            "tier": "retained_utterance",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 198.1
+          },
+          {
+            "id": "PAGE-EDIT-2-external-U",
+            "tier": "retained_utterance",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 185.27
+          },
+          {
+            "id": "image-not-generate",
+            "tier": "contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 187.53
+          },
+          {
+            "id": "mechanics-as-text",
+            "tier": "contrast",
+            "expected": "draft_in_conversation",
+            "choice": "draft_in_conversation",
+            "status": "correct",
+            "elapsed_ms": 201.77
+          },
+          {
+            "id": "no-combat-effect",
+            "tier": "contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 175.54
+          },
+          {
+            "id": "map-description",
+            "tier": "contrast",
+            "expected": "draft_in_conversation",
+            "choice": "draft_in_conversation",
+            "status": "correct",
+            "elapsed_ms": 166.56
+          },
+          {
+            "id": "review-not-publish",
+            "tier": "contrast",
+            "expected": "review_relationship",
+            "choice": "review_relationship",
+            "status": "correct",
+            "elapsed_ms": 205.34
+          }
+        ],
+        "reused": [],
+        "by_action": {
+          "clarify_request": {
+            "cases": 4,
+            "dispositions": {
+              "correct": 4
+            },
+            "median_decision_ms": 162.66
+          },
+          "discuss": {
+            "cases": 8,
+            "dispositions": {
+              "correct": 8
+            },
+            "median_decision_ms": 180.75
+          },
+          "draft_in_conversation": {
+            "cases": 6,
+            "dispositions": {
+              "correct": 5,
+              "wrong_action": 1
+            },
+            "median_decision_ms": 197.65
+          },
+          "plan": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 175.35
+          },
+          "prepare_image": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "median_decision_ms": 182.93
+          },
+          "review_connected_page": {
+            "cases": 2,
+            "dispositions": {
+              "wrong_action": 1,
+              "correct": 1
+            },
+            "median_decision_ms": 180.76
+          },
+          "review_lore_page": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 194.86
+          },
+          "review_lore_page_from_conversation": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 189.36
+          },
+          "review_relationship": {
+            "cases": 3,
+            "dispositions": {
+              "correct": 3
+            },
+            "median_decision_ms": 205.34
+          },
+          "review_variant_approval": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 1,
+              "wrong_action": 1
+            },
+            "median_decision_ms": 189.01
+          },
+          "write_current_page": {
+            "cases": 6,
+            "dispositions": {
+              "correct": 6
+            },
+            "median_decision_ms": 194.95
+          }
+        }
+      }
+    },
+    "plan": {
+      "scoped": {
+        "summary": {
+          "cases": 7,
+          "dispositions": {
+            "correct": 7
+          },
+          "median_decision_ms": 188.3
+        },
+        "rows": [
+          {
+            "id": "plan-edit",
+            "tier": "plan",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 168.6
+          },
+          {
+            "id": "plan-clarify",
+            "tier": "plan",
+            "expected": "clarify",
+            "choice": "clarify",
+            "status": "correct",
+            "elapsed_ms": 188.3
+          },
+          {
+            "id": "plan-discuss",
+            "tier": "plan",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 189.15
+          },
+          {
+            "id": "plan-other-destination",
+            "tier": "plan",
+            "expected": "different_destination",
+            "choice": "different_destination",
+            "status": "correct",
+            "elapsed_ms": 206.92
+          },
+          {
+            "id": "plan-connected-page",
+            "tier": "plan",
+            "expected": "review_connected_page",
+            "choice": "review_connected_page",
+            "status": "correct",
+            "elapsed_ms": 165.53
+          },
+          {
+            "id": "plan-ferryman-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 170.02
+          },
+          {
+            "id": "plan-festival-clarify",
+            "tier": "surface_contrast",
+            "expected": "clarify",
+            "choice": "clarify",
+            "status": "correct",
+            "elapsed_ms": 200.51
+          }
+        ],
+        "reused": [],
+        "by_action": {
+          "clarify": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "median_decision_ms": 194.41
+          },
+          "different_destination": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 206.92
+          },
+          "discuss": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "median_decision_ms": 179.59
+          },
+          "review_connected_page": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 165.53
+          },
+          "write_current_page": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 168.6
+          }
+        }
+      },
+      "full": {
+        "summary": {
+          "cases": 7,
+          "dispositions": {
+            "correct": 7
+          },
+          "median_decision_ms": 186.91
+        },
+        "rows": [
+          {
+            "id": "plan-edit",
+            "tier": "plan",
+            "expected": "write_current_page",
+            "choice": "write_current_page",
+            "status": "correct",
+            "elapsed_ms": 266.76
+          },
+          {
+            "id": "plan-clarify",
+            "tier": "plan",
+            "expected": "clarify",
+            "choice": "clarify",
+            "status": "correct",
+            "elapsed_ms": 186.91
+          },
+          {
+            "id": "plan-discuss",
+            "tier": "plan",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 162.51
+          },
+          {
+            "id": "plan-other-destination",
+            "tier": "plan",
+            "expected": "different_destination",
+            "choice": "different_destination",
+            "status": "correct",
+            "elapsed_ms": 195.99
+          },
+          {
+            "id": "plan-connected-page",
+            "tier": "plan",
+            "expected": "review_connected_page",
+            "choice": "review_connected_page",
+            "status": "correct",
+            "elapsed_ms": 178.52
+          },
+          {
+            "id": "plan-ferryman-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 200.08
+          },
+          {
+            "id": "plan-festival-clarify",
+            "tier": "surface_contrast",
+            "expected": "clarify",
+            "choice": "clarify",
+            "status": "correct",
+            "elapsed_ms": 180.87
+          }
+        ],
+        "reused": [],
+        "by_action": {
+          "clarify": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "median_decision_ms": 183.89
+          },
+          "different_destination": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 195.99
+          },
+          "discuss": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "median_decision_ms": 181.3
+          },
+          "review_connected_page": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 178.52
+          },
+          "write_current_page": {
+            "cases": 1,
+            "dispositions": {
+              "correct": 1
+            },
+            "median_decision_ms": 266.76
+          }
+        }
+      }
+    },
+    "play": {
+      "full": {
+        "summary": {
+          "cases": 4,
+          "dispositions": {
+            "correct": 4
+          },
+          "median_decision_ms": 233.88
+        },
+        "rows": [
+          {
+            "id": "play-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 213.18
+          },
+          {
+            "id": "play-scene-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 228.73
+          },
+          {
+            "id": "play-rules-lookup",
+            "tier": "surface_contrast",
+            "expected": "read_source",
+            "choice": "read_source",
+            "status": "correct",
+            "elapsed_ms": 239.04
+          },
+          {
+            "id": "play-lore-lookup",
+            "tier": "surface_contrast",
+            "expected": "read_source",
+            "choice": "read_source",
+            "status": "correct",
+            "elapsed_ms": 271.9
+          }
+        ],
+        "reused": [],
+        "by_action": {
+          "discuss": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "median_decision_ms": 220.95
+          },
+          "read_source": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "median_decision_ms": 255.47
+          }
+        }
+      },
+      "scoped": {
+        "summary": {
+          "cases": 4,
+          "dispositions": {
+            "correct": 4
+          },
+          "median_decision_ms": 212.61
+        },
+        "rows": [
+          {
+            "id": "play-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 239.18
+          },
+          {
+            "id": "play-scene-discuss",
+            "tier": "surface_contrast",
+            "expected": "discuss",
+            "choice": "discuss",
+            "status": "correct",
+            "elapsed_ms": 244.81
+          },
+          {
+            "id": "play-rules-lookup",
+            "tier": "surface_contrast",
+            "expected": "read_source",
+            "choice": "read_source",
+            "status": "correct",
+            "elapsed_ms": 153.86
+          },
+          {
+            "id": "play-lore-lookup",
+            "tier": "surface_contrast",
+            "expected": "read_source",
+            "choice": "read_source",
+            "status": "correct",
+            "elapsed_ms": 186.03
+          }
+        ],
+        "reused": [],
+        "by_action": {
+          "discuss": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "median_decision_ms": 242.0
+          },
+          "read_source": {
+            "cases": 2,
+            "dispositions": {
+              "correct": 2
+            },
+            "median_decision_ms": 169.94
+          }
+        }
+      }
+    }
+  }
+}
