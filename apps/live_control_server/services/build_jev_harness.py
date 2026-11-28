@@ -722,10 +722,7 @@ class BuildJevHarness:
             # Retain actual received bytes before a host gate can reject them.
             # This protected, unvalidated Debug channel grants no answer authority.
             if isinstance(adapter._broker_execution().policy, (ledger.BuildSelectedSourceActionControllerWriterPolicyV1, SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1)):
-                adapter.context_capture.controller_decision_response(
-                    canonical(result.model_dump(mode="json")),
-                    producing_provider_attempt_id=adapter.last_provider_attempt_id,
-                )
+                self._capture_controller_decision(adapter, plan, result)
             if prepare_deferred_query is not None:
                 if not opening_dispatched:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
@@ -795,6 +792,38 @@ class BuildJevHarness:
                 else:
                     pending_query.cancel()
             await client.aclose()
+
+    @staticmethod
+    def _capture_controller_decision(adapter, projection, result):
+        from hashlib import sha256
+        from uuid import UUID, uuid4
+        from application_state.agent_conversation.build_intentional_response import verify_build_intent_opening
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        from application_state.agent_conversation.types import BuildOpeningIntentSelectedV1
+        from .agent_turn_service import _require_fresh_execution_append
+
+        response = result.model_dump(mode="json")
+        raw = canonical(response)
+        adapter.context_capture.controller_decision_response(
+            raw, producing_provider_attempt_id=adapter.last_provider_attempt_id,
+        )
+        if (projection.host_phase != "select" or set(projection.questions()) != {"requested_work"}
+                or type(adapter._broker_receipt()) is not BuildPendingContextReceiptV1):
+            return
+        prepared = adapter._prepared_build_decision
+        execution = adapter._broker_execution()
+        request = prepared.body.decode()
+        choice = verify_build_intent_opening(json.loads(request), response,
+            menu_digest=execution.policy.action.requested_work_menu_sha256)
+        event = BuildOpeningIntentSelectedV1(
+            kind="build_opening_intent_selected_v1", event_id=uuid4(), sequence=len(execution.events),
+            controller_attempt_id=UUID(prepared.attempt_id), controller_envelope_sha256=prepared.body_sha256,
+            controller_response_sha256=sha256(raw.encode()).hexdigest(), requested_work=choice,
+        )
+        adapter.turn = _require_fresh_execution_append(adapter.fence.commit(
+            "record_pending_build_opening_intent", decision=event, request_json=request,
+            response_json=raw, authorize_current_access=adapter.pending_build_access,
+        ))
 
     @staticmethod
     def _acquire(adapter, driver):
