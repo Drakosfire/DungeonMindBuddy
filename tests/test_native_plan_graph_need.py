@@ -1033,6 +1033,54 @@ def test_prepared_graph_authorization_binds_exact_wire_and_accounting():
         validate_prepared_authorization(context, active, auth, raw)
 
 
+@pytest.mark.parametrize('case', ['acknowledged', 'unsettled', 'foreign', 'clarify'])
+def test_prepared_graph_authorization_checks_intent_predecessor(monkeypatch, case):
+    from types import SimpleNamespace
+    from uuid import uuid4
+    from application_state.agent_conversation import native_execution, types as t
+    from application_state.agent_conversation.native_plan_graph_producer import validate_prepared_authorization
+    from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
+    from application_state.agent_conversation.native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    from application_state.agent_conversation.native_writer import json_container_count
+    from application_state.agent_conversation.plan_authoring import strict_json
+    from tests.test_surface_native_execution import execution
+
+    # Isolate the producer guard. Ordinary receipt replay is checked separately.
+    monkeypatch.setattr(native_execution, 'validate_context_binding', lambda *_: None)
+    monkeypatch.setattr(t, 'validate_provider_envelope_accounting', lambda *_: None)
+    context, record, graph_auth, lifecycle, _ = actual_need_execution()
+    parent = NativePlanGraphNeedInputV1.model_validate_json(graph_auth.parent_json)
+    raw = canonical_wire(parent, expected_model=graph_auth.model)
+    intent = NativePlanAuthorScopeAuthorizedV1.model_construct(
+        intent_opening=True, sequence=0, provider_attempt_id=uuid4(),
+        decision_request_id=uuid4(), envelope_sha256='a' * 64,
+        parent_request_sha256='b' * 64,
+    )
+    prefix = execution(context.context_receipt_sha256, record.policy)
+    observed = NativePlanAuthorScopeObservedV1.model_construct(
+        sequence=3, controller_attempt_id=intent.provider_attempt_id,
+        decision_request_id=intent.decision_request_id, controller_envelope_sha256=intent.envelope_sha256,
+        parent_request_sha256=intent.parent_request_sha256,
+        context_receipt_sha256='c' * 64 if case == 'foreign' else prefix.context_receipt_sha256,
+        execution_policy_sha256=prefix.execution_policy_sha256,
+        scope_observation=SimpleNamespace(requested_work='clarify' if case == 'clarify' else 'discuss'),
+    )
+    events = [intent, *(event.model_copy(update={'provider_attempt_id': intent.provider_attempt_id})
+                        for event in lifecycle), observed]
+    if case == 'unsettled':
+        events.pop(2)
+    prefix = prefix.model_copy(update={'events': events})
+    graph_auth = graph_auth.model_copy(update={
+        'sequence': len(events),
+        'input_tokens': len(raw) + 64 * (1 + json_container_count(strict_json(raw.decode()))),
+    })
+    if case == 'acknowledged':
+        assert validate_prepared_authorization(context, prefix, graph_auth, raw).events[-1] == graph_auth
+    else:
+        with pytest.raises(ValueError, match='settled Plan intent|exact eligible Plan intent'):
+            validate_prepared_authorization(context, prefix, graph_auth, raw)
+
+
 @pytest.mark.parametrize('source_adapter', [{'unique_world': True, 'sources': [('first', '# Synthetic\n')]}], indirect=True)
 def test_actual_sdk_callback_persists_graph_need_result(source_adapter, monkeypatch, application_state_dsn):
     import asyncio
