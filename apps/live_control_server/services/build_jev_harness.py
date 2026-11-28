@@ -690,8 +690,8 @@ class BuildJevHarness:
             wait_for_work = wait_for_work or any(q.name == "source_need" for q in intent.questions)
             # Pending intent-only Build cannot start Graph preparation while
             # the opening ballot is still deciding what the user wants.
-            if getattr(adapter, "pending_build_source_observation", None) is not None:
-                wait_for_work = wait_for_work or any(q.name == "requested_work" for q in intent.questions)
+            if getattr(driver, "split_opening", False):
+                wait_for_work = True
 
         def dispatch_started():
             nonlocal pending_query, opening_dispatched

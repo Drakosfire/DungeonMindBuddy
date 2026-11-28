@@ -240,9 +240,25 @@ def validate_native_execution(execution):
 
 def validate_native_context(query, execution):
     """Join human input to Core catalogs; Core alone admits source material."""
+    from . import types as t
     from .native_plan_assertions import NativeGraphQueryV3, NativeGraphQueryV4
     from .native_plan_statements import validate_record_reads
+    from .native_context import NativeBuildQueryPendingV1
+
     references = native_references(execution)
+    if isinstance(query, NativeBuildQueryPendingV1):
+        authority = query.authority
+        if any((ref.managed_world_id, ref.native_world_id, ref.binding_version) !=
+                (authority.managed_world_id, authority.native_world_id, authority.binding_version)
+                for ref in object_selections(references)):
+            raise ValueError('Pending authored references differ from their World binding')
+        if any(isinstance(event, (BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2))
+               for event in execution.events):
+            raise ValueError('Pending authored references cannot read before query settlement')
+        if any(isinstance(event, t.BuildAuthoredReferencesCapturedV1)
+               and event.read_graph_revision != authority.revision_id for event in execution.events):
+            raise ValueError('Pending author capture changed the current read revision')
+        return
     if not isinstance(query, NativeGraphQueryV3):
         if object_selections(references):
             raise ValueError('Native authored selections require their Core target catalog')

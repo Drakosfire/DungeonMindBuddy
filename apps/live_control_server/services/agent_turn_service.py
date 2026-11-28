@@ -7936,9 +7936,18 @@ def execute_agent_turn(
         if (native_graph_query_resolver is not None and (
                 isinstance(frozen, (graph_types.PlanNativeContextReceiptV1,graph_types.SurfaceNativeContextReceiptV1))
                 or frozen is None and (_governed_build_turn(request) or request.surface.surface_id=='play' or isinstance(request.plan_context_policy, graph_types.PlanContextPolicyV2)))):
+            from application_state.agent_conversation.build_intentional_response import has_explicit_build_graph_reference
+            from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+
+            deferred_explicit_reference = (
+                callable(authorize_build_world)
+                and has_explicit_build_graph_reference(request.build_authored_references)
+                and catalog_for_build_capability(request.build_write_capability) is not None
+            )
             can_defer = (_governed_build_turn(request) and request.retry_of is None
                 and isinstance(submitted_intent, BuildGraphIntentV1) and submitted_intent.reviewed_step is None
-                and request.build_authored_references is None and native_corpus_context is not None)
+                and (request.build_authored_references is None or deferred_explicit_reference)
+                and native_corpus_context is not None)
             if resumes_deferred and not can_defer:
                 raise AgentTurnServiceError("The retained opening Graph authority is no longer available.",
                     code="turn_receipt_unverifiable", status_code=409, provider_dispatched=False)

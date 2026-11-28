@@ -547,17 +547,18 @@ def effective_native_query(context, execution):
             raise ValueError("A settled-on-admission query cannot acquire a second catalog")
         return query
 
+    from .build_intentional_response import has_explicit_build_graph_reference, split_build_clarification
+
     action = execution.policy.action
+    references = getattr(action.intent, "authored_references", None)
     if (type(action) is not NativeBuildActionV1 or action.intent.reviewed_step is not None
-            or getattr(action.intent, "authored_references", None) is not None
+            or (references is not None and not has_explicit_build_graph_reference(references))
             or query.question != action.intent.message
             or action.intent.graph_request.revision_pin not in (None, query.authority.revision_id)):
         raise ValueError("Pending Graph query differs from the admitted Build request")
     if len(settlements) > 1:
         raise ValueError("Build can settle its pending Graph query only once")
     settlement = settlements[0] if settlements else None
-    from .build_intentional_response import split_build_clarification
-
     conversation_work = (split_build_clarification(execution)
         or prior_conversation_work(execution.events, allow_discussion=True))
     image_work = next((event for event in execution.events
@@ -582,7 +583,7 @@ def effective_native_query(context, execution):
     authorization = None
     responded = False
     for event in events:
-        if type(event) is t.BuildDraftContextCapturedV1 and authorization is None:
+        if type(event) in (t.BuildDraftContextCapturedV1, t.BuildAuthoredReferencesCapturedV1) and authorization is None:
             continue
         if (type(event) is t.ProviderAttemptAuthorizedEventV5 and authorization is None
                 and event.context_phase == "select"
@@ -604,8 +605,7 @@ def effective_native_query(context, execution):
     if (authorization is None or not responded
             or settlement.controller_attempt_id != authorization.provider_attempt_id
             or settlement.query.authority != query.authority
-            or settlement.query.question != query.question
-            or settlement.query.authored_targets):
+            or settlement.query.question != query.question):
         raise ValueError("Settled Graph query differs from its opening Build authorization")
     return settlement.query
 
