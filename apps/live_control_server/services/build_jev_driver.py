@@ -556,7 +556,7 @@ class BuildJevDriver:
             from application_state.agent_conversation.build_intentional_response import semantic_routing_state
             state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references,
                 write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening,
-                include_surface=self.split_opening)
+                include_surface=True)
         questions = (DecisionQuestion(name='requested_work',kind='choice',question=work_question["instructions"],options=tuple(work_question["criteria"])),)
         if capture is not None:
             from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
@@ -1165,7 +1165,7 @@ class BuildJevDriver:
                 from .agent_turn_service import _turn_idempotency_key
                 expected = semantic_routing_state(a.request.message,self._interaction,a.request.build_authored_references,
                     write_capability=a.request.build_write_capability, include_paragraph_catalog=not self.split_opening,
-                    include_surface=self.split_opening)
+                    include_surface=True)
                 if self.image_move is not None:
                     from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY
                     expected["interaction"][OPENING_STATE_KEY] = self.image_move.semantic_state()

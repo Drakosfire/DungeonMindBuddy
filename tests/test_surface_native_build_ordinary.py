@@ -284,6 +284,13 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
     ("Move the Harbour map beside the departure advice to the empty slot on its right.", "duplicate_context"),
 ])
 def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):
+    if disposition in {"ready", "tied_menu", "duplicate_context", "different_row"}:
+        from apps.live_control_server.services import native_graph_reads
+
+        def unexpected_graph_preparation(*_args, **_kwargs):
+            pytest.fail("A local image Review prepared a Graph query")
+
+        monkeypatch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
     _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
                 message=message, image_move=disposition)
 
@@ -1503,8 +1510,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         expected = {"tied_menu": "ready", "duplicate_context": "ready",
                     "other_discussion_tied_work": "discussion"}.get(image_move, image_move)
         assert completion["disposition"] == expected
+        opening = json.loads(decisions.calls[0].content)
+        assert opening["state"]["interaction"]["surface"] == "build"
         turn_id = writer.adapter.turn.turn_id
         if expected == "ready":
+            assert not any(event.kind == "native_build_query_settled_v1"
+                           for event in writer.adapter.turn.graph_context_execution.events)
             review = BuildImageMoveReviewService().get(world, turn_id)
             assert completion["action_id"] == str(turn_id) and review.state == "editing"
             assert review.placement.image_block_id == "map-block"
@@ -1564,6 +1575,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         completion = response.json()["knowledge_context"]["completion"]
         assert completion["disposition"] == graph_reference
         assert len(decisions.calls) == 2 and not writer.calls
+        opening = json.loads(decisions.calls[0].content)
+        assert opening["state"]["interaction"]["surface"] == "build"
         turn = writer.adapter.turn
         assert turn.status == "completed"
         if graph_reference == "ready":
