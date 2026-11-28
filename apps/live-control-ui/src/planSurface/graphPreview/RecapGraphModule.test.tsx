@@ -272,8 +272,10 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     expect(await screen.findByText("Admitted longmont-c2 session-26.")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Campaign"), { target: { value: "longmont-c1" } });
     await waitFor(() => expect(screen.getByLabelText("Focus session")).toHaveValue("session-16"));
+    const load = await screen.findByRole("button", { name: "Load", exact: true });
+    await waitFor(() => expect(load).toBeEnabled());
     expect(read.mock.calls.some(call => call[1] === "longmont-c1")).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Load", exact: true }));
+    fireEvent.click(load);
     expect(await screen.findByText("Admitted longmont-c1 session-16.")).toBeInTheDocument();
     expect(read).toHaveBeenCalledWith("elderwyld", "longmont-c1", "session-16");
     expect(read.mock.calls.some(call => call[1] === "longmont-c1" && call[2] === "session-26")).toBe(false);
@@ -292,7 +294,9 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     fireEvent.change(screen.getByLabelText("Campaign"), { target: { value: "longmont-c1" } });
     expectNoClassicWork();
     await waitFor(() => expect(screen.getByLabelText("Focus session")).toHaveValue("session-16"));
-    fireEvent.click(screen.getByRole("button", { name: "Load", exact: true }));
+    const load = await screen.findByRole("button", { name: "Load", exact: true });
+    await waitFor(() => expect(load).toBeEnabled());
+    fireEvent.click(load);
     expect(await screen.findByText("Admitted longmont-c1 session-16.")).toBeInTheDocument();
     expect(screen.queryByText("Admitted longmont-c2 session-26.")).not.toBeInTheDocument();
     expectNoClassicWork();

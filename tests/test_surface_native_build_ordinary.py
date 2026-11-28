@@ -19,6 +19,9 @@ from application_state.agent_conversation.authored_graph_references import Autho
 from apps.live_control_server.services.workspace_document_registry import get_workspace_document_snapshot
 
 
+STORED_STATBLOCK_EVIDENCE_ID = "ev:" + "a" * 64
+
+
 @pytest.mark.parametrize('failure,with_draft,saved,proposal',
     [(f,d,s,False) for f,d,s in ([(f,d,False) for f in (None,'revision','node','reference_world') for d in (False,True)]
         +[(None,d,True) for d in (False,True)]+[(f,False,True) for f in ('section_scope','selection_text')])]
@@ -94,6 +97,21 @@ def test_ordinary_build_graph_reference_replays_without_writer(lane, tmp_path, m
 def test_ordinary_build_image_move_replays_inert_review(lane, tmp_path, monkeypatch, message, disposition):
     _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
                 message=message, image_move=disposition)
+
+
+@pytest.mark.parametrize('role', [None, 'player'])
+def test_image_move_refuses_missing_or_non_gm_principal(lane, tmp_path, monkeypatch, role):
+    from dataclasses import replace
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+
+    def lower_principal(adapter):
+        assert adapter.native_query_context is not None
+        principal = None if role is None else NativeGraphPrincipal(subject='player', role='player', auth_method='local_session')
+        adapter.native_query_context = replace(adapter.native_query_context, principal=principal)
+
+    _fresh_case(lane, tmp_path, monkeypatch, None, False, False, False,
+        message="Move the Harbour map to the empty slot on its right.", image_move="ready",
+        after_image_selection=lower_principal, expect_image_forbidden=True)
 
 
 def test_ordinary_read_only_discussion_clarifies_a_tied_source_scope(lane, tmp_path, monkeypatch):
@@ -179,7 +197,7 @@ def test_image_grounded_revision_continues_with_its_original_image(lane, tmp_pat
         reference_image="saved")
 
 
-def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,selected_source_graph=False,selected_source_old_revision=False,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True):
+def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,recovery_dsn=None,recovery_mutation=None,retry_mutation=None,connected_review=None,native_body=None,authored_source=None,selected_source_graph=False,selected_source_old_revision=False,historical_query_versions=None,direct_source=False,native_source_text=None,before_provider=None,message=None,capture_write=False,selection_probabilities=None,reference_image=None,saved_statblock=False,proposal_markdown=None,requested_work=None,dispatch=None,source_need="source_lookup",read_optional_page=False,variant_validation="valid",lore_limitation=False,contextual=False,graph_reference=None,image_move=None,source_answer_output=None,lore_title="Glass Regent",lore_legacy_menu=False,continue_placement=True,expect_image_forbidden=False,after_image_selection=None,source_free_reply=None):
     if failure == 'retry_controller_bad_request':
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         observe = native_corpus_source.observe_build_source_pointer
@@ -231,15 +249,19 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             definition = _definition().model_dump(mode="json")
         monkeypatch.setattr(statblock_saved_revision, "iter_saved_mechanics",
             lambda root, *, world_id: [("Meat Mind", draft_id, locator)] if world_id == world else [])
+        def reject_pdf_read(*args, **kwargs):
+            pytest.fail("Ordinary Build tried to read the original PDF")
+
+        monkeypatch.setattr(type(lane.repo), "get_native_pdf_source", reject_pdf_read, raising=False)
         pdf_support = {"scope": {"managed_world_id": world, "native_world_id": world,
                                  "binding_version": 1, "revision_id": lane.repo.get_head(world).head_revision_id,
                                  "scope_mode": "world", "campaign_id": None},
-                       "support": [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture",
+                       "support": [{"assertion_id": "assertion:fixture", "evidence_ref_id": STORED_STATBLOCK_EVIDENCE_ID,
                                     "text": "Hit Points 41"}]}
         if saved_statblock in {"associated", "by-name"}:
             from apps.live_control_server.integrations.dungeonmind import native_registry_source
             from apps.live_control_server.services import native_graph_inspection, native_pdf_evidence
-            monkeypatch.setattr(native_registry_source, "read_repository", lambda: lane.repo)
+            monkeypatch.setattr(native_registry_source, "read_repository", lambda **_: lane.repo)
             monkeypatch.setattr(native_pdf_evidence, "reviewed_pdf_regions", lambda *args, **kwargs: ("crop",))
             monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support",
                                 lambda ref, *_, **__: pdf_support | {"scope": pdf_support["scope"] | {"revision_id": ref.graph_revision}})
@@ -464,6 +486,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                       "revision_id": current_revision, "scope_mode": "world", "campaign_id": None},
             "identities": identities,
         })
+    from apps.live_control_server.integrations.dungeonmind import native_corpus_source
+    from apps.live_control_server.services import plan_source_turn
+    monkeypatch.setattr(native_corpus_source, 'turn_source_repository', lambda **_: lane.repo)
+    monkeypatch.setattr(plan_source_turn, 'turn_source_repository', lambda **_: lane.repo)
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
@@ -639,14 +665,8 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
 
             using_prior_citations = native_conversation_terminal(self.adapter.turn) is not None
-            expected_effort = ('medium' if (current_work == 'draft_in_conversation' and saved_statblock == 'associated'
-                    or authored_source and (current_work == 'discuss' or current_work is None))
+            expected_effort = ('medium' if current_work == 'draft_in_conversation' and saved_statblock == 'associated'
                 else 'none' if using_prior_citations and current_work == 'review_lore_page_from_conversation' else 'low')
-            if body.get('reasoning', {}).get('effort') != expected_effort:
-                return httpx.Response(400, request=req, json={'error': {
-                    'message': 'Unsupported reasoning effort for configured writer',
-                    'type': 'invalid_request_error', 'param': 'reasoning.effort',
-                    'code': 'unsupported_value'}})
             if reference_image in {'saved', 'saved_large'}:
                 from base64 import b64decode
                 from io import BytesIO
@@ -674,6 +694,20 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             from application_state.agent_conversation.native_evidence_view import is_semantic_frame
             frame = next(row for row in inputs if is_semantic_frame(row))
             work = next(row['build_work'] for row in inputs if 'build_work' in row)
+            selected_work = work.get('requested_work', {})
+            if (
+                expected_effort == 'low'
+                and selected_work.get('requested_work') == 'discuss'
+                and selected_work.get('operation') == 'answer_from_sources'
+                and 'barrier' in selected_work
+                and selected_work['barrier'] is None
+            ):
+                expected_effort = 'medium'
+            if body.get('reasoning', {}).get('effort') != expected_effort:
+                return httpx.Response(400, request=req, json={'error': {
+                    'message': 'Unsupported reasoning effort for configured writer',
+                    'type': 'invalid_request_error', 'param': 'reasoning.effort',
+                    'code': 'unsupported_value'}})
             if not mode:
                 if requested_work == "review_lore_page" and self.adapter.turn.sequence == 2:
                     assert len(inputs) == 5
@@ -770,7 +804,10 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 assert row['body_ref'] == 'current_draft'
                 return work['current_draft']['markdown']
             read_ids=[row['selection'] for row in sections]
-            if saved:
+            source_free = source_free_reply is not None and source_free_reply(self.adapter.request.message)
+            if source_free:
+                assert not read_ids
+            elif saved:
                 assert (read_ids or using_prior_citations) and 'A proposed conversation.' in str(work)
             if mode:
                 target = contextual if contextual in {"page_end", "page_body"} else "prose_target" if contextual else "captured"
@@ -792,8 +829,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 return httpx.Response(200,request=req,headers={'content-type':'text/event-stream'},
                     content=''.join('data: '+json.dumps(e)+'\n\n' for e in events).encode())
             candidate = dict(schema=NATIVE_ANSWER_POLICY,
-                answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,**({} if work.get('citation_policy') == 'supplied_source_references_v1' or body['text']['format']['name'] in {'lore_page_response', 'build_reply'} else {'supporting_quotes':[source_text(r) for r in sections]}))] if saved else []),
+                answer_segments=([dict(kind='native_assertion_claim', text='The Graph retains the qualified description.', assertion_handles=handles)] if handles else [])+([dict(kind='saved_source_claim',text='The saved page proposes a conversation.',section_read_ids=read_ids,**({} if work.get('citation_policy') == 'supplied_source_references_v1' or body['text']['format']['name'] in {'lore_page_response', 'build_reply'} else {'supporting_quotes':[source_text(r) for r in sections]}))] if saved and not source_free else []),
                 limitations=[], requested_detail_gaps=[], collaboration=self.review)
+            if source_free:
+                candidate["answer_segments"] = [
+                    dict(kind="discussion", text="The blue lantern remains a proposal.")
+                ]
             if placement_question:
                 assert "preserve any anchor, section, or before/after direction" in body["instructions"]
                 question = {
@@ -1050,6 +1091,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
             return self._plan
         monkeypatch.setattr(WriterSelectionDriver,'stage',substituted_stage)
     class Harness(actual_harness):
+        async def _decide(self, adapter, driver):
+            await super()._decide(adapter, driver)
+            if after_image_selection is not None:
+                after_image_selection(adapter)
+
         def _capture_failure(self, adapter, exc):
             import traceback
             traceback.print_exception(exc)
@@ -1385,6 +1431,11 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         from application_state.build_proposal.image_move_review import BuildImageMoveReviewService
         from application_state.errors import ApplicationStateNotFoundError
 
+        if expect_image_forbidden:
+            assert response.status_code == 403, response.text
+            assert response.json()['detail']['code'] == 'build_image_move_forbidden'
+            assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
+            return
         if image_move == "other_discussion":
             assert response.status_code == 200, response.text
             context = response.json()["knowledge_context"]
@@ -1803,21 +1854,39 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     assert not classic_calls and len(writer.calls) == 1
     payload = response.json()
     context = payload['knowledge_context']
-    assert context['schema'] == 'dmb_agent_surface_native_context_response_v1'
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+
+    pending_statblock = saved_statblock == "by-name"
+    assert context['schema'] == (
+        'dmb_agent_build_pending_context_response_v1' if pending_statblock
+        else 'dmb_agent_surface_native_context_response_v1'
+    )
     assert context['receipt']['work_context']['surface_id'] == 'build'
-    if authored_source=='source_only' and selected_source_graph and selected_source_old_revision:
-        assert context['receipt']['native_query']['schema']=='dmb_native_graph_query_v4'
-    elif authored_source=='source_only' and selected_source_graph:
-        assert context['receipt']['native_query']['schema']=='dmb_native_build_selected_source_query_pending_v1'
-    elif authored_source=='source_only':
-        assert context['receipt']['native_query']['reason']=='native_graph_binding_unavailable'
-    else:
-        assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
-    if authored_source!='source_only' and saved_statblock != 'by-name' and failure != 'deferred_graph_citation':
-        assert context['receipt']['native_query']['authored_targets'][0]['selection_revision_id'] == original_revision
     service = AgentConversationService()
     turn = service.inspect_turn(world_id=world, turn_id=writer.adapter.turn.turn_id)
-    assert turn.status == 'completed' and type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+    assert turn.status == 'completed'
+    if pending_statblock:
+        from application_state.agent_conversation.build_pending_native import prepared_pending_source
+
+        assert type(turn.graph_context_receipt) is BuildPendingContextReceiptV1
+        authority, query = prepared_pending_source(turn.graph_context_receipt, turn.graph_context_execution)
+        assert authority.managed_world_id == world and authority.revision_id == current_revision
+        assert query.authority.revision_id == current_revision
+        assert context['completion'] == turn.completion.model_dump(mode='json', by_alias=True)
+    else:
+        assert type(turn.graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+        if authored_source == 'source_only':
+            native_query = context['receipt']['native_query']
+            if selected_source_graph and selected_source_old_revision:
+                assert native_query['schema'] == 'dmb_native_graph_query_v4'
+            elif selected_source_graph:
+                assert native_query['schema'] == 'dmb_native_build_selected_source_query_pending_v1'
+            else:
+                assert native_query['reason'] == 'native_graph_binding_unavailable'
+        else:
+            assert context['receipt']['native_query']['authority']['revision_id'] == current_revision
+            if failure != 'deferred_graph_citation':
+                assert context['receipt']['native_query']['authored_targets'][0]['selection_revision_id'] == original_revision
     if authored_source:
         from application_state.agent_conversation.native_corpus import NativeAuthoredSourceReadV1
         reads=[e for e in turn.graph_context_execution.events if isinstance(e,NativeAuthoredSourceReadV1)]
@@ -1951,7 +2020,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         )
         assert context['completion']['answer_context_status'] == expected_status
         assert context['completion']['native_assertion_citations'] == []
-        return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions)
+        return SimpleNamespace(client=client, world=world, turn=turn, decisions=decisions, request=body, writer=writer)
     if (requested_work(message) if callable(requested_work) else requested_work) in {
             "review_lore_page", "review_lore_page_from_conversation", "review_blank_lore_page"}:
         assert context["completion"]["collaboration"]["kind"] == "lore_page"
@@ -2671,8 +2740,8 @@ def test_native_controller_bad_request_can_recover_with_fresh_authoring_capture(
 @pytest.mark.parametrize("mode", [True, "associated", "by-name"])
 def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode):
     from threading import Event
-    from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
-    from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+    from application_state.agent_conversation.native_execution import NativeBuildSourceSettledV1
     from apps.live_control_server.services import native_graph_reads
 
     first_wire = Event()
@@ -2686,8 +2755,8 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
         assert phase_names.index("build_first_jev_request_preparation") < phase_names.index(
             "build_first_jev_authorization"
         )
-        assert isinstance(adapter.native_query, NativeBuildQueryPendingV1)
-        assert not any(isinstance(event, NativeBuildQuerySettledV1)
+        assert isinstance(adapter.turn.graph_context_receipt, BuildPendingContextReceiptV1)
+        assert not any(isinstance(event, NativeBuildSourceSettledV1)
                        for event in adapter.turn.graph_context_execution.events)
         from application_state.agent_conversation.context_trace import TracePromptReference, TraceProviderCall
         from apps.live_control_server.services.agent_prompt_evidence import read_prompt
@@ -2720,8 +2789,9 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
     if mode == "by-name":
         assert first_wire.is_set() and query_calls == [True]
         (settlement,) = [event for event in case.turn.graph_context_execution.events
-                        if isinstance(event, NativeBuildQuerySettledV1)]
-        assert settlement.query.authority == case.turn.graph_context_receipt.native_query.authority
+                        if isinstance(event, NativeBuildSourceSettledV1)]
+        assert settlement.native_query.authority.revision_id == settlement.source_authority.revision_id
+        assert settlement.source_authority.managed_world_id == case.world
     root = f"/api/live/agent/worlds/{case.world}/conversations"
     response = case.client.get(root + "/active/messages")
     assert response.status_code == 200, response.text
@@ -2736,9 +2806,22 @@ def test_fresh_build_can_open_saved_statblock(lane, tmp_path, monkeypatch, mode)
     if mode in {"associated", "by-name"}:
         assert "Hit Points 41" in response.json()["messages"][-1]["assistant_text"]
         assert sources["scope"]["managed_world_id"] == case.world
-        assert sources["support"] == [{"assertion_id": "assertion:fixture", "evidence_ref_id": "pdf-region:fixture"}]
+        assert sources["support"] == [{"assertion_id": "assertion:fixture", "evidence_ref_id": STORED_STATBLOCK_EVIDENCE_ID}]
     else:
         assert sources is None
+
+    if mode == "by-name":
+        followup = case.client.post("/api/live/agent/turn", json=case.request | {
+            "turn_id": str(uuid4()), "message": "Could it negotiate?",
+        })
+        assert followup.status_code == 200, followup.text
+        messages = case.client.get(root + "/active/messages")
+        assert messages.status_code == 200, messages.text
+        latest = messages.json()["messages"][-1]
+        (continued,) = latest["saved_statblocks"]
+        assert continued["revision_id"] == references[0]["revision_id"]
+        assert continued["pdf_sources"] == sources
+        assert "Hit Points 41" in latest["assistant_text"]
 
 
 @pytest.mark.parametrize("scope", ["anchored", "source_lookup"])
@@ -2843,14 +2926,25 @@ def test_benchmark_captures_consecutive_mounted_build_turns(lane, tmp_path, monk
     reads = [[event for event in turn.graph_context_execution.events
         if isinstance(event, BuildSavedStatblockReadV1)] for turn in turns]
     assert all(len(events) == 1 for events in reads)
+    from application_state.agent_conversation.build_pending_native import read_source_authority
+    from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+
     initial_pin = reads[0][0].pdf_support.scope.revision_id
-    current_pin = turns[1].graph_context_receipt.source_authority.revision_id
+    followups = turns[1:]
+    current_pin = read_source_authority(followups[0].graph_context_receipt,
+        followups[0].graph_context_execution).revision_id
     assert initial_pin != current_pin
-    assert fresh_pdf_reads.call_count == 1
-    assert fresh_pdf_reads.call_args.args[0].graph_revision == current_pin
-    assert reads[1][0].reused_from_turn_id is None
+    assert all(events[0].locator == reads[0][0].locator for events in reads[1:])
     assert all(events[0].pdf_support.scope.revision_id == current_pin for events in reads[1:])
-    assert all(events[0].reused_from_turn_id is not None for events in reads[2:])
+    assert all(events[0].pdf_support.support == reads[0][0].pdf_support.support for events in reads[1:])
+    assert reads[1][0].reused_from_turn_id is None
+    assert type(turns[0].graph_context_receipt) is t.SurfaceNativeContextReceiptV1
+    assert all(type(turn.graph_context_receipt) is BuildPendingContextReceiptV1 for turn in followups)
+    assert fresh_pdf_reads.call_count == len(followups)
+    assert all(events[0].reused_from_turn_id is None for events in reads[1:])
+    assert all(read_source_authority(turn.graph_context_receipt, turn.graph_context_execution).revision_id
+               == current_pin for turn in followups)
+    assert all(call.args[0].graph_revision == current_pin for call in fresh_pdf_reads.call_args_list)
     assert all(turn.conversation_id == case.turn.conversation_id for turn in turns)
     assert service.conversation_draft_turn_ids(case.world, case.turn.conversation_id,
         [turn.turn_id for turn in turns]) == {turns[-1].turn_id}
@@ -3316,28 +3410,28 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
 
     producing = populated
     if carry:
-        from application_state.agent_conversation.native_context import NativeBuildQueryPendingV1
-        from application_state.agent_conversation.native_execution import NativeBuildQuerySettledV1
+        from types import SimpleNamespace
 
+        from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
+        from application_state.agent_conversation.native_execution import (
+            NativeBuildQuerySettledV1,
+            NativeBuildSourceSettledV1,
+        )
+        from apps.live_control_server.integrations.dungeonmind import native_corpus_source
         from apps.live_control_server.services import native_graph_reads
 
         def unexpected_graph_preparation(*args, **kwargs):
             pytest.fail("Conversation-only draft started Graph preparation")
 
-        with monkeypatch.context() as patch:
-            if carry == "source_head_unavailable":
-                from apps.live_control_server.services import plan_source_turn
-                from application_state.agent_conversation.native_plan_statements import NativePlanQueryUnavailableV1
+        observe_source = native_corpus_source.observe_build_source_pointer
 
-                patch.setattr(plan_source_turn, "prepare", lambda world, *args, **kwargs: (
-                    None, t.NativeCorpusUnavailableV1(managed_world_id=world,
-                        failure_code="native_source_head_unavailable")))
-                # New Worlds have neither an admitted corpus head nor object Graph.
-                patch.setattr(native_graph_reads, "prepare_query", lambda world, *args, **kwargs: (
-                    None, NativePlanQueryUnavailableV1(managed_world_id=world,
-                        reason="native_graph_binding_unavailable")))
-            else:
-                patch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
+        def observe_missing_head(**kwargs):
+            return observe_source(**kwargs, repository=SimpleNamespace(get_head=lambda world: None))
+
+        with monkeypatch.context() as patch:
+            patch.setattr(native_graph_reads, "prepare_query", unexpected_graph_preparation)
+            if carry == "source_head_unavailable":
+                patch.setattr(native_corpus_source, "observe_build_source_pointer", observe_missing_head)
             response = workflow.capture_case(
                 case.client, case.world, template, {"question": synthesis},
                 tmp_path / "lore-synthesis", build_thread_id=thread_id,
@@ -3347,11 +3441,14 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         history = case.client.get(f"/api/live/agent/worlds/{case.world}/conversation")
         row = max(history.json()["turns"], key=lambda turn: turn["sequence"])
         populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
+        receipt = populated.graph_context_receipt
+        assert isinstance(receipt, BuildPendingContextReceiptV1)
+        assert receipt.source_observation.managed_world_id == case.world
         if carry == "source_head_unavailable":
-            assert populated.graph_context_receipt.source_authority.failure_code == "native_source_head_unavailable"
-        else:
-            assert isinstance(populated.graph_context_receipt.native_query, NativeBuildQueryPendingV1)
-        assert not any(isinstance(e, NativeBuildQuerySettledV1) for e in populated.graph_context_execution.events)
+            assert receipt.source_observation.binding is not None
+            assert receipt.source_observation.requested_or_observed_revision is None
+        assert not any(isinstance(event, (NativeBuildQuerySettledV1, NativeBuildSourceSettledV1))
+                       for event in populated.graph_context_execution.events)
         from application_state.agent_conversation.writer_evidence_selection import native_conversation_terminal
         assert native_conversation_terminal(populated)["reason"] == (
             "native_lore_page_from_conversation_with_open_questions" if carry == "uncertain"
@@ -3373,9 +3470,13 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
         row = max(history.json()["turns"], key=lambda turn: turn["sequence"])
         populated = AgentConversationService().inspect_turn(world_id=case.world, turn_id=UUID(row["turn_id"]))
         if carry == "anchored":
-            assert producing.turn_id not in {
+            # Pending Build keeps the full dialogue. The passage must still
+            # resolve through its original read independently of that text.
+            assert producing.turn_id in {
                 pin.turn_id for pin in populated.graph_context_receipt.assembled_input.included_history
             }
+            assert populated.sequence == producing.sequence + 7
+            assert not acquired_body_reads(populated.graph_context_execution)
         assert populated.completion.native_body_citations
         assert all(c.prior_reference is None and c.read_event_id in {
             read.event_id for origin in (blank, producing)
@@ -3486,7 +3587,7 @@ def test_ordinary_populated_lore_draft_reopens_its_exact_passages(lane, tmp_path
     ("binding_version", 999),
     ("revision_id", "rev:unadmitted"),
 ])
-def test_followup_rejects_inadmissible_fresh_pdf_support(lane, tmp_path, monkeypatch, component, value):
+def test_followup_rejects_inadmissible_fresh_stored_statblock_support(lane, tmp_path, monkeypatch, component, value):
     from evals.buddy_benchmark import workflow
     from apps.live_control_server.services import native_graph_inspection
 
@@ -3511,11 +3612,13 @@ def test_followup_rejects_inadmissible_fresh_pdf_support(lane, tmp_path, monkeyp
 
     monkeypatch.setattr(native_graph_inspection, "statblock_pdf_support", invalid)
     head = lane.repo.get_head(case.world)
+    writer_calls = len(case.writer.calls)
     response = workflow.capture_case(case.client, case.world, template,
         {"question": "Could it negotiate?"}, tmp_path / "followup", build_thread_id=thread,
         expected_conversation_id=str(case.turn.conversation_id))
     assert response.status_code == 503, response.text
     assert calls
+    assert len(case.writer.calls) == writer_calls
     assert lane.repo.get_head(case.world) == head
 
 
@@ -4507,3 +4610,16 @@ def test_selected_source_foreign_or_missing_identity_fails_closed(lane, tmp_path
     response = case.client.post('/api/live/agent/turn', json=request)
     assert response.status_code in {403, 409, 422}, response.text
     assert len(case.writer.calls) == before
+
+
+@pytest.mark.parametrize("component,value", [
+    ("managed_world_id", "foreign-managed"),
+    ("native_world_id", "foreign-native"),
+    ("binding_version", 999),
+    ("revision_id", "rev:unadmitted"),
+])
+def test_eager_followup_rejects_inadmissible_pdf_support(lane, tmp_path, monkeypatch, component, value):
+    """Exercise the still-supported eager read owner with an actual foreign support record."""
+    from apps.live_control_server.services import agent_turn_service
+    monkeypatch.setattr(agent_turn_service, "_pending_build_startup_eligible", lambda *args, **kwargs: False)
+    test_followup_rejects_inadmissible_fresh_stored_statblock_support(lane, tmp_path, monkeypatch, component, value)

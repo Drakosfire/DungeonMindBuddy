@@ -81,6 +81,10 @@ def test_pending_selection_validates_the_actual_future_request_and_vote():
     from tests.test_surface_native_build_decision import sdk_case
     _, original, event, proof, trace, work = sdk_case()
     _, policy = pending_execution_pair()
+    provider_roles = policy.provider_roles.model_copy(
+        update={'controller': original.policy.provider_roles.controller},
+    )
+    policy = policy.model_copy(update={'provider_roles': provider_roles})
     request = json.loads(proof['request_json'])
     response = json.loads(proof['response_json'])
     decision = request['state']['decision']
@@ -115,7 +119,12 @@ def test_current_scope_never_falls_through_to_native_when_no_app_read_exists():
     execution = pending_execution(receipt, policy, pending_work_prefix(policy, scope='current_saved_page'))
     # No native preparation owner exists: an attempted fallback would raise a
     # different exception.
-    adapter = SimpleNamespace(_broker_receipt=lambda: receipt, _broker_execution=lambda: execution)
+    turn = SimpleNamespace(graph_context_execution=execution, graph_context_receipt=receipt)
+    adapter = SimpleNamespace(
+        turn=turn,
+        _broker_receipt=lambda: receipt,
+        _broker_execution=lambda: execution,
+    )
     with pytest.raises(ValueError, match='unavailable or insufficient'):
         prepare_pending_native_source(adapter)
 
