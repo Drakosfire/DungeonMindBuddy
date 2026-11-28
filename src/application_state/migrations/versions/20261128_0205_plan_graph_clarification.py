@@ -3,8 +3,8 @@ from importlib import import_module
 
 from alembic import op
 
-revision = '20261128_0204'
-down_revision = '20261128_0203'
+revision = '20261128_0205'
+down_revision = '20261128_0204'
 branch_labels = None
 depends_on = None
 
