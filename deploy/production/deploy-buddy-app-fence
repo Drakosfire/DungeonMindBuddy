@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import stat
 import subprocess
 import sys
@@ -282,9 +283,22 @@ def deploy(args, request=b''):
     print(line, end='', flush=True)
 
 
+def read_request(stream):
+    def timed_out(_signum, _frame):
+        raise TimeoutError('release data did not arrive within the submission deadline')
+
+    previous = signal.signal(signal.SIGALRM, timed_out)
+    signal.alarm(15)
+    try:
+        return stream.read(MAX_REQUEST_BYTES + 1)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous)
+
+
 if __name__ == '__main__':
     try:
-        deploy(sys.argv[1:], sys.stdin.buffer.read(MAX_REQUEST_BYTES + 1))
+        deploy(sys.argv[1:], read_request(sys.stdin.buffer))
     except Exception as error:
         # Operator output/journal owns detailed recovery evidence; avoid dumping
         # commands or credential-bearing environment/configuration here.

@@ -1,5 +1,6 @@
 """Focused App-fence transport trust, pins, lock and receipt boundary checks."""
 import hashlib
+from io import BytesIO
 from importlib.machinery import SourceFileLoader
 import importlib.util
 import json
@@ -222,15 +223,17 @@ def test_deploy_receipts_follow_real_phase_results(helper, packet, monkeypatch, 
 def test_dispatcher_accepts_only_fixed_fence_grammar(tmp_path):
     entry = tmp_path / 'entry'
     stub = tmp_path / 'fence'
-    stub.write_text('#!/bin/bash\nprintf "%s\\n" "$BUDDY_DEPLOY_LOCK_HELD" "$@"\n')
+    stub.write_text('#!/bin/bash\nprintf "%s\\n" "$BUDDY_DEPLOY_LOCK_HELD" "$@"\ncat\n')
     stub.chmod(0o755)
     entry.write_text((ROOT / 'deploy/production/deploy-buddy-release').read_text()
                      .replace('/run/lock/buddy-production-deploy.lock', str(tmp_path / 'lock'))
                      .replace('/usr/local/sbin/deploy-buddy-app-fence', str(stub)))
     good = f'app-fence {REV} {REGISTRY} {IMAGE} {OLD} {OLD_IMAGE} ' + 'e' * 64
-    result = subprocess.run(['bash', str(entry), good], text=True, capture_output=True, timeout=10)
+    data = '{"manifest.json":"example"}'
+    result = subprocess.run(['bash', str(entry), good], input=data,
+                            text=True, capture_output=True, timeout=10)
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == ['1', REV, REGISTRY, IMAGE, OLD, OLD_IMAGE, 'e' * 64]
+    assert result.stdout.splitlines() == ['1', REV, REGISTRY, IMAGE, OLD, OLD_IMAGE, 'e' * 64, data]
     for bad in [good + ' extra', good + '\n', good.replace(REV, '../operator', 1), good.replace('app-fence', 'app-fence;false', 1)]:
         result = subprocess.run(['bash', str(entry), bad], text=True, capture_output=True, timeout=10)
         assert result.returncode != 0 and not result.stdout
@@ -341,3 +344,8 @@ def test_authenticated_release_staging(helper, packet, change):
     journal.chmod(0o600)
     helper.stage_release_data(args, request, root=root, uid=os.getuid())
     assert journal.read_text() == '{"phase":"drained"}'
+
+
+def test_request_read_returns_at_most_one_byte_beyond_limit(helper):
+    stream = BytesIO(b'a' * (helper.MAX_REQUEST_BYTES + 100))
+    assert len(helper.read_request(stream)) == helper.MAX_REQUEST_BYTES + 1
