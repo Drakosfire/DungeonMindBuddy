@@ -461,8 +461,10 @@ saved-page discovery and Graph preparation disabled. The deferred image move
 controls also cover reopening the exact stored review.
 These simulated-provider checks establish the runtime boundary. The separate
 retained Jev image pilot measures classification, including remaining misses.
-Explicit Graph-reference placement still prepares native source state before
-its intent call.
+Explicit Graph-reference placement pins its native World and revision before
+intent. The ordinary controls verify that query preparation and identity
+inventory reads wait for the intent and reference-type ballots. Saved-page
+catalog discovery on this route still precedes intent.
 
 The frozen report includes decision counts and latency by surface, expected
 action, and difficulty tier. Its paired changes list identifies cases that
