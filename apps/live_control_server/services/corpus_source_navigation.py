@@ -532,10 +532,13 @@ class NativeBodyNavigation:
         from application_state.agent_conversation.native_corpus import (
             NativeCorpusAuthorityV1, NativeInitialSourceSearchAuthorizedV1, initial_source_discovery_enabled,
             NativePlanRequestSearchAuthorizedV1, request_source_discovery_enabled,
+            plan_intent_excludes_source_discovery,
         )
         from ..integrations.dungeonmind.native_corpus_source import capture_native_sources
         a = self.adapter
         turn = a.fence.turn
+        if plan_intent_excludes_source_discovery(turn.graph_context_execution.events):
+            return
         request_owned = request_source_discovery_enabled(turn.graph_context_receipt, turn.graph_context_execution)
         if (not (request_owned or initial_source_discovery_enabled(turn.graph_context_execution))
                 or not isinstance(_navigation_source_authority(self.adapter), NativeCorpusAuthorityV1)):

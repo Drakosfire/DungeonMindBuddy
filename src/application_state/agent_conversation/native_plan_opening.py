@@ -917,6 +917,7 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
         return
     from .native_corpus import NativeCorpusAuthorityV1, NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
     from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
+    intent_prefix = prefix
     attempts = [e for e in prefix if isinstance(e, t.ProviderAttemptAuthorizedEventV1)]
     first_intent = attempts[0] if attempts and type(attempts[0]) is NativePlanAuthorScopeAuthorizedV1 and attempts[0].intent_opening else None
     if first_intent is not None:
@@ -977,6 +978,12 @@ def validate_opening_prefix(context, prefix, *, author_scope_event_id=None, auth
     elif attempts:
         raise ValueError('Opening SDK must be the first actual provider attempt')
     grants = [e for e in prefix if isinstance(e, NativePlanRequestSearchAuthorizedV1)]
+    from .native_corpus import plan_intent_excludes_source_discovery
+
+    if plan_intent_excludes_source_discovery(intent_prefix):
+        if grants:
+            raise ValueError("Conversation-only Plan intent cannot carry a source discovery grant")
+        return
     if isinstance(context.source_authority, NativeCorpusAuthorityV1):
         # Source-blind interpretation can precede discovery. Historical turns
         # with discovery already in the prefix still require exact settlement.

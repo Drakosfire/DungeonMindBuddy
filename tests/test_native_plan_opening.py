@@ -257,6 +257,8 @@ def test_versioned_plan_intent_keeps_historical_ballot_and_records_source_use():
 
 
 def test_conversation_only_intent_refuses_request_source_grant():
+    from types import SimpleNamespace
+    from apps.live_control_server.services.corpus_source_navigation import NativeBodyNavigation
     from application_state.agent_conversation.native_corpus import validate_request_source_search
     from application_state.agent_conversation.native_plan_opening import NativePlanAuthorScopeObservedV1
 
@@ -267,3 +269,8 @@ def test_conversation_only_intent_refuses_request_source_grant():
     prefix = record.model_copy(update={"events": [observation]})
     with pytest.raises(ValueError, match="Conversation-only Plan intent"):
         validate_request_source_search(prefix, request_grant(context, record, sequence=1))
+    navigation = object.__new__(NativeBodyNavigation)
+    navigation.adapter = SimpleNamespace(fence=SimpleNamespace(turn=SimpleNamespace(
+        graph_context_receipt=context, graph_context_execution=prefix,
+    )))
+    navigation.discover_initial()

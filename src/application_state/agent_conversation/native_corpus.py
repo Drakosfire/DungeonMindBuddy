@@ -318,6 +318,14 @@ class NativePlanRequestSearchAuthorizedV1(NativeBodyEvent):
     query_sha256: str = Field(pattern=r'^[a-f0-9]{64}$')
 
 
+def plan_intent_excludes_source_discovery(events):
+    from .native_plan_opening import NativePlanAuthorScopeObservedV1
+
+    return any(type(event) is NativePlanAuthorScopeObservedV1
+               and event.scope_observation.source_use == "conversation_only"
+               for event in events)
+
+
 def request_source_discovery_enabled(context, execution):
     from .native_context import NativePlanRequestAdmissionV1, SurfaceNativeContextReceiptV1
     from .native_execution import NativePlanActionV2, NativePlanActionV3
@@ -356,7 +364,7 @@ def validate_request_source_search(execution, grant):
         validate_graph_need_intent_prefix(execution, prefix[:graph.sequence])
         prior_attempts = [event for event in prior_attempts if event is not graph]
     scope_observations = [event for event in prefix if type(event) is NativePlanAuthorScopeObservedV1]
-    if any(event.scope_observation.source_use == "conversation_only" for event in scope_observations):
+    if plan_intent_excludes_source_discovery(scope_observations):
         raise ValueError("Conversation-only Plan intent cannot authorize source discovery")
     scope_attempt_ids = [event.controller_attempt_id for event in scope_observations]
     after_author_scope = (
