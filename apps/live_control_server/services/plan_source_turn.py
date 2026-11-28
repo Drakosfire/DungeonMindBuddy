@@ -321,7 +321,8 @@ def freeze_build(request, work, view, budget, *, authority, native_query, proven
         host = json.loads(projection.host_interaction_json)
         expected_state = semantic_routing_state(request.message, host, request.build_authored_references,
                                                 write_capability=request.build_write_capability,
-            include_paragraph_catalog=not (pending and action.image_move_capture is None))
+            include_paragraph_catalog=not (pending and action.image_move_capture is None),
+            include_surface=pending and action.image_move_capture is None)
         if action.image_move_capture is not None:
             from application_state.build_proposal.image_move_decision import BuildImageMoveDecision, OPENING_STATE_KEY
 

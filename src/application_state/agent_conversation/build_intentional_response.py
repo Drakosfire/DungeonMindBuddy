@@ -1610,7 +1610,7 @@ def semantic_collaboration(card):
     return {key: deepcopy(card[key]) for key in card if key in fields}
 
 
-def semantic_routing_state(question, interaction, references, *, write_capability=None, include_paragraph_catalog=True):
+def semantic_routing_state(question, interaction, references, *, write_capability=None, include_paragraph_catalog=True, include_surface=False):
     """Project typed parent context, never scrub arbitrary user/source strings."""
     from .dialogue_projection import expand_dialogue
     from .authored_graph_references import AuthoredSourceReferenceV1
@@ -1623,6 +1623,8 @@ def semantic_routing_state(question, interaction, references, *, write_capabilit
         "current_page_title": interaction["current_page"]["title"],
         "history": history, "page_target": interaction["page_target"],
         "working_draft_available": interaction["working_draft"] is not None}
+    if include_surface:
+        context["surface"] = "build"
     if references is not None:
         context["author_selected_references"] = [
             {"kind": "source", "label": ref.label, "selection_kind": ref.selection_kind}
