@@ -59,7 +59,14 @@ class NativeRetrievalSelectedV2(NativeRetrievalSelectedV1):
         default=None, exclude_if=lambda value: value is None)
 
 
-NATIVE_RETRIEVAL_SELECTION_TYPES = (NativeRetrievalSelectedV1, NativeRetrievalSelectedV2)
+class NativePlayIntentSelectedV1(NativeRetrievalSelectedV1):
+    kind: Literal["native_play_intent_selected_v1"] = "native_play_intent_selected_v1"
+    requested_work: str
+
+
+NATIVE_RETRIEVAL_SELECTION_TYPES = (
+    NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, NativePlayIntentSelectedV1,
+)
 
 
 def native_selection_types():
@@ -365,6 +372,13 @@ def verify_selection(turn, event, proof, trace):
             "Native selection differs from its exact protected SDK response"
         )
     result = DecisionResult.model_validate(strict_json(raw))
+    from .jev_retrieval_contract import NativePlayIntentDecisionInputV1
+    from .native_play_opening import decode_play_opening
+
+    if (type(event) is NativePlayIntentSelectedV1) != (type(parent) is NativePlayIntentDecisionInputV1):
+        raise ValueError("Play intent requires its exact versioned producer")
+    if type(event) is NativePlayIntentSelectedV1 and event.requested_work != decode_play_opening(result):
+        raise ValueError("Recorded Play intent differs from the actual controller choice")
     selected = decode_selection(parent, result)
     if (type(event) is NativeRetrievalSelectedV2
             and event.exhausted_continuation_offer != exhausts_continuation_offer(parent, selected)):

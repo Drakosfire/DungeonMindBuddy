@@ -417,6 +417,7 @@ class PlanJevDispatch:
                 NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3,
             )
             from application_state.agent_conversation.jev_retrieval_contract import NativePlanBatchDecisionInputV3
+            from application_state.agent_conversation.jev_retrieval_contract import NativePlayIntentDecisionInputV1
             planned = type(self.parent) is NativePlanBatchDecisionInputV3
             if planned:
                 selected_fields['post_read_plan'] = selected.post_read_plan
@@ -442,6 +443,12 @@ class PlanJevDispatch:
                 event_type, kind = t.PlanRequestedWorkSelectedV2, 'plan_requested_work_selected_v2'
             elif semantic:
                 event_type, kind = t.PlanRequestedWorkSelectedV1, 'plan_requested_work_selected_v1'
+            elif type(self.parent) is NativePlayIntentDecisionInputV1:
+                from application_state.agent_conversation.native_play_opening import decode_play_opening
+                from application_state.agent_conversation.native_retrieval import NativePlayIntentSelectedV1
+
+                selected_fields["requested_work"] = decode_play_opening(result)
+                event_type, kind = NativePlayIntentSelectedV1, 'native_play_intent_selected_v1'
             elif planned:
                 event_type, kind = NativeRetrievalSelectedV2, 'native_retrieval_selected_v2'
             elif native:

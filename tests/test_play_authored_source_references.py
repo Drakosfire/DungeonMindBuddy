@@ -1148,6 +1148,12 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     assert len(decisions.calls)==(3 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
     stored=AgentConversationService().list_turns(world,wire.adapter.turn.conversation_id)[-1]
     if mode=='rules':stored=stored.base_projection.turn
+    if openings:
+        from application_state.agent_conversation.native_retrieval import NativePlayIntentSelectedV1
+
+        recorded = [event.requested_work for event in stored.graph_context_execution.events
+                    if type(event) is NativePlayIntentSelectedV1]
+        assert recorded == ["read_source" if mode in {"automatic", "rules", "graph"} else "discuss"]
     assert stored.play_context_receipt==sub.play_context_receipt
     assert stored.completion.answer_segments[0].source_kind=='play'
     # Exercise the actual saved-history consumer, not only execution replay.
