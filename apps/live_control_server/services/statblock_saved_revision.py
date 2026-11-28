@@ -225,7 +225,7 @@ def admitted_portrait_bindings(exact, asset_id, owner):
     return [binding.model_dump(mode='json') for binding in [*kept,portrait]]
 
 
-def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None,authorize=None):
+def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None,pdf_artwork=None,authorize=None):
     # No selection means the existing Save intent, not a new null-valued edit.
     intent=request.model_dump(mode='json',exclude={'portrait_asset_id'} if request.portrait_asset_id is None else set())
     if pdf_review is not None:
@@ -271,6 +271,15 @@ def save(root,*,draft_id,request,client=None,media_owner=None,pdf_review=None,au
         record=RevisionOperation(operation_id=request.operation_id,world_id=request.world_id,draft_id=UUID(draft.draft_id),
             origin=origin,origin_acceptance_operation_id=anchor,base=base,input_digest=digest(intent),request_body=payload,
             request_digest=digest(payload),definition_digest=expected,created_at=now,updated_at=now)
+        if pdf_review is not None and pdf_artwork:
+            from application_state.mechanics_revisions import pdf_portraits
+
+            if authorize is not None:
+                authorize()
+            pdf_portraits.retain(
+                statblock_id=base.statblock_id, world_id=request.world_id, draft_id=record.draft_id,
+                review_id=UUID(pdf_review["review_id"]), artwork=pdf_artwork,
+            )
         if authorize is None:
             record,_=operations.claim(record)
         else:
@@ -305,7 +314,8 @@ def append_pdf_review(root, *, draft_id, world_id, review_id, request, load_revi
             operation_id=request.operation_id, world_id=world_id, base=request.base,
             definition=review["definition"], change_summary="Append saved PDF statblock review",
         ),
-        pdf_review={**identity, "regions": review["regions"]}, authorize=authorize,
+        pdf_review={**identity, "regions": review["regions"]},
+        pdf_artwork=(review.get("artwork") or {}).get("jpeg_base64"), authorize=authorize,
     )
 
 def _authorized_resume(record, client, authorize):

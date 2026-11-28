@@ -1,6 +1,8 @@
 """Identifier-only purge receipts sharing the saved revision write lock."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from uuid import UUID
 
 from application_state.errors import ApplicationStateConflictError
@@ -106,6 +108,66 @@ def claim(target: PurgeTarget, *, authorize) -> bool:
             target.key(),
         )
         return _receipt(conn, target) is True
+
+
+def require_available_statblocks(conn, statblock_ids: Iterable[str], *, wait: bool = True) -> None:
+    """Fence snapshot admission against a concurrently claimed deletion."""
+    for statblock_id in sorted(set(statblock_ids)):
+        if wait:
+            _lock(conn, statblock_id)
+        elif not conn.execute(
+            "SELECT pg_try_advisory_xact_lock_shared(hashtextextended(%s,0))",
+            (f"mechanics-revision:{statblock_id}",),
+        ).fetchone()[0]:
+            raise ApplicationStateConflictError("Statblock mechanics are changing. Retry opening the encounter.")
+        if conn.execute(
+            "SELECT 1 FROM mechanics_revision.purge WHERE statblock_id=%s",
+            (statblock_id,),
+        ).fetchone():
+            raise ApplicationStateConflictError("This statblock is being deleted or has been deleted")
+
+
+def redact_combat_draft(draft, statblock_id: str):
+    """Preserve every tracker value while replacing the exact source payload."""
+    from application_state.combat_encounters.types import DeletedCombatMechanics
+
+    entities = []
+    for actor in draft.entities:
+        snapshot = actor.mechanics_snapshot
+        if snapshot is not None and snapshot.locator.statblock_id == statblock_id:
+            actor = actor.model_copy(update={
+                "mechanics_snapshot": None,
+                "deleted_mechanics": DeletedCombatMechanics(
+                    statblock_id=statblock_id, revision_id=snapshot.locator.revision_id,
+                ),
+            })
+        entities.append(actor)
+    return draft.model_copy(update={"entities": entities})
+
+
+def remove_current_combat_copies(target: PurgeTarget) -> None:
+    """Replace live encounter copies with identifier-only references under the App receipt."""
+    from application_state.combat_encounters import repository
+    from application_state.combat_encounters.scene_templates import redact_saved_versions
+    from application_state.errors import ApplicationStateIntegrityError
+
+    with unit_of_work(_dsn()) as conn:
+        _lock(conn, target.statblock_id)
+        if _receipt(conn, target) is None:
+            raise ApplicationStateConflictError("Deletion has not been claimed")
+        encounters = repository.lock_encounters_with_statblock(
+            conn, world_id=target.world_id, statblock_id=target.statblock_id,
+        )
+        for encounter in encounters:
+            draft = redact_combat_draft(encounter.draft, target.statblock_id)
+            saved = repository.cas_replace_draft(
+                conn, world_id=encounter.world_id, encounter_id=encounter.encounter_id,
+                expected_revision=encounter.revision, draft=draft.model_dump(mode="json", by_alias=True),
+                updated_at=datetime.now(UTC),
+            )
+            if saved is None:
+                raise ApplicationStateIntegrityError("Locked encounter changed during statblock deletion")
+        redact_saved_versions(conn, world_id=target.world_id, statblock_id=target.statblock_id)
 
 
 def settle_after_cleanup(target: PurgeTarget, *, authorize) -> None:
