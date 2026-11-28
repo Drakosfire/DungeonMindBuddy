@@ -4112,6 +4112,11 @@ def test_hosted_deletes_exact_statblock_and_retries_cleanup(prepared, hosted):
             ))
             assert hosted.client.request("DELETE", path).status_code == 503
 
+        fence = threat_draft_store.threat_drafts_root(fixture.root) / threat_draft_store.PURGE_FENCES_NAME
+        fence.unlink()
+        provider.purge_statblock_revisions.side_effect = lambda *_: (
+            fence.is_file() or pytest.fail("Provider retry dispatched before restoring the deletion fence")
+        )
         deleted = hosted.client.request("DELETE", path)
         assert deleted.status_code == 204, deleted.text
         assert hosted.client.request("DELETE", path).status_code == 204

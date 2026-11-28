@@ -9,7 +9,10 @@ from application_state.mechanics_revisions import purge
 from apps.live_control_server.integrations.dungeonmind_statblocks.client import build_statblock_v1_client
 from apps.live_control_server.services.statblock_acceptance_reconciliation import remove_purged_acceptance
 from apps.live_control_server.services.statblock_saved_revision import plan_statblock_purge
-from apps.live_control_server.services.threat_draft_store import locked_statblock_purge_owner
+from apps.live_control_server.services.threat_draft_store import (
+    ensure_statblock_purge_fence,
+    locked_statblock_purge_owner,
+)
 
 
 def delete_saved_statblock(
@@ -28,6 +31,11 @@ def delete_saved_statblock(
             raise ApplicationStateConflictError("Saved statblock changed before deletion")
         if complete:
             return
+        authorize()
+        ensure_statblock_purge_fence(
+            root, world_id=target.world_id, draft_id=str(target.draft_id),
+            expected_version=target.draft_version, statblock_id=target.statblock_id,
+        )
     else:
         plan = plan_statblock_purge(
             root, world_id=world_id, draft_id=str(draft_id), expected_version=expected_version,
