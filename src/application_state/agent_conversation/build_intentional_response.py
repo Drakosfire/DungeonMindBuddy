@@ -959,15 +959,15 @@ def validate_native_action_events(execution):
             outcome=event.outcome
 
 
-def validate_selection(turn, event, proof, trace):
+def validate_selection(turn, event, proof, trace, *, image_move=None):
     from .native_context import is_semantic_build_input
     return validate_selection_records(turn.graph_context_execution,event,proof,trace,
         user_text=turn.user_text,turn_id=turn.turn_id,attempt=turn.attempt,
         semantic_input=is_semantic_build_input(turn.graph_context_receipt),
-        idempotency_key=turn.idempotency_key)
+        idempotency_key=turn.idempotency_key, image_move=image_move)
 
 
-def validate_selection_records(execution, event, proof, trace, *, user_text, turn_id, attempt, semantic_input=False, idempotency_key=None):
+def validate_selection_records(execution, event, proof, trace, *, user_text, turn_id, attempt, semantic_input=False, idempotency_key=None, image_move=None):
     from application_state.build_proposal.graph_reference_decision import resolve_graph_reference_opening
     from application_state.build_proposal.prose_catalog import catalog_for_build_capability
     from .source_writer_output import strict_json
@@ -1008,7 +1008,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
             source_scope = verify_build_source_followup(request, raw_response, menu_digest=menu,
                 wire=produced_request, response=produced_response, write_capability=policy.action.write_capability,
                 graph_reference=has_explicit_build_graph_reference(getattr(policy.action.intent, "authored_references", None)),
-                related_pages=policy.action.related_page_catalog)
+                related_pages=policy.action.related_page_catalog, image_move=image_move)
         elif label in {"clarify_request", "clarify_creation"}:
             source_scope = "anchored"
         else:

@@ -2002,7 +2002,12 @@ class AgentConversationService:
                 from .build_intentional_response import validate_selection
                 captured = conn.execute("SELECT payload FROM agent.turn_context_trace WHERE turn_id=%s AND attempt=%s", (turn.turn_id, turn.attempt)).fetchone()
                 try:
-                    validate_selection(turn, event, requested_work_proof, captured[0] if captured else None)
+                    image_move = None
+                    if (isinstance(requested_work_proof, dict) and "opening_request_json" in requested_work_proof
+                            and getattr(action, "image_move_capture", None) is not None):
+                        image_move = self._build_image_offer_locked(conn, turn)
+                    validate_selection(turn, event, requested_work_proof, captured[0] if captured else None,
+                        image_move=image_move)
                 except (ValueError, KeyError, TypeError, AttributeError) as exc:
                     raise ApplicationStateValidationError(str(exc)) from exc
             from .types import BuildDraftProviderInclusionV1
@@ -3580,6 +3585,24 @@ class AgentConversationService:
                 raise ApplicationStateConflictError('Current App access does not authorize the opening intent')
             return self._append_pending_checked(conn, turn, decision, expected_revision, allow_native_build_intent=True)
 
+    def _build_image_offer_locked(self, conn, turn):
+        """Rebuild an image offer from the exact current saved composed page."""
+        from application_state.build_proposal.image_move_decision import BuildImageMoveDecision
+        from application_state.content import pages
+
+        capture = turn.graph_context_execution.policy.action.image_move_capture
+        if capture is None:
+            return None
+        basis = capture.basis
+        state = pages._state(conn, basis.document_id, turn.world_id, lock=True)
+        saved = pages._committed_snapshot(conn, state)
+        if (capture.conversation_id != turn.conversation_id
+                or state.page.status != "active" or state.metadata.visibility_state != "internal"
+                or state.page.object_revision != basis.registry_revision or saved.revision is None
+                or saved.revision.content_sha256 != basis.content_sha256 or saved.presentation is None):
+            raise ApplicationStateConflictError("The captured Page changed before the image decision")
+        return BuildImageMoveDecision.from_saved(capture, turn.user_text, saved.revision.markdown, saved.presentation)
+
     def authorize_pending_build_source_scope(self, world_id, conversation_id, turn_id, *,
             expected_revision, expected_attempt, authorization, request_json, initial_request_json,
             authorize_current_access):
@@ -3611,7 +3634,8 @@ class AgentConversationService:
                     menu_digest=execution.policy.action.requested_work_menu_sha256,
                     write_capability=execution.policy.action.write_capability,
                     graph_reference=has_explicit_build_graph_reference(getattr(execution.policy.action.intent, "authored_references", None)),
-                    related_pages=execution.policy.action.related_page_catalog)
+                    related_pages=execution.policy.action.related_page_catalog,
+                    image_move=self._build_image_offer_locked(conn, turn))
                 validate_prepared(authorization, execution, request_json, host_phase="source_scope")
                 if strict_json(request_json) != expected:
                     raise ValueError('Build source scope differs from the admitted opening')
