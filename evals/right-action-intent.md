@@ -249,3 +249,11 @@ conversation and reference labels. Contextual edits can have further
 questions. The 36-case paired comparison measures the shared choices
 under a simpler single-question request. Use this capture when designing the
 full Build request comparison.
+
+A [single captured-wire pair](right_action_intent/build-ordinary-wire-paired-jev.json)
+replayed this Build request through GenerationEngine and Jev. The scoped
+request retained both original questions. The combined arm appended the union
+of other applicable action choices and descriptions to requested work only.
+Both chose discussion and marked the reference as sufficient to anchor the
+turn. This is evidence about classification on one captured request. It
+does not qualify actual source use or reproduce the 36-case quality change.
