@@ -878,12 +878,13 @@ def capture(manifest_path, output, *, context_only=False, writer_transport=False
             manifest.get("conversation_mode") != "build_sequence" or browser_case is not None
             or context_only or writer_transport or detailed_trace or (not clone_app and cohort_app is None)):
         raise ValueError("Lore confirmation requires ordinary Build capture on an owned App clone")
-    mounted_lore = manifest.get("browser_capture", {}).get("long_chat_page") is not None
-    if mounted_lore and (not live_build or browser_case is None or (not clone_app and cohort_app is None)):
-        raise ValueError("Long-chat page benchmark requires selected live Build on an owned App clone")
+    browser_spec = manifest.get("browser_capture", {})
+    mounted_history = browser_spec.get("long_chat_page") is not None or browser_spec.get("conversation_image") is True
+    if mounted_history and (not live_build or browser_case is None or (not clone_app and cohort_app is None)):
+        raise ValueError("Mounted Build history requires selected live Build on an owned App clone")
     if "build_history" in manifest and (
             manifest.get("conversation_mode") != "build_sequence"
-            or (browser_case is not None and not mounted_lore) or context_only or writer_transport or detailed_trace
+            or (browser_case is not None and not mounted_history) or context_only or writer_transport or detailed_trace
             or (not clone_app and cohort_app is None)):
         raise ValueError("Pinned Build history requires ordinary response capture on an owned App clone")
     if manifest.get("browser_capture", {}).get("image_preview") is True and (
@@ -957,7 +958,8 @@ def _capture(manifest, base, output, *, context_only, writer_transport, detailed
     build_history = None
     if "build_history" in manifest:
         if (not build_sequence or context_only or writer_transport or detailed_trace
-                or (browser_case is not None and manifest.get("browser_capture", {}).get("long_chat_page") is None)):
+                or (browser_case is not None and manifest.get("browser_capture", {}).get("long_chat_page") is None
+                    and manifest.get("browser_capture", {}).get("conversation_image") is not True)):
             raise ValueError("Pinned Build history requires an ordinary Build response sequence")
         build_history = json.loads(read_pin(manifest["build_history"], base))
     if ingest_review:

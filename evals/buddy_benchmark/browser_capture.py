@@ -73,6 +73,13 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
         for row in wire
     )):
         raise ValueError("Browser benchmark requires a successful pinned Jev replay")
+    image_flow = spec.get("conversation_image", False)
+    if type(image_flow) is not bool or (image_flow and (
+            not build_fixture or live_plan or "build_history" not in manifest
+            or any(key in spec for key in ("selection_text", "confirm_save", "long_chat_page",
+                "image_preview", "image_move_editor_sha256", "reviewed_work_plan", "unsent_draft",
+                "terminal_build_failure", "lose_confirm_ack", "at_document_start")))):
+        raise ValueError("Conversation image requires isolated live Build and pinned history")
     lore_page = spec.get("long_chat_page")
     if lore_page is not None and (
             not build_fixture or live_plan or not isinstance(lore_page, dict)
@@ -93,6 +100,12 @@ def browser_inputs(manifest, base, *, build_fixture=False, live_plan=False):
         if len(history["prior_turns"]) < 12:
             raise ValueError("Long-chat page capture requires at least 12 completed prior turns")
         return bundle, wire, bool(spec.get("settled_pane", False)), history
+    if image_flow:
+        history = json.loads(workflow.read_pin(manifest["build_history"], base))
+        settled = spec.get("settled_pane", False)
+        if type(settled) is not bool or not history.get("prior_turns"):
+            raise ValueError("Conversation image requires valid pinned history and cache condition")
+        return bundle, wire, settled, history
     history_pin = spec.get("plan_history")
     if history_pin is not None and not live_plan:
         raise ValueError("A pinned Plan history requires live Plan browser capture")
@@ -237,6 +250,13 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
             os.environ.get("DMB_AGENT_GRAPH_AUTH_MODE"), os.environ.get("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT")) != (
             "local", "local_operator", "local_operator", "local"):
         raise ValueError("Browser capture requires explicit local operator auth")
+    image_flow = manifest["browser_capture"].get("conversation_image", False)
+    if image_flow:
+        image_fixture = json.loads(Path(__file__).with_name("fixtures").joinpath("conversation-image.json").read_bytes())
+        if (not live_build or case["id"] != image_fixture["id"]
+                or case["question"] != image_fixture["direction_request"]):
+            raise ValueError("Expected the registered live conversation-image case")
+    placement_request = None
     lore_page = manifest["browser_capture"].get("long_chat_page")
     if lore_page is not None:
         fixture = json.loads(Path(__file__).with_name("fixtures").joinpath("long-chat-page.json").read_bytes())
@@ -346,7 +366,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
 
     async def dispatch(scope, receive, send):
         nonlocal recovery_receipt
-        nonlocal browser_request, turn_posts, image_generation_posts
+        nonlocal browser_request, turn_posts, image_generation_posts, placement_request
         if scope["type"] != "http":
             return await application(scope, receive, send)
         path, method = scope["path"], scope["method"]
@@ -431,10 +451,13 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 {"accepted": recovery_execution is not None},
                 headers={"Cache-Control": "no-store"},
             )(scope, receive, send)
+        if image_flow and path == "/__benchmark/image-placement-retained" and method == "GET":
+            return await JSONResponse({"retained": (directory / "image-placement-wire-response.json").is_file()},
+                                      headers={"Cache-Control": "no-store"})(scope, receive, send)
         if live and path == "/__benchmark/browser-response-retained" and method == "GET":
             wire_path = directory / (wire_name + ".json")
             result = {"retained": wire_path.is_file()}
-            if (confirm_save or terminal_build_failure or move_digest) and result["retained"] and browser_request is not None:
+            if (confirm_save or terminal_build_failure or move_digest or image_flow) and result["retained"] and browser_request is not None:
                 result["idempotency_key"] = str(uuid5(
                     NAMESPACE_URL, f"dmb-agent-turn:{world}:{browser_request['turn_id']}"))
                 result["conversation_id"] = fresh["active_conversation_id"]
@@ -490,7 +513,18 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     break
             body = b"".join(chunks)
             parsed = json.loads(body)
-            if build_fixture:
+            placement_turn = image_flow and browser_request is not None
+            if placement_turn:
+                try:
+                    if placement_request is not None or turn_posts != 2 or parsed["turn_id"] == browser_request["turn_id"]:
+                        raise ValueError("Only one distinct placement request is allowed")
+                    validate_build_browser_request(parsed, world=world, work=work,
+                        question=image_fixture["placement_request"], selection_text=None,
+                        conversation_id=fresh["active_conversation_id"], pointer_revision=fresh["pointer_revision"])
+                except (ValueError, KeyError):
+                    return await JSONResponse({"error": "Image placement request did not match"}, 409)(scope, receive, send)
+                placement_request = parsed
+            elif build_fixture:
                 try:
                     if browser_request is not None:
                         raise ValueError("Only one Build fixture request is allowed")
@@ -538,7 +572,10 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     or parsed.get("owner_scope") != template["owner_scope"]
                     or parsed.get("primary_work") != work):
                 return await JSONResponse({"error": "Benchmark request did not match fixture"}, 409)(scope, receive, send)
-            browser_request = parsed
+            if not placement_turn:
+                browser_request = parsed
+            request_artifact = "image-placement-request" if placement_turn else "request"
+            response_artifact = "image-placement-wire-response" if placement_turn else wire_name
             sink.request_started_monotonic_ns = tick
             disconnect_ns = None
 
@@ -556,7 +593,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 return {"type": "http.request", "body": raw, "more_body": False}
             if not live:
                 return await application(scope, deliver_body, send)
-            artifacts.immutable_save(directory, "request", parsed)
+            artifacts.immutable_save(directory, request_artifact, parsed)
             response_bytes = bytearray()
             transport_status = None
             content_type = ""
@@ -573,19 +610,20 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                 await send(frame)
 
             try:
-                if lore_page is None:
+                if lore_page is None and not image_flow:
                     return await application(scope, deliver_body, retain_build_response)
                 from evals.negative_retrieval.native_graph_probe import observe_native_graph_owners
                 from evals.negative_retrieval.related_page_probe import observe_related_page_owners
                 with observe_related_page_owners() as related, observe_native_graph_owners() as graph:
                     await application(scope, deliver_body, retain_build_response)
-                artifacts.immutable_save(directory, "long-chat-page-owner-probes", {
+                artifacts.immutable_save(directory, ("image-placement-owner-probes" if placement_turn else
+                    "image-direction-owner-probes" if image_flow else "long-chat-page-owner-probes"), {
                     "coverage": "partial", "related": related, "graph": graph,
                 })
 
             finally:
                 if transport_status is not None:
-                    artifacts.immutable_save(directory, wire_name, {
+                    artifacts.immutable_save(directory, response_artifact, {
                         "status": transport_status, "content_type": content_type,
                         "transport_complete": transport_complete,
                         "client_disconnect_ms": ((disconnect_ns - tick) / 1e6
@@ -717,6 +755,12 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     else:
                         artifacts.immutable_save(directory, "history-before", fresh)
                         workflow.require_pinned_history(fresh, pinned_history)
+                        if image_flow:
+                            observed = [{key: row[key] for key in ("user_text", "assistant_text")}
+                                        for row in sorted(fresh["turns"], key=lambda row: row["sequence"])]
+                            if observed != image_fixture["history"]:
+                                raise ValueError("History differs from the registered image fixture")
+
                         if lore_page is not None:
                             observed = [{key: row[key] for key in ("user_text", "assistant_text")}
                                         for row in sorted(fresh["turns"], key=lambda row: row["sequence"])]
@@ -737,6 +781,7 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         "DMB_BENCHMARK_UNSENT_DRAFT": "1" if unsent_draft else "0",
                         "DMB_BENCHMARK_CONFIRM_SAVE": "1" if confirm_save else "0",
                         "DMB_BENCHMARK_LONG_CHAT_PAGE": json.dumps(manifest["browser_capture"].get("long_chat_page")),
+                        "DMB_BENCHMARK_CONVERSATION_IMAGE": json.dumps(image_fixture if image_flow else None),
                         "DMB_BENCHMARK_LOSE_CONFIRM_ACK": "1" if lose_confirm_ack else "0",
                         "DMB_BENCHMARK_TERMINAL_BUILD_FAILURE": "1" if terminal_build_failure else "0",
                         "DMB_BENCHMARK_DOCUMENT_START": "1" if at_document_start else "0",
@@ -783,6 +828,8 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                         page_before = workflow.response_envelope(
                             client.get(page_route, params=page_params).raise_for_status())
                         artifacts.immutable_save(directory, "committed-page-before", page_before)
+                        if image_flow and page_before["body"]["committed_markdown"] != image_fixture["page"]:
+                            raise ValueError("Saved page differs from the registered image fixture")
                         if lore_page is not None and any(
                                 text.casefold() in page_before["body"]["committed_markdown"].casefold()
                                 for text in lore_page["required_text"]):
@@ -818,11 +865,66 @@ def browser_capture(application, manifest, case, output, token, inputs, owned_en
                     artifacts.immutable_save(directory, "dispatch", {"state": "dispatching", "automatic_restart": False})
                     try:
                         run = subprocess.run([os.environ["DMB_BENCHMARK_NODE"], str(driver)], env=env,
-                                             timeout=205 if image_preview else 140 if lose_confirm_ack else 100)
+                                             timeout=360 if image_flow else 205 if image_preview else 140 if lose_confirm_ack else 100)
                         driver_status = {"return_code": run.returncode}
                     except subprocess.TimeoutExpired:
                         driver_status = {"timed_out": True}
                     driver_failed = driver_status != {"return_code": 0}
+                    if image_flow:
+                        from evals.negative_retrieval.trace_observation import observed_acquisitions
+
+                        timing_path = output / "browser-timing.json"
+                        mounted = (json.loads(timing_path.read_bytes()).get("conversation_image")
+                                   if timing_path.is_file() else None)
+                        history = client.get(route, params={"include_turn_correlation": "true"}).raise_for_status().json()
+                        artifacts.immutable_save(directory, "history-after", history)
+                        page_after = workflow.response_envelope(
+                            client.get(page_route, params=page_params).raise_for_status())
+                        artifacts.immutable_save(directory, "committed-page-after", page_after)
+                        acquisition = {}
+                        for name, submitted in (("direction", browser_request), ("placement", placement_request)):
+                            if submitted is None:
+                                continue
+                            matched = workflow._request_turns(history, submitted, world)
+                            if len(matched) != 1:
+                                continue
+                            turn_id = matched[0]["turn_id"]
+                            response = client.get(route + "/turns/" + turn_id + "/context-trace")
+                            artifacts.immutable_save(directory, "image-" + name + "-trace",
+                                                     workflow.response_envelope(response))
+                            if response.is_success:
+                                attempts = response.json().get("attempts", [])
+                                if len(attempts) == 1 and attempts[0]["turn_id"] == turn_id:
+                                    acquisition[name] = observed_acquisitions(attempts[0])
+                        checks = {"mounted": bool(mounted and mounted["passed"] and not driver_failed),
+                                  "exactly_two_requests": turn_posts == 2,
+                                  "pinned_conversation_extended": (
+                                      history["active_conversation_id"] == fresh["active_conversation_id"]
+                                      and len(history["turns"]) == len(fresh["turns"]) + 2),
+                                  "no_observed_new_acquisition": (
+                                      set(acquisition) == {"direction", "placement"}
+                                      and all(not x["observed"] and x["trace_capture_status"] == "complete"
+                                              and x["terminal_status"] == "completed" for x in acquisition.values())),
+                                  "no_observed_owner_calls": all(
+                                      (record := directory / f"image-{name}-owner-probes.json").exists()
+                                      and not any(json.loads(record.read_bytes())[key] for key in ("related", "graph"))
+                                      for name in ("direction", "placement")),
+                                  "one_committed_image": False}
+                        if checks["mounted"]:
+                            asset_id = mounted["generation"]["asset_id"]
+                            committed = page_after["body"]["committed_markdown"]
+                            checks["one_committed_image"] = (
+                                page_after["body"]["loaded_revision"] == work["expected_revision"] + 1
+                                and committed.count(f"dmb-media:{asset_id}") == 1)
+                        artifacts.immutable_save(directory, "conversation-image-result", {
+                            "status": "observed" if all(checks.values()) else "incomplete",
+                            "checks": checks, "driver": driver_status, "mounted": mounted,
+                            "acquisition": acquisition, "coverage": "partial",
+                        })
+                        if not all(checks.values()):
+                            raise ValueError("Conversation image benchmark failed. See conversation-image-result.json")
+                        return
+
                     if driver_failed:
                         artifacts.immutable_save(directory, "browser-driver-failure", driver_status)
                     if ingest_review:

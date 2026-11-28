@@ -218,3 +218,22 @@ def test_long_chat_rejects_details_in_a_divergent_working_draft():
     snapshot["draft_sha256"] = sha256(snapshot["draft_markdown"].encode()).hexdigest()
     with pytest.raises(ValueError, match="unrelated committed editor"):
         validate_build_browser_request(request, **controls)
+
+
+def test_conversation_image_fixture_requires_both_sources_and_one_target():
+    import json
+    from pathlib import Path
+
+    fixture_path = Path(__file__).resolve().parents[2] / "evals/buddy_benchmark/fixtures/conversation-image.json"
+    fixture = json.loads(fixture_path.read_bytes())
+    page = fixture["page"]
+    chat = " ".join(f"{turn['user_text']} {turn['assistant_text']}" for turn in fixture["history"])
+    direction = fixture["direction_request"]
+    assert fixture["page_detail"] in page and fixture["page_detail"] not in chat
+    assert fixture["conversation_detail"] in chat and fixture["conversation_detail"] not in page
+    assert all(fixture[key] not in direction for key in ("page_detail", "conversation_detail"))
+    paragraphs = page.strip().split("\n\n")
+    anchor = fixture["placement_anchor"]
+    preserved = fixture["preserved_paragraph"]
+    assert paragraphs.count(anchor) == paragraphs.count(preserved) == 1
+    assert paragraphs[paragraphs.index(anchor) + 1] == preserved

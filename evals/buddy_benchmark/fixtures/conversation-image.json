@@ -1,0 +1,20 @@
+{
+  "id": "CONVERSATION-IMAGE-1",
+  "page": "# Beacon House\n\nA copper heron stands on the roof of Beacon House.\n\nThe eastern door remains closed after dusk.\n",
+  "history": [
+    {
+      "user_text": "For the Beacon House illustration, I want violet lantern light and a low viewpoint from the reeds.",
+      "assistant_text": "The proposed illustration uses violet lantern light and a low viewpoint from the reeds."
+    },
+    {
+      "user_text": "Keep that lighting and viewpoint when we turn this into an image.",
+      "assistant_text": "I’ll carry forward the lighting and viewpoint when we prepare the image."
+    }
+  ],
+  "direction_request": "Draft an editable illustration description for this page using the saved page details and the direction we agreed on in chat. Do not search, generate, or edit the page yet.",
+  "placement_request": "Place the illustration we just generated after the paragraph about the roof. Keep the next paragraph unchanged.",
+  "placement_anchor": "A copper heron stands on the roof of Beacon House.",
+  "preserved_paragraph": "The eastern door remains closed after dusk.",
+  "page_detail": "copper heron",
+  "conversation_detail": "violet lantern"
+}
