@@ -392,3 +392,33 @@ an intent-only first request with conditional source dispatch. It gives
 evidence against automatically following every intent with a source ballot.
 Times come from separately captured runs. No runtime admission or source
 access was exercised in this comparison.
+
+### Ordinary Build verification and remaining coverage
+
+The scoped Build fixtures carry the active page title, selected text when
+applicable, and prior dialogue. The benchmark builds model-visible state with
+the same projection as Buddy and rechecks all 36 retained intent-only requests
+before scoring the six follow-up cases. Fixture expectations and rationale stay
+local.
+
+The [ordinary Build HTTP tests](../tests/test_surface_native_build_ordinary.py)
+use the actual runtime, captured SDK requests, and a disposable App database.
+The provider responses in these tests are simulated.
+
+- The anchored Edge edit sends only the intent ballot first, sends source scope
+  separately, and opens zero related pages.
+- The cited Edge edit opens one related page downstream. The proposal survives
+  an interrupted delivery, its original citation reopens exactly, and recovery
+  dispatches no additional Jev request.
+- A contextual paragraph edit carries the editor target in the opening state.
+  Paragraph candidates and placement questions appear only after Jev chooses
+  an edit. Clarification from the same editor state completes with one intent
+  ballot and creates no proposal.
+- A tied discussion source vote keeps the existing clarification response.
+  The turn stops before acquisition or writer dispatch.
+
+Image movement and explicit Graph-reference placement are outside the 36-case
+wire parity claim. The ordinary controls exercise their existing review routes,
+whose opening requests still contain specialized questions. Scoring those
+as intent-only cases requires the visible image selection or Graph reference
+and a menu that can distinguish the requested review from prose writing.
