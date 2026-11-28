@@ -103,12 +103,17 @@ class PlanJevHarness:
                 if type(action) is NativePlanActionV3:
                     page_title = action.document_title or ''
                 from .native_authored_references import acquire
-                acquire(adapter)
+                if type(action) is not NativePlanActionV3:
+                    acquire(adapter)
                 driver = PlanJevDriver(adapter, dialogue=dialogue, rules=rules, retained_navigation=retained_navigation)
-                driver.native_sources.discover_initial()
+                if type(action) is not NativePlanActionV3:
+                    driver.native_sources.discover_initial()
                 adapter.fence.begin_plan_opening()
                 author_scope = (self._interpret_author_scope(adapter, dialogue, author_scope_calls)
                     if type(action) is NativePlanActionV3 else None)
+                if type(action) is NativePlanActionV3:
+                    acquire(adapter)
+                    driver.native_sources.discover_initial()
                 with measure("plan_opening_candidate_preparation"):
                     semantic = PlanJevDispatch.requested_work(adapter, page_title=page_title,
                         author_scope=author_scope, **driver.decision_arguments())
