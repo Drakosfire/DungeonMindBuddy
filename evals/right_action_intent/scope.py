@@ -159,12 +159,31 @@ def decision_summary(rows, surface):
 
 
 def grouped_summary(rows, surface):
-    by_action = defaultdict(list)
+    by_action, by_tier = defaultdict(list), defaultdict(list)
     for row in rows:
         by_action[row["expected"]].append(row)
+        by_tier[row["tier"]].append(row)
     return {"decision_summary": decision_summary(rows, surface),
             "by_action": {action: decision_summary(group, surface)
-                          for action, group in by_action.items()}}
+                          for action, group in by_action.items()},
+            "by_tier": {tier: decision_summary(group, surface) for tier, group in by_tier.items()}}
+
+
+def paired_changes(arms):
+    scoped = {row["id"]: row for row in arms["scoped"]}
+    changes = {"improved": [], "regressed": [], "provider_errors": []}
+    for full in arms["full"]:
+        narrow = scoped[full["id"]]
+        record = {"id": full["id"], "tier": full["tier"], "expected": full["expected"],
+                  "full_choice": full["choice"], "scoped_choice": narrow["choice"],
+                  "full_status": full["status"], "scoped_status": narrow["status"]}
+        if any(row["status"] == "provider_error" for row in (full, narrow)):
+            changes["provider_errors"].append(record)
+        elif full["status"] == "correct" and narrow["status"] != "correct":
+            changes["regressed"].append(record)
+        elif full["status"] != "correct" and narrow["status"] == "correct":
+            changes["improved"].append(record)
+    return changes
 
 
 def retained_cohort(path):
@@ -209,7 +228,7 @@ def retained_cohort(path):
             if len(rows) != len(expected) or {row["id"]: row["expected"] for row in rows} != expected:
                 raise ValueError(f"Retained cohort differs from fixtures for {surface}")
     return {surface: {arm: grouped_summary(rows, surface) for arm, rows in arms.items()}
-            for surface, arms in results.items()}
+            | {"paired_changes": paired_changes(arms)} for surface, arms in results.items()}
 
 
 def verify_build_followup_capture(path):

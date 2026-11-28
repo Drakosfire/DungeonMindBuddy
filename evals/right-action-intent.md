@@ -422,3 +422,10 @@ wire parity claim. The ordinary controls exercise their existing review routes,
 whose opening requests still contain specialized questions. Scoring those
 as intent-only cases requires the visible image selection or Graph reference
 and a menu that can distinguish the requested review from prose writing.
+
+The frozen report includes decision counts and latency by surface, expected
+action, and difficulty tier. Its paired changes list identifies cases that
+improved, regressed, or had a provider error. On the wire-shaped roster,
+seven improved and one regressed. The regression was the Build map-description
+request, which the scoped ballot unnecessarily deferred. That case passed in
+the separate intent-only ablation.
