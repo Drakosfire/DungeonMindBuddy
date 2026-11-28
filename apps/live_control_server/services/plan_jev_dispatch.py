@@ -173,6 +173,11 @@ class PlanJevDispatch:
                 page_title = adapter.fence.turn.graph_context_execution.policy.action.document_title or ''
         navigation = dict(candidates=tuple(candidates), examined_candidates=tuple(examined_candidates),
             allowed_operations=tuple(allowed_operations), **source_pins(adapter.fence.turn.graph_context_receipt)) if opening else {}
+        if opening:
+            if any(type(event) is NativePlanAuthorScopeObservedV1
+                   and event.scope_observation.source_use in {"source_needed", "saved_page_only"}
+                   for event in adapter.fence.turn.graph_context_execution.events):
+                navigation["source_requirement_guidance_version"] = "v1"
         if parent_type is NativePlanOpeningInputV2:
             navigation['evidence_relevance_version'] = 'v1'
             navigation['opening_graph_relevance_version'] = 'v1'

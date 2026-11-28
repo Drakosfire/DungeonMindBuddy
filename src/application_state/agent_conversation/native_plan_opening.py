@@ -32,6 +32,8 @@ from .jev_retrieval_contract import Digest, NativePlanBatchDecisionInputV3, Retr
 class NativePlanOpeningInputV1(PlanRequestedWorkInputV8, NativePlanBatchDecisionInputV3):
     schema_: Literal['dmb_native_plan_opening_input_v1'] = Field(
         default='dmb_native_plan_opening_input_v1', alias='schema')
+    source_requirement_guidance_version: Literal["v1"] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
     work_choice_guidance_version: Literal['v1'] | None = Field(
         default=None, exclude_if=lambda value: value is None)
 
@@ -832,6 +834,14 @@ def prepare_opening_decision(request):
         )
         questions = tuple(q.model_copy(update={'question': q.question + guidance})
             if q.name in graph_votes else q for q in questions)
+    if request.source_requirement_guidance_version == "v1":
+        state["required_source_policy"] = (
+            "The author needs evidence outside the supplied conversation and current Plan. "
+            "If the request identifies a source to read or cite, include the offered candidate that "
+            "matches it. A familiar answer or overlapping Plan text does not replace the requested "
+            "source. Exclude adjacent sources unless they support another requested detail. "
+            "If the requested source is absent, keep that as an evidence gap."
+        )
     return DecisionRequest(provider=work.provider, model=work.model,
         state=state, questions=(*work_questions, *questions), max_transport_retries=0)
 

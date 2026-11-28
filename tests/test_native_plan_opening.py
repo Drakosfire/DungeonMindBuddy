@@ -312,3 +312,16 @@ def test_plan_exact_replacement_survives_unresolved_later_relation():
     missing_anchor = resolve(capture, catalog, "write_current_page", "unresolved",
         observation, [], [], captured_selection_version="v1", **arguments)
     assert missing_anchor["requested_work"] == "clarify"
+
+
+def test_named_source_guidance_is_versioned_without_changing_the_offers():
+    historical = opening_input()
+    current = historical.model_copy(update={"source_requirement_guidance_version": "v1"})
+    old = prepare_opening_decision(historical)
+    new = prepare_opening_decision(current)
+    assert new.questions == old.questions
+    state = dict(new.state)
+    assert "does not replace the requested source" in state.pop("required_source_policy")
+    assert state == old.state
+    restored = NativePlanOpeningInputV1.model_validate_json(current.model_dump_json(by_alias=True))
+    assert prepare_opening_decision(restored) == new
