@@ -120,13 +120,13 @@ def _view(conn,binding):
     return SceneTemplateView(binding=binding,encounter=encounter,versions=versions,scene_present=_present(conn,binding))
 
 
-def _require_available_encounter_mechanics(conn, record) -> None:
+def _require_available_encounter_mechanics(conn, record, *, wait: bool = True) -> None:
     from application_state.mechanics_revisions.purge import require_available_statblocks
 
     require_available_statblocks(conn, (
         actor.mechanics_snapshot.locator.statblock_id
         for actor in record.draft.entities if actor.mechanics_snapshot is not None
-    ))
+    ), wait=wait)
 
 
 def _copy_saved_encounter(conn, *, world_id, request, now):
@@ -245,7 +245,7 @@ def read_version(*,world_id,document_id,scene_id,revision):
         if record.encounter_id!=binding.encounter_id or record.world_id!=world_id or record.revision!=revision or digest(saved['payload'])!=(saved['redacted_digest'] or saved['digest']):
             raise ApplicationStateIntegrityError("Prepared encounter version identity/digest is invalid")
         _require_integrity(record)
-        _require_available_encounter_mechanics(conn, record)
+        _require_available_encounter_mechanics(conn, record, wait=False)
         return record
 
 
@@ -292,5 +292,5 @@ def read_snapshot(conn, *, world_id, document_id, scene_id, pin, require_head=Fa
     if record.encounter_id != pin.encounter_id or record.world_id != world_id or record.revision != pin.revision:
         raise ApplicationStateIntegrityError('Prepared encounter snapshot identity is invalid')
     _require_integrity(record)
-    _require_available_encounter_mechanics(conn, record)
+    _require_available_encounter_mechanics(conn, record, wait=False)
     return record
