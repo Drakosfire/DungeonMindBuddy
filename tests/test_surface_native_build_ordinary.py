@@ -679,11 +679,18 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 return original_complete(service, decision=altered, **kwargs)
 
             monkeypatch.setattr(AgentConversationService, "complete_build_graph_reference_turn", complete_with_remap)
-        monkeypatch.setattr(build_graph_reference, "authoring_identities", lambda scope, principal: {
-            "scope": {"managed_world_id": world, "native_world_id": world, "binding_version": 1,
-                      "revision_id": current_revision, "scope_mode": "world", "campaign_id": None},
-            "identities": identities,
-        })
+        def read_reference_inventory(scope, principal):
+            ballots = [json.loads(call.content)["questions"] for call in decisions.calls]
+            assert len(ballots) >= 2
+            assert set(ballots[0]) == {"requested_work"}
+            assert "typed_graph_reference" in ballots[1]
+            return {
+                "scope": {"managed_world_id": world, "native_world_id": world, "binding_version": 1,
+                          "revision_id": current_revision, "scope_mode": "world", "campaign_id": None},
+                "identities": identities,
+            }
+
+        monkeypatch.setattr(build_graph_reference, "authoring_identities", read_reference_inventory)
     binding = SimpleNamespace(managed_world_id=world, native_world_id=world, binding_version=1, provisioning_id=None)
     monkeypatch.setattr(managed, 'resolve_managed_source_identity', lambda _: binding)
     monkeypatch.setattr(native, 'resolve_managed_world_binding', lambda _: binding)
