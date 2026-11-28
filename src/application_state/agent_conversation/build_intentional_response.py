@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import asdict, dataclass
 import math
 from types import MappingProxyType
+from .surface_action_catalog import UNIVERSAL_OPENING_ACTIONS
 
 import hashlib
 import json
@@ -90,11 +91,11 @@ class Work:
 
 WORK = MappingProxyType(
     {
-        "discuss": Work(
+        UNIVERSAL_OPENING_ACTIONS["discuss"]["build"]: Work(
             "discuss",
             "Answer, retrieve, compare, acknowledge, or explicitly discuss first.",
         ),
-        "clarify_request": Work(
+        UNIVERSAL_OPENING_ACTIONS["clarify_request"]["build"]: Work(
             "discuss",
             "Prepare clarifying questions, including an explicit request to ask the author questions; resolve an unclear intent/reference or creative choice before useful work.",
             review="questions",
