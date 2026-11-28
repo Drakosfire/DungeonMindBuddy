@@ -551,7 +551,15 @@ class BuildJevDriver:
         pending = getattr(a, "pending_build_source_observation", None) is not None
         if pending and "related_page_catalog" in self._interaction:
             raise ValueError("Pending Build discovers related pages only after selecting work")
-        self.split_opening = fresh and pending and capture is None
+        from application_state.agent_conversation.build_intentional_response import has_explicit_build_graph_reference
+
+        split_reference = (
+            callable(getattr(a, "build_intent_access", None))
+            and self._boundary_catalog is not None
+            and not self._interaction.get("related_page_catalog")
+            and has_explicit_build_graph_reference(a.request.build_authored_references)
+        )
+        self.split_opening = fresh and capture is None and (pending or split_reference)
         if fresh:
             from application_state.agent_conversation.build_intentional_response import semantic_routing_state
             state = semantic_routing_state(a.request.message, self._interaction, a.request.build_authored_references,
@@ -1337,7 +1345,11 @@ class BuildJevDriver:
                 raw = canonical(actual_response.model_dump(mode='json'))
                 execution = a._broker_execution()
                 request = json.loads(split_proof["opening_request"] if split_proof else prepared.body)
-                graph_reference = resolve_graph_reference_opening(request, actual_response)
+                if split_proof is not None and prepared.attempt_id != self._attempt:
+                    followup_response = DecisionResult.model_validate_json(split_proof["response"])
+                    graph_reference = resolve_graph_reference_opening(json.loads(prepared.body), followup_response)
+                else:
+                    graph_reference = resolve_graph_reference_opening(request, actual_response)
                 image_move = (opening_image_choice(
                     execution.policy, json.loads(raw),
                     self.image_move.opening_answers(request, actual_response), a.request.message,
@@ -1358,7 +1370,7 @@ class BuildJevDriver:
                 placement = None
                 if split_proof is None and graph_reference != "place_existing_reference":
                     placement = paragraph_placement_for(execution.policy, request, actual_response, a.request.message, label)
-                elif split_proof is not None and label == "write_current_page":
+                elif split_proof is not None and label == "write_current_page" and graph_reference != "place_existing_reference":
                     placement = paragraph_placement_for(execution.policy, json.loads(prepared.body),
                         DecisionResult.model_validate_json(split_proof["response"]), a.request.message, label)
                 _, _, menu, resolver = _captured_semantics(execution.policy)
@@ -1399,7 +1411,7 @@ class BuildJevDriver:
                     is_anchored_conversation_draft, is_anchored_current_page_edit,
                 )
                 from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
-                if ('related_page_catalog' in self._interaction
+                if ('related_page_catalog' in self._interaction and split_proof is None
                         and not ((conversation_route_can_admit(a._broker_receipt(), a._broker_execution())
                                   and prior_conversation_work((event,), allow_discussion=True) is not None)
                                  or is_anchored_discussion(event) or is_variant_approval(event)

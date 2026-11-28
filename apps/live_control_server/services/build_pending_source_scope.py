@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 
 from application_state.agent_conversation import types as ledger
 from application_state.agent_conversation.build_intentional_response import (
-    UnresolvedDiscussionSource, build_source_followup_wire, verify_build_source_followup,
+    UnresolvedDiscussionSource, build_source_followup_wire, has_explicit_build_graph_reference, verify_build_source_followup,
 )
 from application_state.agent_conversation.native_execution import BuildSourceScopeAuthorizedV1
 
@@ -26,9 +26,10 @@ class PendingBuildSourceScopeDriver:
         if type(self.intent) is not ledger.BuildOpeningIntentSelectedV1:
             raise ValueError("Build source scope needs its saved opening intent")
         self.menu = self.before.policy.action.requested_work_menu_sha256
+        self.graph_reference = has_explicit_build_graph_reference(getattr(self.before.policy.action.intent, "authored_references", None))
         self.wire = build_source_followup_wire(
             self.opening_wire["state"], self.intent.requested_work, menu_digest=self.menu,
-            write_capability=self.before.policy.action.write_capability,
+            write_capability=self.before.policy.action.write_capability, graph_reference=self.graph_reference,
         )
         self.step = DecisionIntent(
             request_id="build-source-scope:" + digest(self.wire), phase="source_scope",
@@ -91,7 +92,7 @@ class PendingBuildSourceScopeDriver:
             scope = verify_build_source_followup(
                 self.opening_wire, self.opening_response, menu_digest=self.menu,
                 wire=json.loads(self.prepared.body), response=actual_response.model_dump(mode="json"),
-                write_capability=self.before.policy.action.write_capability,
+                write_capability=self.before.policy.action.write_capability, graph_reference=self.graph_reference,
             )
         except UnresolvedDiscussionSource as exc:
             from .agent_turn_service import AgentTurnServiceError

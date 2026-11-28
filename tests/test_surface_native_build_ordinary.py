@@ -620,8 +620,9 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
     current_revision = lane.repo.get_head(world).head_revision_id
     assert current_revision != original_revision
     if graph_reference:
-        from apps.live_control_server.services import build_graph_reference
+        from apps.live_control_server.services import build_graph_reference, build_related_pages
 
+        monkeypatch.setattr(build_related_pages, "discover", lambda _request: [])
         reference = selected.references[0].model_copy(update={"graph_revision": current_revision})
         selected = selected.model_copy(update={"references": (reference,)})
         identities = [{"node_id": reference.node_id, "label": reference.label, "kind": "threat", "selectable": True}]
@@ -1566,7 +1567,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         store = BuildGraphReferenceReviewService()
         if graph_reference == "remapped_inventory":
             assert response.status_code == 503, response.text
-            assert len(decisions.calls) == 2 and not writer.calls
+            assert len(decisions.calls) == 3 and not writer.calls
             with pytest.raises(ApplicationStateNotFoundError):
                 store.get(world, writer.adapter.turn.turn_id)
             assert get_workspace_document_snapshot(tmp_path, page.document_id) == source
@@ -1574,9 +1575,12 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         assert response.status_code == 200, response.text
         completion = response.json()["knowledge_context"]["completion"]
         assert completion["disposition"] == graph_reference
-        assert len(decisions.calls) == 2 and not writer.calls
-        opening = json.loads(decisions.calls[0].content)
+        assert len(decisions.calls) == 3 and not writer.calls
+        opening, followup, nomination = [json.loads(call.content) for call in decisions.calls]
         assert opening["state"]["interaction"]["surface"] == "build"
+        assert set(opening["questions"]) == {"requested_work"}
+        assert "typed_graph_reference" in followup["questions"]
+        assert "reference_nomination" in nomination["questions"]
         turn = writer.adapter.turn
         assert turn.status == "completed"
         selection, = [event for event in turn.graph_context_execution.events
@@ -1606,7 +1610,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
         replay = client.post('/api/live/agent/turn', json=body)
         assert replay.status_code == 200, replay.text
         assert replay.json()["knowledge_context"]["completion"] == completion
-        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 2
+        assert replay.json()["knowledge_context"]["delivery_replay"] and len(decisions.calls) == 3
         return
     if contextual in {"stale", "foreign"}:
         from application_state.build_proposal.service import BuildProposalService

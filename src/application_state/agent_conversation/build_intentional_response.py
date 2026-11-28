@@ -251,7 +251,13 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
     )
 
 
-def build_source_followup_wire(state, requested_work, *, menu_digest, write_capability=None):
+def has_explicit_build_graph_reference(references):
+    from .authored_graph_references import AuthoredGraphReferenceV1
+
+    return references is not None and any(isinstance(ref, AuthoredGraphReferenceV1) for ref in references.references)
+
+
+def build_source_followup_wire(state, requested_work, *, menu_digest, write_capability=None, graph_reference=False):
     """Offer source scope for an already selected action, without offering reads."""
     from .jev_retrieval_contract import MODEL
 
@@ -278,6 +284,13 @@ def build_source_followup_wire(state, requested_work, *, menu_digest, write_capa
                           "criteria": dict.fromkeys(choice.options)}
             for choice in placement
         })
+        if graph_reference and write_capability.basis.visibility == "internal":
+            from application_state.build_proposal.graph_reference_decision import GRAPH_REFERENCE_OPENING
+
+            choice = GRAPH_REFERENCE_OPENING
+            questions[choice.name] = {
+                "type": "choice", "instructions": choice.question, "criteria": dict.fromkeys(choice.options),
+            }
     return {
         "model": MODEL,
         "state": followup_state,
@@ -307,13 +320,13 @@ def verify_build_intent_opening(opening_wire, opening_response, *, menu_digest):
     return selected(opening_response, menu=menu_digest)
 
 
-def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response, write_capability=None):
+def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response, write_capability=None, graph_reference=False):
     from generationengine.types import DecisionResult
     from .jev_retrieval_contract import validated_choice_answers
 
     requested_work = verify_build_intent_opening(opening_wire, opening_response, menu_digest=menu_digest)
     expected = build_source_followup_wire(opening_wire["state"], requested_work, menu_digest=menu_digest,
-        write_capability=write_capability)
+        write_capability=write_capability, graph_reference=graph_reference)
     if wire != expected or tuple(wire["questions"]["source_need"]["criteria"]) != SOURCE_NEED_OPTIONS:
         raise ValueError("Build source-scope request differs from the verified intent context")
     validated_choice_answers(DecisionResult.model_validate(response), set(expected["questions"]))
@@ -977,7 +990,8 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
             if len(source_auth) != 1 or source_auth[0].opening_intent_event_id != split.event_id:
                 raise ValueError("Build resolution requires its authorized source ballot")
             source_scope = verify_build_source_followup(request, raw_response, menu_digest=menu,
-                wire=produced_request, response=produced_response, write_capability=policy.action.write_capability)
+                wire=produced_request, response=produced_response, write_capability=policy.action.write_capability,
+                graph_reference=has_explicit_build_graph_reference(getattr(policy.action.intent, "authored_references", None)))
         elif label in {"clarify_request", "clarify_creation"}:
             source_scope = "anchored"
         else:
@@ -1030,7 +1044,9 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
                     and admitted_image_move_choice(choices, user_text) == retained
                 ))):
             raise ValueError("Image move choice differs from its actual native selection")
-    graph_reference = resolve_graph_reference_opening(request, response)
+    graph_reference_request = produced_request if followup else request
+    graph_reference_response = DecisionResult.model_validate(produced_response) if followup else response
+    graph_reference = resolve_graph_reference_opening(graph_reference_request, graph_reference_response)
     if graph_reference != event.typed_graph_reference or (graph_reference is not None and (
         not semantic_input or capability is None
         or catalog_for_build_capability(policy.action.write_capability) is None
@@ -1043,7 +1059,7 @@ def validate_selection_records(execution, event, proof, trace, *, user_text, tur
     placement = None
     if split is None and (graph_reference != "place_existing_reference" or event.paragraph_placement is not None):
         placement = paragraph_placement_for(policy, request, response, user_text, label)
-    elif followup and label == "write_current_page":
+    elif followup and label == "write_current_page" and graph_reference != "place_existing_reference":
         placement = paragraph_placement_for(
             policy, produced_request, DecisionResult.model_validate(produced_response), user_text, label,
         )
