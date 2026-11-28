@@ -195,6 +195,27 @@
   gap: 1rem;
 }
 
+.build-document-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--ui-text-primary, var(--fg, #e8eaef));
+  background: var(--ui-background-panel, #171d28);
+  border: 1px solid var(--ui-border, #3c4657);
+  border-radius: var(--radius, 10px);
+  font-family: var(--ui-font-interface, sans-serif);
+}
+
+.build-document-header h1 {
+  min-inline-size: 0;
+  margin: 0;
+  font: 650 1.125rem/1.35 var(--ui-font-interface, sans-serif);
+  overflow-wrap: anywhere;
+}
+
 .build-surface-shell {
   display: grid;
   gap: 0.75rem;
