@@ -103,6 +103,28 @@ def test_world_draft_version_and_scope_survive_store_lifecycle(tmp_path: Path) -
     assert list_threat_drafts(tmp_path, world_id="world_1") == ([], 0)
     assert get_threat_draft(tmp_path, loaded.draft_id) == loaded
 
+    from apps.live_control_server.services.threat_draft_store import verify_statblock_purge_owner
+
+    exact = dict(draft_id=loaded.draft_id, expected_version=loaded.version, statblock_id="sb_world")
+    verify_statblock_purge_owner(tmp_path, world_id="world_1", **exact)
+    with pytest.raises(ThreatDraftStoreError) as error:
+        verify_statblock_purge_owner(tmp_path, world_id="world_2", **exact)
+    assert error.value.status_code == 404
+    with pytest.raises(ThreatDraftStoreError) as error:
+        verify_statblock_purge_owner(tmp_path, world_id="world_1", **(exact | {"expected_version": 1}))
+    assert error.value.status_code == 409
+
+    duplicate = create_threat_draft(tmp_path, _world_create_request(world_id="world_2"))
+    attach_accepted_mechanics_ref(
+        tmp_path, draft_id=duplicate.draft_id, expected_version=duplicate.version,
+        locator=AcceptedMechanicsRefV1.from_locator(
+            locator, accepted_from_draft_version=duplicate.version,
+            accepted_at="2026-09-27T00:00:00Z", accepted_from_candidate_id=None,
+        ),
+    )
+    with pytest.raises(ThreatDraftStoreError, match="claimed by another draft"):
+        verify_statblock_purge_owner(tmp_path, world_id="world_1", **exact)
+
     assert loaded.description == "A changed authored brief."
     assert len(loaded.candidate_refs) == 2
 
@@ -1573,3 +1595,37 @@ def test_source_backed_draft_retries_without_a_ruleset(tmp_path):
     with pytest.raises(ThreatDraftStoreError, match="Choose a ruleset") as exc:
         map_draft_to_generate_request(draft, request_id="fixture")
     assert exc.value.status_code == 422
+
+
+@pytest.mark.parametrize("state", ["linked", "disconnected", "pending"])
+def test_statblock_purge_plan_requires_closed_proven_lineage(tmp_path, monkeypatch, state):
+    from types import SimpleNamespace
+    from application_state.errors import ApplicationStateConflictError, ApplicationStateIntegrityError
+    from application_state.world_mechanics.types import MechanicsLocator
+    from apps.live_control_server.services import statblock_saved_revision as service
+
+    origin = MechanicsLocator(
+        provider="dungeonmind", statblock_id="sb_world", revision_id="rev_first",
+        contract="dungeonmind.dungeonbuddy-statblocks", contract_version="1.0.0",
+        definition_digest="sha256:" + "a" * 64,
+    )
+    later = origin.model_copy(update={"revision_id": "rev_second"})
+    base = origin if state != "disconnected" else origin.model_copy(update={"revision_id": "rev_old"})
+    row = SimpleNamespace(
+        origin=origin, origin_acceptance_operation_id="accept", base=base, result=later,
+        state="outcome_unknown" if state == "pending" else "committed",
+    )
+    monkeypatch.setattr(service, "_origin", lambda *args: (SimpleNamespace(draft_id="draft"), origin, "accept"))
+    monkeypatch.setattr(service, "verify_statblock_purge_owner", lambda *args, **kwargs: None)
+    monkeypatch.setattr(service.operations, "unresolved", lambda **kwargs: None)
+    monkeypatch.setattr(service.operations, "list_operations", lambda **kwargs: [row])
+    args = dict(world_id="world_1", draft_id="draft", expected_version=2)
+
+    if state == "linked":
+        plan = service.plan_statblock_purge(tmp_path, **args)
+        assert plan.lineage == (origin, later)
+        assert plan.acceptance_operation_id == "accept"
+    else:
+        expected = ApplicationStateIntegrityError if state == "disconnected" else ApplicationStateConflictError
+        with pytest.raises(expected):
+            service.plan_statblock_purge(tmp_path, **args)

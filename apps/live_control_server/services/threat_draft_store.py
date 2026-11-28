@@ -362,6 +362,27 @@ def saved_mechanics_draft_ids(root: Path, *, world_id: str) -> tuple[str, ...]:
         )
 
 
+def verify_statblock_purge_owner(
+    root: Path, *, world_id: str, draft_id: str, expected_version: int, statblock_id: str,
+) -> None:
+    """Check the exact World draft and all other committed claims under one lock."""
+    with _store_lock(root):
+        target = _load_draft_unlocked(root, _require_committed_draft_id(root, draft_id))
+        ref = target.accepted_mechanics_ref
+        if target.world_id != world_id or ref is None or ref.statblock_id != statblock_id:
+            raise ThreatDraftStoreError("Saved statblock unavailable", status_code=404)
+        if target.version != expected_version:
+            raise ThreatDraftStoreError("Saved statblock changed", status_code=409)
+        for key in _load_index(root).draft_ids:
+            if key == target.draft_id:
+                continue
+            other = _load_draft_unlocked(root, key).accepted_mechanics_ref
+            if other is not None and other.statblock_id == statblock_id:
+                raise ThreatDraftStoreError(
+                    "Saved mechanics are claimed by another draft", status_code=409,
+                )
+
+
 def archive_saved_threat_draft(
     root: Path, *, world_id: str, draft_id: str, expected_version: int, authorize_world=None
 ) -> None:

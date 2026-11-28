@@ -1,4 +1,5 @@
 """Explicit manual revision Save, producer CAS and durable exact-key recovery."""
+from dataclasses import dataclass
 from datetime import UTC,datetime
 from apps.live_control_server.integrations.dungeonmind_statblocks.generated import ValidationStatus,ValidationSeverity,AssetBindingV1Input,AssetRefV1,ProviderKind,Role
 from uuid import UUID
@@ -11,7 +12,7 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.client import 
 from apps.live_control_server.integrations.dungeonmind_statblocks.definition_digest import matches_accepted_definition_digest, source_definition_digest_from_body
 from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import locator_from_exact_revision,same_mechanics_locator
 from apps.live_control_server.integrations.dungeonmind_statblocks.errors import StatblockIntegrationError
-from apps.live_control_server.services.threat_draft_store import get_threat_draft, saved_mechanics_draft_ids
+from apps.live_control_server.services.threat_draft_store import get_threat_draft, saved_mechanics_draft_ids, verify_statblock_purge_owner
 from apps.live_control_server.services.statblock_acceptance_reconciliation import list_acceptance_operations_for_draft
 from apps.live_control_server.services.statblock_definition_validation import validate_definition
 
@@ -37,6 +38,54 @@ def _origin_with_proof(root,world_id,draft_id):
 def _origin(root, world_id, draft_id):
     draft, locator, proof = _origin_with_proof(root, world_id, draft_id)
     return draft, locator, proof.operation_id
+
+
+@dataclass(frozen=True)
+class StatblockPurgePreflight:
+    world_id: str
+    draft_id: str
+    draft_version: int
+    acceptance_operation_id: str
+    lineage: tuple[MechanicsLocator, ...]
+
+
+def plan_statblock_purge(root, *, world_id, draft_id, expected_version):
+    """Prepare identifiers only. The caller must fence writers and recheck before purge."""
+    draft, origin, acceptance = _origin(root, world_id, draft_id)
+    verify_statblock_purge_owner(
+        root, world_id=world_id, draft_id=draft.draft_id,
+        expected_version=expected_version, statblock_id=origin.statblock_id,
+    )
+    if operations.unresolved(world_id=world_id, draft_id=draft_id):
+        raise ApplicationStateConflictError("Resolve the pending mechanics save before deleting")
+    successors = {}
+    offset = 0
+    while True:
+        page = operations.list_operations(world_id=world_id, draft_id=draft_id, limit=100, offset=offset)
+        for row in page:
+            if row.origin != origin or row.origin_acceptance_operation_id != acceptance:
+                raise ApplicationStateIntegrityError("Revision history has changed origin proof")
+            if row.state in {"prepared", "outcome_unknown"}:
+                raise ApplicationStateConflictError("Resolve the pending mechanics save before deleting")
+            if row.result is not None:
+                if row.base in successors:
+                    raise ApplicationStateIntegrityError("Saved revision history has multiple successors")
+                successors[row.base] = row.result
+        if len(page) < 100:
+            break
+        offset += len(page)
+
+    lineage = [origin]
+    seen_revision_ids = {origin.revision_id}
+    while lineage[-1] in successors:
+        next_revision = successors.pop(lineage[-1])
+        if next_revision.revision_id in seen_revision_ids:
+            raise ApplicationStateIntegrityError("Saved revision history repeats an identity")
+        seen_revision_ids.add(next_revision.revision_id)
+        lineage.append(next_revision)
+    if successors:
+        raise ApplicationStateIntegrityError("Saved revision history is disconnected")
+    return StatblockPurgePreflight(world_id, draft.draft_id, expected_version, acceptance, tuple(lineage))
 
 
 def _selected(root,world_id,draft_id,revision_id):
