@@ -3269,7 +3269,12 @@ def test_hosted_statblock_picker_reads_only_owned_world(hosted, application_stat
     assert [row["world_id"] for row in hosted.client.request("GET", drafts).json()["drafts"]] == ["managed"]
 
 
-def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hosted, monkeypatch):
+@pytest.mark.parametrize("owned_copy", [False, True])
+def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hosted, monkeypatch, owned_copy):
+    from uuid import UUID
+
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from application_state.mechanics_revisions import pdf_portraits, purge
     from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
     from apps.live_control_server.routes import agent, statblock_candidates
     from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
@@ -3282,15 +3287,24 @@ def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hos
 
     def read_exact(_root, **selectors):
         calls.append(selectors)
-        return {"resource": {"provenance": {"accepted_through": {PDF_REVIEW_PROVENANCE: {
+        return {"resource": {"statblock_id": "sb_owned", "provenance": {"accepted_through": {PDF_REVIEW_PROVENANCE: {
             "world_id": "managed", "review_id": review, "regions": regions,
         }}}}}
 
     def read_review(world_id, review_id, request):
+        assert not owned_copy, "Owned portrait fell back to reading the source review"
         require_build_pdf_access(request, world_id)
         assert str(review_id) == review
         return {"regions": regions, "artwork": {"jpeg_base64": "portrait"}}
 
+    def read_owned(**scope):
+        assert scope == {"statblock_id": "sb_owned", "world_id": "managed",
+                         "draft_id": UUID(draft), "review_id": UUID(review)}
+        return b"owned portrait" if owned_copy else None
+
+    monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, "fixture-only")
+    monkeypatch.setattr(pdf_portraits, "read", read_owned)
+    monkeypatch.setattr(purge, "find_receipt", lambda **_: None)
     monkeypatch.setattr(statblock_candidates, "statblock_data_root", lambda root: root)
     monkeypatch.setattr(statblock_candidates.saved_versions, "open_version", read_exact)
     monkeypatch.setattr(agent, "get_pdf_statblock_review", read_review)
@@ -3302,8 +3316,30 @@ def test_hosted_exact_statblock_read_authorizes_world_and_preserves_portrait(hos
     response = hosted.client.request("GET", path)
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
-    assert response.json()["pdf_portrait"] == "portrait"
+    assert response.json()["pdf_portrait"] == ("b3duZWQgcG9ydHJhaXQ=" if owned_copy else "portrait")
     assert calls == [{"world_id": "managed", "draft_id": draft, "revision_id": revision}]
+
+
+@pytest.mark.parametrize("exact", [False, True])
+def test_hosted_statblock_read_rechecks_deletion_after_loading(hosted, monkeypatch, exact):
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from application_state.mechanics_revisions import purge
+    from apps.live_control_server.routes import statblock_candidates
+
+    target = "/rev_exact" if exact else ""
+    path = f"/api/live/threat-drafts/{uuid4()}/mechanics-revisions{target}?world_id=managed"
+    receipt = None
+    def read(*_args, **_kwargs):
+        nonlocal receipt
+        receipt = (object(), True)
+        return {"resource": {"definition": "must not escape"}}
+
+    monkeypatch.setenv(APPLICATION_STATE_DSN_ENV, "fixture-only")
+    monkeypatch.setattr(purge, "find_receipt", lambda **_: receipt)
+    monkeypatch.setattr(statblock_candidates.saved_versions, "open_version" if exact else "list_versions", read)
+    response = hosted.client.request("GET", path)
+    assert response.status_code == 410, response.text
+    assert "must not escape" not in response.text
 
 
 def test_hosted_ingest_lists_and_reopens_saved_source_in_owned_world(hosted, monkeypatch):
@@ -4067,8 +4103,10 @@ def test_hosted_creature_catalog_and_association_read_are_world_scoped(hosted, m
         assert response.status_code == 403, response.text
 
 
-def test_hosted_archives_exact_statblock_and_preserves_saved_revision(prepared, hosted):
-    from apps.live_control_server.services import threat_draft_store
+def test_hosted_deletes_exact_statblock_and_retries_cleanup(prepared, hosted):
+    from unittest.mock import Mock
+
+    from apps.live_control_server.services import statblock_permanent_deletion, threat_draft_store
 
     fixture = prepared
     world = "elderwyld"
@@ -4077,6 +4115,8 @@ def test_hosted_archives_exact_statblock_and_preserves_saved_revision(prepared, 
 
     with pytest.MonkeyPatch.context() as patch:
         patch.setenv(hosted_auth.HOSTED_WORLD_ACCESS_ENV, json.dumps({world: [OWNER]}))
+        provider = Mock()
+        patch.setattr(statblock_permanent_deletion, "build_statblock_v1_client", lambda: provider)
         draft_id = fixture.draft.draft_id
         version = fixture.draft.version
         base = f"/api/live/threat-drafts/{draft_id}/saved-statblock?world_id={world}"
@@ -4101,12 +4141,42 @@ def test_hosted_archives_exact_statblock_and_preserves_saved_revision(prepared, 
         visible, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
         assert visible == before
         hosted.records[world] = owner_record
-        archived = hosted.client.request("DELETE", path)
-        assert archived.status_code == 204, archived.text
-        after, _ = threat_draft_store.list_threat_drafts(fixture.root, world_id=world)
-        assert after == []
-        assert threat_draft_store.get_threat_draft(fixture.root, draft_id).accepted_mechanics_ref == fixture.draft.accepted_mechanics_ref
+        provider.purge_statblock_revisions.assert_not_called()
+        from application_state.errors import ApplicationStateUnavailableError
+
+        with patch.context() as failure:
+            failure.setattr(statblock_permanent_deletion.purge, "remove_current_combat_copies", Mock(
+                side_effect=ApplicationStateUnavailableError("Combat cleanup interruption"),
+            ))
+            assert hosted.client.request("DELETE", path).status_code == 503
+
+        read_base = f"/api/live/threat-drafts/{draft_id}/mechanics-revisions"
+        reads = (f"{read_base}?world_id={world}", f"{read_base}/{fixture.revision.revision_id}?world_id={world}")
+        for read in reads:
+            pending = hosted.client.request("GET", read)
+            assert pending.status_code == 409, pending.text
+
+        assert threat_draft_store.get_threat_draft(fixture.root, draft_id) == fixture.draft
+        fence = threat_draft_store.threat_drafts_root(fixture.root) / threat_draft_store.PURGE_FENCES_NAME
+        fence.unlink()
+        provider.purge_statblock_revisions.side_effect = lambda *_: (
+            fence.is_file() or pytest.fail("Provider retry dispatched before restoring the deletion fence")
+        )
+        deleted = hosted.client.request("DELETE", path)
+        assert deleted.status_code == 204, deleted.text
         assert hosted.client.request("DELETE", path).status_code == 204
+        for read in reads:
+            gone = hosted.client.request("GET", read)
+            assert gone.status_code == 410, gone.text
+            assert "permanently deleted" in gone.json()["detail"]
+            assert hosted.client.request("GET", read, session="other-session").status_code == 403
+        assert provider.purge_statblock_revisions.call_count == 2
+        assert provider.purge_statblock_revisions.call_args.args == (
+            fixture.revision.statblock_id, fixture.revision.revision_id,
+        )
+        assert threat_draft_store.list_threat_drafts(fixture.root, world_id=world) == ([], 0)
+        with pytest.raises(threat_draft_store.ThreatDraftStoreError, match="not found"):
+            threat_draft_store.get_threat_draft(fixture.root, draft_id)
 
 
 def test_hosted_portrait_revision_recovers_exact_save(revision_case, hosted, monkeypatch):

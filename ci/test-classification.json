@@ -3,6 +3,10 @@
   "classification_basis": "Conservative file-level inventory, not measured speed or authorization to run opt-in/provider/live-data tests. No PR selection consumes these lanes in stage 1. Frontend Vitest and contract guards are fast candidates; current auth/ownership Python modules are domain integration; all other discovered Python/browser files require qualification review.",
   "lanes": {
     "fast": [
+      "apps/live-control-ui/src/App.guestCombat.test.tsx",
+      "apps/live-control-ui/src/api/guestConversationHistory.test.ts",
+      "apps/live-control-ui/src/playSurface/guestAdventureSession.test.ts",
+      "tests/test_guest_apprentice_plan.py",
       "apps/live-control-ui/src/api/nativeManualKnowledgeApi.test.ts",
       "apps/live-control-ui/src/buildSurface/NativeManualKnowledge.test.tsx",
       "apps/live-control-ui/src/buildSurface/nativeManualKnowledgeRecovery.test.ts",
@@ -604,6 +608,10 @@
       "tests/test_lore_page_review.py"
     ],
     "domain-integration": [
+      "tests/test_build_current_page_direct.py",
+      "tests/test_build_current_page_projection_reader.py",
+      "tests/test_build_current_scope_reader.py",
+      "tests/test_build_source_free_routing.py",
       "tests/test_guest_release_assertions.py",
       "tests/test_guest_release_evidence.py",
       "tests/test_guest_release_integration.py",
@@ -763,6 +771,8 @@
       "tests/test_world_mechanics_associations.py"
     ],
     "qualification": [
+      "tests/application_state/test_pending_build_storage.py",
+      "tests/test_build_source_free_protocol.py",
       "tests/scripts/test_check_app_recovery_image.py",
       "tests/test_known_character_context.py",
       "tests/test_recap_name_review.py",

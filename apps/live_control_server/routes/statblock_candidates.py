@@ -1,6 +1,7 @@
 """Statblock candidate generate/read and definition validation API."""
 from __future__ import annotations
 
+import os
 from typing import Any,Annotated
 from uuid import UUID
 
@@ -180,6 +181,27 @@ def lookup_saved_statblock(
     return result
 
 
+def _require_undeleted_revision_target(world_id: str, draft_id: str) -> None:
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from application_state.mechanics_revisions import purge
+
+    if not os.getenv(APPLICATION_STATE_DSN_ENV):
+        return
+    try:
+        draft_key = UUID(draft_id)
+    except ValueError:
+        return
+    try:
+        receipt = purge.find_receipt(world_id=world_id, draft_id=draft_key)
+    except ApplicationStateError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if receipt is not None:
+        _, complete = receipt
+        if complete:
+            raise HTTPException(status_code=410, detail="This statblock was permanently deleted.")
+        raise HTTPException(status_code=409, detail="Deletion is in progress for this statblock.")
+
+
 @router.get('/threat-drafts/{draft_id}/mechanics-revisions')
 def list_saved_revisions(
     draft_id: str, world_id: str, request: Request,
@@ -188,16 +210,31 @@ def list_saved_revisions(
     from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
     require_build_pdf_access(request, world_id)
-    return _revision_call(saved_versions.list_versions,world_id=world_id,draft_id=draft_id,limit=limit,offset=offset)
+    _require_undeleted_revision_target(world_id, draft_id)
+    versions = _revision_call(saved_versions.list_versions,world_id=world_id,draft_id=draft_id,limit=limit,offset=offset)
+    require_build_pdf_access(request, world_id)
+    _require_undeleted_revision_target(world_id, draft_id)
+    return versions
 
 
 @router.get('/threat-drafts/{draft_id}/mechanics-revisions/{revision_id}')
 def open_saved_revision(draft_id: str, revision_id: str, world_id: str, request: Request):
-    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
-    from apps.live_control_server.routes.agent import get_pdf_statblock_review
     from apps.live_control_server.services.hosted_native_graph_access import require_build_pdf_access
 
     require_build_pdf_access(request, world_id)
+    _require_undeleted_revision_target(world_id, draft_id)
+    result = _open_saved_revision_with_portrait(draft_id, revision_id, world_id, request)
+    require_build_pdf_access(request, world_id)
+    _require_undeleted_revision_target(world_id, draft_id)
+    return result
+
+
+def _open_saved_revision_with_portrait(draft_id: str, revision_id: str, world_id: str, request: Request):
+    from base64 import b64encode
+    from application_state.config import APPLICATION_STATE_DSN_ENV
+    from application_state.mechanics_revisions import pdf_portraits
+    from application_state.mechanics_revisions.types import PDF_REVIEW_PROVENANCE
+    from apps.live_control_server.routes.agent import get_pdf_statblock_review
     packet = _revision_call(saved_versions.open_version, world_id=world_id, draft_id=draft_id, revision_id=revision_id)
     resource = packet["resource"]
     accepted_through = (resource.get("provenance") or {}).get("accepted_through") or {}
@@ -208,6 +245,16 @@ def open_saved_revision(draft_id: str, revision_id: str, world_id: str, request:
         review_id = UUID(source["review_id"])
     except (KeyError, TypeError, ValueError):
         return packet
+    if os.getenv(APPLICATION_STATE_DSN_ENV):
+        portrait = _revision_call(
+            lambda _root: pdf_portraits.read(
+                statblock_id=resource["statblock_id"], world_id=world_id, draft_id=UUID(draft_id),
+                review_id=review_id,
+            ),
+        )
+        if portrait is not None:
+            packet["pdf_portrait"] = b64encode(portrait).decode("ascii")
+            return packet
     try:
         review = get_pdf_statblock_review(world_id, review_id, request)
     except HTTPException as exc:

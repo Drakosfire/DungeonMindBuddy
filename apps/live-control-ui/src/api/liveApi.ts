@@ -4472,7 +4472,7 @@ export async function withdrawBuildSource(worldId: string, source: { kind: "pdf"
   if (!response.ok) throw new Error("Could not delete the document. Refresh and try again.");
 }
 
-export async function archiveBuildStatblock(worldId: string, draftId: string, version: number) {
+export async function deleteBuildStatblock(worldId: string, draftId: string, version: number) {
   const query = new URLSearchParams({ world_id: worldId, expected_version: String(version) });
   const { response } = await authenticatedApiFetch(
     `/api/live/threat-drafts/${encodeURIComponent(draftId)}/saved-statblock?${query}`, { method: "DELETE" },
