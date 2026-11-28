@@ -3255,8 +3255,8 @@ def test_pending_source_free_real_sdk_completion(monkeypatch, label):
         assert repository._turn_from_row(None, row, references=references) == completed
 
 
-@pytest.mark.parametrize('failure', [None, 'bare_discussion', 'unbound_citation'])
-def test_pending_sixty_turn_context_produces_stored_maelthor_page_draft_without_search(monkeypatch, failure):
+@pytest.mark.parametrize('outcome', ['draft', 'bare_discussion', 'unbound_citation', 'gap_only', 'unbound_gap'])
+def test_pending_sixty_turn_context_produces_stored_maelthor_page_draft_without_search(monkeypatch, outcome):
     import asyncio
     import httpx
     from application_state.agent_conversation.plan_writer_output_schema import ASSERTION_POLICY
@@ -3271,20 +3271,25 @@ def test_pending_sixty_turn_context_produces_stored_maelthor_page_draft_without_
                     'title': 'Maelthor',
                 },
                 'open_questions': ['Who is the traveler?']}}
-        if failure == 'bare_discussion':
+        if outcome == 'bare_discussion':
             candidate['collaboration'] = None
             candidate['answer_segments'] = [
                 {'kind': 'proposal', 'label': 'invented_idea', 'text': 'Here is your page.'},
             ]
-        if failure == 'unbound_citation':
+        if outcome == 'unbound_citation':
             candidate['answer_segments'] = [{'kind': 'source_passage_claim',
                 'text': 'An unsupported fact.', 'passage_handles': ['not-supplied']}]
+        if outcome in {'gap_only', 'unbound_gap'}:
+            candidate['collaboration'] = None
+            candidate['answer_segments'] = []
+            phrase = 'the context we just discussed' if outcome == 'gap_only' else 'an invented missing detail'
+            candidate['requested_detail_gaps'] = [{'question_phrase': phrase}]
         return httpx.Response(200, request=request, json={'id': 'resp_maelthor', 'object': 'response',
             'created_at': 1, 'model': calls[-1]['model'], 'status': 'completed', 'output': [{
                 'type': 'message', 'id': 'msg_maelthor', 'role': 'assistant', 'status': 'completed',
                 'content': [{'type': 'output_text', 'text': json.dumps(candidate), 'annotations': []}]}]})
     with pending_writer_completion_case(monkeypatch, lore_page=True) as (state, adapter, rules, writer, prepared):
-        if failure:
+        if outcome in {'bare_discussion', 'unbound_citation', 'unbound_gap'}:
             from generationengine import GenerationEngineError
             from application_state.errors import ApplicationStateError
             with pytest.raises((GenerationEngineError, ApplicationStateError, ValueError)):
@@ -3294,6 +3299,12 @@ def test_pending_sixty_turn_context_produces_stored_maelthor_page_draft_without_
             return
         completed = asyncio.run(writer.run(transport=httpx.MockTransport(respond), api_key='synthetic'))
         assert completed.status == 'completed' and len(calls) == 1 and state.completions == 1
+        if outcome == 'gap_only':
+            assert completed.completion.collaboration is None
+            assert any(segment.question_phrase == 'the context we just discussed'
+                       for segment in completed.completion.answer_segments)
+            assert state.retained_reads == 1 and state.materialized == 0
+            return
         assert completed.completion.collaboration.kind == 'lore_page'
         assert completed.completion.collaboration.destination.title == 'Maelthor'
         assert 'three bridges' in completed.assistant_text
