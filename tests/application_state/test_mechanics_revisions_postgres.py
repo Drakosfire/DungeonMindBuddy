@@ -230,3 +230,38 @@ def test_purge_receipt_blocks_draft_edits_and_recreation(application_state_dsn, 
             tmp_path, draft_id=other.draft_id, expected_version=other.version,
             locator=saved.accepted_mechanics_ref,
         )
+
+
+def test_statblock_purge_physically_removes_only_its_published_portrait(application_state_dsn):
+    from base64 import b64encode
+
+    from application_state.mechanics_revisions import pdf_portraits, purge
+    from application_state.pdf_statblock_review import read_review, save_review
+
+    record = intent()
+    review_id = uuid4()
+    jpeg = b"\xff\xd8fixture\xff\xd9"
+    artwork = b64encode(jpeg).decode("ascii")
+    review = save_review(
+        world_id=record.world_id, review_id=review_id, expected_revision=0,
+        definition={}, regions=[], artwork={"jpeg_base64": artwork},
+    )
+    key = dict(statblock_id=record.origin.statblock_id, world_id=record.world_id,
+               draft_id=record.draft_id, review_id=review_id)
+    other = {**key, "statblock_id": "sb_other", "draft_id": uuid4()}
+    pdf_portraits.retain(**key, artwork=artwork)
+    pdf_portraits.retain(**key, artwork=artwork)
+    pdf_portraits.retain(**other, artwork=artwork)
+    assert pdf_portraits.read(**key) == jpeg
+    assert pdf_portraits.read(**{**key, "world_id": "foreign"}) is None
+
+    target = purge.PurgeTarget(
+        key["statblock_id"], record.world_id, record.draft_id, 2, record.origin.revision_id,
+    )
+    assert purge.claim(target, authorize=lambda: None) is False
+    with pytest.raises(ApplicationStateConflictError, match="being deleted"):
+        pdf_portraits.retain(**key, artwork=artwork)
+    purge.settle_after_cleanup(target, authorize=lambda: None)
+    assert pdf_portraits.read(**key) is None
+    assert pdf_portraits.read(**other) == jpeg
+    assert read_review(world_id=record.world_id, review_id=review_id) == review
