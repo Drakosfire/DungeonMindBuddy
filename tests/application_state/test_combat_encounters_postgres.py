@@ -70,6 +70,21 @@ def test_encounter_create_list_open_save_and_reopen(
     assert reopened == saved
     assert reopened.draft.entities[0].name == "Geomantic Drake"
 
+    request = SaveCombatEncounterRequest.model_validate({
+        "expected_revision": saved.revision,
+        "draft": {
+            **saved.draft.model_dump(mode="json", by_alias=True),
+            "entities": [{
+                **saved.draft.entities[0].model_dump(mode="json"),
+                "deleted_mechanics": {"statblock_id": "sb_example", "revision_id": "rev_example"},
+            }],
+        },
+    })
+    with pytest.raises(ApplicationStateValidationError, match="managed by the server"):
+        save_encounter(world_id="elderwyld", encounter_id=saved.encounter_id, request=request)
+    assert get_encounter(world_id="elderwyld", encounter_id=saved.encounter_id) == saved
+
+
 
 def test_encounter_compare_and_swap_allows_one_concurrent_writer(
     application_state_dsn: str,
