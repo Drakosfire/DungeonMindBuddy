@@ -1602,6 +1602,13 @@ class AgentTurnExecutionPersistencePort(Protocol):
         request_json: str, response_json: str, authorize_current_access: Callable[..., bool],
     ) -> tuple[Turn, bool]: ...
 
+    def authorize_pending_build_source_scope(
+        self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
+        expected_revision: int, expected_attempt: int, authorization: Any,
+        request_json: str, initial_request_json: str,
+        authorize_current_access: Callable[..., bool],
+    ) -> tuple[Turn, bool]: ...
+
     def authorize_pending_app_coverage(
         self, world_id: str, conversation_id: UUID, turn_id: UUID, *,
         expected_revision: int, expected_attempt: int, authorization: Any,
