@@ -101,6 +101,10 @@ def test_aw_edge_table_proposal_saves_and_reopens(lane, tmp_path, monkeypatch, m
         assert case.turn.status == 'completed'
         assert len(case.writer.calls) == 1
         if mode == 'pending':
+            opening, followup = [json.loads(call.content) for call in case.decisions.calls[:2]]
+            assert set(opening["questions"]) == {"requested_work"}
+            assert set(followup["questions"]) == {"source_need"}
+            assert followup["state"] == opening["state"] | {"selected_work": "write_current_page"}
             request = json.loads(case.writer.calls[0].content)
             target = json.loads(request['input'])['surface_work']['build_work']['edit_target']
             assert target['selection']['text'] == 'An'

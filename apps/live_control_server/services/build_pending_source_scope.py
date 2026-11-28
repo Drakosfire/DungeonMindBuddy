@@ -36,7 +36,7 @@ class PendingBuildSourceScopeDriver:
             questions=(DecisionQuestion(name="source_need", kind="choice",
                 question=ballot["instructions"], options=tuple(ballot["criteria"])),),
         )
-        self.plan = self.prepared = self.result = None
+        self.plan = self.prepared = self.result = self.response = None
 
     def stage(self):
         if self.plan is not None or self.adapter._broker_execution() != self.before:
@@ -88,3 +88,4 @@ class PendingBuildSourceScopeDriver:
             wire=json.loads(self.prepared.body), response=actual_response.model_dump(mode="json"),
         )
         self.result = scope
+        self.response = canonical(actual_response.model_dump(mode="json"))

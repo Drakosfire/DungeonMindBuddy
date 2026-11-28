@@ -727,6 +727,19 @@ class BuildJevHarness:
             # This protected, unvalidated Debug channel grants no answer authority.
             if isinstance(adapter._broker_execution().policy, (ledger.BuildSelectedSourceActionControllerWriterPolicyV1, SurfaceNativeExecutionPolicyV1, BuildPendingExecutionPolicyV1)):
                 self._capture_controller_decision(adapter, plan, result)
+            split_proof = None
+            if getattr(driver, "split_opening", False):
+                from .build_pending_source_scope import PendingBuildSourceScopeDriver
+
+                intent = adapter._broker_execution().events[-1]
+                if type(intent) is not ledger.BuildOpeningIntentSelectedV1:
+                    raise ValueError("Build source handling requires its saved intent")
+                request = adapter._prepared_build_decision.body.decode()
+                split_proof = {"intent": intent.requested_work, "opening_request": request, "scope": "anchored"}
+                if intent.requested_work not in {"clarify_request", "clarify_creation"}:
+                    followup = PendingBuildSourceScopeDriver(adapter, request, result.model_dump(mode="json"))
+                    await self._decide(adapter, followup)
+                    split_proof.update(scope=followup.result, response=followup.response)
             if prepare_deferred_query is not None:
                 if not opening_dispatched:
                     raise ValueError("Deferred Build query requires witnessed opening transport")
@@ -768,7 +781,8 @@ class BuildJevHarness:
                 if isinstance(driver, WriterSelectionDriver):
                     driver.accept_response(result)
                 else:
-                    driver.accept_decision(decision_policy.MODEL, sdk_answers(result), actual_response=result)
+                    options = {"split_proof": split_proof} if split_proof is not None else {}
+                    driver.accept_decision(decision_policy.MODEL, sdk_answers(result), actual_response=result, **options)
             except Exception:
                 if adapter.context_capture:
                     adapter.context_capture.observe({"kind": "failure", "phase": "delivery",
