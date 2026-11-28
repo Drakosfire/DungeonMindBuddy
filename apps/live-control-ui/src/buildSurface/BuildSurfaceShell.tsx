@@ -24,9 +24,6 @@ import { parseBuildSourceNavigationQuery } from "../sourceNavigation/sourceNavig
 import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
 import { BuildGraphObjectContext, parseBuildGraphPointerFromLocation } from "./BuildGraphObjectContext";
 import { BUILD_DOCUMENT_SAVE_COMMAND_ID } from "./buildDocumentCommands";
-import { DOCUMENT_METADATA_UPDATE_COMMAND_ID } from "../markdownCanvas/markdownCanvasTypes";
-import { guestBuildActive } from "../guestWorld/guestBuildSession";
-import { BuildDocumentRenameControl } from "./BuildDocumentRenameControl";
 import { useBuildAutosave } from "./useBuildAutosave";
 import "./buildAutosave.css";
 import { useBuildMarkdownCanvasSlots } from "./buildMarkdownCanvasAdapter";
@@ -51,16 +48,12 @@ function BuildPresentableSourceView({
   navigationTarget,
   composeBridge,
   onEditorTools,
-  refreshDocuments,
-  pageTransitionBusy,
 }: {
   composeBridge: BuildComposeBridge;
   session: MarkdownCanvasSessionValue;
   editSlots: MarkdownCanvasSlots;
   navigationTarget: BuildSourceNavigationTarget;
   onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
-  refreshDocuments?: () => unknown;
-  pageTransitionBusy?: boolean;
 }) {
   useBuildAutosave(session);
   const [mediaOpen, setMediaOpen] = useState(false);
@@ -117,13 +110,6 @@ function BuildPresentableSourceView({
   };
 
   return <div className="build-surface-shell" data-testid="build-surface-shell">
-    <header className="build-page-title" data-testid="build-page-title">
-      <h1>{session.record!.title}</h1>
-      {!guestBuildActive() && <BuildDocumentRenameControl pageTitle currentTitle={session.record!.title}
-        renaming={session.activeCommand?.id === DOCUMENT_METADATA_UPDATE_COMMAND_ID}
-        disabled={pageTransitionBusy || !session.lookupAdmission("editable").ok || Boolean(session.activeCommand && session.activeCommand.id !== DOCUMENT_METADATA_UPDATE_COMMAND_ID)}
-        onRename={async title => { const result=await session.updateDocumentMetadata({title}); if(result.ok) refreshDocuments?.(); return result; }}/>}
-    </header>
     {navigationTarget.status !== "none" ? <details className="build-source-evidence" open>
       <summary>Saved evidence passage</summary>
       <BuildSourceReader showOutline={false} title={session.record!.title}
@@ -301,7 +287,12 @@ export function BuildEmptyLanding({ loadStatus }: { loadStatus: "idle" | "loadin
  * Document authority lives on MarkdownCanvasSession (provider is owned by BuildSurfacePage).
  * Saved evidence remains separate from the directly editable working document.
  */
-export function BuildSurfaceShell({ onEditorTools, onReviewTarget, selectDocument, refreshDocuments, pageTransitionBusy }: { onEditorTools?: (tools: AppChromeToolsGeneration | null) => void; onReviewTarget?: (target: HTMLDivElement | null) => void; selectDocument?: (id: string) => Promise<boolean>; refreshDocuments?: () => unknown; pageTransitionBusy?: boolean }) {
+export function BuildSurfaceShell({ onEditorTools, onReviewTarget, onDocumentHeader, selectDocument }: {
+  onEditorTools?: (tools: AppChromeToolsGeneration | null) => void;
+  onReviewTarget?: (target: HTMLDivElement | null) => void;
+  onDocumentHeader?: (target: HTMLDivElement | null) => void;
+  selectDocument?: (id: string) => Promise<boolean>;
+}) {
   const session = useMarkdownCanvasSession();
   const { rehydrateScope, publishSurfaceContext, surfaceInteractionPublication } = useAgentInteraction();
   const hasSharedEditSave = (surfaceInteractionPublication?.editCommands ?? []).some(
@@ -583,6 +574,7 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget, selectDocumen
           requireDocumentScope
         />
       ) : null}
+      {isPresentable && <div ref={onDocumentHeader} />}
       {!isPresentable ? (
         <MarkdownCanvas slots={slots} />
       ) : (
@@ -593,8 +585,6 @@ export function BuildSurfaceShell({ onEditorTools, onReviewTarget, selectDocumen
           navigationTarget={navigationTarget}
           composeBridge={composeBridge}
           onEditorTools={onEditorTools}
-          refreshDocuments={refreshDocuments}
-          pageTransitionBusy={pageTransitionBusy}
         />
       )}
       <div className="build-run-review-host" ref={onReviewTarget} />

@@ -29,6 +29,7 @@ export function BuildSurfacePage() {
   const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
   const controller = useBuildWorkspaceDocumentController();
   const [extractionTarget, setExtractionTarget] = useState<HTMLDivElement | null>(null);
+  const [documentHeader, setDocumentHeader] = useState<HTMLDivElement | null>(null);
   const [reviewTarget, setReviewTarget] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -131,10 +132,10 @@ export function BuildSurfacePage() {
           kind={BUILD_MARKDOWN_CANVAS.kind}
           saveConflictsWith={BUILD_SAVE_CONFLICTS_WITH}
         >
-          <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} extractionTargetRef={setExtractionTarget} />
+          <BuildSurfaceContext {...controller} primaryActionsHost={primaryActions} extractionTargetRef={setExtractionTarget} documentHeaderHost={documentHeader} />
           <BuildReferenceCapability documentId={controller.activeDocumentId}>
             {!guestBuildActive() && <BuildIngestToolbar documentId={controller.activeDocumentId} target={extractionTarget} reviewTarget={reviewTarget} />}
-            <BuildSurfaceShell onEditorTools={setEditorTools} onReviewTarget={setReviewTarget} selectDocument={controller.selectDocument} refreshDocuments={controller.refreshDocuments} pageTransitionBusy={controller.switching || controller.creating} />
+            <BuildSurfaceShell onEditorTools={setEditorTools} onReviewTarget={setReviewTarget} onDocumentHeader={setDocumentHeader} selectDocument={controller.selectDocument} />
           </BuildReferenceCapability>
         </MarkdownCanvasSessionProvider>
       ) : (
