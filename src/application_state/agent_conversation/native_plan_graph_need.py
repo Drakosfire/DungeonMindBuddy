@@ -23,6 +23,11 @@ DESCRIPTIONS = {
     'no_graph': 'The supplied conversation and current work are sufficient without World Graph facts',
     'uncertain': 'It is unclear whether World Graph facts are needed',
 }
+EXCLUSION_DESCRIPTIONS_V1 = {
+    'require_graph': 'World Graph facts are needed to satisfy the request and the author permits consulting them.',
+    'no_graph': 'The request can be answered from supplied context, or the author explicitly excludes searching or consulting World sources; respect that exclusion even when information is missing.',
+    'uncertain': 'The intended context or permission to use World Graph facts is genuinely unclear.',
+}
 
 
 class NativePlanGraphNeedInputV1(Strict):
@@ -33,6 +38,8 @@ class NativePlanGraphNeedInputV1(Strict):
     question: str = Field(min_length=1, strict=True)
     dialogue: tuple[RetrievalDialogue, ...]
     current_work: str = Field(strict=True)
+    exclusion_guidance_version: Literal['v1'] | None = Field(
+        default=None, exclude_if=lambda value: value is None)
 
     @property
     def digest(self):
@@ -54,12 +61,15 @@ def validate_input_binding(parent, *, pending_sha256, admission_sha256, question
 def prepare_decision(parent):
     if type(parent) is not NativePlanGraphNeedInputV1:
         raise ValueError('Plan Graph-need decision requires its exact versioned input')
+    if parent.exclusion_guidance_version not in (None, 'v1'):
+        raise ValueError('Unsupported Plan Graph-need guidance version')
     return DecisionRequest(provider=PROVIDER, model=MODEL, state={
         'user_request': parent.question,
         'dialogue_reference': [row.model_dump() for row in parent.dialogue],
         'current_work': parent.current_work,
     }, questions=(ChoiceDecisionQuestion(name='graph_need', question=QUESTION,
-        options=OPTIONS, option_descriptions=DESCRIPTIONS),), max_transport_retries=0)
+        options=OPTIONS, option_descriptions=(EXCLUSION_DESCRIPTIONS_V1
+            if parent.exclusion_guidance_version == 'v1' else DESCRIPTIONS)),), max_transport_retries=0)
 
 
 def canonical_wire(parent, *, expected_model=MODEL):
@@ -121,6 +131,32 @@ class NativePlanGraphNeedObservedV1(Strict):
     choice: Literal['require_graph', 'no_graph', 'uncertain']
 
 
+GRAPH_NEED_CLARIFICATION_QUESTION = 'What context would you like me to use for this request?'
+
+
+class NativePlanGraphClarificationSegmentV1(Strict):
+    kind: Literal['clarification'] = 'clarification'
+    text: Literal['What context would you like me to use for this request?'] = GRAPH_NEED_CLARIFICATION_QUESTION
+
+
+class NativePlanGraphClarificationCompletionV1(Strict):
+    """Host-authored scope question; it is not a writer or factual answer."""
+    schema_: Literal['dmb_plan_graph_need_clarification_v1'] = Field(default='dmb_plan_graph_need_clarification_v1', alias='schema')
+    surface_id: Literal['plan'] = 'plan'
+    context_receipt_sha256: Digest
+    observation_event_id: UUID
+    answer_context_status: Literal['discussion'] = 'discussion'
+    answer_segments: tuple[NativePlanGraphClarificationSegmentV1] = (NativePlanGraphClarificationSegmentV1(),)
+
+
+class NativePlanGraphClarificationEventV1(Strict):
+    kind: Literal['native_plan_graph_clarification_v1'] = 'native_plan_graph_clarification_v1'
+    event_id: UUID
+    sequence: int = Field(ge=0, strict=True)
+    observation_event_id: UUID
+    completion_sha256: Digest
+
+
 class NativePlanGraphQueryAuthorizedV1(Strict):
     kind: Literal['native_plan_graph_query_authorized_v1'] = 'native_plan_graph_query_authorized_v1'
     event_id: UUID
@@ -164,7 +200,7 @@ class NativePlanGraphQuerySettledV1(Strict):
     query: NativeGraphQueryV4 | NativeGraphQueryV3 | NativePlanQueryV2 | NativePlanQueryUnavailableV1
 
 
-_GRAPH_EVENTS = (NativePlanGraphNeedObservedV1, NativePlanGraphQueryAuthorizedV1,
+_GRAPH_EVENTS = (NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1, NativePlanGraphQueryAuthorizedV1,
     NativePlanGraphQueryStartedV1, NativePlanGraphQueryClosedV1,
     NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1)
 
@@ -198,15 +234,17 @@ def validate_pending_graph(context, execution):
         raise ValueError('Pending Plan Graph query differs from its admitted request')
     pending_sha = canonical_sha256(query)
     observations = [e for e in graph_events if type(e) is NativePlanGraphNeedObservedV1]
+    clarifications = [e for e in graph_events if type(e) is NativePlanGraphClarificationEventV1]
     authorizations = [e for e in graph_events if type(e) is NativePlanGraphQueryAuthorizedV1]
     starts = [e for e in graph_events if type(e) is NativePlanGraphQueryStartedV1]
     closures = [e for e in graph_events if type(e) is NativePlanGraphQueryClosedV1]
     failures = [e for e in graph_events if type(e) is NativePlanGraphQueryFailedV1]
     settlements = [e for e in graph_events if type(e) is NativePlanGraphQuerySettledV1]
-    if any(len(items) > 1 for items in (need_auths, observations, authorizations, starts, closures, failures, settlements)):
+    if any(len(items) > 1 for items in (need_auths, observations, clarifications, authorizations, starts, closures, failures, settlements)):
         raise ValueError('Plan Graph-need and query transitions must be unique')
     need_auth = need_auths[0] if need_auths else None
     observed = observations[0] if observations else None
+    clarification = clarifications[0] if clarifications else None
     grant = authorizations[0] if authorizations else None
     started = starts[0] if starts else None
     closed = closures[0] if closures else None
@@ -248,6 +286,15 @@ def validate_pending_graph(context, execution):
                 or decode_retained_result(observed.parent, observed.result_json, observed.result_sha256,
                     expected_model=need_auth.model) != observed.choice):
             raise ValueError('Graph-need observation differs from its authorized SDK result')
+    if clarification:
+        if (observed is None or observed.choice != 'uncertain'
+                or clarification.observation_event_id != observed.event_id
+                or clarification.sequence != observed.sequence + 1
+                or len(events) != clarification.sequence + 1
+                or any(type(event) not in (NativePlanGraphNeedAuthorizedV1, t.ProviderOutcomeEventV1,
+                    NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEventV1) for event in events)
+                or grant is not None or started is not None or closed is not None or failed is not None or settled is not None):
+            raise ValueError('Plan Graph clarification requires its unique uncertain decision without acquisitions')
     if grant and (observed is None or observed.choice != 'require_graph'
             or grant.need_event_id != observed.event_id or grant.pending_query_sha256 != pending_sha
             or grant.sequence <= observed.sequence):
@@ -285,4 +332,4 @@ def validate_pending_graph(context, execution):
                 settled is not None and event.sequence > settled.sequence
                 or closed is not None and event.sequence > closed.sequence):
             raise ValueError('Plan writer requires a settled query or explicit no-Graph closure')
-    return settled.query if settled is not None else None if closed is not None else query
+    return settled.query if settled is not None else None if closed is not None or clarification is not None else query
