@@ -651,7 +651,8 @@ def _ordinary_native_case(
                     'include' if name.startswith('candidate_') and int(name.split('_')[-1]) in native else 'exclude')
                 answers[name]={'type':'choice','choice':choice,'confidence':1,
                     'probabilities':{key:float(key==choice) for key in entry['criteria']}}
-            return httpx2.Response(200,request=req,json={'model':'jev-1.14.0','answers':answers,'usage':{'input_tokens':37,'output_tokens':9}})
+            assert body['model'] == 'typesafe-ai/jev-1.14.0'
+            return httpx2.Response(200,request=req,json={'model':body['model'],'answers':answers,'usage':{'input_tokens':37,'output_tokens':9}})
     class Writer(WriterWire):
         async def handle_async_request(self, req):
             body = json.loads(req.content)
@@ -1058,19 +1059,30 @@ def _ordinary_native_case(
     from application_state.agent_conversation.native_context import NativePlanRequestAdmissionV1
     from application_state.agent_conversation.native_execution import NativePlanOpeningSelectedV1
     from application_state.agent_conversation.native_retrieval import NativePlanOpeningAuthorizedV1
-    from application_state.agent_conversation.native_corpus import NativePlanRequestSearchAuthorizedV1, NativeBodySearchObservedV1
+    from application_state.agent_conversation.native_corpus import (
+        NativeBodySearchObservedV1,
+        NativeInitialSourceSearchAuthorizedV1,
+        NativePlanRequestSearchAuthorizedV1,
+        controller_selected_source_discovery,
+    )
     assert type(turn.graph_context_receipt.assembled_input) is NativePlanRequestAdmissionV1
     opening_auths = [e for e in turn.graph_context_execution.events if type(e) is NativePlanOpeningAuthorizedV1]
     opening_choices = [e for e in turn.graph_context_execution.events if type(e) is NativePlanOpeningSelectedV1]
     assert len(opening_auths) == len(opening_choices) == 1
     assert opening_auths[0].provider_attempt_id == opening_choices[0].controller_attempt_id
     request_grants = [e for e in turn.graph_context_execution.events if type(e) is NativePlanRequestSearchAuthorizedV1]
-    assert len(request_grants) == 1
-    grant = request_grants[0]
-    search = next(e for e in turn.graph_context_execution.events if type(e) is NativeBodySearchObservedV1
-        and e.authorization_event_id == grant.event_id)
-    assert grant.sequence < search.sequence < opening_auths[0].sequence < opening_choices[0].sequence
-    assert grant.request_manifest_sha256 == turn.graph_context_receipt.assembled_input.manifest_sha256
+    if controller_selected_source_discovery(turn.graph_context_execution):
+        assert not request_grants
+        initial_grants = [e for e in turn.graph_context_execution.events
+            if type(e) is NativeInitialSourceSearchAuthorizedV1]
+        assert all(opening_choices[0].sequence < grant.sequence for grant in initial_grants)
+    else:
+        assert len(request_grants) == 1
+        grant = request_grants[0]
+        search = next(e for e in turn.graph_context_execution.events if type(e) is NativeBodySearchObservedV1
+            and e.authorization_event_id == grant.event_id)
+        assert grant.sequence < search.sequence < opening_auths[0].sequence < opening_choices[0].sequence
+        assert grant.request_manifest_sha256 == turn.graph_context_receipt.assembled_input.manifest_sha256
     if selected_references is not None:
         assert turn.graph_context_execution.events[0].kind == 'build_authored_references_captured_v1'
     if authoring:
@@ -1551,7 +1563,8 @@ def test_benchmark_context_boundary_uses_actual_sdk_admission_without_writer_io(
     assert all(detail['start_monotonic_ns'] <= span['start_monotonic_ns']
                <= span['end_monotonic_ns'] <= detail['end_monotonic_ns'] for span in intervals)
     names = {span['name'] for span in intervals}
-    assert {'execution_append', 'native_source_append',
+    assert 'native_source_append' not in names  # The controller chose Graph without a source scan.
+    assert {'execution_append',
             'native_writer_authorization_persistence', 'route_auth', 'first_jev_transport_entry',
             'plan_retrieval_complete', 'plan_writer_composition', 'writer_sdk_preparation',
             'plan_opening_candidate_preparation', 'plan_opening_selection_apply'} <= names
