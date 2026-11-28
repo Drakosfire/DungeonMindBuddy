@@ -940,7 +940,7 @@ def test_exact_selected_play_source_admits_no_aggregate_token_ceiling(source_cas
     assert updated.graph_context_execution.policy.max_provider_attempts > 0
 
 
-@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","object","mixed","unknown","writer_failure","source_failure","forged_work","forged_choice"])
+@pytest.mark.parametrize("mode",["work","selected","automatic","memory","rules","graph","object","mixed","unknown","writer_failure","source_failure","forged_work","forged_choice","clarify","handoff","scene_edit"])
 def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answer(
     application_state_dsn,monkeypatch,tmp_path,source_case,mode,request,
 ):
@@ -964,7 +964,12 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         from tests.test_native_plan_statements import query
         query_context,query_result=query(graph_lane,scope_mode='world')
     core=ref=None
-    if mode in {'selected','automatic','source_failure'}:
+    deferred_work = {
+        "clarify": ("clarify_request", "Ask focused questions needed to resolve the current request"),
+        "handoff": ("different_destination", "Explain the requested destination"),
+        "scene_edit": ("play_edit", "Direct the user to the scene edit control"),
+    }
+    if mode in {'selected','automatic','source_failure'} or mode in deferred_work:
         from apps.live_control_server.integrations.dungeonmind import native_corpus_source as native_owner
         from tests.test_native_corpus_source_access import GM
         old,ref,_sections=selected(source_case)
@@ -974,7 +979,7 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         ref=ref.model_copy(update={'managed_world_id':world})
     from application_state.agent_conversation.authored_graph_references import AuthoredGraphReferenceV1, AuthoredSourceReferenceV1
     references=()
-    if mode in {'selected','source_failure'}:
+    if mode in {'selected','source_failure'} or mode in deferred_work:
         references=(ref,)
     if mode in {'object','mixed'}:
         authority=query_result.authority
@@ -1009,6 +1014,12 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     if mode in {'graph','object','mixed'}:intent=intent.model_copy(update={'message':query_result.question})
     if mode=='rules':
         intent=intent.model_copy(update={'message':'Can I end my move in an occupied space?'})
+    if mode in deferred_work:
+        intent = intent.model_copy(update={"message": {
+            "clarify": "Can you do that now?",
+            "handoff": "Revise the Corrupted Edge page in Build.",
+            "scene_edit": "Revise the current scene to begin after sunset.",
+        }[mode]})
     request=AgentTurnRequest.model_validate_json(json.dumps(dict(
         schema='dmb_agent_turn_request_v1',graph_selection=None,
         client_thread_id='shared-play-native',turn_id=str(uuid4()),message=intent.message,
@@ -1041,7 +1052,8 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
             for name,question in body['questions'].items():
                 include=name.startswith('candidate_') and body['state']['candidates'][int(name.split('_')[1])]['kind']==('public_rules_lookup' if mode=='rules' else 'Native Graph object; open its complete admitted statement and assertion support' if mode=='graph' else 'Explicit admitted full-source read; metadata choice, not evidence') and len(self.calls)==2
                 if opening:
-                    choice='read_source' if mode in {'automatic','rules','graph'} else 'discuss'
+                    choice = (deferred_work[mode][0] if mode in deferred_work else
+                              'read_source' if mode in {'automatic','rules','graph'} else 'discuss')
                 else:
                     choice='finish_retrieval' if name=='operation' else 'include' if include else 'exclude'
                 answers[name]={'type':'choice','choice':choice,'confidence':1,
@@ -1169,7 +1181,12 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
 
         recorded = [event.requested_work for event in stored.graph_context_execution.events
                     if type(event) is NativePlayIntentSelectedV1]
-        assert recorded == ["read_source" if mode in {"automatic", "rules", "graph"} else "discuss"]
+        assert recorded == [deferred_work[mode][0] if mode in deferred_work else
+                            "read_source" if mode in {"automatic", "rules", "graph"} else "discuss"]
+    if mode in deferred_work:
+        assert deferred_work[mode][1] in wire.calls[0].content.decode()
+        assert not any(isinstance(event, t.NativeAuthoredSourceReadV1)
+                       for event in stored.graph_context_execution.events)
     assert stored.play_context_receipt==sub.play_context_receipt
     assert stored.completion.answer_segments[0].source_kind=='play'
     # Exercise the actual saved-history consumer, not only execution replay.

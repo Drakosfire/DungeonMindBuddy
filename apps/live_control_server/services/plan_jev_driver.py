@@ -244,7 +244,8 @@ class PlanJevDriver:
         self.current = None
         from application_state.agent_conversation.native_retrieval import NativePlayIntentSelectedV1
 
-        if type(admitted) is NativePlayIntentSelectedV1 and self.adapter.request.authored_references:
+        if (type(admitted) is NativePlayIntentSelectedV1 and not admitted.defers_source_reads
+                and self.adapter.request.authored_references):
             from .native_authored_references import acquire
 
             acquire(self.adapter)

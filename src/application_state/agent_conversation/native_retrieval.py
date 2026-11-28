@@ -64,6 +64,10 @@ class NativePlayIntentSelectedV1(NativeRetrievalSelectedV1):
     kind: Literal["native_play_intent_selected_v1"] = "native_play_intent_selected_v1"
     requested_work: str
 
+    @property
+    def defers_source_reads(self) -> bool:
+        return self.requested_work in {"clarify_request", "different_destination", "play_edit"}
+
 
 NATIVE_RETRIEVAL_SELECTION_TYPES = (
     NativeRetrievalSelectedV1, NativeRetrievalSelectedV2, NativePlayIntentSelectedV1,
@@ -642,7 +646,9 @@ def validate_decision_phases(execution):
                     and type(intent) in (NativePlanOpeningSelectedV2, NativePlanOpeningSelectedV3) and intent.requested_work == 'clarify')
                 if (
                     not isinstance(event, writer_type)
-                    or pending_author_nodes or pending_author_sources
+                    or (pending_author_nodes or pending_author_sources) and not (
+                        type(selected) is NativePlayIntentSelectedV1 and selected.defers_source_reads
+                    )
                     or pending_sources
                     or retrieval_started
                     and not retrieval_finished
@@ -757,13 +763,15 @@ def validate_decision_phases(execution):
                 retrieval_finished = True
         elif isinstance(event, t.NativeAuthoredSourceReadV1):
             if references is None or writer is not None or (
-                retrieval_finished and type(selected) is not NativePlayIntentSelectedV1
+                retrieval_finished and not (type(selected) is NativePlayIntentSelectedV1
+                    and not selected.defers_source_reads)
             ):
                 raise ValueError('Human source acquisition cannot resume after retrieval or writing')
             pending_author_sources.discard(event.reference_index)
         elif isinstance(event, (BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2)):
             if references is None or writer is not None or (
-                retrieval_finished and type(selected) is not NativePlayIntentSelectedV1
+                retrieval_finished and not (type(selected) is NativePlayIntentSelectedV1
+                    and not selected.defers_source_reads)
             ):
                 raise ValueError('Human acquisition cannot resume after native retrieval or writing')
             if isinstance(event, BuildAuthoredReferenceAuthorizedV2):
