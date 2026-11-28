@@ -280,8 +280,9 @@ def opening_work(policy, request, response, image_choice):
     # general work/source ties. Keep the same checks for all malformed votes.
     terminal = image_choice in {"move_existing", "unresolved"}
     label = selected(response, menu=menu, tie_fallback="discuss" if terminal else None)
+    source_independent = label in {"clarify_request", "clarify_creation"}
     return label, source_need(
-        request, response, tie_fallback="anchored" if terminal else None,
+        request, response, tie_fallback="anchored" if terminal or source_independent else None,
         clarify_uncertain_tie=not terminal and label == "discuss",
     )
 
@@ -307,9 +308,8 @@ def _selected_choice(answer, options, *, tie_fallback=None, clarify_uncertain_ti
     if tied and clarify_uncertain_tie and label == "uncertain" and probabilities[label] == maximum:
         raise UnresolvedDiscussionSource("Should I answer from this Page alone, or look for other sources?")
     if tied and tie_fallback is not None:
-        # This ranking has no unique winner. For an already admitted typed
-        # image action, discard the unused general label and record the host's
-        # neutral route. The actual label and probabilities remain in proof.
+        # A settled action can make the tied choice irrelevant. Preserve its
+        # actual label and probabilities in the producer proof.
         return tie_fallback
     if tied or probabilities[label] != maximum:
         raise ValueError("Invalid actual semantic selection")
