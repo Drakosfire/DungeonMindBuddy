@@ -5166,3 +5166,36 @@ def test_pending_app_prompt_capture_keeps_exact_authorization_and_family(monkeyp
             validate_prompt_authorization(prompt, execution, int(mutation == 'sequence'))
     else:
         validate_prompt_authorization(prompt, execution, 0)
+
+
+def test_pending_build_opening_intent_only_allows_its_dedicated_followup():
+    from application_state.agent_conversation.native_execution import BuildSourceScopeAuthorizedV1
+    from tests.test_surface_native_execution import controller, outcomes
+
+    receipt, policy = pending_execution_pair()
+    initial = controller("build", policy).model_copy(
+        update={"envelope_sha256": receipt.assembled_input.assembled_input_sha256},
+    )
+    from application_state.agent_conversation.build_decision_context import identity
+
+    initial = initial.model_copy(update={"dispatch_identity_sha256": identity(
+        envelope_sha256=initial.envelope_sha256, provider=initial.provider,
+        model=initial.model, api_mode=initial.api_mode, context_mode=initial.context_mode,
+    )})
+    intent = t.BuildOpeningIntentSelectedV1(
+        kind="build_opening_intent_selected_v1", event_id=uuid4(), sequence=3,
+        controller_attempt_id=initial.provider_attempt_id, controller_envelope_sha256=initial.envelope_sha256,
+        controller_response_sha256="b" * 64, requested_work="discuss",
+    )
+    prefix = [initial, *outcomes(initial, 1), intent]
+    generic = controller("build", policy, sequence=4)
+    followup = BuildSourceScopeAuthorizedV1.model_validate(
+        generic.model_dump() | {"kind": "build_source_scope_authorized_v1", "context_phase": "source_scope",
+                                "opening_intent_event_id": intent.event_id}
+    )
+    assert pending_execution(receipt, policy, [*prefix, followup]).events[-1] == followup
+    with pytest.raises(ValueError, match="precede work selection"):
+        pending_execution(receipt, policy, [*prefix, generic])
+    clarification = intent.model_copy(update={"requested_work": "clarify_request"})
+    with pytest.raises(ValueError, match="unresolved opening intent"):
+        pending_execution(receipt, policy, [*prefix[:-1], clarification, followup])

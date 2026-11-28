@@ -679,6 +679,7 @@ class BuildPendingExecutionV1(Strict):
         settled = False
         app_catalog_observed = False
         work_selected = False
+        intent_selected = False
         app_catalog = page_controller = page_outcome = page_selection = None
         page_reads = set()
         writer = None
@@ -725,7 +726,8 @@ class BuildPendingExecutionV1(Strict):
                             != self.policy.provider_roles.controller.identity()):
                         raise ValueError("App page controller requires its unique unresolved captured catalog phase")
                     page_controller, page_outcome = event, None
-                elif (settled or work_selected or (event.provider, event.model, event.api_mode)
+                elif (settled or work_selected or intent_selected or event.context_phase == "source_scope"
+                        or (event.provider, event.model, event.api_mode)
                         != self.policy.provider_roles.controller.identity()):
                     raise ValueError("Pending controller authorization must precede work selection")
                 if (event.included_assertion_ids or event.included_relationship_ids
@@ -735,6 +737,8 @@ class BuildPendingExecutionV1(Strict):
                     raise ValueError("Pending controller cannot include unacquired source evidence")
             elif type(event) is BuildAppCoverageDecidedV1:
                 validate_coverage_decision(self, event)
+            elif type(event) is t.BuildOpeningIntentSelectedV1:
+                intent_selected = True
             elif type(event) is t.BuildRequestedWorkResolutionV1:
                 work_selected = True
             elif type(event) is t.CompletionBindingEventV1:
