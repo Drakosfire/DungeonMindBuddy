@@ -1,0 +1,49 @@
+{
+  "fixtures": "surface-cohort.json",
+  "fixture_sha256": "83503e3bddb2be896b8bc084227edd675fe8646c2b7a2c2adac3d6f32f51b3dc",
+  "model": "jev-1.14.0",
+  "captures": [
+    {
+      "file": "surface-cohort-play-handoff-jev.json",
+      "surface": "build",
+      "path": [],
+      "sha256": "3c39705b57fe8c7427e943e0edf8c8fe7644b110509620cc69badff7a7298928"
+    },
+    {
+      "file": "plan-minimal-intent-paired-jev.json",
+      "surface": "plan",
+      "path": [],
+      "sha256": "75043b6d58c5f27c59b062c0abeba33579afd6a28d1d4c57910a97693986a9f7"
+    },
+    {
+      "file": "surface-cohort-play-runtime-jev.json",
+      "surface": "play",
+      "path": [],
+      "sha256": "1386d9d05b5bdd17c4b80e0acc49224979831249e86a7b0426a7492fc43427e6"
+    },
+    {
+      "file": "play-destination-holdout-jev.json",
+      "surface": "play",
+      "path": [
+        "control"
+      ],
+      "sha256": "84abb2f78da865ac5cc55582d863bdc178da4dee83538510efdae2808564d3e5"
+    },
+    {
+      "file": "surface-dialogue-intent-jev.json",
+      "surface": "plan",
+      "path": [
+        "plan"
+      ],
+      "sha256": "87a5908f5c75ba44444ac095e09432618a7d83d724b456f3c4bf79201f61fd48"
+    },
+    {
+      "file": "surface-dialogue-intent-jev.json",
+      "surface": "play",
+      "path": [
+        "play"
+      ],
+      "sha256": "87a5908f5c75ba44444ac095e09432618a7d83d724b456f3c4bf79201f61fd48"
+    }
+  ]
+}

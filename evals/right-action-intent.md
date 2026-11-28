@@ -307,3 +307,24 @@ selection, and one Play turn asks about a hypothetical outcome in the
 current scene. Both arms chose correctly on both cases. Reproduce with
 `--tier dialogue_followup` and the appropriate surface, adding
 `--plan-intent-only` for Plan.
+
+### Frozen 60-case cohort
+
+The [frozen roster](right_action_intent/surface-cohort-frozen.json) pins the
+case file and every capture by SHA-256. It uses the current Play wording,
+the native Plan and Play intent requests, and the simplified Build comparison.
+Reproduce the scorecard without provider calls with
+`python -m evals.right_action_intent.scope --frozen-cohort evals/right_action_intent/surface-cohort-frozen.json`.
+
+| Surface | Combined correct | Scoped correct | Combined median | Scoped median |
+| --- | ---: | ---: | ---: | ---: |
+| Build | 29/36 | 33/36 | 211.01 ms | 189.38 ms |
+| Plan | 7/8 | 8/8 | 296.39 ms | 187.31 ms |
+| Play | 13/16 | 14/16 | 264.59 ms | 177.62 ms |
+| Total | 49/60 | 55/60 | | |
+
+Correct totals include eight valid deferrals in each arm. The combined
+arm has ten wrong actions and one invalid deferral. The scoped arm has five
+wrong actions. Neither arm has a provider failure or top-score tie. These
+decision times come from retained captures made at different times. They
+are descriptive rather than an end-to-end latency estimate.

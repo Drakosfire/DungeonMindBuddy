@@ -133,6 +133,41 @@ def grouped_summary(rows, surface):
                           for action, group in by_action.items()}}
 
 
+def retained_cohort(path):
+    manifest = json.loads(path.read_bytes())
+    fixture_digest, groups, menus = prepare(path.parent / manifest["fixtures"])
+    if fixture_digest != manifest["fixture_sha256"]:
+        raise ValueError("Frozen cohort fixture hash changed")
+    results = defaultdict(dict)
+    for entry in manifest["captures"]:
+        raw = (path.parent / entry["file"]).read_bytes()
+        if sha256(raw).hexdigest() != entry["sha256"]:
+            raise ValueError(f"Retained capture changed: {entry['file']}")
+        capture = json.loads(raw)
+        for key in entry.get("path", ()):
+            capture = capture[key]
+        surface = entry["surface"]
+        recorded = capture["menus"][surface]
+        if (capture["model"] != manifest["model"] or set(recorded) != set(menus[surface])
+                or any(list(menu.items()) != list(menus[surface][arm].items())
+                       for arm, menu in recorded.items())):
+            raise ValueError(f"Retained model or menu differs for {surface}")
+        for arm, data in capture["results"][surface].items():
+            rows = results[surface].setdefault(arm, [])
+            rows.extend(data["rows"])
+    if set(results) != set(groups):
+        raise ValueError("Retained cohort omits a fixture surface")
+    for surface, cases in groups.items():
+        expected = {case["id"]: case["expected"] for case in cases}
+        if set(results[surface]) != {"full", "scoped"}:
+            raise ValueError(f"Incomplete retained pair for {surface}")
+        for rows in results[surface].values():
+            if len(rows) != len(expected) or {row["id"]: row["expected"] for row in rows} != expected:
+                raise ValueError(f"Retained cohort differs from fixtures for {surface}")
+    return {surface: {arm: grouped_summary(rows, surface) for arm, rows in arms.items()}
+            for surface, arms in results.items()}
+
+
 async def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixtures", type=Path, default=Path(__file__).with_name("surface-probe.json"))
@@ -144,12 +179,16 @@ async def main():
     parser.add_argument("--play-destination-wording", action="store_true",
                         help="Compare explicit edit destinations in the Play ballot")
     parser.add_argument("--tier", help="Run only cases in this tier while retaining the original menu union")
+    parser.add_argument("--frozen-cohort", type=Path, help="Verify and summarize a pinned set of retained captures")
     parser.add_argument("--summarize", type=Path, help="Summarize a retained paired capture without a provider")
     parser.add_argument("--plan-intent-only", action="store_true",
                         help="Evaluate the shared source-blind intent request for Plan")
     args = parser.parse_args()
     if args.plan_intent_only and args.surface != "plan":
         parser.error("--plan-intent-only requires --surface plan")
+    if args.frozen_cohort:
+        print(json.dumps(retained_cohort(args.frozen_cohort), indent=2))
+        return
     if args.summarize:
         capture = json.loads(args.summarize.read_bytes())
         results = capture.get("results", capture)
