@@ -35,13 +35,14 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
 @pytest.mark.parametrize("work", ["clarify_request", "discuss"])
 def test_pending_build_clarifies_without_source_acquisition(lane, tmp_path, monkeypatch, work):
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
-    from apps.live_control_server.services import build_related_pages
+    from apps.live_control_server.services import build_related_pages, plan_source_turn
 
     def forbidden(*args, **kwargs):
         pytest.fail("Clarification attempted new source acquisition")
 
     monkeypatch.setattr(build_related_pages, "discover", forbidden)
     monkeypatch.setattr(native_corpus_source, "prepare_native_source_context", forbidden)
+    monkeypatch.setattr(plan_source_turn, "prepare_native_source_context", forbidden)
     monkeypatch.setattr(native_corpus_source, "turn_source_repository", lambda **kwargs: lane.repo)
 
     def send(client, world, body, _decisions):
