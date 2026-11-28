@@ -2,8 +2,8 @@
 
 from alembic import op
 
-revision = "20261128_0207"
-down_revision = "20261128_0206"
+revision = "20261128_0218"
+down_revision = "20261128_0217"
 branch_labels = None
 depends_on = None
 
