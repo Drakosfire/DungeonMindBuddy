@@ -1032,12 +1032,18 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
             if mode=='unknown':
                 self.calls.append(request)
                 raise httpx2.ReadTimeout('Synthetic ambiguous Play controller outcome',request=request)
-            if mode not in {'automatic','rules','graph'}:return await super().handle_async_request(request)
-            self.calls.append(request);body=json.loads(request.content)
+            body=json.loads(request.content)
+            opening=body["state"].get("surface")=="play"
+            if not opening and mode not in {'automatic','rules','graph'}:
+                return await super().handle_async_request(request)
+            self.calls.append(request)
             answers={}
             for name,question in body['questions'].items():
-                include=name.startswith('candidate_') and body['state']['candidates'][int(name.split('_')[1])]['kind']==('public_rules_lookup' if mode=='rules' else 'Native Graph object; open its complete admitted statement and assertion support' if mode=='graph' else 'Explicit admitted full-source read; metadata choice, not evidence') and len(self.calls)==1
-                choice='finish_retrieval' if name=='operation' else 'include' if include else 'exclude'
+                include=name.startswith('candidate_') and body['state']['candidates'][int(name.split('_')[1])]['kind']==('public_rules_lookup' if mode=='rules' else 'Native Graph object; open its complete admitted statement and assertion support' if mode=='graph' else 'Explicit admitted full-source read; metadata choice, not evidence') and len(self.calls)==2
+                if opening:
+                    choice='read_source' if mode in {'automatic','rules','graph'} else 'discuss'
+                else:
+                    choice='finish_retrieval' if name=='operation' else 'include' if include else 'exclude'
                 answers[name]={'type':'choice','choice':choice,'confidence':1,
                     'probabilities':{key:float(key==choice) for key in question['criteria']}}
             return httpx2.Response(200,request=request,json={'model':'jev-1.14.0','answers':answers,
@@ -1123,8 +1129,13 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     delivered=response.rules_context.base_context if mode=='rules' else response.play_context
     assert type(delivered.receipt) is SurfaceNativeContextReceiptV1
     assert delivered.delivery_replay is False
-    assert len(decisions.calls)==(2 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
-    assert not any('requested_work' in json.loads(call.content)['questions'] for call in decisions.calls)
+    assert len(decisions.calls)==(3 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
+    openings=[json.loads(call.content) for call in decisions.calls
+              if 'requested_work' in json.loads(call.content)['questions']]
+    assert len(openings)==(0 if references else 1)
+    if openings:
+        assert set(openings[0]['questions'])=={'requested_work'}
+        assert 'candidates' not in openings[0]['state']
     for call in [*decisions.calls,*wire.calls]:
         assert 'max_output_tokens' not in json.loads(call.content)
         raw=call.content.decode()
@@ -1134,7 +1145,7 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
     replay=execute_agent_turn(request,**kwargs)
     assert (replay.rules_context.base_context if mode=='rules' else replay.play_context).delivery_replay is True
     assert replay.answer.text==response.answer.text
-    assert len(decisions.calls)==(2 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
+    assert len(decisions.calls)==(3 if mode in {'automatic','rules','graph'} else 1) and len(wire.calls)==1
     stored=AgentConversationService().list_turns(world,wire.adapter.turn.conversation_id)[-1]
     if mode=='rules':stored=stored.base_projection.turn
     assert stored.play_context_receipt==sub.play_context_receipt
@@ -1161,9 +1172,9 @@ def test_shared_play_ordinary_factory_uses_jev_writer_and_replays_saved_run_answ
         next_reply=execute_agent_turn(followup,**kwargs)
         assert next_reply.answer.status=='ok'
         state=json.loads(decisions.calls[-1].content)['state']
-        assert state['dialogue_reference']==[dict(role='user',content=request.message),
+        assert state['prior_dialogue']==[dict(role='user',content=request.message),
             dict(role='assistant',content=response.answer.text)]
-        assert 'dialogue_reference' not in state['surface_work']
+        assert 'surface_work' not in state
     if mode in {'selected','automatic','mixed'}:assert stored.completion.native_body_citations
     if mode=='memory':assert stored.completion.answer_segments[-1].kind=='session_summary'
     if mode in {'graph','object','mixed'}:assert stored.completion.native_assertion_citations

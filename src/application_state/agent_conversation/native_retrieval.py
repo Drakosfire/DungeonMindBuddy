@@ -206,7 +206,13 @@ def verify_input(turn, auth, proof):
         )
     parent = parse_native_retrieval_input(strict_json(proof["parent_request_json"]),
         surface_id=execution.policy.action.surface_id)
-    from .jev_retrieval_contract import NativePlanBatchDecisionInputV3
+    from .jev_retrieval_contract import NativePlanBatchDecisionInputV3, NativePlayIntentDecisionInputV1
+    if type(parent) is NativePlayIntentDecisionInputV1 and (
+        execution.policy.action.intent.authored_references is not None
+        or any(isinstance(event, t.ProviderAttemptAuthorizedEventV1)
+               for event in execution.events[:auth.sequence])
+    ):
+        raise ValueError("Play intent ballot requires the first unbound conversational request")
     if type(parent) is NativePlanBatchDecisionInputV3:
         from .native_corpus import initial_source_discovery_enabled
         if not initial_source_discovery_enabled(execution):

@@ -63,7 +63,7 @@ def verify_initial_input(view, request, work, parent):
     from .agent_turn_service import _governed_graph_turn
     from application_state.agent_conversation.jev_retrieval_contract import NativePlayRetrievalDecisionInputV1
     if request.surface.surface_id=='play':
-        if (type(parent) is not NativePlayRetrievalDecisionInputV1 or not _governed_graph_turn(request)
+        if (not isinstance(parent, NativePlayRetrievalDecisionInputV1) or not _governed_graph_turn(request)
                 or work.play_context_receipt is None or parent.question!=request.message
                 or (view.get('provider'),view.get('model'),view.get('apiMode'))!=(PROVIDER,MODEL,'decision')):
             raise ValueError('Play Jev requires its exact governed Run question and provider')
@@ -89,7 +89,7 @@ class PlanJevDispatch:
     No retries or fallback. The parent creates the candidate catalog; neither
     returned labels nor model choices create evidence or authorize a source read.
     """
-    def __init__(self, adapter, candidates, *, dialogue=(), examined_candidates=(), allowed_operations=("select_candidates", "discover_more", "finish_retrieval")):
+    def __init__(self, adapter, candidates, *, dialogue=(), examined_candidates=(), allowed_operations=("select_candidates", "discover_more", "finish_retrieval"), play_intent_opening=False):
         self.adapter = adapter
         fields = dict(request_id=uuid4(), parent_attempt_id=uuid4(), scope_sha256="0" * 64,
             question=adapter.request.message, dialogue=tuple(dialogue), candidates=tuple(candidates),
@@ -97,7 +97,9 @@ class PlanJevDispatch:
         receipt = adapter.fence.turn.graph_context_receipt if adapter.fence is not None else None
         authority = getattr(adapter, "native_source_authority", None)
         if adapter.request.surface.surface_id=='play' and authority is not None:
-            from application_state.agent_conversation.jev_retrieval_contract import NativePlayRetrievalDecisionInputV1
+            from application_state.agent_conversation.jev_retrieval_contract import (
+                NativePlayIntentDecisionInputV1, NativePlayRetrievalDecisionInputV1,
+            )
             from application_state.agent_conversation.native_play_work import project_work
             from application_state.agent_conversation.native_context import PlayWorkContextV1
             from .plan_source_turn import play_work_proof
@@ -116,7 +118,8 @@ class PlanJevDispatch:
             pins=dict(source_authority_status='available' if available else 'unavailable',
                 source_revision=authority.revision_id if available else None,
                 graph_revision=query.authority.revision_id if isinstance(query,NativePlanQueryV1) else None)
-            self.parent=NativePlayRetrievalDecisionInputV1(**fields,**pins,play_work=project_work(
+            codec = NativePlayIntentDecisionInputV1 if play_intent_opening else NativePlayRetrievalDecisionInputV1
+            self.parent=codec(**fields,**pins,play_work=project_work(
                 work,provenance,_turn_idempotency_key(adapter.world_id,adapter.request.turn_id),proof))
         elif type(receipt) is t.SurfaceNativeContextReceiptV1:
             from application_state.agent_conversation.native_retrieval import source_expansion_selected, source_pins
@@ -457,7 +460,9 @@ class PlanJevDispatch:
             a.turn = _require_fresh_execution_append(a.fence.append('record_plan_requested_work_selection' if semantic else 'record_plan_jev_retrieval_selection', "selection", event,
                 producer_proof={"parent_request_json": self.parent.model_dump_json(by_alias=True),
                     "request_json": self.prepared.body.decode(), "response_json": raw}))
-            if not semantic and selected.operation == "finish_retrieval" and result.answers["operation"].selected == "finish_with_gaps":
+            fallback = result.answers.get("operation")
+            if (not semantic and selected.operation == "finish_retrieval"
+                    and fallback is not None and fallback.selected == "finish_with_gaps"):
                 a.context_capture.observe({"kind": "failure", "phase": "graph_retrieval",
                                            "code": "controller_finished_with_gaps"})
             self.selection_event = event
