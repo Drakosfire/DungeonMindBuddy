@@ -63,6 +63,7 @@ async def main():
     parser.add_argument("--fixtures", type=Path, default=Path(__file__).with_name("surface-probe.json"))
     parser.add_argument("--output", type=Path)
     parser.add_argument("--credential-file", type=Path)
+    parser.add_argument("--reuse", type=Path, help="Reuse exact fixtures and menus from this capture")
     parser.add_argument("--validate-only", action="store_true")
     args = parser.parse_args()
     digest, groups, menus = prepare(args.fixtures)
@@ -84,6 +85,22 @@ async def main():
     frozen = {"fixture_sha256": digest, "model": model, "prompt": PROMPT,
               "menus": menus, "cases": groups}
     (args.output / "frozen-inputs.json").write_text(json.dumps(frozen, indent=2) + "\n")
+    retained = {}
+    if args.reuse:
+        prior = json.loads((args.reuse / "frozen-inputs.json").read_bytes())
+        prior_report = json.loads((args.reuse / "results.json").read_bytes())
+        if (any(prior[key] != frozen[key] for key in ("model", "prompt", "menus"))
+            or any(tuple(menu) != tuple(menus[surface][arm])
+                   for surface, arms in prior["menus"].items() for arm, menu in arms.items())
+        ):
+            raise ValueError("Reuse requires the exact model, prompt and menus")
+        for surface, cases in prior["cases"].items():
+            by_id = {case["id"]: case for case in cases}
+            retained[surface] = {}
+            for arm, report in prior_report[surface].items():
+                retained[surface][arm] = {
+                    row["id"]: (by_id[row["id"]], row) for row in report["rows"]
+                }
     client = GenerationClient.from_env()
 
     async def decide(body):
@@ -102,8 +119,17 @@ async def main():
             report[surface] = {}
             arms = ("full", "scoped") if index % 2 == 0 else ("scoped", "full")
             for arm in arms:
-                rows = await evaluate_suite(cases, menus[surface][arm], decide, concurrency=4)
-                report[surface][arm] = {"summary": result_summary(rows), "rows": rows}
+                prior_rows = retained.get(surface, {}).get(arm, {})
+                reused = {case["id"]: prior_rows[case["id"]][1] for case in cases
+                          if case["id"] in prior_rows and prior_rows[case["id"]][0] == case}
+                fresh = await evaluate_suite(
+                    [case for case in cases if case["id"] not in reused],
+                    menus[surface][arm], decide, concurrency=4,
+                )
+                by_id = reused | {row["id"]: row for row in fresh}
+                rows = [by_id[case["id"]] for case in cases]
+                report[surface][arm] = {"summary": result_summary(rows), "rows": rows,
+                                        "reused": list(reused)}
     finally:
         await client.aclose()
     (args.output / "results.json").write_text(json.dumps(report, indent=2) + "\n")

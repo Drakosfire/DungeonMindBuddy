@@ -1,0 +1,512 @@
+{
+  "schema": "buddy.right-action-surface-probe.v1",
+  "cases": [
+    {
+      "id": "build-selection",
+      "tier": "build",
+      "expected": "write_current_page",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Replace the highlighted sentence with “The lantern was already burning.” Show me the proposed edit first.",
+        "page_title": "The Lantern Keeper",
+        "selected_text": "The lantern at the top of the hill was already burning when she arrived.",
+        "page_markdown": "# The Lantern Keeper\n\nThe lantern at the top of the hill was already burning when she arrived.\n"
+      },
+      "reason": "The selected sentence in Build is the requested destination."
+    },
+    {
+      "id": "build-chat-draft",
+      "tier": "build",
+      "expected": "draft_in_conversation",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Write an editable two-sentence welcome here in chat for me to review."
+      },
+      "reason": "The user requests an editable draft in conversation."
+    },
+    {
+      "id": "build-clarify",
+      "tier": "build",
+      "expected": "clarify_request",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Before you draft anything, ask me whether the welcome should sound solemn or playful."
+      },
+      "reason": "The user explicitly asks a question before any draft."
+    },
+    {
+      "id": "build-discuss",
+      "tier": "build",
+      "expected": "discuss",
+      "input": {
+        "surface": "build",
+        "user_utterance": "Let's brainstorm why the shopkeeper wants to apologize. Just talk it through with me."
+      },
+      "reason": "The user requests brainstorming without a concrete artifact."
+    },
+    {
+      "id": "plan-edit",
+      "tier": "plan",
+      "expected": "write_current_page",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Propose replacing the highlighted paragraph in this Plan with a quieter scene opening.",
+        "page_title": "Arrive in Hempholm",
+        "selected_text": "The villagers rush out to greet the party.",
+        "page_markdown": "# Arrive in Hempholm\n\nThe villagers rush out to greet the party.\n"
+      },
+      "reason": "The selected paragraph is in the active Plan."
+    },
+    {
+      "id": "plan-clarify",
+      "tier": "plan",
+      "expected": "clarify",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Ask me which of the two possible endings I want before preparing the scene."
+      },
+      "reason": "The requested next action is to ask which ending to use."
+    },
+    {
+      "id": "plan-discuss",
+      "tier": "plan",
+      "expected": "discuss",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Talk me through what might happen if the party ignores the tree. Keep it in chat."
+      },
+      "reason": "The user wants to discuss an outcome in conversation."
+    },
+    {
+      "id": "plan-other-destination",
+      "tier": "plan",
+      "expected": "different_destination",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Please update the existing Corrupted Edge worldbuilding page, rather than editing this Plan.",
+        "page_title": "Arrive in Hempholm"
+      },
+      "reason": "The requested Worldbuilding page is outside the current Plan."
+    },
+    {
+      "id": "plan-connected-page",
+      "tier": "plan",
+      "expected": "review_connected_page",
+      "input": {
+        "surface": "plan",
+        "user_utterance": "Prepare a new location page for the cellar linked from the saved Jove home page. Let me review it first."
+      },
+      "reason": "The user wants to review a new location tied to a saved origin."
+    },
+    {
+      "id": "discuss-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "What makes the Meat Mind sympathetic enough to negotiate with? Let's brainstorm.",
+        "surface": "build"
+      },
+      "expected": "discuss",
+      "reason": "The user requests discussion and no artifact."
+    },
+    {
+      "id": "discuss-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Suppose the shopkeeper recognizes them. Talk me through the possibilities before we write anything.",
+        "surface": "build"
+      },
+      "expected": "discuss",
+      "reason": "The user requests discussion and no artifact."
+    },
+    {
+      "id": "clarify_request-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Before drafting, ask me one question about the tone.",
+        "surface": "build"
+      },
+      "expected": "clarify_request",
+      "reason": "The user requests a clarifying question before proceeding."
+    },
+    {
+      "id": "clarify_request-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "I want you to check with me about the intended audience first.",
+        "surface": "build"
+      },
+      "expected": "clarify_request",
+      "reason": "The user requests a clarifying question before proceeding."
+    },
+    {
+      "id": "draft_in_conversation-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Write an editable welcome draft here in chat.",
+        "surface": "build"
+      },
+      "expected": "draft_in_conversation",
+      "reason": "The requested draft belongs in chat."
+    },
+    {
+      "id": "draft_in_conversation-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Polish the paragraph we discussed and show the new copy here for feedback.",
+        "prior_dialogue": [
+          {
+            "user": "Draft the lantern keeper’s arrival for review in chat.",
+            "assistant": "The keeper reached the summit after dusk and found the lantern lit."
+          }
+        ],
+        "surface": "build"
+      },
+      "expected": "draft_in_conversation",
+      "reason": "The requested draft belongs in chat."
+    },
+    {
+      "id": "write_current_page-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Add six NPCs as a table on this page.",
+        "page_title": "Hempholm people and places",
+        "page_markdown": "# Hempholm people and places\n\nMorwin runs the general store.\n",
+        "surface": "build"
+      },
+      "expected": "write_current_page",
+      "reason": "The user requests a proposal targeting the active Build page."
+    },
+    {
+      "id": "write_current_page-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "On this page, replace the sentence I highlighted with “The lantern was already burning.” Show me the proposed edit first.",
+        "page_title": "The Lantern Keeper",
+        "page_markdown": "# The Lantern Keeper\n\nThe keeper climbed the hill.\n\nThe lantern at the top of the hill was already burning when she arrived.\n\nShe checked the oil.",
+        "selected_text": "The lantern at the top of the hill was already burning when she arrived.",
+        "surface": "build"
+      },
+      "expected": "write_current_page",
+      "reason": "The user requests a proposal targeting the active Build page."
+    },
+    {
+      "id": "review_lore_page-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Create a standalone page for Maelthor for review.",
+        "surface": "build"
+      },
+      "expected": "review_lore_page",
+      "reason": "The user requests a standalone page for review."
+    },
+    {
+      "id": "review_lore_page-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Give that deity a page of its own to review, using what we just discussed.",
+        "prior_dialogue": [
+          {
+            "user": "Let’s brainstorm Maelthor, a deity associated with abandoned shrines.",
+            "assistant": "We could make Maelthor a god of forgotten promises."
+          }
+        ],
+        "surface": "build"
+      },
+      "expected": "review_lore_page_from_conversation",
+      "reason": "The standalone page is to be based on the pinned discussion."
+    },
+    {
+      "id": "review_connected_page-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Draft a new Location page for the tannery and connect it to Edge.",
+        "surface": "build"
+      },
+      "expected": "review_connected_page",
+      "reason": "The user requests a new page with a named origin."
+    },
+    {
+      "id": "review_connected_page-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "The cellar should be its own page, branching from this saved shop.",
+        "page_title": "Morwin’s Store",
+        "page_markdown": "# Morwin’s Store\n\nThe shop has a root cellar.\n",
+        "surface": "build"
+      },
+      "expected": "review_connected_page",
+      "reason": "The user requests a new page with a named origin."
+    },
+    {
+      "id": "plan-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Draft a work plan for finishing this adventure. Give me steps I can review and choose individually.",
+        "surface": "build"
+      },
+      "expected": "plan",
+      "reason": "The user requests a reviewable work plan with individually selectable steps."
+    },
+    {
+      "id": "review_relationship-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Stage a trade relationship between Edge and Bog Blossom Hill for my review.",
+        "surface": "build"
+      },
+      "expected": "review_relationship",
+      "reason": "The user asks to review a relationship."
+    },
+    {
+      "id": "review_relationship-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Show me a reviewable edge for their trade while leaving the Graph as-is.",
+        "prior_dialogue": [
+          {
+            "user": "Let’s discuss trade between Edge and Bog Blossom Hill.",
+            "assistant": "A draft relationship could represent trade between the two places."
+          }
+        ],
+        "surface": "build"
+      },
+      "expected": "review_relationship",
+      "reason": "The user asks to review a relationship."
+    },
+    {
+      "id": "review_variant_approval-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "I approve the Meat Mind statblock we just reviewed. Open the save confirmation.",
+        "prior_dialogue": [
+          {
+            "user": "Draft an editable statblock for the Meat Mind in chat so I can review it.",
+            "assistant": "Here is the review draft for the Meat Mind statblock. Armor Class 16, 207 hit points, and telepathy 120 feet."
+          }
+        ],
+        "surface": "build"
+      },
+      "expected": "review_variant_approval",
+      "reason": "The user requests saving the statblock already shown in the prior exchange."
+    },
+    {
+      "id": "review_variant_approval-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Save the Meat Mind statblock we just reviewed.",
+        "prior_dialogue": [
+          {
+            "user": "Draft an editable statblock for the Meat Mind in chat so I can review it.",
+            "assistant": "Here is the review draft for the Meat Mind statblock. Armor Class 16, 207 hit points, and telepathy 120 feet."
+          }
+        ],
+        "surface": "build"
+      },
+      "expected": "review_variant_approval",
+      "reason": "The user requests saving the statblock already shown in the prior exchange."
+    },
+    {
+      "id": "prepare_image-direct",
+      "tier": "direct",
+      "input": {
+        "user_utterance": "Open an editable image prompt for the Old Bath House exterior.",
+        "surface": "build"
+      },
+      "expected": "prepare_image",
+      "reason": "The user requests preparing an editable image prompt."
+    },
+    {
+      "id": "prepare_image-paraphrase",
+      "tier": "paraphrase",
+      "input": {
+        "user_utterance": "Let's review the portrait prompt before generating anything.",
+        "surface": "build"
+      },
+      "expected": "prepare_image",
+      "reason": "The user requests preparing an editable image prompt."
+    },
+    {
+      "id": "DISCUSS-1-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Discussion only. A village ferryman refuses coins and accepts stories instead. Brainstorm why he does this and what might change his mind.",
+        "surface": "build"
+      },
+      "expected": "discuss",
+      "reason": "The user requests discussion and no artifact."
+    },
+    {
+      "id": "CLARIFY-2-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Draft a short welcome for a midsummer festival at Rowan’s Forge. The audience is the local apprentices, the length is two sentences, and the goal is to thank them. Our one undecided preference is whether it should be solemn or playful. Ask me about that before drafting.",
+        "surface": "build"
+      },
+      "expected": "clarify_request",
+      "reason": "The user requests a clarifying question before proceeding."
+    },
+    {
+      "id": "PAGE-EDIT-2-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Stage a six-row supplies table for review immediately after the selected sentence. Use columns Supply and Quantity, with these six rows: towels 6, slippers 6, washcloths 12, soap 3, lanterns 2, buckets 2. Preserve the selected sentence and the text on both sides. Do not apply or save the change.",
+        "page_title": "The Old Bath House",
+        "selected_text": "Inside, polished tiles lead to a reception counter stacked with thick, folded towels.",
+        "page_markdown": "# The Old Bath House\n\nInside, polished tiles lead to a reception counter stacked with thick, folded towels.\n",
+        "surface": "build"
+      },
+      "expected": "write_current_page",
+      "reason": "The user requests a proposal targeting the active Build page."
+    },
+    {
+      "id": "CLARIFY-2-playful-H",
+      "tier": "retained_dialogue",
+      "input": {
+        "user_utterance": "Playful.",
+        "prior_dialogue": [
+          {
+            "user": "Draft a two-sentence welcome for apprentices and keep it in chat. Ask me about tone first.",
+            "assistant": "Should the welcome be solemn or playful?"
+          }
+        ],
+        "surface": "build"
+      },
+      "expected": "draft_in_conversation",
+      "reason": "The requested draft belongs in chat."
+    },
+    {
+      "id": "PAGE-EDIT-2-do-that-H",
+      "tier": "retained_dialogue",
+      "input": {
+        "user_utterance": "Do that.",
+        "prior_dialogue": [
+          {
+            "user": "Stage a six-row supplies table for review immediately after the selected sentence. Use columns Supply and Quantity, with these six rows: towels 6, slippers 6, washcloths 12, soap 3, lanterns 2, buckets 2. Preserve the selected sentence and the text on both sides. Do not apply or save the change.",
+            "assistant": "I can stage that table after the selection for review. Shall I proceed?"
+          }
+        ],
+        "page_title": "The Old Bath House",
+        "selected_text": "Inside, polished tiles lead to a reception counter stacked with thick, folded towels.",
+        "page_markdown": "# The Old Bath House\n\nInside, polished tiles lead to a reception counter stacked with thick, folded towels.\n",
+        "surface": "build"
+      },
+      "expected": "write_current_page",
+      "reason": "The user requests a proposal targeting the active Build page."
+    },
+    {
+      "id": "DISCUSS-1-do-that-H",
+      "tier": "retained_dialogue",
+      "input": {
+        "user_utterance": "Do that.",
+        "prior_dialogue": [
+          {
+            "user": "Discussion only. A village ferryman refuses coins and accepts stories instead. Brainstorm why he does this and what might change his mind.",
+            "assistant": "I can brainstorm several reasons here in chat. Shall I?"
+          }
+        ],
+        "surface": "build"
+      },
+      "expected": "discuss",
+      "reason": "The user requests discussion and no artifact."
+    },
+    {
+      "id": "DISCUSS-1-distractor-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Discussion only. A village ferryman refuses coins and accepts stories instead. Brainstorm why he does this and what might change his mind.",
+        "surface": "build"
+      },
+      "expected": "discuss",
+      "reason": "The user requests discussion and no artifact."
+    },
+    {
+      "id": "PAGE-EDIT-2-external-U",
+      "tier": "retained_utterance",
+      "input": {
+        "user_utterance": "Stage a six-row supplies table for review immediately after the selected sentence. Use columns Supply and Quantity, with these six rows: towels (verify the quantity on the saved Bath House Supply Ledger), slippers 6, washcloths 12, soap 3, lanterns 2, buckets 2. Preserve the selected sentence and the text on both sides. Do not apply or save the change.",
+        "page_title": "The Old Bath House",
+        "selected_text": "Inside, polished tiles lead to a reception counter stacked with thick, folded towels.",
+        "page_markdown": "# The Old Bath House\n\nInside, polished tiles lead to a reception counter stacked with thick, folded towels.\n",
+        "surface": "build"
+      },
+      "expected": "write_current_page",
+      "reason": "The user requests a proposal targeting the active Build page."
+    },
+    {
+      "id": "image-not-generate",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Discuss what tone the portrait could convey. Do not draft a prompt yet.",
+        "surface": "build"
+      },
+      "expected": "discuss",
+      "reason": "The user requests discussion and no artifact."
+    },
+    {
+      "id": "mechanics-as-text",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Give me an editable statblock draft right here in chat. We can save a new version later.",
+        "surface": "build"
+      },
+      "expected": "draft_in_conversation",
+      "reason": "The requested draft belongs in chat."
+    },
+    {
+      "id": "no-combat-effect",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Could this encounter work as a parley? Let’s talk through it before starting combat.",
+        "surface": "build"
+      },
+      "expected": "discuss",
+      "reason": "The user requests discussion and no artifact."
+    },
+    {
+      "id": "map-description",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Write a description of the map concept here so I can review it. Do not start an image request.",
+        "surface": "build"
+      },
+      "expected": "draft_in_conversation",
+      "reason": "The requested draft belongs in chat."
+    },
+    {
+      "id": "review-not-publish",
+      "tier": "contrast",
+      "input": {
+        "user_utterance": "Make the edge reviewable so I can inspect the support. Wait for my approval before publishing.",
+        "prior_dialogue": [
+          {
+            "user": "Edge trades with Bog Blossom Hill. Can we review that relationship?",
+            "assistant": "We can prepare the trade relationship for review."
+          }
+        ],
+        "surface": "build"
+      },
+      "expected": "review_relationship",
+      "reason": "The user asks to review a relationship."
+    },
+    {
+      "id": "plan-ferryman-discuss",
+      "tier": "surface_contrast",
+      "input": {
+        "user_utterance": "Discussion only. A village ferryman refuses coins and accepts stories instead. Brainstorm why he does this and what might change his mind.",
+        "surface": "plan"
+      },
+      "expected": "discuss",
+      "reason": "The user requests discussion and no artifact."
+    },
+    {
+      "id": "plan-festival-clarify",
+      "tier": "surface_contrast",
+      "input": {
+        "user_utterance": "Draft a short welcome for a midsummer festival at Rowan’s Forge. The audience is the local apprentices, the length is two sentences, and the goal is to thank them. Our one undecided preference is whether it should be solemn or playful. Ask me about that before drafting.",
+        "surface": "plan"
+      },
+      "expected": "clarify",
+      "reason": "The user requests a clarifying question before proceeding."
+    }
+  ]
+}

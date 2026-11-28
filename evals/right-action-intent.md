@@ -74,3 +74,26 @@ This probe uses the Build and contextual Plan menus. Play conversational routes
 currently enter through a retrieval controller, so they still need an ordinary
 first intent boundary and corresponding fixtures. An action's classification
 here does not establish that its surface can carry it through.
+
+### Expanded Build and Plan comparison
+
+The [expanded cohort](right_action_intent/surface-cohort.json) contains 43
+cases, 36 Build and seven Plan. Nine pairs were reused with matching inputs,
+menus and model. The [v2 disposition](right_action_intent/surface-cohort-v2-disposition.json)
+accounts for all 89 v2 case IDs. It admits 32 cases and records why the other
+57 await a different intent route, operator boundary or distinct source choice.
+The remaining 11 cases are the nine original surface fixtures and two explicit
+cross-surface comparisons.
+
+| Surface | Full menu | Scoped menu |
+| --- | ---: | ---: |
+| Build | 33/36 | 32/36 |
+| Plan | 7/7 | 7/7 |
+
+Build's additional miss was the “Playful.” follow-up after the user requested
+a draft and Buddy asked about tone. The full menu selected a chat draft and
+the scoped menu selected discussion. Both arms also missed the same three
+Build requests for a chat revision, a connected page, and saving a previously
+reviewed statblock. See the [case and action-level evidence](right_action_intent/surface-cohort-jev.json).
+The combined arm uses the union of the available Build and Plan menus, so it
+does not establish performance against an all-surface menu.
