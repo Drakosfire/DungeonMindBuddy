@@ -32,7 +32,8 @@ def test_fresh_build_default_factory_answers_human_reference_and_reopens_exact_s
     _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal)
 
 
-def test_pending_build_clarifies_without_source_scope(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize("work", ["clarify_request", "discuss"])
+def test_pending_build_clarifies_without_source_acquisition(lane, tmp_path, monkeypatch, work):
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
     from apps.live_control_server.services import build_related_pages
 
@@ -48,12 +49,19 @@ def test_pending_build_clarifies_without_source_scope(lane, tmp_path, monkeypatc
         return client.post("/api/live/agent/turn", json=body)
 
     case = _fresh_case(
-        lane, tmp_path, monkeypatch, None, True, False, False,
-        message="Make that work.", requested_work="clarify_request",
+        lane, tmp_path, monkeypatch, "discussion_source_tie" if work == "discuss" else None,
+        True, False, False, message="Make that work.", requested_work=work,
         dispatch=send, capture_pending=True,
     )
+    calls = [json.loads(call.content) for call in case.decisions.calls]
+    if work == "discuss":
+        assert case.response.status_code == 409, case.response.text
+        assert case.response.json()["detail"]["code"] == "build_discussion_source_uncertain"
+        assert [set(call["questions"]) for call in calls] == [{"requested_work"}, {"source_need"}]
+        assert not case.writer.calls
+        return
     assert case.response.status_code == 200, case.response.text
-    opening, = [json.loads(call.content) for call in case.decisions.calls]
+    opening, = calls
     assert set(opening["questions"]) == {"requested_work"}
     assert case.turn.status == "completed"
     assert case.turn.completion.collaboration.kind == "questions"
@@ -182,7 +190,8 @@ def test_optional_page_votes_respect_anchored_current_page_edit(lane, tmp_path, 
     assert opened == (source_scope == "source_lookup")
 
 
-def test_pending_build_resolves_paragraph_after_intent(lane, tmp_path, monkeypatch):
+@pytest.mark.parametrize("work", ["write_current_page", "clarify_request"])
+def test_pending_build_resolves_paragraph_after_intent(lane, tmp_path, monkeypatch, work):
     from apps.live_control_server.integrations.dungeonmind import native_corpus_source
     from application_state.build_proposal.service import BuildProposalService
 
@@ -194,10 +203,19 @@ def test_pending_build_resolves_paragraph_after_intent(lane, tmp_path, monkeypat
 
     case = _fresh_case(
         lane, tmp_path, monkeypatch, None, True, False, True, contextual="unique",
-        message="After the orchid paragraph in East, add a line about a copper lamp.",
-        source_need="anchored", dispatch=send, capture_pending=True,
+        message=("After the orchid paragraph in East, add a line about a copper lamp."
+                 if work == "write_current_page" else "Can you take care of that?"),
+        requested_work=work, source_need="anchored", dispatch=send, capture_pending=True,
     )
     assert case.response.status_code == 200, case.response.text
+    if work == "clarify_request":
+        opening, = [json.loads(call.content) for call in case.decisions.calls]
+        assert set(opening["questions"]) == {"requested_work"}
+        assert opening["state"]["interaction"]["page_target"] == {"kind": "contextual_paragraph"}
+        assert "paragraph_placement" not in opening["state"]["interaction"]
+        assert case.turn.completion.collaboration.kind == "questions"
+        assert not BuildProposalService().list(case.world, case.turn.conversation_id)
+        return
     opening, followup = [json.loads(call.content) for call in case.decisions.calls[:2]]
     assert set(opening["questions"]) == {"requested_work"}
     assert "paragraph_placement" not in opening["state"]["interaction"]
@@ -796,7 +814,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 raise httpx.ReadTimeout('synthetic unknown writer outcome',request=req)
             body = json.loads(req.content)
             placement_question = contextual in {"ambiguous", "missing"} and self.adapter.request.message == message
-            if placement_question:
+            if placement_question or requested_work == "clarify_request":
                 mode = False
             assert body['model'] == self.adapter._broker_execution().policy.provider_roles.writer.model
             current_work = requested_work(self.adapter.request.message) if callable(requested_work) else requested_work
@@ -897,7 +915,7 @@ def _fresh_case(lane,tmp_path,monkeypatch,failure,with_draft,saved,proposal,*,re
                 if mode:
                     assert body['input'].count(json.dumps(expected_draft, ensure_ascii=False)[1:-1]) == 1
                 else:
-                    draft_in_input = json.dumps(expected_draft, ensure_ascii=False)[1:-1] if placement_question else expected_draft
+                    draft_in_input = json.dumps(expected_draft, ensure_ascii=False)[1:-1] if placement_question or current_work == "clarify_request" else expected_draft
                     assert sum(draft_in_input in row['content'] for row in body['input']) == 1
             handles = [row['assertion_handle'] for row in frame['native_assertions']['assertions']] if frame['native_assertions'] else []
             assert (handles or getattr(self.adapter._broker_execution().policy.action.intent, "authored_references", None) is None
