@@ -148,7 +148,9 @@ def _model_frame_from_validated_prefix(receipt, execution, *, schema=SCHEMA, pas
         raise ValueError("Native evidence projection requires the prefix before its writer")
     from .native_execution import effective_native_query
     query = effective_native_query(receipt, execution)
-    from .native_context import NativeBuildQueryPendingV1
+    from .native_context import NativeBuildQueryPendingV1, NativePlanGraphQueryPendingV1
+    if isinstance(query, NativePlanGraphQueryPendingV1):
+        raise ValueError("Native Plan writer requires a settled query or explicit no-Graph closure")
     if isinstance(query, NativeBuildQueryPendingV1):
         from .build_intentional_response import split_build_clarification
 

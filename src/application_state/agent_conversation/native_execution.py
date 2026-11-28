@@ -20,7 +20,7 @@ from .build_related_pages import PagePointer
 from .build_source_free import BuildAppPageCatalogObservedV1
 from .build_saved_statblock import BuildSavedStatblockReadV1, validate_read as validate_saved_statblock_read
 from .native_context import (
-    SurfaceNativeContextReceiptV1, NativeBuildQueryPendingV1, BuildWorkContextV1, PlanWorkContextV1,
+    SurfaceNativeContextReceiptV1, NativeBuildQueryPendingV1, NativePlanGraphQueryPendingV1, BuildWorkContextV1, PlanWorkContextV1,
     PlayWorkContextV1, NativeProviderInputV1, NativeReviewedActionInputV1, NativePlanRequestAdmissionV1, work_world_id,
 )
 from .native_statement_input import Strict
@@ -30,12 +30,16 @@ from .plan_composed_targeting import ComposedColumn, ComposedPlanNominationV1, C
 from .plan_placement import PlanPlacementCatalog
 
 from .native_retrieval import (
-    NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1, NativeReadBatchConcludedV1,
+    NativePlanAuthorScopeAuthorizedV1, NativePlanOpeningAuthorizedV1, NativePlanGraphNeedAuthorizedV1, NativeReadBatchConcludedV1,
     NativePlayIntentSelectedV1, NativeRetrievalAuthorizedV1, NativeRetrievalSelectedV1, NativeRetrievalSelectedV2,
 )
 from .native_plan_opening import (
     NativePlanAuthorScopeObservedV1, NativePlanOpeningScopeBindingV1, bind_opening_author_scope,
     resolve_composed_opening,
+)
+from .native_plan_graph_need import (
+    NativePlanGraphNeedObservedV1, NativePlanGraphQueryAuthorizedV1, NativePlanGraphQueryStartedV1,
+    NativePlanGraphQueryClosedV1, NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1,
 )
 from .authored_graph_references import BuildAuthoredReferenceAuthorizedV2, BuildAuthoredReferenceReadV2, BuildAuthoredReferenceReadV3
 from .native_plan_assertions import NativeGraphQueryV4, NativePlanAssertionReadObservedV2
@@ -542,6 +546,10 @@ class NativeBuildSourceSettledV1(Strict):
 def effective_native_query(context, execution):
     """Return the query admitted by this prefix, or the typed pending commitment."""
     query = context.native_query
+    from .native_plan_graph_need import validate_pending_graph
+    plan_effective = validate_pending_graph(context, execution)
+    if type(query) is NativePlanGraphQueryPendingV1:
+        return plan_effective
     settlements = [e for e in execution.events if type(e) is NativeBuildQuerySettledV1]
     if type(query) is not NativeBuildQueryPendingV1:
         if settlements:
@@ -616,7 +624,9 @@ def effective_native_query(context, execution):
 SurfaceNativeEvent = Annotated[
     t.ProviderAttemptAuthorizedEventV3 | t.ProviderAttemptAuthorizedEventV5
     | t.PlanJevProviderAuthorizedV1 | NativeRetrievalAuthorizedV1 | NativePlanOpeningAuthorizedV1
-    | NativePlanAuthorScopeAuthorizedV1 | NativePlanAuthorScopeObservedV1 | t.PlanRequestedWorkAuthorizedV2
+    | NativePlanAuthorScopeAuthorizedV1 | NativePlanAuthorScopeObservedV1 | NativePlanGraphNeedAuthorizedV1
+    | NativePlanGraphNeedObservedV1 | NativePlanGraphQueryAuthorizedV1 | NativePlanGraphQueryStartedV1
+    | NativePlanGraphQueryClosedV1 | NativePlanGraphQueryFailedV1 | NativePlanGraphQuerySettledV1 | t.PlanRequestedWorkAuthorizedV2
     | NativeWriterAuthorizedV1 | NativeBuildWriterAuthorizedV2 | t.ProviderOutcomeEventV1 | t.CompletionBindingEventV1
     | t.BuildGraphReferenceCompletionBindingV1
     | t.BuildImageMoveCompletionBindingV1
@@ -1093,7 +1103,8 @@ def _join_context_binding(context, execution, *, record_prefix=None):
     else:
         record_prefix.validate(query, execution)
     from .authored_graph_references import validate_native_context
-    validate_native_context(query, execution)
+    if type(query) is not NativePlanGraphQueryPendingV1:
+        validate_native_context(query, execution)
     from .native_batch_completion import selected_read_closure
     for event in execution.events:
         if type(event) is NativeReadBatchConcludedV1:

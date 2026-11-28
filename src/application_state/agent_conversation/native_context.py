@@ -129,6 +129,14 @@ NativeInitialInput = Annotated[
 ]
 
 
+class NativePlanGraphQueryPendingV1(Strict):
+    """Plan-only frozen Graph authority; no query or evidence has been acquired."""
+    schema_: Literal["dmb_native_plan_graph_query_pending_v1"] = Field(
+        default="dmb_native_plan_graph_query_pending_v1", alias="schema")
+    authority: NativePlanQueryAuthorityV1
+    question: str = Field(min_length=1)
+
+
 class NativeBuildQueryPendingV1(Strict):
     """Pinned Graph inputs for a fresh Build decision before catalog assembly."""
     schema_: Literal["dmb_native_build_query_pending_v1"] = Field(
@@ -145,7 +153,7 @@ class SurfaceNativeContextReceiptV1(Strict):
     provenance_sha256: Digest
     work_context: SurfaceWorkContext
     source_authority: NativeCorpusAuthorityV1 | NativeCorpusUnavailableV1
-    native_query: NativeGraphQueryV4 | NativeGraphQueryV3 | NativePlanQueryV2 | NativePlanQueryUnavailableV1 | NativeBuildQueryPendingV1
+    native_query: NativeGraphQueryV4 | NativeGraphQueryV3 | NativePlanQueryV2 | NativePlanQueryUnavailableV1 | NativeBuildQueryPendingV1 | NativePlanGraphQueryPendingV1
     assembled_input: NativeInitialInput
 
     @model_validator(mode="after")
@@ -167,7 +175,16 @@ class SurfaceNativeContextReceiptV1(Strict):
             or query.authority.session_id is not None
         ):
             raise ValueError("Pending Graph query requires pinned ordinary Build authority")
-        has_query_pin = isinstance(query, (NativePlanQueryV2, NativeBuildQueryPendingV1))
+        if isinstance(query, NativePlanGraphQueryPendingV1) and (
+            type(self.work_context) is not PlanWorkContextV1
+            or type(self.assembled_input) is not NativePlanRequestAdmissionV1
+            or type(self.source_authority) is not NativeCorpusAuthorityV1
+            or query.authority.scope_mode != 'world'
+            or query.authority.campaign_id is not None
+            or query.authority.session_id is not None
+        ):
+            raise ValueError('Pending Plan Graph query requires pinned request-owned Plan authority')
+        has_query_pin = isinstance(query, (NativePlanQueryV2, NativeBuildQueryPendingV1, NativePlanGraphQueryPendingV1))
         authority = query.authority if has_query_pin else query
         if self.source_authority.managed_world_id != world or authority.managed_world_id != world:
             raise ValueError("Native capabilities differ from their actual work World")

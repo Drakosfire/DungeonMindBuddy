@@ -40,6 +40,12 @@ class NativePlanOpeningAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
     author_scope_event_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
+class NativePlanGraphNeedAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
+    """An actual Plan Graph-need SDK request, before Graph acquisition."""
+    kind: Literal['native_plan_graph_need_authorized_v1'] = 'native_plan_graph_need_authorized_v1'
+    parent_json: str = Field(min_length=1)
+
+
 class NativePlanAuthorScopeAuthorizedV1(t.PlanRequestedWorkAuthorizedV2):
     """Source-blind interpretation input. It cannot settle opening work."""
 
@@ -562,6 +568,11 @@ def validate_decision_phases(execution):
             pending_sources.remove(pending)
             continue
         if isinstance(event, t.ProviderAttemptAuthorizedEventV1):
+            if type(event) is NativePlanGraphNeedAuthorizedV1 and (
+                    not native_plan or intent is not None or writer is not None
+                    or any(type(prior) is NativePlanGraphNeedAuthorizedV1
+                           for prior in execution.events[:event.sequence])):
+                raise ValueError('Plan Graph-need authorization must be unique and precede opening')
             if type(event) is NativePlanOpeningAuthorizedV1 and (pending_author_nodes or pending_author_sources):
                 raise ValueError('Opening provider requires settled actual human-selected references')
             identity = (event.provider, event.model, event.api_mode)
@@ -665,6 +676,21 @@ def validate_decision_phases(execution):
             and event.provider_attempt_id == auth.provider_attempt_id
         ):
             outcome = event
+        elif event.kind == 'native_plan_graph_need_observed_v1':
+            from .native_plan_graph_need import NativePlanGraphNeedObservedV1
+            if (type(event) is not NativePlanGraphNeedObservedV1
+                    or type(auth) is not NativePlanGraphNeedAuthorizedV1
+                    or intent is not None or writer is not None
+                    or outcome is None or outcome.outcome != 'response_received'
+                    or outcome.response_sha256 not in (None, event.result_sha256)
+                    or event.controller_attempt_id != auth.provider_attempt_id
+                    or event.decision_request_id != auth.decision_request_id
+                    or event.parent.digest != auth.parent_request_sha256
+                    or event.envelope_sha256 != auth.envelope_sha256
+                    or event.context_receipt_sha256 != execution.context_receipt_sha256
+                    or event.execution_policy_sha256 != execution.execution_policy_sha256):
+                raise ValueError('Graph need observation requires its unique settled SDK response')
+            auth, outcome = None, None
         elif event.kind == 'native_plan_author_scope_observed_v1':
             from .native_plan_opening import NativePlanAuthorScopeObservedV1
 
