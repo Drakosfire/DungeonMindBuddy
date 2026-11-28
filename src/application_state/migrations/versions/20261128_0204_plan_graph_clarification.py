@@ -32,9 +32,39 @@ _CLARIFICATION = """
    AND graph_context_execution#>>'{events,-2,kind}'='native_plan_graph_need_observed_v1'
    AND graph_context_execution#>>'{events,-2,event_id}'=completion->>'observation_event_id'
    AND graph_context_execution#>>'{events,-2,choice}'='uncertain'
-   AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(graph_context_execution->'events') AS event
+   AND (
+       NOT EXISTS (SELECT 1 FROM jsonb_array_elements(graph_context_execution->'events') AS event
        WHERE event->>'kind' NOT IN ('native_plan_graph_need_authorized_v1', 'provider_outcome',
            'native_plan_graph_need_observed_v1', 'native_plan_graph_clarification_v1'))
+       OR (
+           jsonb_array_length(graph_context_execution->'events')=9
+           AND graph_context_execution#>>'{events,0,kind}'='native_plan_author_scope_authorized_v1'
+           AND graph_context_execution#>'{events,0,intent_opening}'='true'::jsonb
+           AND graph_context_execution#>>'{events,1,kind}'='provider_outcome'
+           AND graph_context_execution#>>'{events,1,outcome}'='sdk_entered'
+           AND graph_context_execution#>>'{events,2,kind}'='provider_outcome'
+           AND graph_context_execution#>>'{events,2,outcome}'='response_received'
+           AND graph_context_execution#>>'{events,3,kind}'='native_plan_author_scope_observed_v1'
+           AND graph_context_execution#>>'{events,3,scope_observation,requested_work}'
+               NOT IN ('clarify','different_destination')
+           AND graph_context_execution#>>'{events,3,context_receipt_sha256}'=completion->>'context_receipt_sha256'
+           AND graph_context_execution#>>'{events,3,execution_policy_sha256}'=graph_context_execution->>'execution_policy_sha256'
+           AND graph_context_execution#>>'{events,1,provider_attempt_id}'=graph_context_execution#>>'{events,0,provider_attempt_id}'
+           AND graph_context_execution#>>'{events,2,provider_attempt_id}'=graph_context_execution#>>'{events,0,provider_attempt_id}'
+           AND graph_context_execution#>>'{events,3,controller_attempt_id}'=graph_context_execution#>>'{events,0,provider_attempt_id}'
+           AND graph_context_execution#>>'{events,3,decision_request_id}'=graph_context_execution#>>'{events,0,decision_request_id}'
+           AND graph_context_execution#>>'{events,3,controller_envelope_sha256}'=graph_context_execution#>>'{events,0,envelope_sha256}'
+           AND graph_context_execution#>>'{events,3,parent_request_sha256}'=graph_context_execution#>>'{events,0,parent_request_sha256}'
+           AND graph_context_execution#>>'{events,4,kind}'='native_plan_graph_need_authorized_v1'
+           AND graph_context_execution#>>'{events,5,kind}'='provider_outcome'
+           AND graph_context_execution#>>'{events,5,outcome}'='sdk_entered'
+           AND graph_context_execution#>>'{events,5,provider_attempt_id}'=graph_context_execution#>>'{events,4,provider_attempt_id}'
+           AND graph_context_execution#>>'{events,6,kind}'='provider_outcome'
+           AND graph_context_execution#>>'{events,6,outcome}'='response_received'
+           AND graph_context_execution#>>'{events,6,provider_attempt_id}'=graph_context_execution#>>'{events,4,provider_attempt_id}'
+           AND graph_context_execution#>>'{events,7,controller_attempt_id}'=graph_context_execution#>>'{events,4,provider_attempt_id}'
+       )
+   )
    AND NOT jsonb_path_exists(graph_context_execution,'$.events[*] ? (@.kind == "completion_binding")')
  ELSE jsonb_typeof(completion)='object'
 """
