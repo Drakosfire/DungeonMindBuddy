@@ -352,17 +352,20 @@ class BuildImageMoveDecision:
             questions += (contextual_identity_question(item.alias for item in self.occurrences),)
         return questions
 
+    def wire_questions(self, **options) -> dict:
+        return {question.name: {
+            "type": "choice", "instructions": question.question, "criteria": dict.fromkeys(question.options),
+        } for question in self.questions(**options)}
+
     def require_opening_offer(self, request: dict, *, allow_retained: bool = False) -> None:
         offered = request.get("questions", {})
         image_questions = {name: value for name, value in offered.items() if name.startswith("image_move_")}
         def exact_offer(modern_language):
-            return {q.name: {
-                "type": "choice", "instructions": q.question, "criteria": dict.fromkeys(q.options),
-            } for q in self.questions(
+            return self.wire_questions(
                 include_affirmation=not allow_retained or IMAGE_MOVE_AFFIRMATION.name in offered,
                 include_contextual_identity=not allow_retained or CONTEXTUAL_IDENTITY in offered,
                 modern_language=modern_language,
-            )}
+            )
         if (request.get("state", {}).get("user_question") != self.question
                 or request.get("state", {}).get("interaction", {}).get(OPENING_STATE_KEY) != self.semantic_state()
                 or (image_questions != exact_offer(True)

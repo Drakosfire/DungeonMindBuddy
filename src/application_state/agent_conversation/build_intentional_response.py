@@ -257,7 +257,7 @@ def has_explicit_build_graph_reference(references):
     return references is not None and any(isinstance(ref, AuthoredGraphReferenceV1) for ref in references.references)
 
 
-def build_source_followup_wire(state, requested_work, *, menu_digest, write_capability=None, graph_reference=False, related_pages=None):
+def build_source_followup_wire(state, requested_work, *, menu_digest, write_capability=None, graph_reference=False, related_pages=None, image_move=None):
     """Offer source scope for an already selected action, without offering reads."""
     from .jev_retrieval_contract import MODEL
 
@@ -291,6 +291,13 @@ def build_source_followup_wire(state, requested_work, *, menu_digest, write_capa
             questions[choice.name] = {
                 "type": "choice", "instructions": choice.question, "criteria": dict.fromkeys(choice.options),
             }
+    if image_move is not None:
+        from application_state.build_proposal.image_move_decision import OPENING_STATE_KEY as IMAGE_STATE_KEY
+
+        if image_move.question != state["user_question"]:
+            raise ValueError("Build image follow-up differs from the opening utterance")
+        followup_state["interaction"][IMAGE_STATE_KEY] = image_move.semantic_state()
+        questions.update(image_move.wire_questions())
     if related_pages is not None:
         from .build_related_pages import question_name, question_text
 
@@ -329,13 +336,13 @@ def verify_build_intent_opening(opening_wire, opening_response, *, menu_digest):
     return selected(opening_response, menu=menu_digest)
 
 
-def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response, write_capability=None, graph_reference=False, related_pages=None):
+def verify_build_source_followup(opening_wire, opening_response, *, menu_digest, wire, response, write_capability=None, graph_reference=False, related_pages=None, image_move=None):
     from generationengine.types import DecisionResult
     from .jev_retrieval_contract import validated_choice_answers
 
     requested_work = verify_build_intent_opening(opening_wire, opening_response, menu_digest=menu_digest)
     expected = build_source_followup_wire(opening_wire["state"], requested_work, menu_digest=menu_digest,
-        write_capability=write_capability, graph_reference=graph_reference, related_pages=related_pages)
+        write_capability=write_capability, graph_reference=graph_reference, related_pages=related_pages, image_move=image_move)
     if wire != expected or tuple(wire["questions"]["source_need"]["criteria"]) != SOURCE_NEED_OPTIONS:
         raise ValueError("Build source-scope request differs from the verified intent context")
     validated_choice_answers(DecisionResult.model_validate(response), set(expected["questions"]))
