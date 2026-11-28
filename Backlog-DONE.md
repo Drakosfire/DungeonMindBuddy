@@ -16,6 +16,33 @@ For current work, consult [the product backlog](Backlog.md), the
 and the owning issues and PRs. Repository operating policy lives in
 [AGENTS.md](AGENTS.md).
 
+## [DONE] Permanently delete a statblock from Build — 2026-11-28
+
+The World-scoped Build toolbar permanently deletes the selected statblock's
+live mechanics revisions and exclusively owned published portrait. Buddy retains
+an identifier-only receipt so retries are safe and old revision links report
+that the statblock was deleted. The World creature, source PDF and review,
+shared artwork, and saved encounters remain independently owned.
+
+Hosted Buddy deployed revision `114db4321a73` on App schema `20261128_0218`.
+In Buddy Cloud Pilot, the disposable illustrated Clockwork Mote had two published
+mechanics revisions. The toolbar returned HTTP 204 and left a usable Build.
+The picker omitted the statblock after reload. Both old URLs showed the deleted
+message and their Buddy APIs returned HTTP 410. DungeonMindServer returned HTTP
+404 for both exact revisions. The App storage check found zero retained
+revision-operation rows and zero published portrait rows for the deleted
+statblock, with the completed receipt present. The source review still held its
+artwork, the creature opened in Graph, an unrelated saved statblock opened, and
+Buddy's runtime read service reopened the existing Pilot encounter.
+
+Permanent deletion applies to live storage. Retained operator-managed backups
+can contain pre-deletion copies until their retention period ends. Buddy does
+not automatically expire those backups.
+
+[Buddy serving release](https://github.com/Drakosfire/DungeonMindBuddy/pull/5045)
+· [Hosted deployment](https://github.com/Drakosfire/DungeonMindBuddy/actions/runs/46182915359)
+· [Producer deletion](https://github.com/Drakosfire/DungeonMindServer/pull/57)
+
 ## [DONE] Shared semantic block writing and hosted round trips — 2026-11-23
 
 Buddy uses shared writing guidance for Read Aloud and GM Note blocks. Hosted
