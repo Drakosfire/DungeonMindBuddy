@@ -63,3 +63,53 @@ def test_exact_historical_receipt_rejects_changed_target_or_broken_chain(adoptio
     with psycopg.connect(application_state_dsn) as conn:
         with pytest.raises(Exception,match='Historical mechanics association|Actor differs'):
             adoption._historical_association(conn,'elderwyld',snapshot)
+
+
+def test_statblock_purge_removes_current_encounter_payloads_and_blocks_new_snapshots(
+    adoption_case, application_state_dsn,
+):
+    from copy import deepcopy
+    from uuid import UUID
+
+    import psycopg
+
+    from application_state.mechanics_revisions import purge
+
+    p = adoption_case
+    applied = apply(p)
+    assert applied.status_code == 200, applied.text
+    before = applied.json()["encounter"]
+    original = p.original["locator"]
+    target = purge.PurgeTarget(
+        original["statblock_id"], before["world_id"], UUID(p.draft.draft_id),
+        p.draft.version, p.locator["revision_id"],
+    )
+    assert purge.claim(target, authorize=lambda: None) is False
+    attempted = deepcopy(before["draft"])
+    extra = deepcopy(p.before["draft"]["entities"][0])
+    extra.update(id="new-actor", order=3)
+    attempted["entities"].append(extra)
+    refused = p.client.put(p.encounter_url, json={
+        "expected_revision": before["revision"], "draft": attempted,
+    })
+    assert refused.status_code == 409, refused.text
+
+    purge.remove_current_combat_copies(target)
+    after = p.client.get(p.encounter_url).json()
+    assert after["revision"] == before["revision"] + 1
+    expected_draft = deepcopy(before["draft"])
+    for actor in expected_draft["entities"]:
+        locator = actor["mechanics_snapshot"]["locator"]
+        actor["mechanics_snapshot"] = None
+        actor["deleted_mechanics"] = {
+            "statblock_id": locator["statblock_id"], "revision_id": locator["revision_id"],
+        }
+    assert after["draft"] == expected_draft
+    with psycopg.connect(application_state_dsn) as conn:
+        stored = conn.execute(
+            "SELECT draft FROM combat.encounter WHERE encounter_id=%s",
+            (before["encounter_id"],),
+        ).fetchone()[0]
+    assert stored == expected_draft
+    purge.remove_current_combat_copies(target)
+    assert p.client.get(p.encounter_url).json() == after
