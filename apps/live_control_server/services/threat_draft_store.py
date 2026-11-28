@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import fcntl
+import os
 import uuid
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -30,6 +31,9 @@ from apps.live_control_server.models.threat_draft import (
     require_draft_id,
     parse_threat_draft,
 )
+from application_state.config import APPLICATION_STATE_DSN_ENV
+from application_state.errors import ApplicationStateConflictError, ApplicationStateError
+from application_state.mechanics_revisions import purge
 from live_store import load_json, write_json
 
 DEFAULT_STORE_REL = "out/threat_drafts"
@@ -196,6 +200,21 @@ def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraft:
     return draft
 
 
+def _require_writable_draft(draft: ThreatDraft) -> None:
+    ref = draft.accepted_mechanics_ref
+    if (not isinstance(draft, ThreatDraftV2) and ref is None) or not os.getenv(APPLICATION_STATE_DSN_ENV):
+        return
+    try:
+        purge.assert_draft_writable(
+            draft_id=uuid.UUID(draft.draft_id),
+            statblock_id=ref.statblock_id if ref is not None else None,
+        )
+    except ApplicationStateConflictError as exc:
+        raise ThreatDraftStoreError(str(exc), status_code=409) from exc
+    except ApplicationStateError as exc:
+        raise ThreatDraftStoreError("Statblock deletion state unavailable", status_code=503) from exc
+
+
 def _save_draft_unlocked(root: Path, draft: ThreatDraft, *, as_draft_id: str) -> None:
     """Persist a draft only under the requested/committed ID path."""
     cleaned = _validated_draft_id(as_draft_id)
@@ -204,6 +223,7 @@ def _save_draft_unlocked(root: Path, draft: ThreatDraft, *, as_draft_id: str) ->
             "threat draft identity mismatch",
             status_code=500,
         )
+    _require_writable_draft(draft)
     path = _draft_path(root, cleaned)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -268,6 +288,7 @@ def create_threat_draft(
                 raise ThreatDraftStoreError("Draft creation identity belongs to another scope", status_code=409)
             if existing.creation_intent_sha256 != draft.creation_intent_sha256:
                 raise ThreatDraftStoreError("Draft creation intent changed", status_code=409)
+            _require_writable_draft(existing)
             if draft.draft_id not in index.draft_ids:
                 index.draft_ids.append(draft.draft_id)
                 _save_index(root, index)
@@ -365,7 +386,18 @@ def saved_mechanics_draft_ids(root: Path, *, world_id: str) -> tuple[str, ...]:
 def verify_statblock_purge_owner(
     root: Path, *, world_id: str, draft_id: str, expected_version: int, statblock_id: str,
 ) -> None:
-    """Check the exact World draft and all other committed claims under one lock."""
+    with locked_statblock_purge_owner(
+        root, world_id=world_id, draft_id=draft_id, expected_version=expected_version,
+        statblock_id=statblock_id,
+    ):
+        pass
+
+
+@contextmanager
+def locked_statblock_purge_owner(
+    root: Path, *, world_id: str, draft_id: str, expected_version: int, statblock_id: str,
+) -> Iterator[None]:
+    """Pin the sole owning draft through the durable APP claim. No provider IO."""
     with _store_lock(root):
         target = _load_draft_unlocked(root, _require_committed_draft_id(root, draft_id))
         ref = target.accepted_mechanics_ref
@@ -381,6 +413,8 @@ def verify_statblock_purge_owner(
                 raise ThreatDraftStoreError(
                     "Saved mechanics are claimed by another draft", status_code=409,
                 )
+
+        yield
 
 
 def remove_purged_threat_draft(

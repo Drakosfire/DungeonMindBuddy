@@ -165,3 +165,50 @@ def test_hosted_purge_role_cannot_delete_without_exact_receipt(application_state
                     'mechanics_revision.complete_statblock_purge(text,text,uuid,integer,text)', 'EXECUTE')
         """).fetchone()
         assert privileges == (False, False, True)
+
+
+def test_purge_receipt_blocks_draft_edits_and_recreation(application_state_dsn, tmp_path):
+    from application_state.mechanics_revisions import purge
+    from apps.live_control_server.models.statblock_mechanics_acceptance import AcceptedMechanicsRefV1
+    from apps.live_control_server.services import threat_draft_store as drafts
+    from tests.test_threat_draft_store import _update_request, _world_create_request
+
+    record = intent()
+    request = _world_create_request(world_id=record.world_id)
+    draft = drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id)
+    saved = drafts.attach_accepted_mechanics_ref(
+        tmp_path,
+        draft_id=draft.draft_id,
+        expected_version=draft.version,
+        locator=AcceptedMechanicsRefV1.from_locator(
+            record.origin, accepted_from_draft_version=draft.version,
+            accepted_at=datetime.now(UTC).isoformat(), accepted_from_candidate_id=None,
+        ),
+    )
+    owned = dict(
+        world_id=saved.world_id, draft_id=saved.draft_id, expected_version=saved.version,
+        statblock_id=record.origin.statblock_id,
+    )
+    target = purge.PurgeTarget(
+        record.origin.statblock_id, saved.world_id, record.draft_id, saved.version, record.origin.revision_id,
+    )
+    with drafts.locked_statblock_purge_owner(tmp_path, **owned):
+        assert purge.claim(target, authorize=lambda: None) is False
+
+    with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+        drafts.update_threat_draft(
+            tmp_path, saved.draft_id, _update_request(saved, description="Edit", expected_version=saved.version),
+        )
+    with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+        drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id)
+
+    drafts.remove_purged_threat_draft(tmp_path, **owned)
+    with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+        drafts.create_threat_draft(tmp_path, request, stable_id=record.draft_id)
+    other = drafts.create_threat_draft(tmp_path, request)
+    assert drafts.get_threat_draft(tmp_path, other.draft_id) == other
+    with pytest.raises(drafts.ThreatDraftStoreError, match="being deleted"):
+        drafts.attach_accepted_mechanics_ref(
+            tmp_path, draft_id=other.draft_id, expected_version=other.version,
+            locator=saved.accepted_mechanics_ref,
+        )
