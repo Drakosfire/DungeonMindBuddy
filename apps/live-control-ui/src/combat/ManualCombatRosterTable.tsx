@@ -49,6 +49,7 @@ export function ManualCombatRosterTable({draft,profile,disabled,projection,sourc
               <span>{actor.participation==='out_of_action'?'Out of action':active?'Current turn':'In action'}</span>
               <button disabled={disabled} aria-label={actor.participation==='in_action'?'Take out of action':'Return to action'}
                 onClick={()=>onParticipation(actor.id,actor.participation==='in_action'?'out_of_action':'in_action')}>{actor.participation==='in_action'?'Out':'Return'}</button>
+              {actor.deleted_mechanics && <span>Statblock deleted</span>}
               {actor.mechanics_snapshot&&<button aria-label={`Project source for ${actor.name}`} aria-pressed={projection===actor.id} aria-controls={sourceRegionId}
                 onClick={event=>onProject(actor.id,event.currentTarget)}>Source</button>}
             </div>
