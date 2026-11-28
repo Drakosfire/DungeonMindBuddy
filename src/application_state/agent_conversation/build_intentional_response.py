@@ -250,7 +250,7 @@ def source_need(request, response, *, tie_fallback=None, clarify_uncertain_tie=F
     )
 
 
-def build_source_followup_wire(state, requested_work, *, menu_digest):
+def build_source_followup_wire(state, requested_work, *, menu_digest, write_capability=None):
     """Offer source scope for an already selected action, without offering reads."""
     from .jev_retrieval_contract import MODEL
 
@@ -260,10 +260,25 @@ def build_source_followup_wire(state, requested_work, *, menu_digest):
         raise ValueError("Build clarification requires no source-scope decision")
     if set(state) != {"user_question", "interaction"}:
         raise ValueError("Build source scope requires the opening semantic state")
+    from application_state.build_proposal.prose_catalog import catalog_for_build_capability
+    from application_state.build_proposal.prose_decision import build_boundary_opening
+
+    questions = {"source_need": source_need_question()}
+    catalog = catalog_for_build_capability(write_capability)
+    if requested_work == "write_current_page" and catalog is not None:
+        _, placement = build_boundary_opening(
+            state["user_question"], state["interaction"]["current_page_title"], catalog,
+            caret=write_capability.basis.caret,
+        )
+        questions.update({
+            choice.name: {"type": "choice", "instructions": choice.question,
+                          "criteria": dict.fromkeys(choice.options)}
+            for choice in placement
+        })
     return {
         "model": MODEL,
         "state": deepcopy(state) | {"selected_work": requested_work},
-        "questions": {"source_need": source_need_question()},
+        "questions": questions,
     }
 
 
