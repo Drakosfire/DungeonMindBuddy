@@ -366,6 +366,13 @@ a prototype is not a new durable authority.
 - Preserved [layered maps](https://github.com/Drakosfire/DungeonMindBuddy/pull/2383), [campaign arcs](https://github.com/Drakosfire/DungeonMindBuddy/pull/3328), [search replay](https://github.com/Drakosfire/DungeonMindBuddy/pull/3640), and [recap contributor](https://github.com/Drakosfire/DungeonMindBuddy/pull/3655) as separate, unscheduled captures. Split [#2389](https://github.com/Drakosfire/DungeonMindBuddy/pull/2389) into delivered Build browsing, the residual hierarchy question, and the existing extraction fix lane.
 - Adopted the historical evaluation corrections from [#3186](https://github.com/Drakosfire/DungeonMindBuddy/pull/3186), preserving the current native-action controller trigger and the frozen benchmark evidence. This changes backlog ownership/discoverability only, not implementation or acceptance.
 
+## [IDEA] Distinguish the document title from page content — captured 2026-11-27
+
+**Context:** The document title looks like a heading in the authored page.
+**Action:** Present the document title in a visually distinct header outside the editable page canvas. Keep authored headings in the page easy to recognize and edit.
+**Verification:** Open a saved document with its own first heading. The document title and the first authored heading should be easy to tell apart at desktop and narrow widths.
+**Surfaces when:** Document headers or page presentation work begins.
+
 ## [IDEA] Edit earlier Buddy messages and fork conversations — captured 2026-11-19
 
 **Context:** The operator wants to revise an earlier message or explore a different direction from a prior point.
