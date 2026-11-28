@@ -116,7 +116,7 @@ describe("BuildDocumentSelector", () => {
         : { total: 1, drafts: [{ world_id: "pilot", draft_id: "creature", version: holdCatalog ? 4 : 3, name: "Test creature" }] };
       return new Response(JSON.stringify(body));
     });
-    const archives = () => request.mock.calls.filter(([, init]) => init?.method === "DELETE");
+    const deletes = () => request.mock.calls.filter(([, init]) => init?.method === "DELETE");
     try {
       render(<BuildDocumentSelector worldId="pilot" documents={[]} listStatus="ready"
         activeDocumentId={null} activeRecord={null} preferredCampaignId={null}
@@ -125,24 +125,25 @@ describe("BuildDocumentSelector", () => {
       expect(request).not.toHaveBeenCalled();
       await userEvent.click(directDelete);
       const dialog = screen.getByRole("dialog", { name: "Delete statblock" });
-      expect(await within(dialog).findByText(/Delete “Test creature” from this World/)).toBeVisible();
+      expect(await within(dialog).findByText(/Permanently delete “Test creature”/)).toBeVisible();
+      expect(within(dialog).getByText(/All saved statblock revisions and artwork/)).toBeVisible();
       expect(within(dialog).queryByRole("searchbox")).not.toBeInTheDocument();
       await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
-      expect(archives()).toHaveLength(0);
+      expect(deletes()).toHaveLength(0);
       expect(window.location.pathname + window.location.search).toBe(path);
       expect(directDelete).toHaveFocus();
 
       holdCatalog = true;
       await userEvent.click(directDelete);
       expect(await within(dialog).findByText("Checking the saved statblock…")).toBeVisible();
-      expect(within(dialog).queryByRole("button", { name: "Delete document" })).not.toBeInTheDocument();
-      expect(archives()).toHaveLength(0);
+      expect(within(dialog).queryByRole("button", { name: "Permanently delete statblock" })).not.toBeInTheDocument();
+      expect(deletes()).toHaveLength(0);
       await waitFor(() => expect(finishCatalog).toBeTypeOf("function"));
       finishCatalog?.();
-      await userEvent.click(await within(dialog).findByRole("button", { name: "Delete document" }));
+      await userEvent.click(await within(dialog).findByRole("button", { name: "Permanently delete statblock" }));
       await waitFor(() => expect(window.location.search).toBe("?world=pilot"));
-      expect(archives()).toHaveLength(1);
-      const [url] = archives()[0]!;
+      expect(deletes()).toHaveLength(1);
+      const [url] = deletes()[0]!;
       expect(String(url)).toContain("/threat-drafts/creature/saved-statblock?world_id=pilot&expected_version=4");
       expect(screen.queryByRole("dialog", { name: "Delete statblock" })).not.toBeInTheDocument();
     } finally {
