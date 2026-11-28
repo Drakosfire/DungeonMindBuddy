@@ -841,6 +841,7 @@
       "tests/application_state/test_statement_proposals.py",
       "tests/application_state/test_surface_native_acquisition.py",
       "tests/application_state/test_stored_statblock_reader_fence.py",
+      "tests/application_state/test_surface_intent_reader_fence.py",
       "tests/application_state/test_surface_native_decisions.py",
       "tests/application_state/test_surface_native_turns.py",
       "tests/application_state/test_surface_native_writers.py",
