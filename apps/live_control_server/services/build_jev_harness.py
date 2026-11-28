@@ -296,6 +296,9 @@ class BuildJevHarness:
             from application_state.agent_conversation.native_context import BuildPendingContextReceiptV1
             if type(adapter._broker_receipt()) is BuildPendingContextReceiptV1:
                 return self._native_completion(adapter, driver)
+            from application_state.agent_conversation.build_intentional_response import split_build_clarification
+            if split_build_clarification(adapter._broker_execution()) is not None:
+                return self._native_completion(adapter, driver)
             from application_state.agent_conversation.native_corpus import conversation_route_can_admit, prior_conversation_work
             if (adapter.native_source_authority is not None
                     and conversation_route_can_admit(adapter._broker_receipt(), adapter._broker_execution())
@@ -758,6 +761,7 @@ class BuildJevHarness:
 
                     conversation_only = (
                         split_proof.get("image_move") in {"move_existing", "unresolved"}
+                        or split_proof["intent"] in {"clarify_request", "clarify_creation"}
                         or is_prior_conversation_work(split_proof["intent"], split_proof["scope"], allow_discussion=True)
                     )
                 elif wait_for_work:

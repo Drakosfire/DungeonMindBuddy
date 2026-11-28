@@ -556,7 +556,10 @@ def effective_native_query(context, execution):
     if len(settlements) > 1:
         raise ValueError("Build can settle its pending Graph query only once")
     settlement = settlements[0] if settlements else None
-    conversation_work = prior_conversation_work(execution.events, allow_discussion=True)
+    from .build_intentional_response import split_build_clarification
+
+    conversation_work = (split_build_clarification(execution)
+        or prior_conversation_work(execution.events, allow_discussion=True))
     image_work = next((event for event in execution.events
         if type(event) is t.BuildRequestedWorkResolutionV1
         and event.typed_image_move in {"move_existing", "unresolved"}), None)

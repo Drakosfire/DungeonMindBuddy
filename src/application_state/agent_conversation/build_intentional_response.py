@@ -904,6 +904,24 @@ def selected_contract(execution):
     return {key: value for key, value in choice.resolution.items() if key != "source_scope"}
 
 
+def split_build_clarification(execution):
+    """Find question-only work bound to the acknowledged intent ballot itself."""
+    from . import types as t
+
+    openings = [event for event in execution.events if type(event) is t.BuildOpeningIntentSelectedV1]
+    resolutions = [event for event in execution.events if type(event) is t.BuildRequestedWorkResolutionV1]
+    if len(openings) != 1 or len(resolutions) != 1:
+        return None
+    opening, = openings
+    resolution, = resolutions
+    if (opening.requested_work in {"clarify_request", "clarify_creation"}
+            and resolution.requested_work == opening.requested_work
+            and resolution.controller_attempt_id == opening.controller_attempt_id
+            and resolution.resolution.get("source_scope") == "anchored"):
+        return resolution
+    return None
+
+
 def validate_native_action_events(execution):
     """Native Build action ordering through the existing semantic owner.
 
