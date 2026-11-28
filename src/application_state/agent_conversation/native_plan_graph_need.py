@@ -205,7 +205,7 @@ _GRAPH_EVENTS = (NativePlanGraphNeedObservedV1, NativePlanGraphClarificationEven
     NativePlanGraphQueryFailedV1, NativePlanGraphQuerySettledV1)
 
 
-def validate_graph_need_intent_prefix(execution, events):
+def validate_graph_need_intent_prefix(execution, events, *, require_source_use=True):
     """Validate the optional acknowledged intent preceding Graph need."""
     from . import types as t
     from .native_retrieval import NativePlanAuthorScopeAuthorizedV1
@@ -233,6 +233,9 @@ def validate_graph_need_intent_prefix(execution, events):
                 or observed.execution_policy_sha256 != execution.execution_policy_sha256
                 or observed.scope_observation.requested_work in (None, 'clarify', 'different_destination')):
             raise ValueError('Graph-need dispatch requires the exact eligible Plan intent')
+        if require_source_use and observed.scope_observation.source_use in ("conversation_only", "uncertain"):
+            raise ValueError("Plan intent did not authorize Graph-need dispatch")
+
 
 
 def validate_pending_graph(context, execution):
